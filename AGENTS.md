@@ -4,19 +4,22 @@
 
 Nahhasio is a private Arabic-first family media server, administration dashboard, and playback
 client project. The Git repository remains Arcadia during the rewrite.
-Read `docs/AGENT-CONTEXT.md` first, then `docs/phases.md` for the active milestone.
+Read `docs/PROJECT.md` for the current Alpha direction and long-term target and `docs/ROADMAP.md` for the proposed
+task inventory, then `docs/DEVELOPMENT.md` for implementation context.
+Current milestone is 0.1 Alpha; not all future roadmap tasks are Alpha requirements.
+The target is Fedora Atomic/Podman server + Linux AppImage client only, with no shipped website.
+Approximately 70 Arabic-dubbed works use existing/server-stored files, independently of torrents.
+Treat tasks marked DECISION as unresolved until Aqua answers; future client platforms follow v1.0.
 Complete one phase, report verification and limits, and stop for Aqua's review. Do not begin
 another phase until Aqua asks to continue. The old v0.3.5 plans are historical references.
 
 ## Current Linux direction and approval checkpoints
 
-Read `docs/linux-client-plan.md` for the latest decisions. It supersedes Kotlin/Compose plans.
-Read `docs/linux-ui-review-tasks.md` for Aqua's current design checklist and the one-task review queue.
-The Linux client will use a Rust GTK4/libadwaita shell, WebKitGTK, a separate React/Vite/TypeScript
-interface, and libmpv. The website remains the current administration surface until its workflows move into an admin-only
-client area. Retain the Linux UI language; Tailwind/shadcn foundation work precedes that migration.
-Stremio's Linux shell and Aqua's screenshots are architectural/design references; inspect licenses
-and implementation boundaries before reusing source. Preserve Nahhasio's catalog/family logic.
+Read `docs/PROJECT.md`, `docs/ROADMAP.md` and `docs/design-rules.md` for current decisions.
+The Linux client uses Rust GTK4/libadwaita, WebKitGTK, React/Vite/TypeScript and libmpv.
+Preserve Aqua's reviewed desktop design. Website/legacy libraries remain transitional consumers
+until replacement acceptance; no website ships in the delivered product. Initial access is LAN,
+with admin/family-user accounts. Jellyfin/library-adapter choice is pending, not mandatory Alpha.
 
 For this transition, Aqua explicitly requires confirmation after each step or visible change.
 Work only within the approved step, show the concrete result and actual checks, then stop.
@@ -26,13 +29,19 @@ Permission already given for the current step covers its necessary implementatio
 Do not create commits without Aqua's explicit confirmation for that checkpoint. Include the actual
 command in command-approval requests so Aqua can see what will run.
 
-Current checkpoint: Linux UI foundation was reviewed and committed as `b60c9ae`.
-Repository cleanup is committed as `bb3496c`. Aqua subsequently authorized database-backed
-admin/member accounts, profile/password/avatar flows, login/account-menu redesign and the
-admin sidebar/layout with empty pages. See `docs/linux-accounts-checkpoint-2026-10-12.md`.
-The website remains the working administration surface until each workflow has a verified
-client replacement. Next complete workflow: works management. Preserve unrelated work.
-Linux work-page/playback/device-download evidence remains in the existing checkpoint docs.
+Current implementation: full admin work/bulk/JSON editor committed as `8aa716a`.
+Current approved checkpoint: review/commit all pending work, then implement the admin image
+library (searchable grid/table, asset details/owners, upload and assignment/replacement).
+Preserve Aqua's current design; stop after the concrete image-library checkpoint for review.
+Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
+server and device video downloads remain separate. Torrent streaming is the main online source;
+linked files support completed downloads and deliberately non-torrent works. Torrent streaming
+runs on the client only; the server runs acquisition jobs only after explicit Download to server
+requests. Files-only/torrent policy is whole-work, with no part/episode overrides initially.
+Offline mutations are progress and watched/unwatched only. Library adapter and file organization
+remain open; do not confuse files-only playback with a mandatory Jellyfin dependency.
+Use focused compile/static checks during implementation and consolidated acceptance later;
+no repeated full suites for small changes, and no mutation tests on the live family catalog.
 
 ## Rust learning ownership
 
@@ -54,7 +63,7 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 ## Monorepo boundaries
 
 - `apps/server`: Rust/Axum/Tokio/SQLx server, in the root Cargo workspace.
-- `apps/web`: dashboard-only TanStack Start/Vite application, TanStack Router/Query, Tailwind 4, shadcn Base UI Nova.
+- `apps/web`: dashboard-only TanStack Start/Vite application, TanStack Router/Query, Tailwind 4, app-specific shadcn Base UI.
 - Removed website/deployment references remain recoverable at `d77096f:reference/` in Git.
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
@@ -68,7 +77,7 @@ contracts through the existing single generated OpenAPI definition.
 
 ## Development and checks
 
-Use the repository's Nix/devenv environment: Node 26, pnpm 11.11.0, and Rust.
+Use the repository's Nix/devenv environment: Node 24, pnpm 11.11.0, and Rust.
 `devenv up` starts PostgreSQL, the Rust API, dashboard and GTK desktop with dependency ordering. The reference Hono API is available
 with `devenv --profile reference-api up`. Do not inspect `/saved/nixos-config` without Aqua's permission.
 
@@ -81,15 +90,17 @@ with `devenv --profile reference-api up`. Do not inspect `/saved/nixos-config` w
 - `cargo test --workspace --locked`: Rust unit tests, with no live catalog writes.
 - `pnpm test:e2e`: new website Playwright journeys; use Chromium from Nix on this machine.
 
-Run relevant tests and the build before handoff; run Playwright for visible/routing changes.
+Use the approved lean checkpoint policy. Run meaningful runtime suites when needed for acceptance
+or unresolved risks; do not repeat full suites for each small change. Documentation-only work
+requires link/format checks, not application tests.
 Database mutation tests require a disposable migrated/restored database. Default test commands
 can include integration suites: never point them at the live family catalog.
 Keep commits focused and conventional. Include actual checks and material limitations in reports.
 
 ## Desktop client verification
 
-Follow `docs/linux-client-testing.md` for commands, native smoke isolation and reporting.
-Browser Playwright checks are not GTK/WebKit verification. For visible desktop changes, test
+Follow `docs/TESTING.md` for commands, native smoke isolation and reporting.
+Browser Playwright checks are not GTK/WebKit verification. At consolidated visible desktop acceptance, test
 both the fixture-backed browser UI and the freshly built packaged native client; inspect
 screenshots and verify RTL arrows, Tab/Enter/Escape, focus restoration and narrow layouts.
 Keep private captures/fixtures ignored, never use the live catalog for mutation tests, and

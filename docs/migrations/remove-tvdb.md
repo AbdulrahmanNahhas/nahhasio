@@ -1,5 +1,8 @@
 # Retire TVDB
 
+Retained recovery evidence from 2026-10-08. Verify the current schema and backup contents before
+using these steps; the dated read-only/live and disposable-test results are not current activation claims.
+
 TVDB is removed from the active dashboard, API, typed contracts, CLI work documents and
 provider search. Fanart movie artwork continues to use TMDB; Fanart series artwork is retired.
 AniList remains installment-owned. Existing migration history and the frozen reference website

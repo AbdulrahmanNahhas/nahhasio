@@ -1,7 +1,7 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { useMutation } from "@tanstack/react-query";
 import { BracesIcon } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,9 @@ function DraftJson({
   document: WorkDocument;
   onApply: (value: WorkDocument) => void;
 }) {
-  const [json, setJson] = useState(() => JSON.stringify(document, null, 2));
+  const [initialJson] = useState(() => JSON.stringify(document, null, 2));
+  // CodeMirror owns its editing buffer. React only needs the text when validating/applying.
+  const json = useRef(initialJson);
   const parse = useMutation({
     mutationFn: (value: string) => parseWorkDraft({ data: { json: value } }),
   });
@@ -87,22 +89,23 @@ function DraftJson({
       <Suspense fallback={<Skeleton className="h-96" />}>
         <CodeEditor
           height="min(60dvh, 560px)"
+          liveValidation={false}
           readOnly={parse.isPending}
-          value={json}
+          value={initialJson}
           onChange={(value) => {
-            setJson(value);
-            parse.reset();
+            json.current = value;
+            if (parse.status !== "idle") parse.reset();
           }}
         />
       </Suspense>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Ctrl/⌘ + F للبحث · طي الأقسام من هامش المحرر.
+          Ctrl/⌘ + F للبحث · يُتحقّق من JSON عند اعتماد المسودة.
         </p>
         <Button
           type="button"
           disabled={parse.isPending}
-          onClick={() => parse.mutate(json, { onSuccess: onApply })}
+          onClick={() => parse.mutate(json.current, { onSuccess: onApply })}
         >
           {parse.isPending ? "جارٍ التحقق…" : "اعتماد المسودة"}
         </Button>

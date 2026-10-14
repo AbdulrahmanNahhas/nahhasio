@@ -43,6 +43,21 @@ const planSchema = z.object({
   ),
 });
 type Plan = z.infer<typeof planSchema>;
+function validateInstallmentIdentities(document: WorkDocument) {
+  for (const field of ["tmdbId", "imdbId", "anilistId", "malId"] as const) {
+    const owners = new Map<string | number, string>();
+    for (const installment of document.installments ?? []) {
+      const value = installment[field];
+      if (value === null || value === undefined) continue;
+      const previous = owners.get(value);
+      if (previous)
+        throw new Error(
+          `معرّف ${field.replace("Id", "").toUpperCase()} مكرر بين «${previous}» و«${installment.title}». معرّف الأنثولوجيا يوضع ضمن مراجع العمل، وليس على كل جزء.`,
+        );
+      owners.set(value, installment.title);
+    }
+  }
+}
 export function revision(document: WorkDocument) {
   return createHash("sha256").update(JSON.stringify(document)).digest("hex");
 }
@@ -337,6 +352,7 @@ export async function prepareWorkReview(
           patch.sortTitle === current.sortTitle
         )
           continue;
+        validateInstallmentIdentities(patch);
         await applyPatch(transaction, patch);
         plan.records.push({
           id,

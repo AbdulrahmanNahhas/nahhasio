@@ -307,6 +307,37 @@ impl Services {
             network_permits: Arc::new(Semaphore::new(6)),
         })
     }
+    async fn editor_reply(&self, mut response: Response) -> Result<Value, Error> {
+        let status = response.status().as_u16();
+        if !matches!(status, 400 | 409) {
+            return self.json_limit(response, 32 * 1024 * 1024).await;
+        }
+        // This fixed admin endpoint returns sanitized editorial errors, never SQL details.
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(network)? {
+            if bytes.len() + chunk.len() > 16 * 1024 {
+                return Err(Error::new(
+                    "server",
+                    "Editor error response exceeds the limit",
+                ));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        let message = value
+            .get("message")
+            .and_then(Value::as_str)
+            .filter(|message| !message.trim().is_empty() && message.len() <= 4096)
+            .unwrap_or("تعذّر تنفيذ عملية المحرر؛ راجع البيانات ثم أعد المحاولة.");
+        Err(Error::new(
+            if status == 409 {
+                "conflict"
+            } else {
+                "bad_request"
+            },
+            message,
+        ))
+    }
     fn url(&self, path: &str) -> Url {
         self.base.join(path).expect("fixed API route")
     }
@@ -463,7 +494,7 @@ impl Services {
                     .send()
                     .await
                     .map_err(network)?;
-                self.json_limit(response, 32 * 1024 * 1024).await
+                self.editor_reply(response).await
             }
             "workDocument" => {
                 let input: Resource = parse(request.payload)?;

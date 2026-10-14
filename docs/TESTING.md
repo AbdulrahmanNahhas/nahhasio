@@ -1,7 +1,11 @@
-# Linux client testing
+# Verification guide
 
-Run commands from the repository root through devenv. Test the approved step only; do not
-start playback/download work or solve Aqua's Rust exercises as part of UI verification.
+Read [PROJECT.md](PROJECT.md) and [ROADMAP.md](ROADMAP.md) for scope. Use compile/static checks
+for approved implementation checkpoints; Aqua requested the consolidated full regression after
+implementation rather than repeated full suites for small changes. The commands below are
+available verification procedures, not a requirement to run every suite on every edit.
+Use disposable restored databases for mutations. Documentation-only changes need link/format
+checks, not application tests. Preserve Aqua's Rust-learning ownership.
 
 ## 1. Browser fixtures and ordinary checks
 
@@ -15,7 +19,7 @@ devenv shell -- cargo test --workspace --locked
 devenv shell -- pnpm --filter @nahhasio/api-contract test
 ```
 
-Start with the relevant spec, then run the broader suite. Linux Playwright tests inject a
+When runtime verification is required, start with the relevant spec and broaden for unresolved risks. Linux Playwright tests inject a
 fixture bridge; they do not certify native HTTP, GTK input, WebKit rendering or playback.
 The root `pnpm test:e2e` targets the administration dashboard, not the Linux viewing UI.
 Use Chromium supplied by devenv (`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`); do not download browsers.
@@ -27,8 +31,7 @@ server, or obtain permission before stopping a shared development process.
 
 Report failures accurately. If an unrelated formatter or test blocks an aggregate command,
 run remaining relevant checks independently; do not silently skip failures or change unrelated
-source to make the report green. Historical exceptions/results are in
-[the work-page checkpoint](./linux-work-page-checkpoint-2026-10-10.md), not permanent exemptions.
+source to make the report green. Historical checkpoint results are recoverable in Git; they are not permanent exemptions or evidence for a newer artifact.
 
 ## 2. Fresh native application
 
@@ -72,7 +75,7 @@ must reject unexpected routes and mutations except its synthetic login/logout. R
 watched mutation behavior belongs in the guarded disposable PostgreSQL suite documented in
 [`apps/server/tests/README.md`](../apps/server/tests/README.md), never the family catalog.
 
-A local private controller is currently in `data/previews/work-review/native-harness.mjs`,
+A historical private controller may exist in `data/previews/work-review/native-harness.mjs`,
 with preparation details in its `NATIVE-README.md`. These ignored files are **not shipped in
 Git**: check they exist and read their setup before using them. If absent, prepare an equivalent
 isolated fixture controller; do not substitute live credentials/API. Its scenarios run serially
@@ -102,3 +105,12 @@ Private captures belong under the existing ignored `data/previews/` tree.
   rendering must be reported; compare like-for-like before claiming improvement.
 - Handoff: exact commands/results, screenshots inspected, fixture isolation, tested artifact
   identity, known failures and unverified behavior. Stop for Aqua's checkpoint review.
+
+## Current acceptance gaps
+
+The complete work editor is committed, but its current transactional saves/uploads, all admin
+permission paths and native UX still need consolidated acceptance. Older native/browser checks
+cover particular artifacts only. Historical transfer fixtures encountered a peer/seed timeout;
+public torrent-transfer success is not established. Report current facts instead of repeating old
+pass/fail statements as current results. AppImage/cross-machine deployment and server-file playback
+need dedicated acceptance once implemented.

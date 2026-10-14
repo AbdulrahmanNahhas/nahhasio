@@ -1,12 +1,12 @@
 ---
 name: nahhasio-desktop-ui
-description: Build, migrate or review Nahhasio's packaged Linux React UI using Vite, TanStack Router/Query, Tailwind 4 and official shadcn Base UI Nova. Applies to apps/linux/ui and native UI boundaries; excludes catalog classification and database operations.
+description: Build, migrate or review Nahhasio's packaged Linux React UI using Vite, TanStack Router/Query, Tailwind 4 and official shadcn Base UI Maia. Applies to apps/linux/ui and native UI boundaries; excludes catalog classification and database operations.
 ---
 
 # Nahhasio desktop UI
 
-Read docs/AGENT-CONTEXT.md and docs/phases.md for scope. Preserve the reviewed purple Arabic
-RTL interface, catalog density and keyboard behavior during technical migration. A refactor
+Read docs/PROJECT.md, docs/ROADMAP.md and docs/DEVELOPMENT.md for scope. Preserve the reviewed
+desktop Maia/Mist theme, Arabic RTL interface, catalog density and keyboard behavior. A refactor
 does not authorize an aesthetic redesign, administration migration or a Rust exercise solution.
 
 ## Native routing/data boundary
@@ -22,7 +22,7 @@ Query owns server state/cancellation/logout invalidation. Player status stays ou
 
 ## Tailwind and official components
 
-Use official @shadcn Base UI Nova, RTL and Lucide. Inspect CLI context/current docs and generated
+Use the installed official @shadcn Base UI Maia, RTL and Lucide. Inspect CLI context/current docs and generated
 updates. Fix callers rather than editing vendored primitives. Aqua explicitly requested the full
 current official desktop component library; unused installed primitives are permitted here,
 but do not import them all into the entry bundle.
@@ -41,9 +41,10 @@ player slider draft/cancel semantics; compose official controls without rewritin
 ## Verification and review
 
 Inventory stylesheet/import/selector/raw-control usage before claiming conversion complete.
-Use devenv, typecheck/build and relevant fixture browser journeys. Follow linux-client-testing.md
+Use devenv and focused compile/static checks at checkpoints. Run meaningful fixture/native
+journeys at acceptance or when unresolved risks require them, following Aqua's lean test policy. Follow docs/TESTING.md
 for isolated packaged GTK checks. No live catalog mutation, public torrent download or relaxed
 CSP/auth/origin guard. Inspect desktop/narrow releases, entities, Watch, login and player captures.
-Browser checks do not prove GTK input/rendering/smoothness; report the known native frame-threshold
-failure until measured fixed. Keep captures private/ignored. Return at the approved checkpoint;
+Browser checks do not prove GTK input/rendering/smoothness; describe the tested artifact and
+current unresolved limits rather than copying historical pass/fail assertions. Keep captures private/ignored. Return at the approved checkpoint;
 commits require explicit checkpoint authorization.

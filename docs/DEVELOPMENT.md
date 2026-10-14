@@ -1,0 +1,110 @@
+# Development guide
+
+Read [PROJECT.md](PROJECT.md) for scope and [ROADMAP.md](ROADMAP.md) for current priorities.
+Use the repository's Nix/devenv environment: Node 24, pnpm 11.11.0, Rust, GTK/libadwaita,
+WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` without permission.
+
+## Repository map
+
+| Path                           | Responsibility                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| apps/server                    | Rust/Axum/SQLx authentication, bounded catalog/viewer API and authorized administration |
+| apps/linux/src                 | GTK/WebKit lifecycle, contained assets, native network/session, player/device media     |
+| apps/linux/ui                  | React/Vite viewing/admin UI, TanStack Router/Query, Tailwind/shadcn                     |
+| crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                     |
+| crates/media-transfer          | UI-independent torrent engine and durable device state                                  |
+| packages/api-contract          | Single OpenAPI definition, generator and validated TypeScript contract                  |
+| packages/contracts             | Shared work/editor schemas and domain contracts                                         |
+| packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools               |
+| packages/domain, packages/i18n | Scoring/policy/taxonomy and labels                                                      |
+| packages/cli                   | CLI, SQL helpers and shared full-document reconciliation                                |
+| apps/web, apps/api             | Transitional dashboard/legacy API and still-consumed provider/media helpers             |
+
+Do not remove legacy helpers until their consumers are replaced. The full work editor calls a
+fixed Rust facade/private Node worker; containers need that source/runtime dependency until it
+is intentionally replaced. Schema ownership does not move from Drizzle to a second SQLx tree.
+
+## Run/build
+
+```sh
+devenv processes list
+devenv up postgres server
+devenv shell -- nahhasio-client
+devenv up
+```
+
+`devenv up` currently includes the transitional website; it is a development process, not the
+product target. Use `devenv up postgres server web` when checking that surface. The optional
+Hono reference API uses `devenv --profile reference-api up`. Avoid duplicate processes.
+
+| Service                          | Port  |
+| -------------------------------- | ----- |
+| PostgreSQL                       | 23102 |
+| Rust API                         | 23103 |
+| Transitional website             | 23100 |
+| Optional Hono API                | 23101 |
+| Desktop Vite                     | 23110 |
+| Isolated player browser fixtures | 23112 |
+
+```sh
+devenv shell -- pnpm --filter @nahhasio/linux-ui dev
+devenv shell -- pnpm --filter @nahhasio/linux-ui build
+devenv shell -- cargo build --locked -p nahhasio-linux
+devenv shell -- cargo build --locked -p nahhasio-server
+devenv shell -- pnpm client:generate
+```
+
+Native production serves contained `nahhasio://app/` assets. Development origin is exactly
+`http://127.0.0.1:23110/`. `NAHHASIO_UI_URL` selects development UI; `NAHHASIO_UI_DIR` selects
+an explicit packaged bundle directory. A production build is not proof that a running GTK
+instance loaded it: fully quit/relaunch after bridge changes. Restart only the affected server
+with `devenv processes restart server` when an endpoint change needs activation.
+
+## Client/UI boundary
+
+Rust owns HTTP/session secrets, player and storage. UI calls typed bounded native operations;
+no bearer/private admin token, arbitrary native command, browser server fetch or remote UI.
+Hash routes retain native packaging semantics. Never hand-edit `routeTree.gen.ts` or generated
+API code; regenerate through the owning scripts. Server enforces permissions on every operation.
+
+Native session credentials are currently in memory; secure persistence/server-selection UX is
+pending. Native server configuration accepts HTTPS or loopback HTTP; LAN trust/connection UX
+must be designed deliberately rather than disabling origin/TLS/session checks.
+
+## Current media behavior and limits
+
+The existing player accepts local files and Nahhasio's contained loopback media gateway. It has
+actual audio/subtitle track selection and manual external SRT/ASS/SSA/VTT subtitles. Automatic
+provider retrieval and a completed server-file library workflow are pending.
+
+Existing Torrentio source configuration uses `NAHHASIO_TORRENTIO_URL`/`NAHHASIO_TORRENTIO_CONFIG`,
+falling back to `ARCADIA_STREAM_ADDON_URL`/`ARCADIA_STREAM_ADDON_CONFIG`. Keep private configuration
+in ignored server/native environment, never UI/argv/logs. Source selection is explicit; download
+must not attach mpv or call play/preview as a side effect. Source availability is not guaranteed.
+
+Source matching preserves season ordinal semantics, excludes movies/specials, and does not round
+fractional episode numbers to another episode. Supplied server files need an independent import
+path; IMDb/Torrentio identifiers are not required for them.
+
+Device state uses XDG state storage; retained videos normally use `~/Videos/nahhasio` (see
+OPERATIONS.md). Transfer/source caches, retained videos and future server files are distinct.
+The media core must not depend on UI/GTK types. Unknown mappings/failed transfers stay errors;
+never simulate completion. Do not execute downloaded files.
+
+Keep native script/config/ytdl and protocol/format restrictions. HLS/DASH are not established
+by the current contained-file/gateway path; any future streaming/transcoding adapter needs its
+own validated integration. Synthetic/native render checks do not establish hardware/input/HDR
+or public torrent-transfer reliability.
+
+## Data and learning
+
+PostgreSQL is canonical. Preserve catalog IDs and user/media links. Startup does not migrate,
+seed, import or clean data. CLI is `./bin/arcadia`; apply the arcadia-db skill for catalog data
+operations. Mutation/migration verification uses restored disposable databases.
+
+Aqua owns selected Rust-learning exercises. Supply stable exercise IDs, interfaces, hints and
+acceptance criteria; do not wire todo/panic/fake success into a working flow or implement an
+exercise without the required request. Technical UI/API/setup work remains within approval.
+
+Checks and isolation are in [TESTING.md](TESTING.md); runtime operations in
+[OPERATIONS.md](OPERATIONS.md). Report implementation/build/activation/acceptance distinctly.

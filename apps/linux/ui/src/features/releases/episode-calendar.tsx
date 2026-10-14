@@ -13,7 +13,6 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerDescription,
   DrawerClose,
 } from "../../components/ui/drawer";
 import { gateway } from "../../lib/bridge";

@@ -3,15 +3,17 @@
 {
   languages.javascript = {
     enable = true;
-    package = pkgs.nodejs_26;
+    package = pkgs.nodejs_24;
     npm.enable = false;
     pnpm = {
       enable = true;
+      package = pkgs.pnpm_11;
       install.enable = true;
     };
   };
   languages.typescript.enable = true;
   languages.rust.enable = true;
+  languages.rust.channel = "nixpkgs";
   dotenv.enable = true;
 
   # Reuse the existing persistent catalog. Startup never migrates or seeds it.

@@ -180,6 +180,10 @@ fn build_window(
         &[],
     ));
     let context = webkit6::WebContext::new();
+    // Packaged assets are replaced during local builds. Avoid reusing an old entry bundle.
+    if config.asset_root.is_some() {
+        context.set_cache_model(webkit6::CacheModel::DocumentViewer);
+    }
     if let Some(root) = &config.asset_root {
         assets::install(&context, root.clone());
     }
@@ -361,6 +365,48 @@ fn build_window(
     overlay.add_overlay(&view);
     overlay.set_measure_overlay(&view, true);
     content.append(&overlay);
+    let recovery = adw::StatusPage::builder()
+        .title("تعذّر عرض واجهة نحّاسيو")
+        .description("أعد تحميل الواجهة دون إغلاق التطبيق.")
+        .icon_name("dialog-error-symbolic")
+        .build();
+    let retry = gtk::Button::with_label("إعادة تحميل الواجهة");
+    retry.add_css_class("suggested-action");
+    retry.set_halign(gtk::Align::Center);
+    retry.connect_clicked({
+        let weak = view.downgrade();
+        move |_| {
+            if let Some(view) = weak.upgrade() {
+                view.reload_bypass_cache();
+            }
+        }
+    });
+    recovery.set_child(Some(&retry));
+    recovery.set_visible(false);
+    overlay.add_overlay(&recovery);
+    view.connect_web_process_terminated({
+        let recovery = recovery.clone();
+        move |_, reason| {
+            eprintln!("desktop: WebKit process terminated: {reason:?}");
+            recovery.set_visible(true);
+        }
+    });
+    view.connect_load_failed({
+        let recovery = recovery.clone();
+        move |_, _, _, error| {
+            if error.matches(webkit6::NetworkError::Cancelled) {
+                return false;
+            }
+            eprintln!("desktop: interface load failed: {error}");
+            recovery.set_visible(true);
+            true
+        }
+    });
+    view.connect_load_changed(move |_, event| {
+        if event == webkit6::LoadEvent::Started {
+            recovery.set_visible(false);
+        }
+    });
     view.set_vexpand(true);
     view.set_hexpand(true);
     let width = if smoke.is_some() {
@@ -416,7 +462,17 @@ fn build_window(
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak_window = window.downgrade();
+    let reload_view = view.downgrade();
     keys.connect_key_pressed(move |_, key, _, modifiers| {
+        if key == gtk::gdk::Key::F5
+            || ((key == gtk::gdk::Key::r || key == gtk::gdk::Key::R)
+                && modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK))
+        {
+            if let Some(view) = reload_view.upgrade() {
+                view.reload_bypass_cache();
+            }
+            return glib::Propagation::Stop;
+        }
         if (key == gtk::gdk::Key::o || key == gtk::gdk::Key::O)
             && modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK)
         {

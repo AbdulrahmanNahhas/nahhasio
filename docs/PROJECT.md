@@ -1,0 +1,195 @@
+# Nahhasio project guide
+
+Updated 2026-10-14. This document owns the current product direction. [ROADMAP.md](ROADMAP.md)
+owns the large task inventory and Alpha/future priorities. Older plans are recoverable in Git.
+
+## Product and release scope
+
+**We are building 0.1 Alpha now.** The goal is a reliable base; completing the entire future
+roadmap is not an Alpha release requirement. **The database/catalog, images and tracking are the
+primary product.** Playback and source/download workflows sit on top of those identities.
+Not every catalog work needs a video or a download.
+
+The product is one home server and desktop clients. The server target is **Fedora Silverblue 44
+with Podman**; the only client through v1.0 is **Linux**, released as an **AppImage through
+GitHub Releases**. There is no website in the delivered product. Android, Windows, macOS and
+possible Android TV clients are future work after v1.0. Keep portable APIs/media logic without
+building those clients now.
+
+Aqua reports a Dell Optiplex Micro, possibly 3070, and 16 GB RAM. The exact model, CPU/GPU and
+memory type are unverified. Storage can be expanded later. Do not choose GPU/transcoding or
+hardware-specific settings from the uncertain model. There is no reason to change the OS for
+current planning; verify the host before deployment.
+
+## Confirmed Alpha use
+
+- **Home network only.** Public access and VPN are future scope.
+- **Family use with an admin account and a user account.** Multiple profiles, separate accounts
+  for every family member and child-policy systems are not initial requirements.
+- English audio is the normal preference; Arabic subtitles are preferred. Arabic audio is used
+  when available and Spanish audio may also be selected. Language choices belong to playback
+  preferences and actual tracks; they do not require separate catalog entries for every language.
+- Aqua delegates the update approach: start with explicit guided upgrades for Alpha; use stable
+  update notifications/confirmation once release tooling is ready. Scheduled automatic upgrades
+  can follow after recovery/migrations are dependable.
+- Torrent streaming is the main online playback source. Existing/server files are also first-class,
+  including deliberately non-torrent works. A catalog record can have no available video.
+- Keep Save work (local metadata/artwork), Download to server and Download to this device
+  as distinct actions. Saving a work must not start a video download.
+- Keep the reviewed desktop design, improve login/server selection and Downloads, and continue
+  moving administration into the client in reviewable steps.
+- Delete obsolete guides from the checkout after consolidating useful facts; Git retains history.
+
+## Four distinct workflows
+
+1. **Catalog and tracking:** browse/administer the large PostgreSQL catalog, all linked editorial
+   records, images and personal state. Organize artwork storage on the server while preserving
+   asset IDs/assignments. Move database and artwork with verified backup/restore and reconciliation.
+2. **Play / keep on server:** stream torrents when permitted; use an available linked file for
+   downloaded or deliberately non-torrent work. Download-to-server turns a selected source into
+   a verified persistent library file. Normal later playback can use that file without needing
+   its torrent/peers. Audio/subtitle management belongs to the selected media version/tracks.
+3. **Download to device:** save video on the personal laptop for playback anywhere. This is
+   independent of server-library retention and its deletion/recovery rules.
+4. **Save work:** keep an authorized work snapshot locally: metadata, poster/banner/artwork,
+   parts/episodes, related display data, tracking snapshot and source-resolution identities.
+   Saved browsing must work without contacting/logging into the server. It does not download video.
+   A downloaded device file can play offline; a permitted torrent can still be resolved/played
+   without the home server when internet is available.
+
+**Server unavailable is not the same as no internet.** Saved metadata/device files work without
+internet; torrents and subtitle/provider searches need network access. Save enough durable identity
+and source information to resolve again, rather than assuming expiring provider URLs remain valid.
+Private provider configuration remains native/server-owned, not an exposed metadata dump.
+
+A saved-work/account flag records intent; it does not establish that a particular device has a
+complete usable snapshot. Each device needs actual cache manifests, retained files and readiness
+checks. Account/server IDs scope the cache. Reconnecting can refresh metadata without erasing
+local downloads; queued personal tracking changes need a defined sync/conflict policy.
+
+Confirmed 2026-10-14:
+
+- **Torrent streaming runs on the client only**, like Stremio. The server does not stream torrents
+  on behalf of clients. Saved-work source resolution/playback can therefore work without the home
+  server when internet is available.
+- **Download to server is an explicit separate request.** The server runs the requested torrent
+  download job and retains/registers the completed file. This is acquisition, not server-side
+  torrent streaming. The laptop does not have to download then upload the file.
+- **The source policy applies to the whole work.** A work may be files-only: no torrent search or
+  playback, and all parts/episodes use linked supplied/downloaded files. No part/episode overrides
+  initially. Calling these works “Jellyfin only” means local-video-library playback; it does not
+  require installing Jellyfin as the backend. Deliberate disabling differs from no search results
+  or unavailable peers.
+- **Offline tracking changes are progress and watched/unwatched only.** Queue them locally and
+  synchronize under the owning server/account when reconnected. Ratings/notes editing does not
+  become an offline mutation feature now; existing cached data may remain readable.
+
+Keep original media intact when managing tracks by default; destructive track removal/remux
+requires an explicit operation.
+
+## Existing Arabic-dubbed library
+
+Approximately **70 works** have supplied Arabic-dubbed videos. These files will live on the
+server and do not depend on torrent availability. Aqua can place them in a chosen library root.
+
+The library workflow must scan/import files, inspect audio/subtitle tracks, match them to work,
+part and episode IDs, support manual correction, and play linked media. Detect missing/moved
+files without removing catalog identities or viewing history. Multiple media versions may link
+to one catalog item. Do not silently guess episode matches or require torrent/source packs.
+
+The initial copy/rename/move policy is awaiting an answer. The safe default proposal is to scan
+and link existing files without changing filenames or folders. File organization is a separate
+explicit operation. Current folder layout and catalog linkage can be inspected when files are
+supplied; they are not blockers to the architectural plan.
+
+## Architecture and ownership
+
+| Owner               | Responsibility                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Nahhasio/PostgreSQL | Catalog, Arabic editorial metadata, classifications, identity/access, links, viewing state, artwork metadata and durable server jobs |
+| Server filesystem   | Persistent library videos, image originals/variants, sidecar subtitles and temporary staging/cache roots                             |
+| Linux native shell  | Selected server connection, secure sessions/network, native playback and device storage/downloads                                    |
+| React desktop UI    | Viewing/admin presentation, bounded query cache, typed routes and interactions                                                       |
+| Release tooling     | Containers/AppImages, compatibility, guided updates, explicit migrations, backup/restore                                             |
+
+Implementation: Rust/Axum/SQLx server; Rust GTK4/libadwaita/WebKitGTK shell and libmpv;
+React/Vite/TypeScript, TanStack Router/Query, Tailwind and shadcn Base UI. Desktop registry style
+is `base-maia` with Mist tokens; the checked-in current theme/source is the design authority.
+
+The existing website and legacy API/provider code remain transitional consumers until their
+replacement/retirement is complete. They are not shipped-product requirements.
+
+The complete work editor temporarily reuses a **private Node/tsx worker** behind the Rust API.
+Before packaging it, explicitly support/package that dependency or replace it with Rust.
+It is not a website process, but the current editor is not a Rust-only runtime.
+
+## Library service and Jellyfin: choice pending
+
+Jellyfin can be installed, but Aqua questions its metadata and update maintenance. It is **not
+an unconditional Alpha requirement**. Recommendation awaiting approval: Nahhasio owns/scans
+files, serves authorized byte ranges and feeds the existing mpv player; retain Jellyfin as an
+optional adapter for capabilities such as transcoding later. This is a proposal, not an approved
+replacement or permission to build a complete Jellyfin clone.
+
+Existing `jellyfin_servers`/`jellyfin_items` tables remain data; do not delete them merely because
+the optional integration has not been selected. Regardless of the adapter, Nahhasio's curated
+catalog remains authoritative. Two-way external progress synchronization is future/unconfirmed.
+
+## Current approved checkpoint
+
+Review and commit pending documentation, editor/native reliability and toolchain changes, then
+implement the admin image library: paginated search/grid/table, image details/linked owners,
+upload, existing asset assignment and replacement. Preserve the reviewed desktop design and
+return for review before another feature checkpoint.
+
+## Current implementation and acceptance
+
+Accounts/profile/login, discovery, catalog/details, native playback and device-download code
+exist. The full admin work/bulk/JSON editor is committed as `8aa716a`. Remaining admin routes
+include prepared screens whose workflows still need services. There are pending source changes;
+preserve them during documentation/other work.
+
+The native client accepts an HTTPS server configured outside the UI. Server selection and
+secure persistent connection/session UX still need implementation. Local/manual subtitle
+support exists; provider retrieval, server-file ingest/playback, Fedora deployment and AppImage
+release delivery remain to be completed/accepted.
+
+Static/build/read checks and earlier isolated playback checks are evidence of specific artifacts,
+not complete release acceptance. Public torrent transfer, all current editor mutations, deployment,
+physical native input and cross-machine packaging are not established by those checks. Known
+limits and verification commands live in [DEVELOPMENT.md](DEVELOPMENT.md) and [TESTING.md](TESTING.md).
+
+## Alpha planning and unresolved choices
+
+Aqua clarified the priority: catalog/database, all its data/images and tracking first; playback
+and server/device/saved-work workflows build on it. Continue complete database/admin workflows
+and storage planning without treating the entire future roadmap as Alpha gates. Server selection,
+file availability/resolution, offline cache ownership and packaging remain foundational follow-ups.
+
+Also awaiting answers: direct Nahhasio library versus initial Jellyfin integration, existing
+file scan/link versus managed copies/moves. Torrent streaming location, server acquisition,
+whole-work source policy and initial offline tracking actions are confirmed above; synchronization
+conflict handling is an implementation design detail to define within that scope. Other detailed features stay in the future roadmap
+until promoted to an approved checkpoint. No automatic downloads/transcoding/graphs or a fixed
+v1.0 feature list was authorized by answering the planning questions.
+
+## Documentation and working boundary
+
+- [FEATURES.md](FEATURES.md): brief page-by-page UI/UX and feature checklist.
+- [ROADMAP.md](ROADMAP.md): technical task inventory, delivery priorities and decisions.
+- [DATABASE.md](DATABASE.md): inspected database inventory and ownership/source/cache boundaries.
+- [DEVELOPMENT.md](DEVELOPMENT.md): repository map, commands, transport/media ownership.
+- [TESTING.md](TESTING.md): lean checkpoint checks, isolated verification and final acceptance.
+- [OPERATIONS.md](OPERATIONS.md): current runtime configuration and planned deployment/recovery.
+- [design-rules.md](design-rules.md): current UI composition; preserve Aqua's reviewed source.
+- [migrations/remove-tvdb.md](migrations/remove-tvdb.md): retained migration/recovery note.
+
+PostgreSQL is canonical; `packages/database/drizzle/` is the sole migration ledger. Preserve UUIDs,
+credentials/ownership, notes/scores/links, artwork, explicit watched state and progress. No startup
+migration/seed/import/cleanup. Rehearse data/schema changes on restored disposable databases;
+verify independent database/artwork backups before a live cutover.
+
+Use focused compile/static checks at implementation checkpoints and a consolidated meaningful
+regression after the relevant implementation. No repeated full suites for tiny changes. Complete
+an approved checkpoint and return for review; commits require explicit confirmation. Client Rust
+learning exercises remain Aqua-owned unless Aqua explicitly requests their implementation.

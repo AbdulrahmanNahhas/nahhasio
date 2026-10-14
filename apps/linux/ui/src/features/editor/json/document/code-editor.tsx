@@ -1,15 +1,15 @@
 import { json, jsonLanguage, jsonParseLinter } from "@codemirror/lang-json";
 import { linter, lintGutter } from "@codemirror/lint";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
-import { useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
 const editorSetup = {
   foldGutter: true,
   searchKeymap: true,
   bracketMatching: true,
   closeBrackets: true,
-  highlightSelectionMatches: true,
-  autocompletion: true,
+  highlightSelectionMatches: false,
+  autocompletion: false,
 };
 const noSuggestions: readonly string[] = [];
 
@@ -19,6 +19,7 @@ interface CodeEditorProps {
   readOnly?: boolean;
   suggestions?: readonly string[];
   height?: string;
+  liveValidation?: boolean;
 }
 export function CodeEditor({
   value,
@@ -26,7 +27,18 @@ export function CodeEditor({
   readOnly = false,
   suggestions = noSuggestions,
   height = "420px",
+  liveValidation = true,
 }: CodeEditorProps) {
+  const change = useRef(onChange);
+  useLayoutEffect(() => {
+    change.current = onChange;
+  }, [onChange]);
+  // The wrapper reconfigures the entire editor when this callback identity changes.
+  const handleChange = useCallback((text: string) => change.current(text), []);
+  const setup = useMemo(
+    () => ({ ...editorSetup, autocompletion: suggestions.length > 0 }),
+    [suggestions],
+  );
   const extensions = useMemo(
     () => [
       EditorView.cspNonce.of(
@@ -46,23 +58,21 @@ export function CodeEditor({
           };
         },
       }),
-      linter(jsonParseLinter()),
-      lintGutter(),
-      EditorView.lineWrapping,
+      ...(liveValidation ? [linter(jsonParseLinter(), { delay: 1200 }), lintGutter()] : []),
       EditorView.contentAttributes.of({ "aria-label": "محرر مسودة JSON" }),
     ],
-    [suggestions],
+    [suggestions, liveValidation],
   );
   return (
     <div dir="ltr" className="overflow-hidden rounded-lg border border-border">
       <CodeMirror
         value={value}
         editable={!readOnly}
-        onChange={onChange}
+        onChange={handleChange}
         extensions={extensions}
         height={height}
         theme="dark"
-        basicSetup={editorSetup}
+        basicSetup={setup}
         aria-label="محرر مسودة JSON"
       />
     </div>
