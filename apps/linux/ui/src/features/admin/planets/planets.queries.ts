@@ -19,6 +19,8 @@ export const planetSearchSchema = z.object({
 });
 export type PlanetSearch = z.infer<typeof planetSearchSchema>;
 export type PlanetWork = z.infer<typeof rpcResults.planetWorks>["items"][number];
+export type PlanetDraft = z.infer<typeof rpcInputs.planetSave>["draft"];
+export type PlanetDetail = z.infer<typeof rpcResults.planetDetail>;
 export const planetKeys = ["admin", "planets"] as const;
 export const planetOptionsQuery = () =>
   queryOptions({
@@ -46,4 +48,23 @@ export function planetWorksQuery(search: PlanetSearch) {
 }
 export async function moveWorks(data: z.infer<typeof rpcInputs.planetMove>) {
   return rpcResults.planetMove.parse(await gateway.editorCall({ operation: "planetMove", data }));
+}
+export function planetDetailQuery(id: string) {
+  return queryOptions({
+    queryKey: [...planetKeys, "detail", id],
+    queryFn: async ({ signal }) =>
+      rpcResults.planetDetail.parse(
+        await gateway.editorCall({ operation: "planetDetail", data: { id } }, signal),
+      ),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+}
+export async function savePlanet(data: z.infer<typeof rpcInputs.planetSave>) {
+  return rpcResults.planetSave.parse(await gateway.editorCall({ operation: "planetSave", data }));
+}
+export async function deletePlanet(data: z.infer<typeof rpcInputs.planetDelete>) {
+  return rpcResults.planetDelete.parse(
+    await gateway.editorCall({ operation: "planetDelete", data }),
+  );
 }

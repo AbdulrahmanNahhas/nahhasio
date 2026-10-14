@@ -27,7 +27,14 @@ import {
   unlinkImage,
   deleteImage,
 } from "./images";
-import { planetOptions, planetWorks, movePlanetWorks } from "./planets";
+import {
+  planetOptions,
+  planetWorks,
+  movePlanetWorks,
+  planetDetail,
+  savePlanet,
+  deletePlanet,
+} from "./planets";
 import {
   loadWorkSnapshots,
   prepareWorkReview,
@@ -40,6 +47,9 @@ import {
 
 const envelope = z.strictObject({
   operation: z.enum([
+    "planetDetail",
+    "planetSave",
+    "planetDelete",
     "planetOptions",
     "planetWorks",
     "planetMove",
@@ -114,6 +124,12 @@ async function execute(input: z.infer<typeof envelope>) {
   await authorize(input.context);
   process.env.ARCADIA_CLI_ACTOR = input.context.accountId;
   switch (input.operation) {
+    case "planetDetail":
+      return planetDetail(sql, rpcInputs.planetDetail.parse(input.data).id);
+    case "planetSave":
+      return savePlanet(sql, rpcInputs.planetSave.parse(input.data), input.context);
+    case "planetDelete":
+      return deletePlanet(sql, rpcInputs.planetDelete.parse(input.data), input.context);
     case "planetOptions":
       rpcInputs.planetOptions.parse(input.data);
       return planetOptions(sql);

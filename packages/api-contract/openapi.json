@@ -7804,6 +7804,15 @@
       "CatalogEditorCall": {
         "oneOf": [
           {
+            "$ref": "#/components/schemas/CatalogPlanetDetailCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogPlanetSaveCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogPlanetDeleteCall"
+          },
+          {
             "$ref": "#/components/schemas/CatalogPlanetOptionsCall"
           },
           {
@@ -10262,6 +10271,290 @@
           }
         },
         "required": ["moved"]
+      },
+      "CatalogPlanetDetailInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "CatalogPlanetDetailCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetDetail"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetDetailInput"
+          }
+        }
+      },
+      "CatalogPlanetSaveInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,79}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "englishName": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "icon": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "primaryColor": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "secondaryColor": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "displayOrder": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "slug",
+              "name",
+              "englishName",
+              "icon",
+              "description",
+              "primaryColor",
+              "secondaryColor",
+              "displayOrder",
+              "active"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "revision", "draft"],
+        "additionalProperties": false
+      },
+      "CatalogPlanetSaveCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetSave"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetSaveInput"
+          }
+        }
+      },
+      "CatalogPlanetDeleteInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "confirmation": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": ["id", "revision", "confirmation"],
+        "additionalProperties": false
+      },
+      "CatalogPlanetDeleteCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetDelete"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetDeleteInput"
+          }
+        }
+      },
+      "CatalogPlanetDetailResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "draft": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,79}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "englishName": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "icon": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "primaryColor": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "secondaryColor": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "displayOrder": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "slug",
+              "name",
+              "englishName",
+              "icon",
+              "description",
+              "primaryColor",
+              "secondaryColor",
+              "displayOrder",
+              "active"
+            ],
+            "additionalProperties": false
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "table": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["table", "count"]
+            }
+          }
+        },
+        "required": ["id", "draft", "revision", "links"]
+      },
+      "CatalogPlanetSaveResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "created"]
+      },
+      "CatalogPlanetDeleteResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": ["removed"]
       }
     }
   }

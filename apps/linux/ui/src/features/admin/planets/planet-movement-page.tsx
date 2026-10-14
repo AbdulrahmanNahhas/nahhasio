@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowLeft, ArrowRight, Check, RefreshCw, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, RefreshCw, Search, X, Settings2 } from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
@@ -40,6 +40,7 @@ import { toast } from "@/components/ui/toast";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
 import { useConfirm } from "@/features/editor/use-confirm";
 
+import { PlanetDefinitions } from "./planet-definitions";
 import {
   moveWorks,
   planetOptionsQuery,
@@ -63,6 +64,7 @@ export function PlanetMovementPage({
   const [selected, setSelected] = useState<Map<string, PlanetWork>>(() => new Map());
   const [destination, setDestination] = useState("");
   const [review, setReview] = useState<MoveReview | null>(null);
+  const [definitionsOpen, setDefinitionsOpen] = useState(false);
   const planets = options.data?.planets ?? [];
   const source = search.source === "none" ? null : search.source;
   const items = works.data?.items ?? [];
@@ -137,15 +139,36 @@ export function PlanetMovementPage({
             اختر المصدر، حدد الأعمال، ثم اختر الوجهة وراجع النقل.
           </p>
         </div>
-        <Button
-          variant="outline"
-          disabled={save.isPending || works.isFetching || options.isFetching}
-          onClick={() => void reload()}
-        >
-          <RefreshCw data-icon="inline-start" />
-          تحديث
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={save.isPending}
+            onClick={() => setDefinitionsOpen(true)}
+          >
+            <Settings2 data-icon="inline-start" />
+            تعريف الكواكب
+          </Button>
+          <Button
+            variant="outline"
+            disabled={save.isPending || works.isFetching || options.isFetching}
+            onClick={() => void reload()}
+          >
+            <RefreshCw data-icon="inline-start" />
+            تحديث
+          </Button>
+        </div>
       </header>
+      <PlanetDefinitions
+        open={definitionsOpen}
+        onOpenChange={setDefinitionsOpen}
+        onDeleted={(id) => {
+          if (destination === id) setDestination("");
+          if (search.source === id) {
+            setSelected(new Map());
+            onChange({ source: "none" });
+          }
+        }}
+      />
       {options.isError && (
         <Alert variant="destructive">
           <AlertTitle>تعذّر تحميل الكواكب</AlertTitle>

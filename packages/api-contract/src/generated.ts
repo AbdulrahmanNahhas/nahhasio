@@ -1608,6 +1608,53 @@ export const CatalogPreviewResultSchema = z.strictObject({
 });
 export type CatalogPreviewResult = z.infer<typeof CatalogPreviewResultSchema>;
 
+export const CatalogPlanetDetailInputSchema = z.strictObject({
+  id: z.string().uuid(),
+});
+export type CatalogPlanetDetailInput = z.infer<typeof CatalogPlanetDetailInputSchema>;
+
+export const CatalogPlanetDetailCallSchema = z.strictObject({
+  operation: z.enum(["planetDetail"]),
+  data: CatalogPlanetDetailInputSchema,
+});
+export type CatalogPlanetDetailCall = z.infer<typeof CatalogPlanetDetailCallSchema>;
+
+export const CatalogPlanetSaveInputSchema = z.strictObject({
+  id: z.union([z.string().uuid(), z.null()]),
+  revision: z.union([z.string().min(64).max(64), z.null()]),
+  draft: z.strictObject({
+    slug: z.string(),
+    name: z.string().min(1).max(300),
+    englishName: z.union([z.string().max(300), z.null()]),
+    icon: z.string().min(1).max(64),
+    description: z.string().max(20000),
+    primaryColor: z.string(),
+    secondaryColor: z.string(),
+    displayOrder: z.number().int().min(0).max(1000000),
+    active: z.boolean(),
+  }),
+});
+export type CatalogPlanetSaveInput = z.infer<typeof CatalogPlanetSaveInputSchema>;
+
+export const CatalogPlanetSaveCallSchema = z.strictObject({
+  operation: z.enum(["planetSave"]),
+  data: CatalogPlanetSaveInputSchema,
+});
+export type CatalogPlanetSaveCall = z.infer<typeof CatalogPlanetSaveCallSchema>;
+
+export const CatalogPlanetDeleteInputSchema = z.strictObject({
+  id: z.string().uuid(),
+  revision: z.string().min(64).max(64),
+  confirmation: z.string().max(80),
+});
+export type CatalogPlanetDeleteInput = z.infer<typeof CatalogPlanetDeleteInputSchema>;
+
+export const CatalogPlanetDeleteCallSchema = z.strictObject({
+  operation: z.enum(["planetDelete"]),
+  data: CatalogPlanetDeleteInputSchema,
+});
+export type CatalogPlanetDeleteCall = z.infer<typeof CatalogPlanetDeleteCallSchema>;
+
 export const CatalogPlanetOptionsInputSchema = z.strictObject({});
 export type CatalogPlanetOptionsInput = z.infer<typeof CatalogPlanetOptionsInputSchema>;
 
@@ -1920,6 +1967,9 @@ export const CatalogAssetUnlinkCallSchema = z.strictObject({
 export type CatalogAssetUnlinkCall = z.infer<typeof CatalogAssetUnlinkCallSchema>;
 
 export const CatalogEditorCallSchema = z.union([
+  CatalogPlanetDetailCallSchema,
+  CatalogPlanetSaveCallSchema,
+  CatalogPlanetDeleteCallSchema,
   CatalogPlanetOptionsCallSchema,
   CatalogPlanetWorksCallSchema,
   CatalogPlanetMoveCallSchema,
@@ -2336,6 +2386,40 @@ export const CatalogPlanetMoveResultSchema = z.strictObject({
   moved: z.number(),
 });
 export type CatalogPlanetMoveResult = z.infer<typeof CatalogPlanetMoveResultSchema>;
+
+export const CatalogPlanetDetailResultSchema = z.strictObject({
+  id: z.string().uuid(),
+  draft: z.strictObject({
+    slug: z.string(),
+    name: z.string().min(1).max(300),
+    englishName: z.union([z.string().max(300), z.null()]),
+    icon: z.string().min(1).max(64),
+    description: z.string().max(20000),
+    primaryColor: z.string(),
+    secondaryColor: z.string(),
+    displayOrder: z.number().int().min(0).max(1000000),
+    active: z.boolean(),
+  }),
+  revision: z.string().min(64).max(64),
+  links: z.array(
+    z.strictObject({
+      table: z.string(),
+      count: z.number().int().min(0).max(9007199254740991),
+    }),
+  ),
+});
+export type CatalogPlanetDetailResult = z.infer<typeof CatalogPlanetDetailResultSchema>;
+
+export const CatalogPlanetSaveResultSchema = z.strictObject({
+  id: z.string().uuid(),
+  created: z.boolean(),
+});
+export type CatalogPlanetSaveResult = z.infer<typeof CatalogPlanetSaveResultSchema>;
+
+export const CatalogPlanetDeleteResultSchema = z.strictObject({
+  removed: z.boolean(),
+});
+export type CatalogPlanetDeleteResult = z.infer<typeof CatalogPlanetDeleteResultSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;
