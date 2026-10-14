@@ -111,7 +111,10 @@ export async function nativeCall(
   if (!response.ok) {
     if (response.error.code === "unauthorized" && command !== "login")
       window.dispatchEvent(new Event("nahhasio:signed-out"));
-    if (response.error.message === "Unknown desktop command") {
+    if (
+      response.error.message === "Unknown desktop command" ||
+      response.error.message === "Invalid media request"
+    ) {
       throw new Error("أعد تشغيل تطبيق نحّاسيو بالكامل لتفعيل هذه الصفحة، ثم أعد المحاولة.");
     }
     const errors = {

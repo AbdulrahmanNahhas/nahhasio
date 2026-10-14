@@ -1,7 +1,9 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pause, Play, RefreshCw } from "lucide-react";
-import { z } from "zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Pause, Play, RefreshCw, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
 
+import { Artwork } from "@/components/artwork";
+import { Choice } from "@/components/choice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,231 +16,321 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
+import { useConfirm } from "@/features/editor/use-confirm";
 import { nativeCall } from "@/lib/bridge";
 
+import {
+  downloadKeys,
+  downloadQueueOptions,
+  jobCategory,
+  jobLabel,
+  okReply,
+  videoTitle,
+  workTitle,
+  type DownloadJob,
+} from "./download-data";
+import { SavedVideoActions } from "./saved-video-actions";
 import { formatSourceSize } from "./source-format";
+import { requestDownload } from "./watch-request";
+export { downloadQueueOptions } from "./download-data";
 
-const quantity = z.number().finite().nonnegative();
-const stateLabels = {
-  metadata_pending: "جارٍ جلب معلومات التورنت",
-  checking: "جارٍ التحقق من الملفات",
-  paused: "متوقف مؤقتًا",
-  downloading: "جارٍ التنزيل",
-  complete: "اكتمل نقل التورنت",
-  missing: "ملفات التنزيل مفقودة",
-  blocked: "التنزيل محظور",
-  failed: "تعذّر التنزيل",
-} as const;
-const JobsSchema = z
-  .array(
-    z.object({
-      id: z.string(),
-      selected: z.array(z.number().int().nonnegative()),
-      files: z.array(
-        z.object({ index: z.number().int().nonnegative(), path: z.string(), size: quantity }),
-      ),
-      status: z.object({
-        verified: quantity,
-        total: quantity,
-        complete: z.boolean(),
-        paused: z.boolean(),
-        error: z.string().nullable(),
-        state: z.enum([
-          "metadata_pending",
-          "checking",
-          "paused",
-          "downloading",
-          "complete",
-          "missing",
-          "blocked",
-          "failed",
-        ]),
-        download_rate: quantity,
-        peers: quantity,
-      }),
-      exports: z.array(
-        z.object({
-          file: z.number().int().nonnegative(),
-          path: z.string(),
-          available: z.boolean(),
-          published: z.boolean(),
-          error: z.string().nullable(),
-        }),
-      ),
-    }),
-  )
-  .max(64);
-export function downloadQueueOptions() {
-  return queryOptions({
-    queryKey: ["native", "downloads", "queue"] as const,
-    queryFn: async ({ signal }) => JobsSchema.parse(await nativeCall("media.jobs", {}, signal)),
-    networkMode: "always",
-    retry: false,
-    refetchInterval: 2000,
-    refetchIntervalInBackground: false,
-  });
-}
-
-export function DownloadQueue() {
-  const client = useQueryClient();
+export function DownloadQueue({ compact = true }: { compact?: boolean }) {
   const jobs = useQuery(downloadQueueOptions());
+  const client = useQueryClient();
+  const confirm = useConfirm("إزالة من قائمة النقل");
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [limit, setLimit] = useState(compact ? 8 : 24);
+  const counts = {
+    all: jobs.data?.length ?? 0,
+    active: jobs.data?.filter((job) => jobCategory(job) === "active").length ?? 0,
+    completed: jobs.data?.filter((job) => jobCategory(job) === "completed").length ?? 0,
+    failed: jobs.data?.filter((job) => jobCategory(job) === "failed").length ?? 0,
+  };
   const action = useMutation({
-    mutationFn: async ({ id, paused }: { id: string; paused: boolean }) =>
-      z
-        .object({ ok: z.literal(true) })
-        .parse(await nativeCall(paused ? "media.resume" : "media.pause", { id })),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["native", "downloads"] }),
+    scope: { id: "native-downloads" },
+    mutationFn: async ({
+      id,
+      command,
+    }: {
+      id: string;
+      command: "media.pause" | "media.resume" | "media.forgetDownload";
+    }) => okReply.parse(await nativeCall(command, { id })),
+    onSuccess: async (_, variables) => {
+      await client.invalidateQueries({ queryKey: downloadKeys });
+      if (variables.command === "media.forgetDownload")
+        toast.add({
+          type: "success",
+          title: "أُزيل من قائمة النقل",
+          description: "الفيديوهات المحفوظة باقية في مكتبة الجهاز.",
+        });
+    },
     networkMode: "always",
     retry: false,
   });
+  const visible =
+    jobs.data?.filter(
+      (job) =>
+        (filter === "all" || jobCategory(job) === filter) &&
+        `${job.files.map((file) => file.path).join(" ")} ${job.exports.map((file) => `${workTitle(file)} ${videoTitle(file)}`).join(" ")}`
+          .toLowerCase()
+          .includes(q.toLowerCase()),
+    ) ?? [];
+  async function forget(job: DownloadJob) {
+    if (
+      await confirm.confirm(
+        "إلغاء النقل وإزالة هذا العنصر من قائمة النقل؟ الفيديوهات المكتملة تبقى محفوظة، ولن تُحذف ملفات الفيديو.",
+      )
+    )
+      action.mutate({ id: job.id, command: "media.forgetDownload" });
+  }
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        يُحفظ الفيديو في Videos/nahhasio داخل مجلد العمل بعد اكتمال النقل والتحقق والحفظ. يُستأنف
-        التنزيل المحفوظ عند إعادة فتح التطبيق.
-      </p>
-      {jobs.isPending && <p role="status">جارٍ تحميل التنزيلات…</p>}
+      {confirm.dialog}
+      <div className="flex flex-wrap items-center gap-3">
+        <InputGroup className="min-w-48 flex-1">
+          <InputGroupInput
+            aria-label="بحث في التنزيلات"
+            placeholder="ابحث عن عمل أو حلقة…"
+            value={q}
+            maxLength={300}
+            onChange={(event) => setQ(event.target.value)}
+          />
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+        </InputGroup>
+        <Choice
+          label="حالة التنزيل"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: `الكل (${counts.all})` },
+            { value: "active", label: `قيد النقل (${counts.active})` },
+            { value: "completed", label: `مكتمل (${counts.completed})` },
+            { value: "failed", label: `يحتاج انتباهاً (${counts.failed})` },
+          ]}
+        />
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="تحديث التنزيلات"
+          disabled={jobs.isFetching}
+          onClick={() => {
+            action.reset();
+            void jobs.refetch();
+          }}
+        >
+          <RefreshCw data-icon="inline-start" />
+        </Button>
+      </div>
       {(jobs.error || action.error) && (
         <Alert variant="destructive">
           <AlertTitle>تعذّر تحديث التنزيلات</AlertTitle>
-          <AlertDescription>{(jobs.error ?? action.error)?.message}</AlertDescription>
+          <AlertDescription>{jobs.error?.message ?? action.error?.message}</AlertDescription>
         </Alert>
       )}
-      {jobs.data?.length === 0 && (
+      {jobs.isPending ? (
+        <Skeleton className="h-48" />
+      ) : !visible.length ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>لا توجد تنزيلات</EmptyTitle>
-            <EmptyDescription>اختر تنزيلًا من صفحة العمل أو الحلقة.</EmptyDescription>
+            <EmptyTitle>
+              {jobs.data?.length ? "لا توجد نتائج مطابقة" : "قائمة النقل فارغة"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {jobs.data?.length
+                ? "غيّر البحث أو مرشح الحالة."
+                : "ابدأ التنزيل من صفحة العمل أو الحلقة. تجد الفيديوهات المكتملة في مكتبة الجهاز."}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : (
+        visible.slice(0, limit).map((job) => (
+          <QueueCard
+            key={job.id}
+            job={job}
+            compact={compact}
+            busy={action.isPending}
+            onPause={() =>
+              action.mutate({
+                id: job.id,
+                command: job.status.paused ? "media.resume" : "media.pause",
+              })
+            }
+            onForget={() => void forget(job)}
+          />
+        ))
       )}
-      {jobs.data?.map((job) => {
-        const { status } = job;
-        const ready = job.exports.every((file) => file.available);
-        const exportError = job.exports.find((file) => file.error)?.error;
-        const missing = job.exports.some((file) => file.published && !file.available);
-        const percent =
-          status.total > 0 ? Math.min(100, (status.verified / status.total) * 100) : 0;
-        const label = ready
-          ? "محفوظ وجاهز للمشاهدة"
-          : missing
-            ? "الفيديو المحفوظ مفقود أو تغيّر"
-            : exportError
-              ? "تعذّر حفظ الفيديو"
-              : status.complete
-                ? "جارٍ حفظ الفيديو في Videos"
-                : status.state === "downloading" && status.download_rate === 0
-                  ? status.peers === 0
-                    ? "بانتظار الاتصال بالمشاركين"
-                    : "بانتظار وصول البيانات"
-                  : stateLabels[status.state];
-        const eta =
-          status.download_rate > 0 && !status.complete
-            ? Math.ceil(Math.max(0, status.total - status.verified) / status.download_rate / 60)
-            : null;
-        const recoverable = !["missing", "blocked", "failed"].includes(status.state);
-        return (
-          <Card key={job.id} size="sm">
-            <CardHeader>
-              <CardTitle>
-                <h3 dir="auto" className="wrap-anywhere">
-                  {job.files
-                    .filter((file) => job.exports.some((saved) => saved.file === file.index))
-                    .map((file) => file.path.split("/").at(-1))
-                    .join(" · ") || "تنزيل فيديو"}
-                </h3>
-              </CardTitle>
-              <CardDescription>
-                <Badge
-                  variant={exportError || status.error || missing ? "destructive" : "secondary"}
-                >
-                  {label}
-                </Badge>
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex min-w-0 flex-col gap-3">
-              <Progress
-                className="download-progress h-2 accent-primary rounded-lg w-full"
-                value={status.total > 0 ? percent : null}
-                max={100}
-                aria-label="تقدم التنزيل"
-              />
-              <div className="flex flex-wrap justify-between gap-2 text-sm" dir="auto">
-                <span>
-                  {percent.toFixed(1)}% · {formatSourceSize(status.verified)} /{" "}
-                  {formatSourceSize(status.total)}
-                </span>
-                <span>
-                  {formatSourceSize(status.download_rate)}/s · {status.peers} مشارك
-                </span>
-              </div>
-              {eta !== null && (
-                <p className="text-sm text-muted-foreground">
-                  الوقت المتبقي التقريبي: {Math.max(1, eta)} دقيقة
+      {visible.length > limit && (
+        <Button variant="outline" onClick={() => setLimit(limit + 24)}>
+          عرض المزيد ({limit} / {visible.length})
+        </Button>
+      )}
+    </div>
+  );
+}
+function QueueCard({
+  job,
+  compact,
+  busy,
+  onPause,
+  onForget,
+}: {
+  job: DownloadJob;
+  compact: boolean;
+  busy: boolean;
+  onPause: () => void;
+  onForget: () => void;
+}) {
+  const first = job.exports[0];
+  const recoverFile =
+    job.exports.find((file) => !file.available && job.selected.includes(file.file)) ?? first;
+  const target = recoverFile?.target;
+  const category = jobCategory(job);
+  const percent =
+    job.status.total > 0 ? Math.min(100, (job.status.verified / job.status.total) * 100) : 0;
+  const eta =
+    job.status.download_rate > 0 && !job.status.complete
+      ? Math.ceil((job.status.total - job.status.verified) / job.status.download_rate / 60)
+      : null;
+  const error = job.exports.find((file) => file.error)?.error ?? job.status.error;
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <div className="flex items-start gap-4">
+          {!compact && (
+            <Artwork
+              id={first?.posterId}
+              alt=""
+              className="h-28 w-20 shrink-0 rounded-lg object-cover"
+              fallback={<Download className="size-6" />}
+            />
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <CardTitle>
+              <span dir="auto">{first ? workTitle(first) : "تنزيل فيديو"}</span>
+            </CardTitle>
+            <CardDescription>
+              <span className="break-words" dir="auto">
+                {job.exports.map(videoTitle).join(" · ") ||
+                  job.files.map((file) => file.path.split("/").at(-1)).join(" · ")}
+              </span>
+            </CardDescription>
+            <div>
+              <Badge variant={category === "failed" ? "destructive" : "secondary"}>
+                {jobLabel(job)}
+              </Badge>
+            </div>
+            {first?.target && (
+              <a
+                href={`#/titles/${first.target.workId}`}
+                className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              >
+                فتح العمل
+              </a>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {category !== "completed" && (
+          <>
+            <Progress
+              value={job.status.total > 0 ? percent : null}
+              max={100}
+              aria-label="تقدم التنزيل"
+            />
+            <div className="flex flex-wrap justify-between gap-2 text-sm">
+              <span>
+                {percent.toFixed(1)}% · {formatSourceSize(job.status.verified)} /{" "}
+                {formatSourceSize(job.status.total)}
+              </span>
+              <span>
+                {formatSourceSize(job.status.download_rate)}/s · {job.status.peers} مشارك
+              </span>
+            </div>
+            {eta !== null && (
+              <p className="text-xs text-muted-foreground">حوالي {Math.max(1, eta)} دقيقة متبقية</p>
+            )}
+          </>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>{jobLabel(job)}</AlertTitle>
+            <AlertDescription>
+              <p className="break-words" dir="auto">
+                {error}
+              </p>
+              <p>
+                تحقق من المساحة والصلاحيات وتعارض اسم الملف. للمصدر المحظور أو التالف، اختر مصدراً آخر
+                من العمل.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+        {!compact &&
+          job.exports.map((file) => (
+            <div
+              key={file.file}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm" dir="auto">
+                  {videoTitle(file)}
                 </p>
-              )}
-              {job.exports.map((file) => (
-                <p
-                  key={file.file}
-                  dir="auto"
-                  className="text-sm wrap-anywhere text-muted-foreground"
-                >
+                <p className="mt-1 break-all text-xs text-muted-foreground" dir="ltr">
                   {file.path}
                 </p>
-              ))}
-              {(exportError || status.error || missing) && (
-                <Alert variant="destructive">
-                  <AlertTitle>{label}</AlertTitle>
-                  <AlertDescription>
-                    <p className="wrap-anywhere">
-                      {exportError ?? status.error ?? "تحقق من وجود الفيديو في مسار الحفظ."}
-                    </p>
-                    {exportError && (
-                      <p>
-                        تحقق من المساحة والصلاحيات وتعارض اسم الملف. يعيد التطبيق محاولة الحفظ
-                        تلقائيًا.
-                      </p>
-                    )}
-                  </AlertDescription>
-                </Alert>
+              </div>
+              {file.published && <SavedVideoActions file={{ ...file, id: job.id }} />}
+            </div>
+          ))}
+      </CardContent>
+      <CardFooter className="flex flex-wrap gap-2">
+        {category === "failed" && target && recoverFile && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() =>
+              requestDownload({
+                workId: target.workId,
+                installmentId: target.installmentId ?? undefined,
+                episodeId: target.episodeId ?? undefined,
+                title: videoTitle(recoverFile),
+              })
+            }
+          >
+            <RefreshCw data-icon="inline-start" />
+            اختيار مصدر آخر
+          </Button>
+        )}
+        {category !== "completed" &&
+          !job.status.complete &&
+          !["blocked", "failed", "missing"].includes(job.status.state) && (
+            <Button variant="outline" size="sm" disabled={busy} onClick={onPause}>
+              {busy ? (
+                <Spinner data-icon="inline-start" />
+              ) : job.status.paused ? (
+                <Play data-icon="inline-start" />
+              ) : (
+                <Pause data-icon="inline-start" />
               )}
-            </CardContent>
-            <CardFooter>
-              {!status.complete && recoverable && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={action.isPending}
-                  onClick={() => action.mutate({ id: job.id, paused: status.paused })}
-                >
-                  {status.paused ? (
-                    <Play data-icon="inline-start" />
-                  ) : (
-                    <Pause data-icon="inline-start" />
-                  )}
-                  {action.isPending && action.variables?.id === job.id
-                    ? "جارٍ التحديث…"
-                    : status.paused
-                      ? "استئناف التنزيل"
-                      : "إيقاف مؤقت"}
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        );
-      })}
-      <Button
-        variant="ghost"
-        disabled={jobs.isFetching}
-        onClick={() => {
-          action.reset();
-          void jobs.refetch();
-        }}
-      >
-        <RefreshCw data-icon="inline-start" />
-        تحديث التنزيلات
-      </Button>
-    </div>
+              {job.status.paused ? "استئناف" : "إيقاف مؤقت"}
+            </Button>
+          )}
+        {compact && first?.available && <SavedVideoActions file={{ ...first, id: job.id }} />}
+        <Button variant="ghost" size="sm" disabled={busy} onClick={onForget}>
+          <Trash2 data-icon="inline-start" />
+          {category === "completed" ? "إزالة من قائمة النقل" : "إلغاء النقل"}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

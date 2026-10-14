@@ -208,3 +208,91 @@ sessions and expected work/membership revisions, lock work roots in UUID order, 
 destination and save the whole batch in a serializable transaction with audit/revision snapshots.
 No schema migration or live mutation test is required for implementation; isolated mutation and
 native acceptance remain pending.
+
+## Planet definitions checkpoint
+
+The movement page's “تعريف الكواكب” button opens a definition list and a single editing Drawer.
+Create/edit covers Arabic/English names, slug, description, emoji icon, primary/secondary colors,
+planet display order and active status. Existing planets own icons/colors, not image assignments;
+this checkpoint does not invent a planet artwork model. Numeric display order concerns planets,
+not featured work ranks. Saves have a local before/after review and server revision comparison,
+preserve the planet UUID and all work memberships, and record audit/editorial snapshots.
+
+Deleting an empty planet requires its exact saved slug. Server checks all incoming FK references
+and polymorphic evidence in the same serializable transaction, refusing linked planets. Users
+can move works away or deactivate instead. Unsaved close/back/navigation guards and explicit
+reload support conflict recovery. Planet membership ordering remains a future task. This stage
+uses static/build and read-only definition checks; no live catalog mutations are used for testing.
+
+## Downloads/device-video library checkpoint
+
+Downloads has transfer and device-library tabs with search, status counts/filters, incremental
+display and work grouping. Transfer rows expose progress, rate, peers, ETA, destination and
+pause/resume/cancel actions. Completed exports remain visible in the library after queue removal
+or torrent-cache cleanup. The storage section shows the configured native video root, registered
+available-video bytes and filesystem free space, plus the existing guarded cache cleaner.
+
+New exports retain a versioned local descriptor (catalog target, display title, work title and
+poster asset reference) inside the existing transfer `target` field; legacy target-only records
+remain readable. This is not a full saved-work snapshot or offline artwork cache. Work-page
+metadata/artwork still depend on the server; cold offline application startup/account isolation
+and progress sync belong to the later Saved Works checkpoint.
+
+Native actions accept registered torrent/file identities, never arbitrary caller paths. Direct
+saved-video playback does not request the catalog or search torrents. It participates in the
+player command/poll ordering guard. Folder opening resolves an available registered file.
+Queue cancellation retains published videos; removing a library record retains its physical file.
+Physical deletion has a separate typed confirmation and refuses unsafe/size-mismatched paths;
+local playback must be closed first. Recovery never overwrites a destination, and can reselect
+a source when a missing/blocked job cannot resume. Export publication and these mutations share
+a gate so a canceled intent cannot publish concurrently. Saved-record removal also supports
+exports whose old torrent job was already removed by cache cleanup.
+
+Changes require a freshly built/relaunched native client; UI hot reload cannot add Rust bridge
+commands to an old process. Static checks/builds are used at this stage; live download/deletion,
+native input/animation and offline-startup acceptance remain separate.
+
+## Client persistence and AppImage delivery
+
+Login now persists a native-only server-bound token in `session.json`, with a private directory
+(0700), a private file (0600), atomic replacement and expiry checking. Passwords are never saved.
+Logout and unauthorized server replies remove the current server's stored session. Switching
+server addresses does not send an old server's token to the new server. Storage errors surface
+instead of silently claiming login will survive a restart. Sign in once after upgrading the old
+in-memory client; its existing login cannot be recovered from disk.
+
+On an ephemeral NixOS installation, preserve these **whole directories**, using persistent mounts:
+
+- `$XDG_STATE_HOME/nahhasio`, normally `~/.local/state/nahhasio`: session, `jobs.sqlite3` and its
+  WAL/SHM companions, torrent metadata/resume/export records, and `payloads/` for partial jobs.
+- The configured Videos directory's `nahhasio/`, normally `~/Videos/nahhasio`: exported videos
+  and legacy torrent payloads. `NAHHASIO_MEDIA_ROOT` overrides this location.
+- The AppImage wherever it is installed, for example `~/Applications/`.
+
+Preserve the state and video roots together. Do not move/change an existing video root by changing
+the environment: the engine deliberately refuses a mismatched stored root. Symlink replacements
+are rejected by storage guards; use bind mounts for impermanence. These are client paths; server
+PostgreSQL/artwork backups and future Podman volumes have separate ownership. Full saved-work
+snapshots, offline login/startup and tracking sync remain the later Saved Works checkpoint.
+
+Build an optimized package with `devenv shell -- bash bin/nahhasio-appimage`. For a quick local
+preview using the dev build, set `NAHHASIO_PACKAGE_PROFILE=dev`. Output is
+`dist/client/Nahhasio-0.1.0-x86_64.AppImage` plus SHA-256. The packaging flake pins Nixpkgs and
+nix-appimage, packages only the binary/UI, gathers the native ELF runtime closure and includes
+GTK schemas, icons, TLS certificates, WebKit helpers and media libraries. The launcher retains
+the development client's NixOS host-loader compatibility handling. No server, catalog, artwork,
+credentials or development `.env` is included.
+
+Run `chmod +x Nahhasio-0.1.0-x86_64.AppImage` then launch it. The current server defaults to
+`http://127.0.0.1:23103/`; `NAHHASIO_SERVER_URL=https://your-server/` overrides it. The server
+chooser/LAN connection checkpoint is still pending; non-loopback HTTP remains disallowed.
+The package embeds the production UI and needs neither the checkout nor Vite to load it.
+
+`.github/workflows/linux-release.yml` builds an optimized AppImage and checksum on manual
+dispatch or `v*` tags. Manual runs supply a downloadable Actions artifact; tags create a **draft**
+prerelease for review. CI execution and publication are separate from local artifact creation.
+No automatic client updater or published release is implied by this workflow.
+
+The current bundler requires user namespaces; its upstream OpenGL portability limitation means
+this is initially a NixOS preview. Fedora/non-NixOS graphics, WebKit sandboxing, audio/video and
+fresh-install acceptance must be reviewed before calling it a generally supported Linux release.

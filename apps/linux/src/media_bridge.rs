@@ -18,6 +18,61 @@ pub async fn execute(
     }
     let pause_requested = matches!(&command, Command::Pause { .. });
     match command {
+        Command::Library {} => runtime
+            .spawn(async move { media.library().await })
+            .await
+            .map_err(|_| interrupted())?,
+        Command::ForgetDownload { id } => {
+            runtime
+                .spawn(async move { media.manage_download(id, None, None).await })
+                .await
+                .map_err(|_| interrupted())??;
+            Ok(json!({"ok":true}))
+        }
+        Command::SavedAction { id, file, action } => {
+            if matches!(action, crate::media::SavedAction::DeleteVideo)
+                && matches!(
+                    player.snapshot().source_kind,
+                    Some(crate::player_protocol::SourceKind::Local)
+                )
+            {
+                return Err(Error::new(
+                    "playing_file",
+                    "أغلق المشغّل قبل حذف فيديو محفوظ.",
+                ));
+            }
+            runtime
+                .spawn(async move { media.manage_download(id, Some(file), Some(action)).await })
+                .await
+                .map_err(|_| interrupted())??;
+            Ok(json!({"ok":true}))
+        }
+        Command::OpenSaved { id, file } => {
+            let expected = player.snapshot().session_id;
+            let (path, title) = runtime
+                .spawn(async move { media.saved_path(id, file).await })
+                .await
+                .map_err(|_| interrupted())??;
+            if player.snapshot().session_id != expected {
+                return Err(interrupted());
+            }
+            player.open_download(&path, title)?;
+            serde_json::to_value(player.snapshot()).map_err(|_| interrupted())
+        }
+        Command::RevealSaved { id, file } => {
+            use gtk::gio::prelude::*;
+            let (path, _) = runtime
+                .spawn(async move { media.saved_path(id, file).await })
+                .await
+                .map_err(|_| interrupted())??;
+            let folder = path.parent().ok_or_else(interrupted)?;
+            gtk::gio::AppInfo::launch_default_for_uri(
+                gtk::gio::File::for_path(folder).uri().as_str(),
+                None::<&gtk::gio::AppLaunchContext>,
+            )
+            .map_err(|_| Error::new("folder", "تعذّر فتح مدير الملفات."))?;
+            Ok(json!({"ok":true}))
+        }
         Command::Saved {} => runtime
             .spawn(async move { media.saved().await })
             .await

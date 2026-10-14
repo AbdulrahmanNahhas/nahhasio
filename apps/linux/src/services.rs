@@ -10,6 +10,7 @@ use url::Url;
 
 #[derive(Clone)]
 pub struct Services {
+    session_store: Option<Arc<crate::session_store::SessionStore>>,
     client: Client,
     base: Url,
     token: Arc<Mutex<Option<String>>>,
@@ -275,6 +276,21 @@ fn network(_: reqwest::Error) -> Error {
     )
 }
 impl Services {
+    pub fn new_persistent(base: &str) -> Result<Self, Error> {
+        let mut service = Self::new(base)?;
+        let roots = crate::media_storage::Roots::discover()
+            .map_err(|_| Error::new("configuration", "تعذّر تحديد مجلد حالة التطبيق."))?;
+        let store = crate::session_store::SessionStore::new(&roots.state);
+        service.token = Arc::new(Mutex::new(store.load(service.base.as_str())?));
+        service.session_store = Some(Arc::new(store));
+        Ok(service)
+    }
+    fn forget_stored_session(&self) -> Result<(), Error> {
+        if let Some(store) = &self.session_store {
+            store.clear(self.base.as_str())?;
+        }
+        Ok(())
+    }
     pub fn new(base: &str) -> Result<Self, Error> {
         let base =
             Url::parse(base).map_err(|_| Error::new("configuration", "Invalid server address"))?;
@@ -300,6 +316,7 @@ impl Services {
             .build()
             .map_err(network)?;
         Ok(Self {
+            session_store: None,
             client,
             base,
             token: Arc::new(Mutex::new(None)),
@@ -344,6 +361,7 @@ impl Services {
     async fn body(&self, mut response: Response, max: usize) -> Result<Vec<u8>, Error> {
         if response.status() == reqwest::StatusCode::UNAUTHORIZED {
             *self.token.lock().await = None;
+            self.forget_stored_session()?;
             return Err(Error::new(
                 "unauthorized",
                 "Your session has expired. Sign in again.",
@@ -444,12 +462,16 @@ impl Services {
                 let bytes = bounded_body(response, 16 * 1024).await?;
                 let login: LoginResponse = serde_json::from_slice(&bytes)
                     .map_err(|_| Error::new("response", "Invalid login response"))?;
+                if let Some(store) = &self.session_store {
+                    store.save(self.base.as_str(), &login.token, &login.expires_at)?;
+                }
                 *token = Some(login.token);
                 Ok(json!({"user":login.user,"expiresAt":login.expires_at}))
             }
             "logout" => {
                 let mut token = self.token.lock().await;
                 let old = token.take();
+                self.forget_stored_session()?;
                 if let Some(old) = old {
                     let response = self
                         .client
@@ -481,6 +503,7 @@ impl Services {
                     .map_err(network)?;
                 if response.status() == reqwest::StatusCode::UNAUTHORIZED {
                     *self.token.lock().await = None;
+                    self.forget_stored_session()?;
                     return Ok(Value::Null);
                 }
                 self.json(response).await
@@ -792,6 +815,7 @@ impl Services {
                 }
                 if response.status() == reqwest::StatusCode::UNAUTHORIZED {
                     *self.token.lock().await = None;
+                    self.forget_stored_session()?;
                     return Err(Error::new(
                         "unauthorized",
                         "Your session has expired. Sign in again.",

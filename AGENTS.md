@@ -33,10 +33,16 @@ Current implementation: image-library checkpoint committed as `d787dd9`; JSON/se
 committed as `83f94b0`. Current approved checkpoint: People Drawer/credits/selection/JSON/deletion,
 then the shared Studios editor, with most-works sort and contribution/reference UX improvements.
 Aqua authorized code-quality cleanup and committed People/Studios as `7363237`.
-Current approved checkpoint is planet membership movement/assignment with friendly selection
-and before/after review. Planet definition CRUD/order controls and Awards remain unimplemented.
-Aqua accepted this checkpoint and authorized its commit. Stop after committing and suggest next
-steps; do not begin another page until asked. Preserve Aqua's current design.
+Planet membership movement/assignment was committed as `e439b66`; planet definitions were
+committed as `080948b`. Downloads provides queue UX and a grouped local-video library, native
+play/folder/recovery/removal actions and storage information. Aqua approved the Downloads design
+and authorized fixing its old-process bridge error, committing the changes, private login
+persistence, and an early downloadable AppImage/release pipeline. Update documentation with
+actual artifact/runtime/CI limits; no release publication or push has been requested.
+The subsequent order is server connection/login, full Saved Works/offline use, Podman foundation,
+then admin overview. Do not start those stages silently. Awards and work-membership ordering
+remain future tasks.
+Preserve Aqua's current design.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
 server and device video downloads remain separate. Torrent streaming is the main online source;
 linked files support completed downloads and deliberately non-torrent works. Torrent streaming

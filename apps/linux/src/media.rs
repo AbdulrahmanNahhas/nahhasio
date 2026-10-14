@@ -26,6 +26,8 @@ pub struct Target {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedTarget {
+    #[serde(skip_serializing)]
+    pub poster_id: Option<String>,
     pub work_id: String,
     pub installment_id: String,
     pub episode_id: Option<String>,
@@ -43,6 +45,20 @@ pub struct ResolvedTarget {
     deny_unknown_fields
 )]
 pub enum Command {
+    #[serde(rename = "media.library")]
+    Library {},
+    #[serde(rename = "media.forgetDownload")]
+    ForgetDownload { id: String },
+    #[serde(rename = "media.savedAction")]
+    SavedAction {
+        id: String,
+        file: u32,
+        action: SavedAction,
+    },
+    #[serde(rename = "media.openSaved")]
+    OpenSaved { id: String, file: u32 },
+    #[serde(rename = "media.revealSaved")]
+    RevealSaved { id: String, file: u32 },
     #[serde(rename = "media.search")]
     Search { session_id: String, target: Target },
     #[serde(rename = "media.downloadSearch")]
@@ -73,6 +89,38 @@ pub enum Command {
     Pause { id: String },
     #[serde(rename = "media.resume")]
     Resume { id: String },
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SavedAction {
+    RemoveRecord,
+    DeleteVideo,
+    Retry,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SavedRecord {
+    version: u8,
+    target: Target,
+    title: String,
+    work_title: String,
+    poster_id: Option<String>,
+}
+fn saved_record(value: &str) -> Option<SavedRecord> {
+    serde_json::from_str::<SavedRecord>(value)
+        .ok()
+        .filter(|record| record.version == 1)
+        .or_else(|| {
+            serde_json::from_str::<Target>(value)
+                .ok()
+                .map(|target| SavedRecord {
+                    version: 1,
+                    target,
+                    title: String::new(),
+                    work_title: String::new(),
+                    poster_id: None,
+                })
+        })
 }
 impl Command {
     pub fn parse(request: &Request) -> Result<Self, Error> {
@@ -163,7 +211,7 @@ impl Media {
                 files
                     .into_iter()
                     .filter_map(|file| {
-                        let target = serde_json::from_str::<Target>(&file.target).ok()?;
+                        let target = saved_record(&file.target)?.target;
                         Some(json!({"target":target,"available":file.available}))
                     })
                     .collect(),
@@ -189,7 +237,8 @@ impl Media {
                     .into_iter()
                     .find(|file| {
                         file.available
-                            && serde_json::from_str::<Target>(&file.target).is_ok_and(|target| {
+                            && saved_record(&file.target).is_some_and(|record| {
+                                let target = record.target;
                                 target.work_id == work
                                     && target.installment_id.as_ref() == Some(&installment)
                                     && target.episode_id == episode
@@ -452,7 +501,17 @@ impl Media {
                 installment_id: Some(resolved.installment_id),
                 episode_id: resolved.episode_id,
             };
-            engine.set_export_target(&id, file, serde_json::to_string(&target)?)
+            engine.set_export_target(
+                &id,
+                file,
+                serde_json::to_string(&SavedRecord {
+                    version: 1,
+                    target,
+                    title: resolved.title,
+                    work_title: resolved.work_title,
+                    poster_id: resolved.poster_id,
+                })?,
+            )
         })
         .await
         .map_err(|_| transfer_error())?
@@ -468,7 +527,7 @@ impl Media {
                 if !job.selected.is_empty() {
                     let status = engine.status(&job.id)?;
                     let files = engine.files(&job.id).unwrap_or_default();
-                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).map(|file| json!({"file":file.file,"path":file.path,"available":file.available,"published":file.published,"error":file.error})).collect();
+                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).map(saved_json).collect();
                     if !exports.is_empty() {
                         result.push(json!({"id":job.id.0,"files":files,"selected":job.selected,"status":status,"exports":exports}));
                     }
@@ -517,6 +576,70 @@ impl Media {
             .await?;
         resolve_target(&work, target)
     }
+    pub async fn library(&self) -> Result<Value, Error> {
+        use gtk::gio::prelude::*;
+        let engine = self.engine().await?;
+        let root = self.roots.videos.clone();
+        tokio::task::spawn_blocking(move||{
+            let saved=engine.saved_files()?;
+            let used:u64=saved.iter().filter(|file|file.available).map(|file|file.size).sum();
+            let filesystem=gtk::gio::File::for_path(&root).query_filesystem_info("filesystem::free",None::<&gtk::gio::Cancellable>).ok();
+            let free=filesystem.filter(|info|info.has_attribute("filesystem::free")).map(|info|info.attribute_uint64("filesystem::free"));
+            Ok::<_,media_transfer::Error>(json!({"files":saved.iter().filter(|file|file.published).map(saved_json).collect::<Vec<_>>(),"root":root,"usedBytes":used,"freeBytes":free}))
+        }).await.map_err(|_|transfer_error())?.map_err(|_|transfer_error())
+    }
+    pub async fn saved_path(
+        &self,
+        id: String,
+        file: u32,
+    ) -> Result<(std::path::PathBuf, String), Error> {
+        let engine = self.engine().await?;
+        tokio::task::spawn_blocking(move || {
+            let saved = engine
+                .saved_files()?
+                .into_iter()
+                .find(|entry| entry.id == id && entry.file == file && entry.available)
+                .ok_or_else(|| media_transfer::Error::Invalid("saved video unavailable".into()))?;
+            let title = saved_record(&saved.target)
+                .map(|record| record.title)
+                .filter(|title| !title.is_empty())
+                .unwrap_or_else(|| {
+                    saved
+                        .path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned()
+                });
+            Ok::<_, media_transfer::Error>((saved.path, title))
+        })
+        .await
+        .map_err(|_| transfer_error())?
+        .map_err(|_| {
+            Error::new(
+                "missing_file",
+                "الفيديو المحفوظ مفقود أو تغيّر. حدّث القائمة أو أعد تنزيله.",
+            )
+        })
+    }
+    pub async fn manage_download(
+        &self,
+        id: String,
+        file: Option<u32>,
+        action: Option<SavedAction>,
+    ) -> Result<(), Error> {
+        let engine = self.engine().await?;
+        tokio::task::spawn_blocking(move||match (file,action) {
+            (None,None)=>engine.forget_download(&TorrentId(id)),
+            (Some(file),Some(SavedAction::Retry))=>engine.retry_saved(&TorrentId(id),file),
+            (Some(file),Some(action))=>engine.remove_saved(&TorrentId(id),file,matches!(action,SavedAction::DeleteVideo)),
+            _=>Err(media_transfer::Error::Invalid("download action".into())),
+        }).await.map_err(|_|transfer_error())?.map_err(|_|Error::new("download_action","تعذّر تنفيذ الإجراء. قد يجري حفظ الفيديو، أو تغيّر الملف، أو يحتاج التورنت إلى مصدر جديد. لم تُحذف ملفات خارج التنزيل المسجّل."))
+    }
+}
+fn saved_json(file: &media_transfer::SavedFile) -> Value {
+    let record = saved_record(&file.target);
+    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":record.as_ref().map(|record|&record.target),"title":record.as_ref().map(|record|&record.title),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":record.as_ref().and_then(|record|record.poster_id.as_ref())})
 }
 async fn pause_unowned(engine: Engine, id: TorrentId) {
     let _ = tokio::task::spawn_blocking(move || engine.pause_if_unowned(&id)).await;
@@ -629,6 +752,16 @@ fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error
         )
     };
     Ok(ResolvedTarget {
+        poster_id: work["artwork"]
+            .as_array()
+            .and_then(|images| {
+                images
+                    .iter()
+                    .find(|image| image["role"] == "poster" && image["isPrimary"] == true)
+            })
+            .and_then(|image| image["id"].as_str())
+            .filter(|id| valid_id(id))
+            .map(str::to_owned),
         work_id: target.work_id.clone(),
         installment_id: installment["id"]
             .as_str()

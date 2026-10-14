@@ -76,6 +76,13 @@ impl Player {
         });
         Ok(())
     }
+    pub fn open_download(&self, path: &Path, title: String) -> Result<(), Error> {
+        self.open_local(path)?;
+        if let Some(session) = self.session.borrow_mut().as_mut() {
+            session.title = title;
+        }
+        Ok(())
+    }
 
     pub fn snapshot(&self) -> Snapshot {
         let fullscreen = self

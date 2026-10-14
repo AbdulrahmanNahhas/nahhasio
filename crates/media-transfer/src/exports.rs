@@ -97,6 +97,7 @@ impl Engine {
 
     /// Publish only whole verified files. Never overwrite a destination, including on restart.
     pub fn export_completed(&self) -> Result<()> {
+        let _guard = self.0.exports.try_lock().map_err(|_| Error::Busy)?;
         let plans = self.call(|owner| {
             let mut stmt = owner
                 .db
@@ -271,6 +272,102 @@ impl Owner {
     }
 }
 impl Engine {
+    /// Remove durable queue interest, keeping published videos and playback leases.
+    pub fn forget_download(&self, id: &TorrentId) -> Result<()> {
+        let _guard = self.0.exports.try_lock().map_err(|_| Error::Busy)?;
+        let id = id.0.clone();
+        self.call(move |owner| {
+            let tx = owner.db.transaction()?;
+            let changed = tx.execute("UPDATE jobs SET selected='[]' WHERE id=?1", [&id])?;
+            if changed == 0 {
+                return Err(Error::Invalid("download not found".into()));
+            }
+            tx.execute("DELETE FROM exports WHERE id=?1 AND done=0", [&id])?;
+            tx.commit()?;
+            if !owner.recovery.contains_key(&id) {
+                owner.apply_selection(&id)?;
+            }
+            Ok(())
+        })
+    }
+    /// Forget only registered exported files; physical deletion refuses replaced paths.
+    pub fn remove_saved(&self, id: &TorrentId, file: u32, delete_video: bool) -> Result<()> {
+        let _guard = self.0.exports.try_lock().map_err(|_| Error::Busy)?;
+        let id = id.0.clone();
+        self.call(move |owner| {
+            let saved = owner
+                .saved_files()?
+                .into_iter()
+                .find(|entry| entry.id == id && entry.file == file && entry.published)
+                .ok_or_else(|| Error::Invalid("saved file not found".into()))?;
+            let selected: Option<String> = owner
+                .db
+                .query_row("SELECT selected FROM jobs WHERE id=?1", [&id], |row| {
+                    row.get(0)
+                })
+                .optional()?;
+            let has_job = selected.is_some();
+            let mut selected: Vec<u32> = serde_json::from_str(selected.as_deref().unwrap_or("[]"))?;
+            if delete_video && saved.path.exists() {
+                if !saved.available {
+                    return Err(Error::Invalid(
+                        "saved file changed; physical deletion refused".into(),
+                    ));
+                }
+                reject_symlinks(&saved.path)?;
+                reject_hardlinks(&saved.path)?;
+                std::fs::remove_file(&saved.path)?;
+            }
+            selected.retain(|value| *value != file);
+            let tx = owner.db.transaction()?;
+            tx.execute(
+                "DELETE FROM exports WHERE id=?1 AND file=?2",
+                params![id, file],
+            )?;
+            tx.execute(
+                "UPDATE jobs SET selected=?2 WHERE id=?1",
+                params![id, serde_json::to_string(&selected)?],
+            )?;
+            tx.commit()?;
+            if has_job && !owner.recovery.contains_key(&id) {
+                owner.apply_selection(&id)?;
+            }
+            Ok(())
+        })
+    }
+    pub fn retry_saved(&self, id: &TorrentId, file: u32) -> Result<()> {
+        let _guard = self.0.exports.try_lock().map_err(|_| Error::Busy)?;
+        let owned_id = id.0.clone();
+        self.call(move |owner| {
+            if matches!(
+                owner.recovery.get(&owned_id),
+                Some(TransferState::Blocked | TransferState::Failed)
+            ) {
+                return Err(Error::Invalid("choose another source".into()));
+            }
+            owner.validate_selection(&owned_id, &[file])?;
+            let saved = owner
+                .saved_files()?
+                .into_iter()
+                .find(|entry| entry.id == owned_id && entry.file == file)
+                .ok_or_else(|| Error::Invalid("saved file not found".into()))?;
+            if saved.available {
+                return Ok(());
+            }
+            if saved.path.exists() {
+                return Err(Error::Invalid(
+                    "destination changed; nothing was overwritten".into(),
+                ));
+            }
+            owner.db.execute(
+                "UPDATE exports SET done=0 WHERE id=?1 AND file=?2",
+                params![owned_id, file],
+            )?;
+            Ok(())
+        })?;
+        self.keep_file(id, file)?;
+        self.resume(id)
+    }
     pub fn saved_files(&self) -> Result<Vec<SavedFile>> {
         self.call(|owner| owner.saved_files())
     }

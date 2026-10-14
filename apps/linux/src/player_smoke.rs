@@ -121,6 +121,7 @@ async fn run(
             .play_saved(
                 &id,
                 crate::media::ResolvedTarget {
+                    poster_id: None,
                     work_id: "00000000-0000-4000-8000-000000000001".into(),
                     installment_id: "00000000-0000-4000-8000-000000000002".into(),
                     episode_id: None,

@@ -88,3 +88,23 @@ export function usePlayerSnapshot() {
 }
 
 export type PlayerController = ReturnType<typeof usePlayerSnapshot>;
+
+// Library playback uses the same ordering guard as the native player controls.
+export async function runPlayerAction(client: QueryClient, action: () => Promise<PlayerSnapshot>) {
+  const order = coordinator(client);
+  const revision = ++order.revision;
+  await client.cancelQueries({ queryKey: playerSnapshotKey, exact: true });
+  try {
+    const next = await action();
+    if (order.revision === revision && !(next.sessionId && order.closed.has(next.sessionId))) {
+      const current = client.getQueryData<PlayerSnapshot>(playerSnapshotKey);
+      if (current?.sessionId && current.sessionId !== next.sessionId)
+        order.closed.add(current.sessionId);
+      client.setQueryData(playerSnapshotKey, next);
+    }
+  } finally {
+    order.revision += 1;
+    await client.cancelQueries({ queryKey: playerSnapshotKey, exact: true });
+    await client.invalidateQueries({ queryKey: playerSnapshotKey, exact: true });
+  }
+}

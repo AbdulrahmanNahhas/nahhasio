@@ -10,7 +10,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-export function useConfirm() {
+export function useConfirm(title = "تأكيد تغيير المسودة") {
   const [message, setMessage] = useState<string | null>(null);
   const pending = useRef<((result: boolean) => void) | null>(null);
   useEffect(() => () => pending.current?.(false), []);
@@ -35,7 +35,7 @@ export function useConfirm() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد تغيير المسودة</AlertDialogTitle>
+            <AlertDialogTitle>{title}</AlertDialogTitle>
             <AlertDialogDescription>{message}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -10,6 +10,7 @@ mod player;
 mod player_protocol;
 mod player_smoke;
 mod services;
+mod session_store;
 mod smoke;
 #[cfg(feature = "native-diagnostics")]
 mod torrent_smoke;
@@ -82,7 +83,7 @@ fn main() -> glib::ExitCode {
     // libmpv requires C numeric parsing. Establish this before GTK and workers;
     // never mutate process-global locale from an active player.
     gtk::disable_setlocale();
-    let services = match Services::new(
+    let services = match Services::new_persistent(
         &std::env::var("NAHHASIO_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:23103/".into()),
     ) {
         Ok(value) => value,

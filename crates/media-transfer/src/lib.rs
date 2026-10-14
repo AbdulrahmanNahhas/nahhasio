@@ -4,6 +4,7 @@
 mod bridge;
 mod exports;
 use bridge::ffi;
+pub use exports::SavedFile;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -124,6 +125,7 @@ impl Cancellation {
 #[derive(Clone)]
 pub struct Engine(Arc<Inner>);
 struct Inner {
+    exports: std::sync::Mutex<()>,
     tx: mpsc::SyncSender<Work>,
     join: std::sync::Mutex<Option<thread::JoinHandle<()>>>,
     readers: AtomicUsize,
@@ -207,6 +209,7 @@ impl Engine {
             })?;
         ready_rx.recv().map_err(|_| Error::Busy)??;
         Ok(Self(Arc::new(Inner {
+            exports: std::sync::Mutex::new(()),
             tx,
             join: std::sync::Mutex::new(Some(join)),
             readers: AtomicUsize::new(0),

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Run inside `devenv shell --`. Only the executable and built UI enter the package.
+set -euo pipefail
+task_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$task_root"
+profile="${NAHHASIO_PACKAGE_PROFILE:-release}"
+case "$profile" in
+  release) cargo_flags=(--release); cargo_dir=release ;;
+  dev) cargo_flags=(); cargo_dir=debug ;;
+  *) echo "NAHHASIO_PACKAGE_PROFILE must be release or dev" >&2; exit 1 ;;
+esac
+pnpm --filter @nahhasio/linux-ui build
+cargo build --locked -p nahhasio-linux "${cargo_flags[@]}"
+export NAHHASIO_PACKAGE_BINARY="$task_root/target/$cargo_dir/nahhasio-linux"
+export NAHHASIO_PACKAGE_UI="$task_root/apps/linux/ui/dist"
+export NAHHASIO_PACKAGE_LAUNCHER="$task_root/bin/nahhasio-native-runtime"
+export NAHHASIO_PACKAGE_RUNTIME
+NAHHASIO_PACKAGE_RUNTIME="$(env -u LD_LIBRARY_PATH python3 - "$NAHHASIO_PACKAGE_BINARY" <<'PY'
+import re
+import subprocess
+import sys
+
+binary = sys.argv[1]
+linked = subprocess.check_output(["ldd", binary], text=True)
+if "not found" in linked:
+    raise SystemExit("The native client has unresolved runtime libraries")
+loader = subprocess.check_output(["readelf", "-l", binary], text=True)
+roots = sorted(set(re.findall(r"/nix/store/[a-z0-9]{32}-[^/\s\]]+", linked + loader)))
+if not roots:
+    raise SystemExit("Build the client with the pinned Nix/devenv environment")
+print(":".join(roots))
+PY
+)"
+output="$task_root/dist/client"
+mkdir -p "$output"
+# path: includes the checked-in packaging expression before its first commit.
+nix build --impure --out-link "$output/appimage-result" "path:$task_root/packaging/linux"
+version="$(node -p "JSON.parse(require('fs').readFileSync('apps/linux/ui/package.json','utf8')).version")"
+artifact="$output/Nahhasio-$version-x86_64.AppImage"
+install -m755 "$output/appimage-result" "$artifact"
+(cd "$output" && sha256sum "$(basename "$artifact")" > "$(basename "$artifact").sha256")
+echo "AppImage: $artifact"

@@ -26,7 +26,7 @@
 - [ ] Remember selected server
 - [ ] Edit/remove saved servers
 - [ ] Switch server
-- [ ] Remember session securely
+- [x] Remember session in private, server-bound native storage
 - [ ] Explain connection and certificate errors
 - [ ] Explain client/server version mismatch
 - [ ] Open saved library without the server
@@ -325,18 +325,23 @@
 - [x] Progress/speed/peers
 - [x] Pause/resume/retry
 - [x] Saved-file status
-- [ ] Redesigned queue/library layout
+- [x] Redesigned transfer queue and device-video library grouped by work
 - [ ] Download completed server files
-- [ ] Active/completed/failed filters
-- [ ] Search downloads
+- [x] Active/completed/attention filters with counts
+- [x] Search downloads and saved videos by work/episode/file name
 - [ ] Multi-episode downloads
 - [ ] Destination folder selection
-- [ ] Storage usage and free space
-- [ ] Cancel/remove selected downloads
+- [x] Actual save folder, registered video size and available filesystem space
+- [x] Confirm cancellation/removal of individual queue entries while retaining saved videos
+- [x] Separate removal of a saved-video record from confirmed physical file deletion
+- [ ] Batch cancellation/removal
 - [ ] Keep metadata/artwork/subtitles with video
 - [ ] Play completed downloads offline
-- [ ] Show in folder
-- [ ] Repair missing/moved files
+- [x] Open available saved videos directly from Downloads without a catalog request
+- [x] Show available saved videos in their folder
+- [x] Missing/size/link problem states and retry/reselect-source recovery actions
+- [ ] Relink moved files
+- [x] Guarded temporary torrent-cache cleanup from the storage section
 - [ ] Separate device removal from server deletion
 
 ## Downloads Page — Home Server
@@ -540,8 +545,9 @@
 
 ## Admin Planets Page
 
-- [ ] List/create/edit planets
-- [ ] Names/descriptions/artwork
+- [x] Definition list and create/edit Drawer with change review
+- [x] Arabic/English names, slug and description
+- [x] Emoji icon and primary/secondary colors (existing planet model)
 - [x] Source/destination movement view with poster cards and planet counts
 - [x] Assign works with no planet and move existing memberships between planets
 - [x] Source search, server pagination and cross-page selection (50 works per batch)
@@ -550,8 +556,9 @@
 - [x] Transactional moves, stale-record protection and audit/revision snapshots
 - [ ] Native UI and isolated mutation acceptance
 - [ ] Membership ordering
-- [ ] Planet presentation settings
-- [ ] Protected deletion
+- [x] Planet display order and active/inactive presentation settings
+- [x] Protected empty-planet deletion with typed slug confirmation
+- [x] Definition revision/audit snapshots and unsaved-draft protection
 
 ## Admin Relationships Page
 
