@@ -542,7 +542,13 @@
 
 - [ ] List/create/edit planets
 - [ ] Names/descriptions/artwork
-- [ ] Work membership
+- [x] Source/destination movement view with poster cards and planet counts
+- [x] Assign works with no planet and move existing memberships between planets
+- [x] Source search, server pagination and cross-page selection (50 works per batch)
+- [x] Review current/result memberships before confirming a batch
+- [x] Remove source membership while preserving other planets, works and artwork
+- [x] Transactional moves, stale-record protection and audit/revision snapshots
+- [ ] Native UI and isolated mutation acceptance
 - [ ] Membership ordering
 - [ ] Planet presentation settings
 - [ ] Protected deletion

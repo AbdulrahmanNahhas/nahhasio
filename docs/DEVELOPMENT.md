@@ -191,3 +191,20 @@ Work/entity/JSON saves and entity deletion share catalog cache invalidation, inc
 details and artwork ownership. Retired standalone linked-work/delete operations were removed;
 the Drawer reads credits with entity details, and single deletion uses the batch deletion service.
 JSON import catches file-read failures, and unsaved alias rows retain stable session identities.
+
+## Planet membership movement checkpoint
+
+`/admin/planets` provides a source/selection/destination workflow, including works with no planet,
+poster cards, source search and pagination. Selection spans pages, up to 50 works per batch.
+The review shows each work's current and resulting memberships. Moving removes only the source
+membership and adds the destination; removing from the source preserves all other memberships.
+Existing destination ranks are preserved, new memberships have no featured rank, and no work,
+artwork or other catalog data is deleted. Source changes reset selection with confirmation.
+
+The existing schema supports multiple planets per work. `planets.display_order` orders planet
+choices, while `title_planets.featured_rank` is optional per-membership ranking. This checkpoint
+does not add ordering controls or planet-definition create/edit/delete. Mutations recheck admin
+sessions and expected work/membership revisions, lock work roots in UUID order, verify the active
+destination and save the whole batch in a serializable transaction with audit/revision snapshots.
+No schema migration or live mutation test is required for implementation; isolated mutation and
+native acceptance remain pending.

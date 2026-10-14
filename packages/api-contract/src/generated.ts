@@ -1608,6 +1608,46 @@ export const CatalogPreviewResultSchema = z.strictObject({
 });
 export type CatalogPreviewResult = z.infer<typeof CatalogPreviewResultSchema>;
 
+export const CatalogPlanetOptionsInputSchema = z.strictObject({});
+export type CatalogPlanetOptionsInput = z.infer<typeof CatalogPlanetOptionsInputSchema>;
+
+export const CatalogPlanetOptionsCallSchema = z.strictObject({
+  operation: z.enum(["planetOptions"]),
+  data: CatalogPlanetOptionsInputSchema,
+});
+export type CatalogPlanetOptionsCall = z.infer<typeof CatalogPlanetOptionsCallSchema>;
+
+export const CatalogPlanetWorksInputSchema = z.strictObject({
+  source: z.union([z.string().uuid(), z.null()]),
+  q: z.string().max(300).optional(),
+  page: z.number().int().min(1).max(100000).optional(),
+});
+export type CatalogPlanetWorksInput = z.infer<typeof CatalogPlanetWorksInputSchema>;
+
+export const CatalogPlanetWorksCallSchema = z.strictObject({
+  operation: z.enum(["planetWorks"]),
+  data: CatalogPlanetWorksInputSchema,
+});
+export type CatalogPlanetWorksCall = z.infer<typeof CatalogPlanetWorksCallSchema>;
+
+export const CatalogPlanetMoveInputSchema = z.strictObject({
+  source: z.union([z.string().uuid(), z.null()]),
+  destination: z.union([z.string().uuid(), z.null()]),
+  records: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      revision: z.string().min(64).max(64),
+    }),
+  ),
+});
+export type CatalogPlanetMoveInput = z.infer<typeof CatalogPlanetMoveInputSchema>;
+
+export const CatalogPlanetMoveCallSchema = z.strictObject({
+  operation: z.enum(["planetMove"]),
+  data: CatalogPlanetMoveInputSchema,
+});
+export type CatalogPlanetMoveCall = z.infer<typeof CatalogPlanetMoveCallSchema>;
+
 export const CatalogEntityOptionsInputSchema = z.strictObject({
   kind: z.enum(["person", "organization"]),
 });
@@ -1880,6 +1920,9 @@ export const CatalogAssetUnlinkCallSchema = z.strictObject({
 export type CatalogAssetUnlinkCall = z.infer<typeof CatalogAssetUnlinkCallSchema>;
 
 export const CatalogEditorCallSchema = z.union([
+  CatalogPlanetOptionsCallSchema,
+  CatalogPlanetWorksCallSchema,
+  CatalogPlanetMoveCallSchema,
   CatalogEntityOptionsCallSchema,
   CatalogEntityRoleCreateCallSchema,
   CatalogEntityDeletePreviewCallSchema,
@@ -2248,6 +2291,51 @@ export const CatalogEntityJsonSaveResultSchema = z.strictObject({
   saved: z.number(),
 });
 export type CatalogEntityJsonSaveResult = z.infer<typeof CatalogEntityJsonSaveResultSchema>;
+
+export const CatalogPlanetOptionsResultSchema = z.strictObject({
+  planets: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      name: z.string(),
+      englishName: z.union([z.string(), z.null()]),
+      icon: z.string(),
+      description: z.string(),
+      active: z.boolean(),
+      count: z.number(),
+      displayOrder: z.number().int().min(-9007199254740991).max(9007199254740991),
+    }),
+  ),
+  unassigned: z.number(),
+});
+export type CatalogPlanetOptionsResult = z.infer<typeof CatalogPlanetOptionsResultSchema>;
+
+export const CatalogPlanetWorksResultSchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      title: z.string(),
+      englishTitle: z.string(),
+      year: z.union([z.number(), z.null()]),
+      posterId: z.union([z.string().uuid(), z.null()]),
+      memberships: z.array(
+        z.strictObject({
+          id: z.string().uuid(),
+          name: z.string(),
+          icon: z.string(),
+          rank: z.union([z.number().int().min(-9007199254740991).max(9007199254740991), z.null()]),
+        }),
+      ),
+      revision: z.string().min(64).max(64),
+    }),
+  ),
+  total: z.number(),
+});
+export type CatalogPlanetWorksResult = z.infer<typeof CatalogPlanetWorksResultSchema>;
+
+export const CatalogPlanetMoveResultSchema = z.strictObject({
+  moved: z.number(),
+});
+export type CatalogPlanetMoveResult = z.infer<typeof CatalogPlanetMoveResultSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;

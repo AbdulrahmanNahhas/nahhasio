@@ -89,6 +89,7 @@ const implementedAdminSections: ReadonlySet<string> = new Set([
   "json",
   "people",
   "studios",
+  "planets",
 ]);
 export function isAdminSectionAvailable(slug: string) {
   return implementedAdminSections.has(slug);

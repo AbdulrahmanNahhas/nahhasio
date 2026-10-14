@@ -7804,6 +7804,15 @@
       "CatalogEditorCall": {
         "oneOf": [
           {
+            "$ref": "#/components/schemas/CatalogPlanetOptionsCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogPlanetWorksCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogPlanetMoveCall"
+          },
+          {
             "$ref": "#/components/schemas/CatalogEntityOptionsCall"
           },
           {
@@ -9959,6 +9968,300 @@
           }
         },
         "required": ["saved"]
+      },
+      "CatalogPlanetOptionsInput": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "CatalogPlanetOptionsCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetOptions"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetOptionsInput"
+          }
+        }
+      },
+      "CatalogPlanetWorksInput": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "q": {
+            "default": "",
+            "type": "string",
+            "maxLength": 300
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": ["source"],
+        "additionalProperties": false
+      },
+      "CatalogPlanetWorksCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetWorks"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetWorksInput"
+          }
+        }
+      },
+      "CatalogPlanetMoveInput": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "records": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 64,
+                  "maxLength": 64
+                }
+              },
+              "required": ["id", "revision"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["source", "destination", "records"],
+        "additionalProperties": false
+      },
+      "CatalogPlanetMoveCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["planetMove"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogPlanetMoveInput"
+          }
+        }
+      },
+      "CatalogPlanetOptionsResult": {
+        "type": "object",
+        "properties": {
+          "planets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "englishName": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "icon": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "count": {
+                  "type": "number"
+                },
+                "displayOrder": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "englishName",
+                "icon",
+                "description",
+                "active",
+                "count",
+                "displayOrder"
+              ]
+            }
+          },
+          "unassigned": {
+            "type": "number"
+          }
+        },
+        "required": ["planets", "unassigned"]
+      },
+      "CatalogPlanetWorksResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "englishTitle": {
+                  "type": "string"
+                },
+                "year": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "posterId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "memberships": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "icon": {
+                        "type": "string"
+                      },
+                      "rank": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["id", "name", "icon", "rank"]
+                  }
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 64,
+                  "maxLength": 64
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "englishTitle",
+                "year",
+                "posterId",
+                "memberships",
+                "revision"
+              ]
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": ["items", "total"]
+      },
+      "CatalogPlanetMoveResult": {
+        "type": "object",
+        "properties": {
+          "moved": {
+            "type": "number"
+          }
+        },
+        "required": ["moved"]
       }
     }
   }

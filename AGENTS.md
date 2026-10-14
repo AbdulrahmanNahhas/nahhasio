@@ -32,8 +32,11 @@ command in command-approval requests so Aqua can see what will run.
 Current implementation: image-library checkpoint committed as `d787dd9`; JSON/selection polish
 committed as `83f94b0`. Current approved checkpoint: People Drawer/credits/selection/JSON/deletion,
 then the shared Studios editor, with most-works sort and contribution/reference UX improvements.
-Aqua authorized code-quality cleanup and committing this checkpoint. Stop after the commit and
-suggest next steps; Planets/Awards remain unimplemented. Preserve Aqua's current design.
+Aqua authorized code-quality cleanup and committed People/Studios as `7363237`.
+Current approved checkpoint is planet membership movement/assignment with friendly selection
+and before/after review. Planet definition CRUD/order controls and Awards remain unimplemented.
+Aqua accepted this checkpoint and authorized its commit. Stop after committing and suggest next
+steps; do not begin another page until asked. Preserve Aqua's current design.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
 server and device video downloads remain separate. Torrent streaming is the main online source;
 linked files support completed downloads and deliberately non-torrent works. Torrent streaming

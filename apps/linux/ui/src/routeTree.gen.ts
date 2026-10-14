@@ -28,6 +28,7 @@ import { Route as AdminSectionRouteImport } from "./routes/admin.$section";
 import { Route as AdminImagesRouteImport } from "./routes/admin.images";
 import { Route as AdminJsonRouteImport } from "./routes/admin.json";
 import { Route as AdminPeopleRouteImport } from "./routes/admin.people";
+import { Route as AdminPlanetsRouteImport } from "./routes/admin.planets";
 import { Route as AdminStudiosRouteImport } from "./routes/admin.studios";
 import { Route as AdminWorksRouteImport } from "./routes/admin.works";
 import { Route as PeopleIdRouteImport } from "./routes/people_.$id";
@@ -137,6 +138,11 @@ const AdminPeopleRoute = AdminPeopleRouteImport.update({
   path: "/people",
   getParentRoute: () => AdminRoute,
 } as any);
+const AdminPlanetsRoute = AdminPlanetsRouteImport.update({
+  id: "/planets",
+  path: "/planets",
+  getParentRoute: () => AdminRoute,
+} as any);
 const AdminStudiosRoute = AdminStudiosRouteImport.update({
   id: "/studios",
   path: "/studios",
@@ -222,6 +228,7 @@ export interface FileRoutesByFullPath {
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
   "/admin/people": typeof AdminPeopleRoute;
+  "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
   "/admin/people": typeof AdminPeopleRoute;
+  "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
   "/admin/people": typeof AdminPeopleRoute;
+  "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people_/$id": typeof PeopleIdRoute;
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | "/admin/images"
     | "/admin/json"
     | "/admin/people"
+    | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
     | "/people/$id"
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | "/admin/images"
     | "/admin/json"
     | "/admin/people"
+    | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
     | "/people/$id"
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | "/admin/images"
     | "/admin/json"
     | "/admin/people"
+    | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
     | "/people_/$id"
@@ -565,6 +577,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AdminPeopleRouteImport;
       parentRoute: typeof AdminRoute;
     };
+    "/admin/planets": {
+      id: "/admin/planets";
+      path: "/planets";
+      fullPath: "/admin/planets";
+      preLoaderRoute: typeof AdminPlanetsRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
     "/admin/studios": {
       id: "/admin/studios";
       path: "/studios";
@@ -664,6 +683,7 @@ interface AdminRouteChildren {
   AdminImagesRoute: typeof AdminImagesRoute;
   AdminJsonRoute: typeof AdminJsonRoute;
   AdminPeopleRoute: typeof AdminPeopleRoute;
+  AdminPlanetsRoute: typeof AdminPlanetsRoute;
   AdminStudiosRoute: typeof AdminStudiosRoute;
   AdminWorksRoute: typeof AdminWorksRoute;
   AdminIndexRoute: typeof AdminIndexRoute;
@@ -681,6 +701,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminImagesRoute: AdminImagesRoute,
   AdminJsonRoute: AdminJsonRoute,
   AdminPeopleRoute: AdminPeopleRoute,
+  AdminPlanetsRoute: AdminPlanetsRoute,
   AdminStudiosRoute: AdminStudiosRoute,
   AdminWorksRoute: AdminWorksRoute,
   AdminIndexRoute: AdminIndexRoute,

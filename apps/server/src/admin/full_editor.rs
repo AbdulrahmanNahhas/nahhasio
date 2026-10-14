@@ -57,6 +57,9 @@ async fn call(
     Json(input): Json<Call>,
 ) -> Result<Response, super::Error> {
     if ![
+        "planetOptions",
+        "planetWorks",
+        "planetMove",
         "entityOptions",
         "entityRoleCreate",
         "entityDeletePreview",

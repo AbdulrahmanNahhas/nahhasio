@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { entityInputs, entityResults } from "./admin-entities";
+import { planetInputs, planetResults } from "./admin-planets";
+export { planetWork as adminPlanetWorkSchema } from "./admin-planets";
 export {
   entityDraft as adminEntityDraftSchema,
   entityCredit as adminEntityCreditSchema,
@@ -88,6 +90,7 @@ export const imageRenameProposal = imageRenameSelection.extend({
 });
 
 export const rpcInputs = {
+  ...planetInputs,
   ...entityInputs,
   assetRenamePreview: z.strictObject({ ids: z.array(z.string().uuid()).min(1).max(50) }),
   assetRename: z.strictObject({ items: z.array(imageRenameSelection).min(1).max(50) }),
@@ -174,6 +177,7 @@ export const tableSchema = z.object({
   ),
 });
 export const rpcResults = {
+  ...planetResults,
   entityJsonReview: reviewSchema,
   ...entityResults,
   assetRenamePreview: z.array(imageRenameProposal),
