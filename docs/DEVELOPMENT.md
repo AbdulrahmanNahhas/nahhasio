@@ -67,8 +67,8 @@ no bearer/private admin token, arbitrary native command, browser server fetch or
 Hash routes retain native packaging semantics. Never hand-edit `routeTree.gen.ts` or generated
 API code; regenerate through the owning scripts. Server enforces permissions on every operation.
 
-Native session credentials are currently in memory; secure persistence/server-selection UX is
-pending. Native server configuration accepts HTTPS or loopback HTTP; LAN trust/connection UX
+Native session credentials now persist in private, server-bound native storage; server-selection
+UX is pending. Native server configuration accepts HTTPS or loopback HTTP; LAN trust/connection UX
 must be designed deliberately rather than disabling origin/TLS/session checks.
 
 ## Current media behavior and limits
@@ -287,6 +287,12 @@ Run `chmod +x Nahhasio-0.1.0-x86_64.AppImage` then launch it. The current server
 `http://127.0.0.1:23103/`; `NAHHASIO_SERVER_URL=https://your-server/` overrides it. The server
 chooser/LAN connection checkpoint is still pending; non-loopback HTTP remains disallowed.
 The package embeds the production UI and needs neither the checkout nor Vite to load it.
+
+Shadow's NixOS AppImage handler extracts into `$XDG_CACHE_HOME/appimage-run`, normally
+`~/.cache/appimage-run`. This regenerable runtime cache also needs disk space: the ephemeral
+home was too full for the first extraction. Use a persistent cache directory when launching,
+for example `XDG_CACHE_HOME=/your/persistent/cache ./Nahhasio-0.1.0-x86_64.AppImage`.
+Do not put the extracted runtime into the client state/video directories.
 
 `.github/workflows/linux-release.yml` builds an optimized AppImage and checksum on manual
 dispatch or `v*` tags. Manual runs supply a downloadable Actions artifact; tags create a **draft**

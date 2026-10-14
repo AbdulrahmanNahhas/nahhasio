@@ -395,6 +395,10 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 
 ### 19. AppImage and GitHub release pipeline
 
+An initial x86_64 AppImage is built locally; `bin/nahhasio-appimage` and the draft-release
+workflow implement packaging. The local preview uses the dev profile; CI uses release.
+The checkboxes below retain supported-platform/runtime, CI and publication acceptance gates.
+
 - [ ] **NH-19-01** Build an early AppImage prototype and establish the supported Linux baseline.
 - [ ] **NH-19-02** Package GTK/libadwaita/WebKitGTK/mpv and required runtime assets correctly.
 - [ ] **NH-19-03** Inspect native dynamic libraries, glibc compatibility, graphics/audio and codec dependencies.
