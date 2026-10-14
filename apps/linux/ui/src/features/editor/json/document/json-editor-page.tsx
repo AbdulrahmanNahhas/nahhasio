@@ -8,11 +8,11 @@ import {
   XIcon,
   CopyIcon,
   DownloadIcon,
-  Minimize2Icon,
+  ChevronDownIcon,
   Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/toast";
 import { SelectField } from "@/features/editor/fields/work-fields";
 import { ChangeReview } from "@/features/editor/json/document/change-review";
 import {
@@ -140,7 +142,11 @@ function JsonLoader({ ids }: { ids: string[] }) {
     return (
       <Alert variant="destructive" className="border-border">
         <AlertTitle>تعذّر تحميل الأعمال</AlertTitle>
-        <AlertDescription>{query.error.message}</AlertDescription>
+        <AlertDescription>
+          {query.error instanceof z.ZodError
+            ? "تعذّر قراءة بيانات الأعمال من الخادم. أعد تحميلها بعد تحديث الخادم."
+            : query.error.message}
+        </AlertDescription>
         <Button variant="outline" onClick={() => void query.refetch()}>
           إعادة المحاولة
         </Button>
@@ -157,17 +163,24 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
   const confirmation = useConfirm();
   const [fields, setFields] = useState<WorkField[]>(fieldKeys);
   const [scope, setScope] = useState<StructureScope>(fullStructureScope);
-  const [buffers, setBuffers] = useState(
+  const [buffers, setBuffers] = useState(() =>
     snapshots.map(({ document }) => documentRow.parse(document)),
   );
-  const originalRows = snapshots.map(({ document }) => documentRow.parse(document));
-  const initial = JSON.stringify(projectRows(originalRows, fields, scope), null, 2);
+  const originalRows = useMemo(
+    () => snapshots.map(({ document }) => documentRow.parse(document)),
+    [snapshots],
+  );
+  const initial = useMemo(
+    () => JSON.stringify(projectRows(originalRows, fields, scope), null, 2),
+    [originalRows, fields, scope],
+  );
   const [draft, setDraft] = useState(initial);
   const [fieldSearch, setFieldSearch] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [preset, setPreset] = useState("all");
-  const input = readEditorDocument(draft);
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const input = useMemo(() => readEditorDocument(draft), [draft]);
   const parsed = "projection" in input ? input.projection : null;
   const visibleFields = parsed?.success ? parsed.data.fields : fields;
   const mergedRows = parsed?.success
@@ -277,6 +290,16 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
     <div className="flex min-w-0 flex-col gap-5 overflow-x-clip">
       {flow.leaveDialog}
       {confirmation.dialog}
+      <div className="flex flex-wrap gap-2" aria-label="الأعمال قيد التحرير">
+        {snapshots.slice(0, 3).map(({ document }) => (
+          <Badge key={document.id} variant="outline">
+            <span className="max-w-56 truncate" dir="auto">
+              {document.titleAr || document.canonicalTitle}
+            </span>
+          </Badge>
+        ))}
+        {snapshots.length > 3 && <Badge variant="secondary">+{snapshots.length - 3}</Badge>}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <Badge variant={flow.review ? "outline" : "secondary"}>1 · المحرر</Badge>
         <span className="text-muted-foreground">←</span>
@@ -291,6 +314,9 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
       {notice && (
         <Alert className="border-border">
           <AlertTitle>{notice}</AlertTitle>
+          <Button variant="ghost" size="sm" onClick={() => setNotice(null)}>
+            إخفاء
+          </Button>
         </Alert>
       )}
       {flow.review ? (
@@ -332,21 +358,10 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={!("raw" in input) || flow.busy}
-                  onClick={() => {
-                    if ("raw" in input) update(JSON.stringify(input.raw));
-                  }}
-                >
-                  <Minimize2Icon data-icon="inline-start" />
-                  سطر واحد
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
                   onClick={() =>
                     void navigator.clipboard
                       .writeText(draft)
-                      .then(() => setNotice("نُسخ JSON"))
+                      .then(() => toast.add({ type: "success", title: "نُسخ JSON إلى الحافظة" }))
                       .catch(() => setNotice("تعذّر النسخ؛ يمكنك تحديد النص ونسخه من المحرر."))
                   }
                 >
@@ -380,6 +395,7 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
+                    event.target.value = "";
                     if (file.size > 4000000) {
                       setNotice("حجم الملف يتجاوز الحد المتاح (4 MB).");
                       return;
@@ -526,20 +542,35 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
               )}
               {parsed && !parsed.success && (
                 <Alert variant="destructive" className="border-border">
-                  <AlertTitle>راجع الحقول التالية</AlertTitle>
+                  <AlertTitle>راجع الحقول التالية ({parsed.error.issues.length})</AlertTitle>
                   <AlertDescription>
                     <ul>
-                      {parsed.error.issues.map((issue) => (
+                      {parsed.error.issues.slice(0, 8).map((issue) => (
                         <li key={jsonIssueKey(issue.path, issue.code, issue.message)}>
                           <code dir="ltr">{issue.path.join(".") || "JSON"}</code>: {issue.message}
                         </li>
                       ))}
                     </ul>
+                    {parsed.error.issues.length > 8 && (
+                      <p>تظهر أول ٨ مشكلات؛ صحّحها لإظهار بقية المشكلات.</p>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
 
-              <JsonEnumReference fields={visibleFields} scope={scope} />
+              <Collapsible
+                open={referenceOpen}
+                onOpenChange={setReferenceOpen}
+                className="flex flex-col gap-3"
+              >
+                <CollapsibleTrigger render={<Button variant="outline" />}>
+                  <ChevronDownIcon data-icon="inline-start" />
+                  {referenceOpen ? "إخفاء مرجع القيم" : "مرجع القيم والخيارات"}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  {referenceOpen && <JsonEnumReference fields={visibleFields} scope={scope} />}
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             <Card size="sm" className="min-w-0 xl:sticky xl:top-4 xl:order-last">
@@ -830,7 +861,7 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
               </CardContent>
             </Card>
           </div>
-          <div className="relative flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+          <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 shadow-sm">
             <span className="text-sm text-muted-foreground">
               {dirty ? "مسودة غير محفوظة" : "لا توجد تغييرات"}
             </span>

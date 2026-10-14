@@ -38,7 +38,9 @@ export function useDocumentReview(
   const blocker = useBlocker({
     withResolver: true,
     shouldBlockFn: ({ current, next }) =>
-      current.pathname !== next.pathname && dirty && !committed.current,
+      (current.pathname !== next.pathname || current.search.ids !== next.search.ids) &&
+      dirty &&
+      !committed.current,
     enableBeforeUnload: dirty && !saved,
   });
   const prepare = useMutation({

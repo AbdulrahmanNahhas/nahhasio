@@ -12,8 +12,13 @@ export const databaseKeys = {
 export const databaseSchemaOptions = () =>
   queryOptions({
     queryKey: databaseKeys.schema,
-    queryFn: async ({ signal }) =>
-      rpcResults.schema.parse(await gateway.editorCall({ operation: "schema", data: {} }, signal)),
+    queryFn: async ({ signal }) => {
+      const response = await gateway.editorCall({ operation: "schema", data: {} }, signal);
+      const parsed = rpcResults.schema.safeParse(response);
+      if (!parsed.success)
+        throw new Error("تعذّر قراءة تعريف الحقول من الخادم. أعد المحاولة بعد تحديث الخادم.");
+      return parsed.data;
+    },
     staleTime: 60000,
   });
 export const databaseRecordsOptions = (

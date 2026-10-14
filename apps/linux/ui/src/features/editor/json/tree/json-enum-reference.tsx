@@ -90,8 +90,7 @@ export function JsonEnumReference({
       <CardHeader>
         <CardTitle>مرجع القيم</CardTitle>
         <CardDescription>
-          قيم قاعدة البيانات للحقول المختارة فقط. اضغط قيمة لنسخها، أو انسخ المرجع كاملاً لإعطائه إلى
-          AI.
+          القيم المتاحة للحقول المختارة فقط. اضغط قيمة لنسخها، أو انسخ المرجع كاملاً.
         </CardDescription>
         <CardAction>
           <Button
@@ -101,7 +100,7 @@ export function JsonEnumReference({
             onClick={() => copy(JSON.stringify(reference, null, 2), "مرجع الحقول المختارة")}
           >
             <CopyIcon data-icon="inline-start" />
-            نسخ المرجع لـ AI
+            نسخ المرجع
           </Button>
         </CardAction>
       </CardHeader>

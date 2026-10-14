@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import {
   ArrowLeft,
   Building2,
@@ -19,9 +20,15 @@ import { useCardNavigation } from "@/components/card-navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useIsAdmin } from "../account/use-is-admin";
-import { adminGroups } from "../admin/navigation";
+import { adminGroups, isAdminSectionAvailable } from "../admin/navigation";
 
-type PageLink = { href: string; title: string; description?: string; icon: LucideIcon };
+type PageLink = {
+  href: string;
+  title: string;
+  description?: string;
+  disabled?: boolean;
+  icon: LucideIcon;
+};
 const groups: { title: string; pages: PageLink[] }[] = [
   {
     title: "المكتبة والمشاهدة",
@@ -109,10 +116,16 @@ function PageCards({ title, pages }: { title: string; pages: PageLink[] }) {
       <div className="grid grid-cols-3 gap-4 max-[1050px]:grid-cols-2 max-[520px]:grid-cols-1">
         {pages.map((page) => (
           <a
-            {...navigation}
+            {...(page.disabled ? {} : navigation)}
             key={page.href}
-            href={page.href}
-            className="group/page min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            href={page.disabled ? undefined : page.href}
+            role={page.disabled ? "link" : undefined}
+            aria-disabled={page.disabled || undefined}
+            tabIndex={page.disabled ? -1 : undefined}
+            className={cn(
+              "group/page min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              page.disabled && "cursor-not-allowed opacity-45",
+            )}
           >
             <Card className="h-full gap-4">
               <CardContent className="flex items-center justify-between gap-3">
@@ -126,7 +139,11 @@ function PageCards({ title, pages }: { title: string; pages: PageLink[] }) {
               </CardContent>
               <CardHeader>
                 <CardTitle>{page.title}</CardTitle>
-                {page.description && <CardDescription>{page.description}</CardDescription>}
+                {(page.description || page.disabled) && (
+                  <CardDescription>
+                    {page.disabled ? "غير متاح بعد" : page.description}
+                  </CardDescription>
+                )}
               </CardHeader>
             </Card>
           </a>
@@ -168,6 +185,7 @@ export function MorePage() {
                 href: `#/admin/${item.slug}`,
                 title: item.title,
                 icon: item.icon,
+                disabled: !isAdminSectionAvailable(item.slug),
               }))}
             />
           ))}

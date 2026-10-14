@@ -59,7 +59,7 @@ export async function loadSchema(sql: Sql | TransactionSql): Promise<SchemaInfo>
     >`
       select c.table_name, c.column_name, c.udt_name, c.is_nullable,
              (c.column_default is not null) as has_default,
-             (c.is_generated = 'ALWAYS' or c.identity_generation = 'ALWAYS') as is_generated
+             coalesce(c.is_generated = 'ALWAYS' or c.identity_generation = 'ALWAYS', false) as is_generated
       from information_schema.columns c
       join information_schema.tables t
         on t.table_schema = c.table_schema and t.table_name = c.table_name

@@ -149,3 +149,10 @@ Native smoothness remains a physical GTK/WebKit review item, not a build claim.
 The Tailwind base layer assigns uncolored borders to `--border`; official primitives such as
 TableRow and Toast rely on that default. Explicit semantic border/focus utilities still win.
 Do not fix recurring bright outlines by editing individual registry components.
+
+The JSON reference schema uses coalesced PostgreSQL generation metadata: ordinary columns have
+null identity_generation, so boolean OR must not leak null into the typed generated flag.
+Schema-response parsing stays strict but reports readable errors. The reference panel mounts
+only when expanded. JSON drafts retain same-route protection when selected IDs change. Works
+selection remains page-scoped and appears in floating bottom actions; editing receives only the
+explicit selected UUIDs. This is a UI/introspection correction, with no database migration/write.

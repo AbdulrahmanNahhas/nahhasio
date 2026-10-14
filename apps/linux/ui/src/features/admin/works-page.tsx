@@ -112,7 +112,10 @@ export function AdminWorksPage({
     search.gap !== "all",
   );
   return (
-    <article className="flex min-w-0 flex-col gap-6 p-4 sm:p-6" aria-label="إدارة الأعمال">
+    <article
+      className="flex min-w-0 flex-col gap-6 p-4 sm:p-6 has-data-[slot=work-selection-actions]:pb-28"
+      aria-label="إدارة الأعمال"
+    >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-semibold">الأعمال</h2>
@@ -151,7 +154,11 @@ export function AdminWorksPage({
                 }
               }}
             >
-              <SelectTrigger id={`admin-works-${filter.key}`} className="w-full">
+              <SelectTrigger
+                id={`admin-works-${filter.key}`}
+                aria-label={filter.label}
+                className="w-full"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

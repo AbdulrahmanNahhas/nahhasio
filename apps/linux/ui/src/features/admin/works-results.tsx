@@ -1,11 +1,21 @@
 import type { AdminWork } from "@nahhasio/api-contract";
 import { cn } from "cn";
-import { ArrowUpLeft, LayoutGrid, List, LockKeyhole } from "lucide-react";
+import {
+  ArrowUpLeft,
+  Braces,
+  CheckCheck,
+  Pencil,
+  X,
+  LayoutGrid,
+  List,
+  LockKeyhole,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -70,27 +80,6 @@ export function WorksResults({
           <span className="text-xs text-muted-foreground" role="status">
             {selected.size ? `${selected.size} محدّد` : `${works.length} عمل في هذه الصفحة`}
           </span>
-          {selected.size > 0 && (
-            <>
-              <a
-                href={`#/admin/works/bulk?ids=${encodeURIComponent([...selected].join(","))}`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                تحرير جماعي
-              </a>
-              <a
-                href={`#/admin/json?ids=${encodeURIComponent([...selected].join(","))}`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                JSON
-              </a>
-            </>
-          )}
-          {selected.size > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-              إلغاء التحديد
-            </Button>
-          )}
         </div>
         <TooltipProvider delay={350}>
           <ToggleGroup
@@ -271,6 +260,56 @@ export function WorksResults({
               </article>
             );
           })}
+        </div>
+      )}
+      {selected.size > 0 && (
+        <div
+          className="fixed inset-x-4 bottom-4 z-30 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-3 rounded-2xl border border-border bg-popover p-3 shadow-lg"
+          data-slot="work-selection-actions"
+          role="region"
+          aria-label="إجراءات الأعمال المحددة"
+        >
+          <Badge variant="secondary" role="status" aria-live="polite">
+            {new Intl.NumberFormat("ar").format(selected.size)} محدّد
+          </Badge>
+          <ButtonGroup aria-label="فتح التحرير">
+            <Button
+              size="sm"
+              disabled={busy}
+              render={
+                <a href={`#/admin/json?ids=${encodeURIComponent([...selected].join(","))}`} />
+              }
+            >
+              <Braces data-icon="inline-start" />
+              JSON
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              render={
+                <a href={`#/admin/works/bulk?ids=${encodeURIComponent([...selected].join(","))}`} />
+              }
+            >
+              <Pencil data-icon="inline-start" />
+              تحرير جماعي
+            </Button>
+          </ButtonGroup>
+          {!allSelected && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => selectAll(true)}>
+              <CheckCheck data-icon="inline-start" />
+              تحديد الصفحة
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={busy}
+            aria-label="إلغاء تحديد الأعمال"
+            onClick={() => setSelected(new Set())}
+          >
+            <X data-icon="inline-start" />
+          </Button>
         </div>
       )}
     </section>

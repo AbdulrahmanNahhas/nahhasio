@@ -447,16 +447,27 @@
 - [ ] Clear skipped/failed-record feedback
 - [ ] Complete atomic-save acceptance
 
+## Admin Works Selection
+
+- [x] Floating bottom selection actions
+- [x] Selected count and current-page select/clear
+- [x] Open JSON or bulk editing from selection
+- [x] Reserve space around pagination while selection actions are visible
+
 ## Admin JSON Editor Page
 
 - [x] CodeMirror editor
 - [x] Syntax validation
 - [x] Completion/folding/search
 - [x] Structured tree/cards
-- [x] Format/minify
+- [x] Format JSON
 - [x] Import/export/copy
 - [x] Field/structure scopes
-- [x] Vocabulary/reference guidance
+- [x] Optional expandable vocabulary/reference guidance
+- [x] Selected-work identity chips
+- [x] Sticky change-review action
+- [x] Readable schema-load errors
+- [x] Guard unsaved changes when selected work IDs change
 - [x] Change review
 - [ ] Clear field-level contract errors
 - [ ] Import mapping preview
@@ -577,6 +588,14 @@
 - [ ] Verification/review status
 - [ ] Search/filter evidence
 - [ ] Inspect related revisions
+
+## Admin Navigation
+
+- [x] Enable working Works, Image Library and JSON destinations
+- [x] Disable unfinished destinations in the sidebar and More page
+- [x] Keep create/edit/bulk work flows inside Works
+- [x] Admin landing links to available tools
+- [ ] Complete remaining admin pages before enabling their links
 
 ## Admin Image Library Page
 
