@@ -32,7 +32,85 @@ export const reviewSchema = z.object({
   ),
 });
 export const originalSchema = z.object({ id: z.string().uuid(), revision: z.string().length(64) });
+
+export const imageRoleSchema = z.enum(["poster", "banner", "logo", "profile"]);
+export const imageOwnerKindSchema = z.enum(["title", "installment", "episode", "entity"]);
+export const imageSchema = z.object({
+  id: z.string().uuid(),
+  path: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  byteSize: z.number(),
+  width: z.number(),
+  height: z.number(),
+  sha256: z.string(),
+  createdAt: z.string(),
+  health: z.enum(["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]),
+  assignmentCount: z.number(),
+  roles: z.array(imageRoleSchema),
+});
+export const imageAssignmentSchema = z.object({
+  id: z.string().uuid(),
+  ownerId: z.string().uuid(),
+  ownerKind: imageOwnerKindSchema,
+  ownerLabel: z.string(),
+  ownerContext: z.string(),
+  workId: z.string().uuid().nullable(),
+  entityKind: z.enum(["person", "organization"]).nullable(),
+  role: imageRoleSchema,
+  isPrimary: z.boolean(),
+});
+export const imageOwnerSchema = z.object({
+  id: z.string().uuid(),
+  label: z.string(),
+  context: z.string(),
+  primaryAssetId: z.string().uuid().nullable(),
+  primaryAssignmentId: z.string().uuid().nullable(),
+});
+
+const imageRenameSelection = z.strictObject({
+  id: z.string().uuid(),
+  oldPath: z.string().max(2000),
+  newFileName: z.string().max(250),
+  sha256: z.string().length(64),
+});
+export const imageRenameProposal = imageRenameSelection.extend({
+  oldFileName: z.string(),
+  reason: z.string().nullable(),
+});
+
 export const rpcInputs = {
+  assetRenamePreview: z.strictObject({ ids: z.array(z.string().uuid()).min(1).max(50) }),
+  assetRename: z.strictObject({ items: z.array(imageRenameSelection).min(1).max(50) }),
+  assets: z.strictObject({
+    q: z.string().max(300).default(""),
+    page: z.number().int().min(1).max(100000).default(1),
+    pageSize: z.number().int().min(1).max(48).default(24),
+    usage: z.enum(["all", "assigned", "unassigned"]).default("all"),
+    health: z.enum(["all", "problems", "missing", "healthy"]).default("all"),
+    role: z.enum(["all", "poster", "banner", "logo", "profile"]).default("all"),
+    sort: z.enum(["newest", "oldest", "name", "size"]).default("newest"),
+  }),
+  assetDelete: z.strictObject({ id: z.string().uuid(), expectedSha256: z.string().length(64) }),
+  assetDetail: z.strictObject({ id: z.string().uuid() }),
+  assetOwners: z.strictObject({
+    kind: imageOwnerKindSchema,
+    role: imageRoleSchema,
+    q: z.string().max(300),
+  }),
+  assetAssign: z.strictObject({
+    assetId: z.string().uuid(),
+    ownerKind: imageOwnerKindSchema,
+    ownerId: z.string().uuid(),
+    role: imageRoleSchema,
+    expectedPrimaryId: z.string().uuid().nullable(),
+    expectedPrimaryAssetId: z.string().uuid().nullable(),
+  }),
+  assetUnlink: z.strictObject({
+    assetId: z.string().uuid(),
+    assignmentId: z.string().uuid(),
+    expectedPrimary: z.boolean(),
+  }),
   read: z.strictObject({ ids: z.array(z.string().uuid()).min(1).max(30) }),
   review: z.strictObject({
     json: z.string().max(4000000),
@@ -87,6 +165,23 @@ export const tableSchema = z.object({
   ),
 });
 export const rpcResults = {
+  assetRenamePreview: z.array(imageRenameProposal),
+  assetRename: z.object({ renamed: z.number(), compatibilityLinksRetained: z.boolean() }),
+  assets: z.object({
+    items: z.array(imageSchema),
+    total: z.number(),
+    page: z.number(),
+    pageSize: z.number(),
+  }),
+  assetDelete: z.object({ removed: z.boolean(), fileRetained: z.boolean() }),
+  assetDetail: z.object({
+    asset: imageSchema,
+    assignments: z.array(imageAssignmentSchema),
+    deleteBlockedReason: z.string().nullable(),
+  }),
+  assetOwners: z.array(imageOwnerSchema),
+  assetAssign: z.object({ assignmentId: z.string().uuid() }),
+  assetUnlink: z.object({ removed: z.boolean() }),
   read: z.array(snapshotSchema),
   review: reviewSchema,
   save: z.object({ saved: z.number(), createdId: z.string().nullable() }),

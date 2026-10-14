@@ -57,6 +57,14 @@ async fn call(
     Json(input): Json<Call>,
 ) -> Result<Response, super::Error> {
     if ![
+        "assets",
+        "assetDetail",
+        "assetOwners",
+        "assetAssign",
+        "assetUnlink",
+        "assetDelete",
+        "assetRenamePreview",
+        "assetRename",
         "read",
         "review",
         "save",

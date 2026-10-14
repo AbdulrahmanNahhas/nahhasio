@@ -14,7 +14,7 @@ export type MediaKind = (typeof mediaKinds)[number];
  * on its own mountable volume anyway. `ARCADIA_MEDIA_ROOT` overrides it, matching how a real
  * deployment (or a NAS-mounted directory, Jellyfin-style) would point it elsewhere.
  */
-function getMediaDirectory() {
+export function getMediaDirectory() {
   return resolve(
     process.env.ARCADIA_MEDIA_ROOT ??
       fileURLToPath(new URL("../../../data/media/uploads", import.meta.url)),

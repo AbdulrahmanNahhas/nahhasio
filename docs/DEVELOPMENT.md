@@ -108,3 +108,44 @@ exercise without the required request. Technical UI/API/setup work remains withi
 
 Checks and isolation are in [TESTING.md](TESTING.md); runtime operations in
 [OPERATIONS.md](OPERATIONS.md). Report implementation/build/activation/acceptance distinctly.
+
+## Admin image library checkpoint
+
+The Linux `/admin/images` route uses server pagination and typed editor RPC for asset lists,
+details, bounded owner lookup, upload, primary assignment, unlink and protected record deletion.
+Admin/session authorization is rechecked inside mutation transactions; audit records retain the
+before state. Assignment compares the previously selected primary assignment and asset IDs.
+Deleting an unused record retains its physical file for recovery and refuses current assignments,
+derived variants and saved editorial-revision references. There is no automatic file purge.
+
+File health checks use the configured server artwork directory, enforce canonical path containment
+and inspect existence/readability/size, not image decoding or hash integrity. Ordinary lists check
+only their page. Explicit health filters scan matching candidates before pagination with bounded
+concurrency; more than 10,000 candidates require narrowing the filters. No schema migration is
+introduced. Desktop visual/keyboard acceptance and isolated mutation verification remain pending;
+static/build results do not establish those behaviors.
+
+Artwork name cleanup reviews the current page (24 candidates, RPC ceiling 50). Clear owner/role
+links produce a Unicode-safe work/entity slug, optional installment position/episode number,
+role and short asset UUID. Ambiguous/unlinked/problem files are skipped. Confirmation recomputes
+names and checks the reviewed path/hash, then verifies file SHA-256 and serializes rename batches.
+The new filename is a hard link in the same folder; the registered path/name changes atomically
+in PostgreSQL. Old hard links remain for revisions, saved paths and recovery without duplicate
+image bytes. Editor/reference resolution recognizes those aliases through rename audit records.
+Legacy assignment cleanup and CLI orphan purge retain renamed assets for explicit future cleanup.
+Filesystems without hard-link support fail without falling back to copying or overwriting.
+A failed/interrupted batch may leave unregistered new hard links, but the database transaction
+rolls back and original files stay intact; retry can reuse the same inode. No automatic unlink job
+runs. Permanent removal of old filenames is intentionally deferred until reference-safe cleanup.
+
+Shared overlay compatibility rules preserve official primitives and focus behavior, replace
+Dialog/AlertDialog zoom keyframes with lifecycle-driven opacity transitions, remove modal
+backdrop blur, disable drawer height interpolation and honor reduced motion. Image details retain
+content while closing and use a stable three-column desktop loading layout with the already listed
+asset preview, stacking preview first on narrow screens. Upload/rename success uses the shared
+Base UI toaster at the logical end (bottom left in Arabic RTL).
+Native smoothness remains a physical GTK/WebKit review item, not a build claim.
+
+The Tailwind base layer assigns uncolored borders to `--border`; official primitives such as
+TableRow and Toast rely on that default. Explicit semantic border/focus utilities still win.
+Do not fix recurring bright outlines by editing individual registry components.

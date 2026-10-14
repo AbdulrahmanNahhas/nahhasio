@@ -7804,6 +7804,30 @@
       "CatalogEditorCall": {
         "oneOf": [
           {
+            "$ref": "#/components/schemas/CatalogAssetRenamePreviewCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetRenameCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetsCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetDeleteCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetDetailCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetOwnersCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetAssignCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAssetUnlinkCall"
+          },
+          {
             "$ref": "#/components/schemas/CatalogReadCall"
           },
           {
@@ -7858,6 +7882,687 @@
             "x-zod-json": true
           }
         }
+      },
+      "CatalogAssetsInput": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "default": "",
+            "type": "string",
+            "maxLength": 300
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "pageSize": {
+            "default": 24,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 48
+          },
+          "usage": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "assigned", "unassigned"]
+          },
+          "health": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "problems", "missing", "healthy"]
+          },
+          "role": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "poster", "banner", "logo", "profile"]
+          },
+          "sort": {
+            "default": "newest",
+            "type": "string",
+            "enum": ["newest", "oldest", "name", "size"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogAssetsCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assets"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetsInput"
+          }
+        }
+      },
+      "CatalogAssetDetailInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "CatalogAssetDetailCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetDetail"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetDetailInput"
+          }
+        }
+      },
+      "CatalogAssetOwnersInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["title", "installment", "episode", "entity"]
+          },
+          "role": {
+            "type": "string",
+            "enum": ["poster", "banner", "logo", "profile"]
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": ["kind", "role", "q"],
+        "additionalProperties": false
+      },
+      "CatalogAssetOwnersCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetOwners"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetOwnersInput"
+          }
+        }
+      },
+      "CatalogAssetAssignInput": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ownerKind": {
+            "type": "string",
+            "enum": ["title", "installment", "episode", "entity"]
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["poster", "banner", "logo", "profile"]
+          },
+          "expectedPrimaryId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedPrimaryAssetId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "assetId",
+          "ownerKind",
+          "ownerId",
+          "role",
+          "expectedPrimaryId",
+          "expectedPrimaryAssetId"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogAssetAssignCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetAssign"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetAssignInput"
+          }
+        }
+      },
+      "CatalogAssetUnlinkInput": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "assignmentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedPrimary": {
+            "type": "boolean"
+          }
+        },
+        "required": ["assetId", "assignmentId", "expectedPrimary"],
+        "additionalProperties": false
+      },
+      "CatalogAssetUnlinkCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetUnlink"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetUnlinkInput"
+          }
+        }
+      },
+      "CatalogAssetsResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "fileName": {
+                  "type": "string"
+                },
+                "mimeType": {
+                  "type": "string"
+                },
+                "byteSize": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "health": {
+                  "type": "string",
+                  "enum": ["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]
+                },
+                "assignmentCount": {
+                  "type": "number"
+                },
+                "roles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["poster", "banner", "logo", "profile"]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "fileName",
+                "mimeType",
+                "byteSize",
+                "width",
+                "height",
+                "sha256",
+                "createdAt",
+                "health",
+                "assignmentCount",
+                "roles"
+              ]
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"]
+      },
+      "CatalogAssetDetailResult": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "path": {
+                "type": "string"
+              },
+              "fileName": {
+                "type": "string"
+              },
+              "mimeType": {
+                "type": "string"
+              },
+              "byteSize": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "sha256": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "health": {
+                "type": "string",
+                "enum": ["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]
+              },
+              "assignmentCount": {
+                "type": "number"
+              },
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["poster", "banner", "logo", "profile"]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "fileName",
+              "mimeType",
+              "byteSize",
+              "width",
+              "height",
+              "sha256",
+              "createdAt",
+              "health",
+              "assignmentCount",
+              "roles"
+            ]
+          },
+          "assignments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "ownerId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "ownerKind": {
+                  "type": "string",
+                  "enum": ["title", "installment", "episode", "entity"]
+                },
+                "ownerLabel": {
+                  "type": "string"
+                },
+                "ownerContext": {
+                  "type": "string"
+                },
+                "workId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "entityKind": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["person", "organization"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["poster", "banner", "logo", "profile"]
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "ownerId",
+                "ownerKind",
+                "ownerLabel",
+                "ownerContext",
+                "workId",
+                "entityKind",
+                "role",
+                "isPrimary"
+              ]
+            }
+          },
+          "deleteBlockedReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["asset", "assignments", "deleteBlockedReason"]
+      },
+      "CatalogAssetOwnersResult": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "label": {
+              "type": "string"
+            },
+            "context": {
+              "type": "string"
+            },
+            "primaryAssetId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "primaryAssignmentId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["id", "label", "context", "primaryAssetId", "primaryAssignmentId"]
+        }
+      },
+      "CatalogAssetAssignResult": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["assignmentId"]
+      },
+      "CatalogAssetUnlinkResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          }
+        },
+        "required": ["removed"]
+      },
+      "CatalogAssetDeleteInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedSha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": ["id", "expectedSha256"],
+        "additionalProperties": false
+      },
+      "CatalogAssetDeleteCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetDelete"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetDeleteInput"
+          }
+        }
+      },
+      "CatalogAssetDeleteResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          },
+          "fileRetained": {
+            "type": "boolean"
+          }
+        },
+        "required": ["removed", "fileRetained"]
+      },
+      "CatalogAssetRenamePreviewInput": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["ids"],
+        "additionalProperties": false
+      },
+      "CatalogAssetRenamePreviewCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetRenamePreview"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetRenamePreviewInput"
+          }
+        }
+      },
+      "CatalogAssetRenameInput": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "oldPath": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "newFileName": {
+                  "type": "string",
+                  "maxLength": 250
+                },
+                "sha256": {
+                  "type": "string",
+                  "minLength": 64,
+                  "maxLength": 64
+                }
+              },
+              "required": ["id", "oldPath", "newFileName", "sha256"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CatalogAssetRenameCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["assetRename"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAssetRenameInput"
+          }
+        }
+      },
+      "CatalogAssetRenamePreviewResult": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "oldPath": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "newFileName": {
+              "type": "string",
+              "maxLength": 250
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            },
+            "oldFileName": {
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["id", "oldPath", "newFileName", "sha256", "oldFileName", "reason"],
+          "additionalProperties": false
+        }
+      },
+      "CatalogAssetRenameResult": {
+        "type": "object",
+        "properties": {
+          "renamed": {
+            "type": "number"
+          },
+          "compatibilityLinksRetained": {
+            "type": "boolean"
+          }
+        },
+        "required": ["renamed", "compatibilityLinksRetained"]
       }
     }
   }

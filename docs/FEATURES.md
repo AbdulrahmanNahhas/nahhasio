@@ -580,19 +580,26 @@
 
 ## Admin Image Library Page
 
-- [ ] Image grid/table
-- [ ] Search/filter/sort images
-- [ ] Upload images
-- [ ] Show image dimensions/size/source
-- [ ] Duplicate detection
-- [ ] Owner/role assignments
-- [ ] Primary image selection
-- [ ] Replace/unlink images
+- [x] Image grid/table
+- [x] Search/filter/sort/paginate images
+- [x] Upload images (content hash deduplication)
+- [x] Show dimensions/size/format/date and registered file identity
+- [x] Owner/role assignments and primary image selection
+- [x] Replace primary image and unlink assignments
+- [x] Unlinked-image filter
+- [x] File problem filters: missing, unreadable, size mismatch, previous deletion error
+- [x] Protected deletion of unused records (files retained for recovery)
+- [x] Compact responsive details Drawer with assignment inspection and hover/focus prefetch
+- [x] Bottom-left success toasts for image upload and filename cleanup
+- [x] Batch filename review and canonical file naming from linked owners/roles
+- [x] SHA verification, collision protection and old-path compatibility links
+- [ ] Native acceptance of shared overlay motion changes
+- [ ] Desktop UI/keyboard and isolated mutation acceptance
+- [ ] Duplicate review/merge beyond upload deduplication
 - [ ] Focal point/crop previews
 - [ ] Thumbnail/variant previews
-- [ ] Missing/corrupt image reports
-- [ ] Unused-image review
-- [ ] Protected cleanup/restoration
+- [ ] Image decode/hash corruption reports
+- [ ] Permanent file cleanup/restoration workflow
 - [ ] Storage usage
 
 ## Admin Metadata and Artwork Import Dialog

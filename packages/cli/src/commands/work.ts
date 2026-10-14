@@ -187,7 +187,7 @@ async function assignMedia(
       continue;
     }
     const assets = await transaction.unsafe<Array<{ id: string }>>(
-      `select id from media_assets where path=$1`,
+      `select a.id from media_assets a where a.path=$1 or exists(select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text and l.changes->>'compatibilityPath'=$1) order by (a.path=$1) desc limit 1`,
       [path],
     );
     const asset = assets[0];

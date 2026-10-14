@@ -112,8 +112,66 @@
 }
 
 @layer base {
+  /* Tailwind 4 defaults uncolored borders to currentColor. Official shadcn primitives
+     rely on the semantic default so table dividers/toast outlines never inherit white text. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--border);
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/* Native overlay compatibility: keep centered popups still while fading. Avoid animating
+   backdrop blur or intrinsic drawer height alongside asynchronously loaded content.
+   Registry primitives remain untouched; Base UI owns mounting/focus and transition states. */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"],
+[data-slot="drawer-overlay"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"] {
+  animation: none;
+  transition: opacity 160ms ease-out;
+}
+
+[data-slot="dialog-content"][data-starting-style],
+[data-slot="dialog-content"][data-ending-style],
+[data-slot="alert-dialog-content"][data-starting-style],
+[data-slot="alert-dialog-content"][data-ending-style],
+[data-slot="dialog-overlay"][data-starting-style],
+[data-slot="dialog-overlay"][data-ending-style],
+[data-slot="alert-dialog-overlay"][data-starting-style],
+[data-slot="alert-dialog-overlay"][data-ending-style] {
+  opacity: 0;
+}
+
+[data-slot="drawer-popup"] {
+  transition-property: transform, opacity;
+  interpolate-size: numeric-only;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="drawer-popup"],
+  [data-slot="dialog-overlay"],
+  [data-slot="alert-dialog-overlay"],
+  [data-slot="sheet-overlay"],
+  [data-slot="drawer-overlay"] {
+    animation: none;
+    transition-duration: 0ms;
   }
 }

@@ -304,7 +304,8 @@ async function assign(
 async function purge(sql: Sql, args: ParsedArgs): Promise<CommandResult> {
   const orphans = await sql<Array<{ id: string; path: string }>>`
     select a.id, a.path from media_assets a
-    where not exists (select 1 from media_asset_assignments x where x.asset_id = a.id)`;
+    where not exists (select 1 from media_asset_assignments x where x.asset_id = a.id)
+      and not exists (select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text)`;
   if (boolFlag(args, "dry-run")) {
     return { dryRun: true, wouldDelete: orphans.length, rows: orphans.slice(0, 20) };
   }

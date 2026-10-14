@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { router, queryClient } from "./app/router";
+import { Toaster } from "./components/ui/toast";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 import "./styles/tailwind.css";
@@ -18,7 +19,9 @@ createRoot(root).render(
       <CSPProvider disableStyleElements>
         <DirectionProvider direction="rtl">
           <TooltipProvider>
-            <RouterProvider router={router} />
+            <Toaster timeout={4500}>
+              <RouterProvider router={router} />
+            </Toaster>
           </TooltipProvider>
         </DirectionProvider>
       </CSPProvider>

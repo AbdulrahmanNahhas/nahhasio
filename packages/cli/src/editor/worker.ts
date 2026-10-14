@@ -8,6 +8,16 @@ import { z } from "zod";
 import { openDatabase, closeDatabase } from "../db";
 import { loadSchema } from "../introspect";
 import {
+  previewImageNames,
+  renameImages,
+  listImages,
+  imageDetail,
+  imageOwners,
+  assignImage,
+  unlinkImage,
+  deleteImage,
+} from "./images";
+import {
   loadWorkSnapshots,
   prepareWorkReview,
   prepareNewWorkReview,
@@ -16,8 +26,17 @@ import {
   inspectEpisodeDeletion,
   type EditorContext,
 } from "./service";
+
 const envelope = z.strictObject({
   operation: z.enum([
+    "assets",
+    "assetDetail",
+    "assetOwners",
+    "assetAssign",
+    "assetUnlink",
+    "assetDelete",
+    "assetRenamePreview",
+    "assetRename",
     "read",
     "review",
     "save",
@@ -71,6 +90,22 @@ async function execute(input: z.infer<typeof envelope>) {
   await authorize(input.context);
   process.env.ARCADIA_CLI_ACTOR = input.context.accountId;
   switch (input.operation) {
+    case "assets":
+      return listImages(sql, rpcInputs.assets.parse(input.data));
+    case "assetRenamePreview":
+      return previewImageNames(sql, rpcInputs.assetRenamePreview.parse(input.data).ids);
+    case "assetRename":
+      return renameImages(sql, rpcInputs.assetRename.parse(input.data), input.context);
+    case "assetDelete":
+      return deleteImage(sql, rpcInputs.assetDelete.parse(input.data), input.context);
+    case "assetDetail":
+      return imageDetail(sql, rpcInputs.assetDetail.parse(input.data).id);
+    case "assetOwners":
+      return imageOwners(sql, rpcInputs.assetOwners.parse(input.data));
+    case "assetAssign":
+      return assignImage(sql, rpcInputs.assetAssign.parse(input.data), input.context);
+    case "assetUnlink":
+      return unlinkImage(sql, rpcInputs.assetUnlink.parse(input.data), input.context);
     case "read":
       return loadWorkSnapshots(rpcInputs.read.parse(input.data).ids);
     case "review": {
@@ -91,7 +126,7 @@ async function execute(input: z.infer<typeof envelope>) {
       const p = rpcInputs.media.parse(input.data);
       const [row] = await sql<
         { id: string }[]
-      >`select id from media_assets where path=${p.path} limit 1`;
+      >`select a.id from media_assets a where a.path=${p.path} or exists(select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text and l.changes->>'compatibilityPath'=${p.path}) order by (a.path=${p.path}) desc limit 1`;
       if (!row) throw new Error("الصورة غير مسجلة.");
       return row;
     }

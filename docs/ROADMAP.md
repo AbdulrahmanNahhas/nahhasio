@@ -170,6 +170,11 @@ Total: **280 tasks across 21 areas**.
 
 ### 05. Artwork and images
 
+Current checkpoint: Linux gallery/table, filters, paging, uploads, assignment/primary/unlink,
+protected record deletion and reviewed canonical filename cleanup are implemented. Old paths
+retain hard links and resolve the original asset identity. FEATURES.md records source completion;
+isolated mutation/rollback and final desktop acceptance remain pending. No automatic purge runs.
+
 - [ ] **NH-05-01** Keep asset identity and owner assignments as distinct records.
 - [ ] **NH-05-02** Use stable asset IDs and server-independent references in desktop/network contracts.
 - [ ] **NH-05-03** Retain originals and hash-based deduplication.

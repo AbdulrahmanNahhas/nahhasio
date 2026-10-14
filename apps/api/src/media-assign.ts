@@ -16,8 +16,10 @@ export async function purgeUnreferencedMedia(paths: Array<string | null | undefi
   for (const path of new Set(paths.filter((value): value is string => Boolean(value)))) {
     if (!path.startsWith("/media/")) continue;
     const [usage] = await sql`select a.id,
-      exists(select 1 from media_asset_assignments x where x.asset_id=a.id) as referenced
-      from media_assets a where a.path=${path}`;
+      exists(select 1 from media_asset_assignments x where x.asset_id=a.id) as referenced,
+      exists(select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text) as renamed
+      from media_assets a where a.path=${path} or exists(select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text and l.changes->>'compatibilityPath'=${path})`;
+    if (usage?.renamed) continue; // Compatibility paths require explicit reviewed cleanup.
     if (!usage?.referenced) {
       try {
         await removeStoredMedia(path);
@@ -63,7 +65,9 @@ export async function assignMediaPath(
   // validation boundary, this prevents an invalid/qualified display URL from deleting good media
   // and then failing to insert its replacement.
   const asset = storedPath
-    ? (await sql`select id from media_assets where path=${storedPath}`)[0]
+    ? (
+        await sql`select a.id from media_assets a where a.path=${storedPath} or exists(select 1 from audit_logs l where l.action='admin.artwork.rename' and l.target_type='media_assets' and l.target_id=a.id::text and l.changes->>'compatibilityPath'=${storedPath}) order by (a.path=${storedPath}) desc limit 1`
+      )[0]
     : undefined;
   if (storedPath && !asset) throw new Error("The selected media asset is not registered");
   const previous = isPrimary

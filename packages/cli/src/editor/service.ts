@@ -22,7 +22,7 @@ const secret = process.env.NAHHASIO_EDITOR_SECRET
   : randomBytes(32);
 if (secret.length !== 32) throw new Error("Editor signing configuration is invalid");
 export type EditorContext = { accountId: string; sessionKey: string };
-async function authorizeWrite(transaction: TransactionSql, context?: EditorContext) {
+export async function authorizeWrite(transaction: TransactionSql, context?: EditorContext) {
   if (!context) return; // Transitional website still guards its own loopback-only calls.
   const rows =
     await transaction`select a.id from auth_sessions s join auth_users u on u.id=s.user_id join accounts a on a.auth_user_id=u.id where s.token=${context.sessionKey} and s.expires_at>now() and a.id=${context.accountId} and a.kind='admin' and a.status='active' and u.role in ('owner','admin') and (not u.banned or u.ban_expires<=now()) for update of a,u,s`;

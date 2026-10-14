@@ -10,8 +10,9 @@ export function RegisteredImage({
   alt,
   className,
   fit = "contain",
+  assetId,
   ...props
-}: ImgHTMLAttributes<HTMLImageElement> & { fit?: "contain" | "cover" }) {
+}: ImgHTMLAttributes<HTMLImageElement> & { fit?: "contain" | "cover"; assetId?: string }) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -29,11 +30,12 @@ export function RegisteredImage({
     return () => observer.disconnect();
   }, [element]);
   const result = useQuery({
-    queryKey: ["admin", "editor-image", src],
-    enabled: near && Boolean(src),
+    queryKey: ["admin", "editor-image", assetId ?? src],
+    enabled: near && Boolean(assetId || src),
     retry: false,
     staleTime: Infinity,
     queryFn: async ({ signal }) => {
+      if (assetId) return gateway.artwork(assetId, signal);
       if (!src) throw new Error("لا توجد صورة");
       if (src.startsWith("/media/")) {
         const media = CatalogMediaResultSchema.parse(

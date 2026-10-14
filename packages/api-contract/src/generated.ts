@@ -1608,7 +1608,126 @@ export const CatalogPreviewResultSchema = z.strictObject({
 });
 export type CatalogPreviewResult = z.infer<typeof CatalogPreviewResultSchema>;
 
+export const CatalogAssetRenamePreviewInputSchema = z.strictObject({
+  ids: z.array(z.string().uuid()),
+});
+export type CatalogAssetRenamePreviewInput = z.infer<typeof CatalogAssetRenamePreviewInputSchema>;
+
+export const CatalogAssetRenamePreviewCallSchema = z.strictObject({
+  operation: z.enum(["assetRenamePreview"]),
+  data: CatalogAssetRenamePreviewInputSchema,
+});
+export type CatalogAssetRenamePreviewCall = z.infer<typeof CatalogAssetRenamePreviewCallSchema>;
+
+export const CatalogAssetRenameInputSchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      oldPath: z.string().max(2000),
+      newFileName: z.string().max(250),
+      sha256: z.string().min(64).max(64),
+    }),
+  ),
+});
+export type CatalogAssetRenameInput = z.infer<typeof CatalogAssetRenameInputSchema>;
+
+export const CatalogAssetRenameCallSchema = z.strictObject({
+  operation: z.enum(["assetRename"]),
+  data: CatalogAssetRenameInputSchema,
+});
+export type CatalogAssetRenameCall = z.infer<typeof CatalogAssetRenameCallSchema>;
+
+export const CatalogAssetsInputSchema = z.strictObject({
+  q: z.string().max(300).optional(),
+  page: z.number().int().min(1).max(100000).optional(),
+  pageSize: z.number().int().min(1).max(48).optional(),
+  usage: z.enum(["all", "assigned", "unassigned"]).optional(),
+  health: z.enum(["all", "problems", "missing", "healthy"]).optional(),
+  role: z.enum(["all", "poster", "banner", "logo", "profile"]).optional(),
+  sort: z.enum(["newest", "oldest", "name", "size"]).optional(),
+});
+export type CatalogAssetsInput = z.infer<typeof CatalogAssetsInputSchema>;
+
+export const CatalogAssetsCallSchema = z.strictObject({
+  operation: z.enum(["assets"]),
+  data: CatalogAssetsInputSchema,
+});
+export type CatalogAssetsCall = z.infer<typeof CatalogAssetsCallSchema>;
+
+export const CatalogAssetDeleteInputSchema = z.strictObject({
+  id: z.string().uuid(),
+  expectedSha256: z.string().min(64).max(64),
+});
+export type CatalogAssetDeleteInput = z.infer<typeof CatalogAssetDeleteInputSchema>;
+
+export const CatalogAssetDeleteCallSchema = z.strictObject({
+  operation: z.enum(["assetDelete"]),
+  data: CatalogAssetDeleteInputSchema,
+});
+export type CatalogAssetDeleteCall = z.infer<typeof CatalogAssetDeleteCallSchema>;
+
+export const CatalogAssetDetailInputSchema = z.strictObject({
+  id: z.string().uuid(),
+});
+export type CatalogAssetDetailInput = z.infer<typeof CatalogAssetDetailInputSchema>;
+
+export const CatalogAssetDetailCallSchema = z.strictObject({
+  operation: z.enum(["assetDetail"]),
+  data: CatalogAssetDetailInputSchema,
+});
+export type CatalogAssetDetailCall = z.infer<typeof CatalogAssetDetailCallSchema>;
+
+export const CatalogAssetOwnersInputSchema = z.strictObject({
+  kind: z.enum(["title", "installment", "episode", "entity"]),
+  role: z.enum(["poster", "banner", "logo", "profile"]),
+  q: z.string().max(300),
+});
+export type CatalogAssetOwnersInput = z.infer<typeof CatalogAssetOwnersInputSchema>;
+
+export const CatalogAssetOwnersCallSchema = z.strictObject({
+  operation: z.enum(["assetOwners"]),
+  data: CatalogAssetOwnersInputSchema,
+});
+export type CatalogAssetOwnersCall = z.infer<typeof CatalogAssetOwnersCallSchema>;
+
+export const CatalogAssetAssignInputSchema = z.strictObject({
+  assetId: z.string().uuid(),
+  ownerKind: z.enum(["title", "installment", "episode", "entity"]),
+  ownerId: z.string().uuid(),
+  role: z.enum(["poster", "banner", "logo", "profile"]),
+  expectedPrimaryId: z.union([z.string().uuid(), z.null()]),
+  expectedPrimaryAssetId: z.union([z.string().uuid(), z.null()]),
+});
+export type CatalogAssetAssignInput = z.infer<typeof CatalogAssetAssignInputSchema>;
+
+export const CatalogAssetAssignCallSchema = z.strictObject({
+  operation: z.enum(["assetAssign"]),
+  data: CatalogAssetAssignInputSchema,
+});
+export type CatalogAssetAssignCall = z.infer<typeof CatalogAssetAssignCallSchema>;
+
+export const CatalogAssetUnlinkInputSchema = z.strictObject({
+  assetId: z.string().uuid(),
+  assignmentId: z.string().uuid(),
+  expectedPrimary: z.boolean(),
+});
+export type CatalogAssetUnlinkInput = z.infer<typeof CatalogAssetUnlinkInputSchema>;
+
+export const CatalogAssetUnlinkCallSchema = z.strictObject({
+  operation: z.enum(["assetUnlink"]),
+  data: CatalogAssetUnlinkInputSchema,
+});
+export type CatalogAssetUnlinkCall = z.infer<typeof CatalogAssetUnlinkCallSchema>;
+
 export const CatalogEditorCallSchema = z.union([
+  CatalogAssetRenamePreviewCallSchema,
+  CatalogAssetRenameCallSchema,
+  CatalogAssetsCallSchema,
+  CatalogAssetDeleteCallSchema,
+  CatalogAssetDetailCallSchema,
+  CatalogAssetOwnersCallSchema,
+  CatalogAssetAssignCallSchema,
+  CatalogAssetUnlinkCallSchema,
   CatalogReadCallSchema,
   CatalogReviewCallSchema,
   CatalogSaveCallSchema,
@@ -1631,6 +1750,106 @@ export const CatalogEditorReplySchema = z.strictObject({
   result: z.json(),
 });
 export type CatalogEditorReply = z.infer<typeof CatalogEditorReplySchema>;
+
+export const CatalogAssetsResultSchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      path: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      byteSize: z.number(),
+      width: z.number(),
+      height: z.number(),
+      sha256: z.string(),
+      createdAt: z.string(),
+      health: z.enum(["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]),
+      assignmentCount: z.number(),
+      roles: z.array(z.enum(["poster", "banner", "logo", "profile"])),
+    }),
+  ),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type CatalogAssetsResult = z.infer<typeof CatalogAssetsResultSchema>;
+
+export const CatalogAssetDetailResultSchema = z.strictObject({
+  asset: z.strictObject({
+    id: z.string().uuid(),
+    path: z.string(),
+    fileName: z.string(),
+    mimeType: z.string(),
+    byteSize: z.number(),
+    width: z.number(),
+    height: z.number(),
+    sha256: z.string(),
+    createdAt: z.string(),
+    health: z.enum(["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]),
+    assignmentCount: z.number(),
+    roles: z.array(z.enum(["poster", "banner", "logo", "profile"])),
+  }),
+  assignments: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      ownerId: z.string().uuid(),
+      ownerKind: z.enum(["title", "installment", "episode", "entity"]),
+      ownerLabel: z.string(),
+      ownerContext: z.string(),
+      workId: z.union([z.string().uuid(), z.null()]),
+      entityKind: z.union([z.enum(["person", "organization"]), z.null()]),
+      role: z.enum(["poster", "banner", "logo", "profile"]),
+      isPrimary: z.boolean(),
+    }),
+  ),
+  deleteBlockedReason: z.union([z.string(), z.null()]),
+});
+export type CatalogAssetDetailResult = z.infer<typeof CatalogAssetDetailResultSchema>;
+
+export const CatalogAssetOwnersResultSchema = z.array(
+  z.strictObject({
+    id: z.string().uuid(),
+    label: z.string(),
+    context: z.string(),
+    primaryAssetId: z.union([z.string().uuid(), z.null()]),
+    primaryAssignmentId: z.union([z.string().uuid(), z.null()]),
+  }),
+);
+export type CatalogAssetOwnersResult = z.infer<typeof CatalogAssetOwnersResultSchema>;
+
+export const CatalogAssetAssignResultSchema = z.strictObject({
+  assignmentId: z.string().uuid(),
+});
+export type CatalogAssetAssignResult = z.infer<typeof CatalogAssetAssignResultSchema>;
+
+export const CatalogAssetUnlinkResultSchema = z.strictObject({
+  removed: z.boolean(),
+});
+export type CatalogAssetUnlinkResult = z.infer<typeof CatalogAssetUnlinkResultSchema>;
+
+export const CatalogAssetDeleteResultSchema = z.strictObject({
+  removed: z.boolean(),
+  fileRetained: z.boolean(),
+});
+export type CatalogAssetDeleteResult = z.infer<typeof CatalogAssetDeleteResultSchema>;
+
+export const CatalogAssetRenamePreviewResultSchema = z.array(
+  z.strictObject({
+    id: z.string().uuid(),
+    oldPath: z.string().max(2000),
+    newFileName: z.string().max(250),
+    sha256: z.string().min(64).max(64),
+    oldFileName: z.string(),
+    reason: z.union([z.string(), z.null()]),
+  }),
+);
+export type CatalogAssetRenamePreviewResult = z.infer<typeof CatalogAssetRenamePreviewResultSchema>;
+
+export const CatalogAssetRenameResultSchema = z.strictObject({
+  renamed: z.number(),
+  compatibilityLinksRetained: z.boolean(),
+});
+export type CatalogAssetRenameResult = z.infer<typeof CatalogAssetRenameResultSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;

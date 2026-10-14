@@ -146,7 +146,10 @@ return for review before another feature checkpoint.
 
 Accounts/profile/login, discovery, catalog/details, native playback and device-download code
 exist. The full admin work/bulk/JSON editor is committed as `8aa716a`. Remaining admin routes
-include prepared screens whose workflows still need services. There are pending source changes;
+include prepared screens whose workflows still need services. The Linux image library now has
+search/filter/paging, upload and owner assignments, guarded record deletion, reviewed filename
+cleanup and compact details. Its latest UI review and isolated mutation acceptance are pending;
+see DEVELOPMENT.md for file compatibility and recovery limits. There are pending source changes;
 preserve them during documentation/other work.
 
 The native client accepts an HTTPS server configured outside the UI. Server selection and
