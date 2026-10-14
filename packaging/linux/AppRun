@@ -1,0 +1,44 @@
+#!/bin/sh
+# Mount bundled Nix paths without chroot, so WebKit can create its own sandbox.
+set -eu
+bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+entrypoint=$(readlink "$bundle/entrypoint")
+set -- -- "$entrypoint" "$@"
+# Bind actual store objects, not symlinks outside /nix/store: WebKit's child
+# sandbox deliberately does not expose the application's extraction directory.
+if command -v nix-store >/dev/null 2>&1; then
+    roots=
+    for path in /run/opengl-driver /run/current-system/sw/bin/env; do
+        resolved=$(readlink -f "$path" 2>/dev/null || true)
+        case "$resolved" in
+            /nix/store/*)
+                name=${resolved#/nix/store/}
+                roots="$roots /nix/store/${name%%/*}"
+                ;;
+        esac
+    done
+    if [ -n "$roots" ]; then
+        # Nix store names cannot contain whitespace; these are resolved local roots.
+        closure=$(nix-store --query --requisites $roots)
+        for path in $closure; do set -- --ro-bind "$path" "$path" "$@"; done
+    fi
+fi
+for path in "$bundle/nix/store"/*; do
+    set -- --ro-bind "$path" "/nix/store/${path##*/}" "$@"
+done
+set -- --dir /nix --tmpfs /nix/store "$@"
+# Create a namespace root instead of chrooting or writing mountpoints onto the
+# host root. Home/storage/device access retains ordinary host permissions.
+for path in /*; do
+    if [ "$path" = /nix ]; then continue; fi
+    if [ "$path" = /dev ]; then
+        set -- --dev-bind /dev /dev "$@"
+    elif [ -L "$path" ]; then
+        set -- --symlink "$(readlink "$path")" "$path" "$@"
+    elif [ -d "$path" ]; then
+        set -- --bind "$path" "$path" "$@"
+    elif [ -f "$path" ]; then
+        set -- --ro-bind "$path" "$path" "$@"
+    fi
+done
+"$bundle/runtime/bwrap" --unshare-user --uid "$(id -u)" --gid "$(id -g)" "$@"

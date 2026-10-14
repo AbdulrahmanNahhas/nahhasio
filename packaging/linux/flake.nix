@@ -26,6 +26,24 @@
       runtimePaths = map builtins.storePath (
         lib.splitString ":" (builtins.getEnv "NAHHASIO_PACKAGE_RUNTIME")
       );
+      fonts = pkgs.makeFontsConf {
+        fontDirectories = [
+          pkgs.dejavu_fonts
+          pkgs.noto-fonts-color-emoji
+        ];
+      };
+      staticBubblewrap = pkgs.pkgsStatic.bubblewrap.override {
+        libcap = pkgs.pkgsStatic.libcap.override { withGo = false; };
+      };
+      apprun = pkgs.runCommand "nahhasio-AppRun" { } ''
+        mkdir -p $out/runtime
+        install -m755 ${./AppRun} $out/AppRun
+        install -m755 ${staticBubblewrap}/bin/bwrap $out/runtime/bwrap
+      '';
+      mkAppImage = pkgs.callPackage "${appimage}/mkAppImage.nix" {
+        mkappimage-runtime = appimage.packages.${system}.appimage-runtimes.appimage-type2-runtime;
+        mkappimage-apprun = apprun;
+      };
       client =
         pkgs.runCommand "nahhasio-linux"
           {
@@ -52,6 +70,7 @@
               } \
               --unset LD_LIBRARY_PATH \
               --set NAHHASIO_UI_DIR $out/share/nahhasio/ui \
+              --set FONTCONFIG_FILE ${fonts} \
               --set-default SSL_CERT_FILE ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
               --prefix XDG_DATA_DIRS : ${
                 lib.makeSearchPath "share" [
@@ -77,7 +96,7 @@
           '';
     in
     {
-      packages.${system}.default = appimage.lib.${system}.mkAppImage {
+      packages.${system}.default = mkAppImage {
         program = "${client}/bin/nahhasio";
         name = "Nahhasio-x86_64.AppImage";
         squashfsArgs = [

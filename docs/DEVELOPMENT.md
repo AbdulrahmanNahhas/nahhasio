@@ -299,6 +299,11 @@ dispatch or `v*` tags. Manual runs supply a downloadable Actions artifact; tags 
 prerelease for review. CI execution and publication are separate from local artifact creation.
 No automatic client updater or published release is implied by this workflow.
 
-The current bundler requires user namespaces; its upstream OpenGL portability limitation means
-this is initially a NixOS preview. Fedora/non-NixOS graphics, WebKit sandboxing, audio/video and
-fresh-install acceptance must be reviewed before calling it a generally supported Linux release.
+The AppImage uses our own static Bubblewrap AppRun instead of the bundler's chroot launcher.
+It mounts bundled Nix objects read-only, includes the host GPU/loader closure on NixOS to retain runtime
+libraries, and lets WebKit create its own nested sandbox. Fontconfig has an explicit bundled
+configuration and fonts. Neither WebKit sandboxing nor host kernel protections are disabled.
+The launcher requires unprivileged user namespaces. Real object mounts keep WebKit's nested
+sandbox paths resolvable without chroot, overlayfs or links outside its allowed filesystem.
+This remains initially a NixOS preview: Fedora/non-NixOS graphics, audio/video and fresh-install
+acceptance must be reviewed before calling it a generally supported Linux release.
