@@ -8,6 +8,16 @@ import { z } from "zod";
 import { openDatabase, closeDatabase } from "../db";
 import { loadSchema } from "../introspect";
 import {
+  entityOptions,
+  createEntityRole,
+  deletePreview,
+  bulkDelete,
+  listEntities,
+  detailEntity,
+  saveEntity,
+} from "./entities";
+import { readEntityJson, reviewEntityJson, saveEntityJson } from "./entity-json";
+import {
   previewImageNames,
   renameImages,
   listImages,
@@ -29,6 +39,16 @@ import {
 
 const envelope = z.strictObject({
   operation: z.enum([
+    "entityOptions",
+    "entityRoleCreate",
+    "entityDeletePreview",
+    "entityBulkDelete",
+    "entityJsonRead",
+    "entityJsonReview",
+    "entityJsonSave",
+    "entityList",
+    "entityDetail",
+    "entitySave",
     "assets",
     "assetDetail",
     "assetOwners",
@@ -90,6 +110,26 @@ async function execute(input: z.infer<typeof envelope>) {
   await authorize(input.context);
   process.env.ARCADIA_CLI_ACTOR = input.context.accountId;
   switch (input.operation) {
+    case "entityOptions":
+      return entityOptions(sql, rpcInputs.entityOptions.parse(input.data).kind);
+    case "entityRoleCreate":
+      return createEntityRole(sql, rpcInputs.entityRoleCreate.parse(input.data), input.context);
+    case "entityDeletePreview":
+      return deletePreview(sql, rpcInputs.entityDeletePreview.parse(input.data));
+    case "entityBulkDelete":
+      return bulkDelete(sql, rpcInputs.entityBulkDelete.parse(input.data), input.context);
+    case "entityJsonRead":
+      return readEntityJson(sql, rpcInputs.entityJsonRead.parse(input.data));
+    case "entityJsonReview":
+      return reviewEntityJson(sql, rpcInputs.entityJsonReview.parse(input.data), input.context);
+    case "entityJsonSave":
+      return saveEntityJson(sql, rpcInputs.entityJsonSave.parse(input.data), input.context);
+    case "entityList":
+      return listEntities(sql, rpcInputs.entityList.parse(input.data));
+    case "entityDetail":
+      return detailEntity(sql, rpcInputs.entityDetail.parse(input.data));
+    case "entitySave":
+      return saveEntity(sql, rpcInputs.entitySave.parse(input.data), input.context);
     case "assets":
       return listImages(sql, rpcInputs.assets.parse(input.data));
     case "assetRenamePreview":

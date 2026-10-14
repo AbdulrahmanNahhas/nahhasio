@@ -21,7 +21,13 @@ import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { imageRoles, fileSize } from "./images-model";
 
-export function ImageUpload({ onUploaded }: { onUploaded: (id: string) => Promise<void> }) {
+export function ImageUpload({
+  onUploaded,
+  defaultRole = "poster",
+}: {
+  onUploaded: (id: string) => Promise<void>;
+  defaultRole?: z.infer<typeof imageRoleSchema>;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
@@ -45,6 +51,7 @@ export function ImageUpload({ onUploaded }: { onUploaded: (id: string) => Promis
           </DialogHeader>
           {open && (
             <UploadForm
+              defaultRole={defaultRole}
               onBusy={setBusy}
               onUploaded={async (id) => {
                 await onUploaded(id);
@@ -58,14 +65,16 @@ export function ImageUpload({ onUploaded }: { onUploaded: (id: string) => Promis
   );
 }
 function UploadForm({
+  defaultRole,
   onUploaded,
   onBusy,
 }: {
+  defaultRole: z.infer<typeof imageRoleSchema>;
   onUploaded: (id: string) => Promise<void>;
   onBusy: (busy: boolean) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [role, setRole] = useState<z.infer<typeof imageRoleSchema>>("poster");
+  const [role, setRole] = useState<z.infer<typeof imageRoleSchema>>(defaultRole);
   const upload = useMutation({
     mutationFn: async () => {
       onBusy(true);

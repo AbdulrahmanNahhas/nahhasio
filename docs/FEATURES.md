@@ -469,6 +469,11 @@
 - [x] Readable schema-load errors
 - [x] Guard unsaved changes when selected work IDs change
 - [x] Change review
+- [x] Typed entity adapters with People/Studios selection
+- [x] English work/role names, reference completion and readable entity previews
+- [x] Searchable reference cards, value/group/full-reference copy
+- [x] Account-bound signed review and atomic entity save
+- [ ] Planet/Award JSON adapters
 - [ ] Clear field-level contract errors
 - [ ] Import mapping preview
 - [ ] Compare draft with latest server version
@@ -500,24 +505,38 @@
 
 ## Admin People Page
 
-- [ ] List/search/filter people
-- [ ] Create/edit identity and aliases
-- [ ] Portrait upload/selection
-- [ ] Credits and linked works
-- [ ] Roles and external references
+- [x] Paginated grid/table, search and image/linked-work/exactly-one-work filters
+- [x] Cross-page selection and floating JSON/delete actions
+- [x] Single editing Drawer without tabs
+- [x] Create/edit name, sort name, description and aliases/languages
+- [x] Portrait upload/selection with reviewed primary-image changes
+- [x] Direct work/role additions, changes and removal with work-editor links
+- [x] Create roles, set contribution order and primary state
+- [x] Most-works default sort and up/down contribution-card ordering
+- [x] Selected-person JSON editing with English work and role names
+- [x] Before/after review and stale-record protection
+- [x] Individual/batch deletion with dependency review, typed count and credit-removal consent
+- [x] Retain works/image files and block protected references during deletion
+- [x] Audit/revision snapshots and unsaved-navigation protection
+- [ ] Desktop UI/keyboard and isolated mutation acceptance
+- [ ] External references (requires entity-owned model decision)
 - [ ] Duplicate/merge review
-- [ ] Protected deletion
 
 ## Admin Studios Page
 
-- [ ] List/search/filter studios
-- [ ] Create/edit identity and aliases
-- [ ] Logo/artwork
+- [x] Paginated grid/table, search, filters and most-works default sort
+- [x] Create/edit identity and aliases in a single Drawer
+- [x] Logo upload/selection and square artwork cards
+- [x] Cross-page selection with floating JSON/delete actions
 - [ ] Parent/related organizations
-- [ ] Credits and linked works
+- [x] Direct credits, linked works and organization-role creation
+- [x] Contribution order, up/down controls and primary state
+- [x] JSON editing with English work/role references and change review
 - [ ] External references
 - [ ] Duplicate/merge review
-- [ ] Protected deletion
+- [x] Confirmed individual/batch deletion with protected references and retained files
+- [x] Audit snapshots, stale-record and unsaved-navigation protection
+- [ ] Desktop UI/keyboard and isolated mutation acceptance
 
 ## Admin Planets Page
 

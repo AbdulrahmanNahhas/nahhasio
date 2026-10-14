@@ -27,11 +27,17 @@ import { Route as AdminIndexRouteImport } from "./routes/admin.index";
 import { Route as AdminSectionRouteImport } from "./routes/admin.$section";
 import { Route as AdminImagesRouteImport } from "./routes/admin.images";
 import { Route as AdminJsonRouteImport } from "./routes/admin.json";
+import { Route as AdminPeopleRouteImport } from "./routes/admin.people";
+import { Route as AdminStudiosRouteImport } from "./routes/admin.studios";
 import { Route as AdminWorksRouteImport } from "./routes/admin.works";
 import { Route as PeopleIdRouteImport } from "./routes/people_.$id";
 import { Route as PlanetsIdRouteImport } from "./routes/planets_.$id";
 import { Route as StudiosIdRouteImport } from "./routes/studios_.$id";
 import { Route as TitlesWorkIdRouteImport } from "./routes/titles.$workId";
+import { Route as AdminPeopleEntityIdRouteImport } from "./routes/admin.people_.$entityId";
+import { Route as AdminPeopleNewRouteImport } from "./routes/admin.people_.new";
+import { Route as AdminStudiosEntityIdRouteImport } from "./routes/admin.studios_.$entityId";
+import { Route as AdminStudiosNewRouteImport } from "./routes/admin.studios_.new";
 import { Route as AdminWorksWorkIdRouteImport } from "./routes/admin.works_.$workId";
 import { Route as AdminWorksBulkRouteImport } from "./routes/admin.works_.bulk";
 import { Route as AdminWorksNewRouteImport } from "./routes/admin.works_.new";
@@ -126,6 +132,16 @@ const AdminJsonRoute = AdminJsonRouteImport.update({
   path: "/json",
   getParentRoute: () => AdminRoute,
 } as any);
+const AdminPeopleRoute = AdminPeopleRouteImport.update({
+  id: "/people",
+  path: "/people",
+  getParentRoute: () => AdminRoute,
+} as any);
+const AdminStudiosRoute = AdminStudiosRouteImport.update({
+  id: "/studios",
+  path: "/studios",
+  getParentRoute: () => AdminRoute,
+} as any);
 const AdminWorksRoute = AdminWorksRouteImport.update({
   id: "/works",
   path: "/works",
@@ -150,6 +166,26 @@ const TitlesWorkIdRoute = TitlesWorkIdRouteImport.update({
   id: "/titles/$workId",
   path: "/titles/$workId",
   getParentRoute: () => rootRouteImport,
+} as any);
+const AdminPeopleEntityIdRoute = AdminPeopleEntityIdRouteImport.update({
+  id: "/people_/$entityId",
+  path: "/people/$entityId",
+  getParentRoute: () => AdminRoute,
+} as any);
+const AdminPeopleNewRoute = AdminPeopleNewRouteImport.update({
+  id: "/people_/new",
+  path: "/people/new",
+  getParentRoute: () => AdminRoute,
+} as any);
+const AdminStudiosEntityIdRoute = AdminStudiosEntityIdRouteImport.update({
+  id: "/studios_/$entityId",
+  path: "/studios/$entityId",
+  getParentRoute: () => AdminRoute,
+} as any);
+const AdminStudiosNewRoute = AdminStudiosNewRouteImport.update({
+  id: "/studios_/new",
+  path: "/studios/new",
+  getParentRoute: () => AdminRoute,
 } as any);
 const AdminWorksWorkIdRoute = AdminWorksWorkIdRouteImport.update({
   id: "/works_/$workId",
@@ -185,12 +221,18 @@ export interface FileRoutesByFullPath {
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
+  "/admin/people": typeof AdminPeopleRoute;
+  "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
   "/studios/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin/": typeof AdminIndexRoute;
+  "/admin/people/$entityId": typeof AdminPeopleEntityIdRoute;
+  "/admin/people/new": typeof AdminPeopleNewRoute;
+  "/admin/studios/$entityId": typeof AdminStudiosEntityIdRoute;
+  "/admin/studios/new": typeof AdminStudiosNewRoute;
   "/admin/works/$workId": typeof AdminWorksWorkIdRoute;
   "/admin/works/bulk": typeof AdminWorksBulkRoute;
   "/admin/works/new": typeof AdminWorksNewRoute;
@@ -212,12 +254,18 @@ export interface FileRoutesByTo {
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
+  "/admin/people": typeof AdminPeopleRoute;
+  "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
   "/studios/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin": typeof AdminIndexRoute;
+  "/admin/people/$entityId": typeof AdminPeopleEntityIdRoute;
+  "/admin/people/new": typeof AdminPeopleNewRoute;
+  "/admin/studios/$entityId": typeof AdminStudiosEntityIdRoute;
+  "/admin/studios/new": typeof AdminStudiosNewRoute;
   "/admin/works/$workId": typeof AdminWorksWorkIdRoute;
   "/admin/works/bulk": typeof AdminWorksBulkRoute;
   "/admin/works/new": typeof AdminWorksNewRoute;
@@ -241,12 +289,18 @@ export interface FileRoutesById {
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/images": typeof AdminImagesRoute;
   "/admin/json": typeof AdminJsonRoute;
+  "/admin/people": typeof AdminPeopleRoute;
+  "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
   "/people_/$id": typeof PeopleIdRoute;
   "/planets_/$id": typeof PlanetsIdRoute;
   "/studios_/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin/": typeof AdminIndexRoute;
+  "/admin/people_/$entityId": typeof AdminPeopleEntityIdRoute;
+  "/admin/people_/new": typeof AdminPeopleNewRoute;
+  "/admin/studios_/$entityId": typeof AdminStudiosEntityIdRoute;
+  "/admin/studios_/new": typeof AdminStudiosNewRoute;
   "/admin/works_/$workId": typeof AdminWorksWorkIdRoute;
   "/admin/works_/bulk": typeof AdminWorksBulkRoute;
   "/admin/works_/new": typeof AdminWorksNewRoute;
@@ -271,12 +325,18 @@ export interface FileRouteTypes {
     | "/admin/$section"
     | "/admin/images"
     | "/admin/json"
+    | "/admin/people"
+    | "/admin/studios"
     | "/admin/works"
     | "/people/$id"
     | "/planets/$id"
     | "/studios/$id"
     | "/titles/$workId"
     | "/admin/"
+    | "/admin/people/$entityId"
+    | "/admin/people/new"
+    | "/admin/studios/$entityId"
+    | "/admin/studios/new"
     | "/admin/works/$workId"
     | "/admin/works/bulk"
     | "/admin/works/new";
@@ -298,12 +358,18 @@ export interface FileRouteTypes {
     | "/admin/$section"
     | "/admin/images"
     | "/admin/json"
+    | "/admin/people"
+    | "/admin/studios"
     | "/admin/works"
     | "/people/$id"
     | "/planets/$id"
     | "/studios/$id"
     | "/titles/$workId"
     | "/admin"
+    | "/admin/people/$entityId"
+    | "/admin/people/new"
+    | "/admin/studios/$entityId"
+    | "/admin/studios/new"
     | "/admin/works/$workId"
     | "/admin/works/bulk"
     | "/admin/works/new";
@@ -326,12 +392,18 @@ export interface FileRouteTypes {
     | "/admin/$section"
     | "/admin/images"
     | "/admin/json"
+    | "/admin/people"
+    | "/admin/studios"
     | "/admin/works"
     | "/people_/$id"
     | "/planets_/$id"
     | "/studios_/$id"
     | "/titles/$workId"
     | "/admin/"
+    | "/admin/people_/$entityId"
+    | "/admin/people_/new"
+    | "/admin/studios_/$entityId"
+    | "/admin/studios_/new"
     | "/admin/works_/$workId"
     | "/admin/works_/bulk"
     | "/admin/works_/new";
@@ -486,6 +558,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AdminJsonRouteImport;
       parentRoute: typeof AdminRoute;
     };
+    "/admin/people": {
+      id: "/admin/people";
+      path: "/people";
+      fullPath: "/admin/people";
+      preLoaderRoute: typeof AdminPeopleRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
+    "/admin/studios": {
+      id: "/admin/studios";
+      path: "/studios";
+      fullPath: "/admin/studios";
+      preLoaderRoute: typeof AdminStudiosRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
     "/admin/works": {
       id: "/admin/works";
       path: "/works";
@@ -521,6 +607,34 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof TitlesWorkIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/admin/people_/$entityId": {
+      id: "/admin/people_/$entityId";
+      path: "/people/$entityId";
+      fullPath: "/admin/people/$entityId";
+      preLoaderRoute: typeof AdminPeopleEntityIdRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
+    "/admin/people_/new": {
+      id: "/admin/people_/new";
+      path: "/people/new";
+      fullPath: "/admin/people/new";
+      preLoaderRoute: typeof AdminPeopleNewRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
+    "/admin/studios_/$entityId": {
+      id: "/admin/studios_/$entityId";
+      path: "/studios/$entityId";
+      fullPath: "/admin/studios/$entityId";
+      preLoaderRoute: typeof AdminStudiosEntityIdRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
+    "/admin/studios_/new": {
+      id: "/admin/studios_/new";
+      path: "/studios/new";
+      fullPath: "/admin/studios/new";
+      preLoaderRoute: typeof AdminStudiosNewRouteImport;
+      parentRoute: typeof AdminRoute;
+    };
     "/admin/works_/$workId": {
       id: "/admin/works_/$workId";
       path: "/works/$workId";
@@ -549,8 +663,14 @@ interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute;
   AdminImagesRoute: typeof AdminImagesRoute;
   AdminJsonRoute: typeof AdminJsonRoute;
+  AdminPeopleRoute: typeof AdminPeopleRoute;
+  AdminStudiosRoute: typeof AdminStudiosRoute;
   AdminWorksRoute: typeof AdminWorksRoute;
   AdminIndexRoute: typeof AdminIndexRoute;
+  AdminPeopleEntityIdRoute: typeof AdminPeopleEntityIdRoute;
+  AdminPeopleNewRoute: typeof AdminPeopleNewRoute;
+  AdminStudiosEntityIdRoute: typeof AdminStudiosEntityIdRoute;
+  AdminStudiosNewRoute: typeof AdminStudiosNewRoute;
   AdminWorksWorkIdRoute: typeof AdminWorksWorkIdRoute;
   AdminWorksBulkRoute: typeof AdminWorksBulkRoute;
   AdminWorksNewRoute: typeof AdminWorksNewRoute;
@@ -560,8 +680,14 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
   AdminImagesRoute: AdminImagesRoute,
   AdminJsonRoute: AdminJsonRoute,
+  AdminPeopleRoute: AdminPeopleRoute,
+  AdminStudiosRoute: AdminStudiosRoute,
   AdminWorksRoute: AdminWorksRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminPeopleEntityIdRoute: AdminPeopleEntityIdRoute,
+  AdminPeopleNewRoute: AdminPeopleNewRoute,
+  AdminStudiosEntityIdRoute: AdminStudiosEntityIdRoute,
+  AdminStudiosNewRoute: AdminStudiosNewRoute,
   AdminWorksWorkIdRoute: AdminWorksWorkIdRoute,
   AdminWorksBulkRoute: AdminWorksBulkRoute,
   AdminWorksNewRoute: AdminWorksNewRoute,

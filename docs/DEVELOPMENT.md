@@ -156,3 +156,38 @@ Schema-response parsing stays strict but reports readable errors. The reference 
 only when expanded. JSON drafts retain same-route protection when selected IDs change. Works
 selection remains page-scoped and appears in floating bottom actions; editing receives only the
 explicit selected UUIDs. This is a UI/introspection correction, with no database migration/write.
+
+## People and Studios administration checkpoint
+
+`/admin/people` and `/admin/studios` use one paginated typed entity service and editing Drawer.
+Both are enabled; Planets/Awards stay disabled pending their reviewed steps. Lists default to
+most linked works. Studios use square logos and organization roles; People use portraits and
+person roles.
+The single Drawer covers existing entity fields, aliases/languages, portrait selection/upload,
+direct work/role editing, contribution order/primary state and new-role creation. Up/down arrows
+reorder contribution cards and persist their numeric positions. This uses the existing contribution
+position, which also orders contributors inside work details; it is not a separate viewer-library
+sort setting. List selection
+persists across pages (50 records); JSON editing accepts 30. Filters include exactly one linked
+work. No schema is added. External identities currently belong to titles/installments, not
+entities; no entity identity model or birth/country data is invented.
+
+Mutations recheck admin sessions, lock work roots before entities, preserve retained alias IDs and
+old artwork assignments, and record audit/editorial snapshots. Individual/batch deletion reviews
+dependencies and revisions, requires typed-count confirmation and explicit credit-removal consent,
+and blocks other incoming FK/polymorphic evidence references. Deletion is atomic and removes
+entity records, aliases, credits and artwork links; works and physical assets/files remain.
+
+The typed JSON adapter uses canonical English work names and role names, with completion,
+reference lists and readable previews. Missing/ambiguous names, duplicate credits and foreign
+aliases are rejected. Account-bound signed review plans expire after 15 minutes; saves recheck
+revisions inside one transaction. People and Studios are active consumers, while Planets/Awards
+need separate typed adapters. Reference cards show searchable value chips, per-group copy and
+whole-reference copy. Options fetch only names/IDs and
+years, bounded at 5,000 works. Read-only list/options/JSON/dependency/review calls have been
+exercised on the live catalog without writes; mutation and native UI acceptance remain pending.
+
+Work/entity/JSON saves and entity deletion share catalog cache invalidation, including entity
+details and artwork ownership. Retired standalone linked-work/delete operations were removed;
+the Drawer reads credits with entity details, and single deletion uses the batch deletion service.
+JSON import catches file-read failures, and unsaved alias rows retain stable session identities.

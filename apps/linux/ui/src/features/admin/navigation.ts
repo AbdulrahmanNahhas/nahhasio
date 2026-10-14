@@ -83,7 +83,13 @@ export function adminSection(slug: string) {
 }
 
 // Keep every navigation surface honest: editor subpages live under Works, not separate links.
-const implementedAdminSections: ReadonlySet<string> = new Set(["works", "images", "json"]);
+const implementedAdminSections: ReadonlySet<string> = new Set([
+  "works",
+  "images",
+  "json",
+  "people",
+  "studios",
+]);
 export function isAdminSectionAvailable(slug: string) {
   return implementedAdminSections.has(slug);
 }

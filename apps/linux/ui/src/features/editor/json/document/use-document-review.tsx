@@ -12,7 +12,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { databaseKeys } from "@/features/database/data/database.queries";
+import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
 import type { DocumentReview, WorkSnapshot } from "@/features/editor/json/document/document-model";
 import {
   reviewNewWork,
@@ -38,7 +38,9 @@ export function useDocumentReview(
   const blocker = useBlocker({
     withResolver: true,
     shouldBlockFn: ({ current, next }) =>
-      (current.pathname !== next.pathname || current.search.ids !== next.search.ids) &&
+      (current.pathname !== next.pathname ||
+        current.search.ids !== next.search.ids ||
+        current.search.target !== next.search.target) &&
       dirty &&
       !committed.current,
     enableBeforeUnload: dirty && !saved,
@@ -66,12 +68,7 @@ export function useDocumentReview(
       committed.current = true;
       setSaved(true);
       setReview(null);
-      await Promise.all([
-        client.invalidateQueries({ queryKey: databaseKeys.all }),
-        client.invalidateQueries({ queryKey: ["admin", "works"] }),
-        client.invalidateQueries({ queryKey: ["catalog"] }),
-        client.invalidateQueries({ queryKey: ["work"] }),
-      ]);
+      await invalidateCatalogEdit(client);
       if (result.createdId)
         await navigate({
           to: "/admin/works/$workId",

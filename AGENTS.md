@@ -29,10 +29,11 @@ Permission already given for the current step covers its necessary implementatio
 Do not create commits without Aqua's explicit confirmation for that checkpoint. Include the actual
 command in command-approval requests so Aqua can see what will run.
 
-Current implementation: full admin work/bulk/JSON editor committed as `8aa716a`.
-Current approved checkpoint: review/commit all pending work, then implement the admin image
-library (searchable grid/table, asset details/owners, upload and assignment/replacement).
-Preserve Aqua's current design; stop after the concrete image-library checkpoint for review.
+Current implementation: image-library checkpoint committed as `d787dd9`; JSON/selection polish
+committed as `83f94b0`. Current approved checkpoint: People Drawer/credits/selection/JSON/deletion,
+then the shared Studios editor, with most-works sort and contribution/reference UX improvements.
+Aqua authorized code-quality cleanup and committing this checkpoint. Stop after the commit and
+suggest next steps; Planets/Awards remain unimplemented. Preserve Aqua's current design.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
 server and device video downloads remain separate. Torrent streaming is the main online source;
 linked files support completed downloads and deliberately non-torrent works. Torrent streaming

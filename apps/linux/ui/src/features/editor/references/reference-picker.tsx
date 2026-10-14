@@ -31,7 +31,7 @@ export function ReferencePicker({
   title: string;
   onPick: (value: string) => void;
   images?: boolean;
-  imageRole?: "poster" | "banner" | "logo";
+  imageRole?: "poster" | "banner" | "logo" | "profile";
   triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,7 +72,7 @@ function PickerResults({
   table: string;
   onPick: (value: string) => void;
   images: boolean;
-  imageRole?: "poster" | "banner" | "logo";
+  imageRole?: "poster" | "banner" | "logo" | "profile";
 }) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
@@ -139,7 +139,7 @@ function PickerResults({
                     "w-full object-contain",
                     imageRole === "poster" && "aspect-2/3",
                     (!imageRole || imageRole === "banner") && "aspect-video",
-                    imageRole === "logo" && "aspect-square",
+                    (imageRole === "logo" || imageRole === "profile") && "aspect-square",
                   )}
                   loading="lazy"
                 />

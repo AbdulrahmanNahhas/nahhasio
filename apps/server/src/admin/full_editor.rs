@@ -57,6 +57,16 @@ async fn call(
     Json(input): Json<Call>,
 ) -> Result<Response, super::Error> {
     if ![
+        "entityOptions",
+        "entityRoleCreate",
+        "entityDeletePreview",
+        "entityBulkDelete",
+        "entityJsonRead",
+        "entityJsonReview",
+        "entityJsonSave",
+        "entityList",
+        "entityDetail",
+        "entitySave",
         "assets",
         "assetDetail",
         "assetOwners",

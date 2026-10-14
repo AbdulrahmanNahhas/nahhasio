@@ -1608,6 +1608,166 @@ export const CatalogPreviewResultSchema = z.strictObject({
 });
 export type CatalogPreviewResult = z.infer<typeof CatalogPreviewResultSchema>;
 
+export const CatalogEntityOptionsInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+});
+export type CatalogEntityOptionsInput = z.infer<typeof CatalogEntityOptionsInputSchema>;
+
+export const CatalogEntityOptionsCallSchema = z.strictObject({
+  operation: z.enum(["entityOptions"]),
+  data: CatalogEntityOptionsInputSchema,
+});
+export type CatalogEntityOptionsCall = z.infer<typeof CatalogEntityOptionsCallSchema>;
+
+export const CatalogEntityRoleCreateInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  slug: z.string(),
+  name: z.string().min(1).max(300),
+  label: z.string().max(300),
+});
+export type CatalogEntityRoleCreateInput = z.infer<typeof CatalogEntityRoleCreateInputSchema>;
+
+export const CatalogEntityRoleCreateCallSchema = z.strictObject({
+  operation: z.enum(["entityRoleCreate"]),
+  data: CatalogEntityRoleCreateInputSchema,
+});
+export type CatalogEntityRoleCreateCall = z.infer<typeof CatalogEntityRoleCreateCallSchema>;
+
+export const CatalogEntityDeletePreviewInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  ids: z.array(z.string().uuid()),
+});
+export type CatalogEntityDeletePreviewInput = z.infer<typeof CatalogEntityDeletePreviewInputSchema>;
+
+export const CatalogEntityDeletePreviewCallSchema = z.strictObject({
+  operation: z.enum(["entityDeletePreview"]),
+  data: CatalogEntityDeletePreviewInputSchema,
+});
+export type CatalogEntityDeletePreviewCall = z.infer<typeof CatalogEntityDeletePreviewCallSchema>;
+
+export const CatalogEntityBulkDeleteInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  records: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      revision: z.string().min(64).max(64),
+    }),
+  ),
+  removeCredits: z.boolean(),
+});
+export type CatalogEntityBulkDeleteInput = z.infer<typeof CatalogEntityBulkDeleteInputSchema>;
+
+export const CatalogEntityBulkDeleteCallSchema = z.strictObject({
+  operation: z.enum(["entityBulkDelete"]),
+  data: CatalogEntityBulkDeleteInputSchema,
+});
+export type CatalogEntityBulkDeleteCall = z.infer<typeof CatalogEntityBulkDeleteCallSchema>;
+
+export const CatalogEntityJsonReadInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  ids: z.array(z.string().uuid()),
+});
+export type CatalogEntityJsonReadInput = z.infer<typeof CatalogEntityJsonReadInputSchema>;
+
+export const CatalogEntityJsonReadCallSchema = z.strictObject({
+  operation: z.enum(["entityJsonRead"]),
+  data: CatalogEntityJsonReadInputSchema,
+});
+export type CatalogEntityJsonReadCall = z.infer<typeof CatalogEntityJsonReadCallSchema>;
+
+export const CatalogEntityJsonReviewInputSchema = z.strictObject({
+  json: z.string().max(4000000),
+  originals: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      revision: z.string().min(64).max(64),
+    }),
+  ),
+});
+export type CatalogEntityJsonReviewInput = z.infer<typeof CatalogEntityJsonReviewInputSchema>;
+
+export const CatalogEntityJsonReviewCallSchema = z.strictObject({
+  operation: z.enum(["entityJsonReview"]),
+  data: CatalogEntityJsonReviewInputSchema,
+});
+export type CatalogEntityJsonReviewCall = z.infer<typeof CatalogEntityJsonReviewCallSchema>;
+
+export const CatalogEntityJsonSaveInputSchema = z.strictObject({
+  ticket: z.string().max(8000000),
+});
+export type CatalogEntityJsonSaveInput = z.infer<typeof CatalogEntityJsonSaveInputSchema>;
+
+export const CatalogEntityJsonSaveCallSchema = z.strictObject({
+  operation: z.enum(["entityJsonSave"]),
+  data: CatalogEntityJsonSaveInputSchema,
+});
+export type CatalogEntityJsonSaveCall = z.infer<typeof CatalogEntityJsonSaveCallSchema>;
+
+export const CatalogEntityListInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  q: z.string().max(300).optional(),
+  page: z.number().int().min(1).max(100000).optional(),
+  image: z.enum(["all", "with", "without"]).optional(),
+  usage: z.enum(["all", "linked", "unlinked", "one"]).optional(),
+  sort: z.enum(["name", "works", "updated"]).optional(),
+});
+export type CatalogEntityListInput = z.infer<typeof CatalogEntityListInputSchema>;
+
+export const CatalogEntityListCallSchema = z.strictObject({
+  operation: z.enum(["entityList"]),
+  data: CatalogEntityListInputSchema,
+});
+export type CatalogEntityListCall = z.infer<typeof CatalogEntityListCallSchema>;
+
+export const CatalogEntityDetailInputSchema = z.strictObject({
+  id: z.string().uuid(),
+  kind: z.enum(["person", "organization"]),
+});
+export type CatalogEntityDetailInput = z.infer<typeof CatalogEntityDetailInputSchema>;
+
+export const CatalogEntityDetailCallSchema = z.strictObject({
+  operation: z.enum(["entityDetail"]),
+  data: CatalogEntityDetailInputSchema,
+});
+export type CatalogEntityDetailCall = z.infer<typeof CatalogEntityDetailCallSchema>;
+
+export const CatalogEntitySaveInputSchema = z.strictObject({
+  id: z.union([z.string().uuid(), z.null()]),
+  kind: z.enum(["person", "organization"]),
+  revision: z.union([z.string().min(64).max(64), z.null()]),
+  draft: z.strictObject({
+    name: z.string().min(1).max(300),
+    sortName: z.string().min(1).max(300),
+    description: z.string().max(20000),
+    aliases: z.array(
+      z.strictObject({
+        id: z.union([z.string().uuid(), z.null()]),
+        alias: z.string().min(1).max(300),
+        language: z.union([z.string().max(30), z.null()]),
+      }),
+    ),
+    profileAssetId: z.union([z.string().uuid(), z.null()]),
+    credits: z.array(
+      z.strictObject({
+        workId: z.string().uuid(),
+        workTitle: z.string(),
+        roleId: z.string().uuid(),
+        roleName: z.string(),
+        roleLabel: z.string(),
+        position: z.number().int().min(0).max(1000000),
+        isPrimary: z.boolean(),
+      }),
+    ),
+  }),
+});
+export type CatalogEntitySaveInput = z.infer<typeof CatalogEntitySaveInputSchema>;
+
+export const CatalogEntitySaveCallSchema = z.strictObject({
+  operation: z.enum(["entitySave"]),
+  data: CatalogEntitySaveInputSchema,
+});
+export type CatalogEntitySaveCall = z.infer<typeof CatalogEntitySaveCallSchema>;
+
 export const CatalogAssetRenamePreviewInputSchema = z.strictObject({
   ids: z.array(z.string().uuid()),
 });
@@ -1720,6 +1880,16 @@ export const CatalogAssetUnlinkCallSchema = z.strictObject({
 export type CatalogAssetUnlinkCall = z.infer<typeof CatalogAssetUnlinkCallSchema>;
 
 export const CatalogEditorCallSchema = z.union([
+  CatalogEntityOptionsCallSchema,
+  CatalogEntityRoleCreateCallSchema,
+  CatalogEntityDeletePreviewCallSchema,
+  CatalogEntityBulkDeleteCallSchema,
+  CatalogEntityJsonReadCallSchema,
+  CatalogEntityJsonReviewCallSchema,
+  CatalogEntityJsonSaveCallSchema,
+  CatalogEntityListCallSchema,
+  CatalogEntityDetailCallSchema,
+  CatalogEntitySaveCallSchema,
   CatalogAssetRenamePreviewCallSchema,
   CatalogAssetRenameCallSchema,
   CatalogAssetsCallSchema,
@@ -1850,6 +2020,234 @@ export const CatalogAssetRenameResultSchema = z.strictObject({
   compatibilityLinksRetained: z.boolean(),
 });
 export type CatalogAssetRenameResult = z.infer<typeof CatalogAssetRenameResultSchema>;
+
+export const CatalogEntityListResultSchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      kind: z.enum(["person", "organization"]),
+      name: z.string(),
+      sortName: z.string(),
+      description: z.string(),
+      artworkId: z.union([z.string().uuid(), z.null()]),
+      workCount: z.number(),
+      roles: z.array(z.string()),
+      updatedAt: z.string(),
+    }),
+  ),
+  total: z.number(),
+});
+export type CatalogEntityListResult = z.infer<typeof CatalogEntityListResultSchema>;
+
+export const CatalogEntityDetailResultSchema = z.strictObject({
+  entity: z.strictObject({
+    id: z.string().uuid(),
+    kind: z.enum(["person", "organization"]),
+    name: z.string(),
+    sortName: z.string(),
+    description: z.string(),
+    artworkId: z.union([z.string().uuid(), z.null()]),
+    workCount: z.number(),
+    roles: z.array(z.string()),
+    updatedAt: z.string(),
+  }),
+  draft: z.strictObject({
+    name: z.string().min(1).max(300),
+    sortName: z.string().min(1).max(300),
+    description: z.string().max(20000),
+    aliases: z.array(
+      z.strictObject({
+        id: z.union([z.string().uuid(), z.null()]),
+        alias: z.string().min(1).max(300),
+        language: z.union([z.string().max(30), z.null()]),
+      }),
+    ),
+    profileAssetId: z.union([z.string().uuid(), z.null()]),
+    credits: z.array(
+      z.strictObject({
+        workId: z.string().uuid(),
+        workTitle: z.string(),
+        roleId: z.string().uuid(),
+        roleName: z.string(),
+        roleLabel: z.string(),
+        position: z.number().int().min(0).max(1000000),
+        isPrimary: z.boolean(),
+      }),
+    ),
+  }),
+  revision: z.string().min(64).max(64),
+  links: z.array(
+    z.strictObject({
+      table: z.string(),
+      count: z.number(),
+    }),
+  ),
+  imageCount: z.number(),
+});
+export type CatalogEntityDetailResult = z.infer<typeof CatalogEntityDetailResultSchema>;
+
+export const CatalogEntitySaveResultSchema = z.strictObject({
+  id: z.string().uuid(),
+  created: z.boolean(),
+});
+export type CatalogEntitySaveResult = z.infer<typeof CatalogEntitySaveResultSchema>;
+
+export const CatalogEntityJsonReviewResultSchema = z.strictObject({
+  ticket: z.string(),
+  expiresAt: z.number(),
+  records: z.array(
+    z.strictObject({
+      id: z.string(),
+      name: z.string(),
+      changes: z.array(
+        z.strictObject({
+          path: z.string(),
+          before: z.union([z.json(), z.null()]),
+          after: z.union([z.json(), z.null()]),
+        }),
+      ),
+    }),
+  ),
+});
+export type CatalogEntityJsonReviewResult = z.infer<typeof CatalogEntityJsonReviewResultSchema>;
+
+export const CatalogEntityOptionsResultSchema = z.strictObject({
+  works: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      title: z.string(),
+      year: z.union([z.number(), z.null()]),
+    }),
+  ),
+  roles: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      name: z.string(),
+      label: z.string(),
+      slug: z.string(),
+      active: z.boolean(),
+    }),
+  ),
+});
+export type CatalogEntityOptionsResult = z.infer<typeof CatalogEntityOptionsResultSchema>;
+
+export const CatalogEntityRoleCreateResultSchema = z.strictObject({
+  id: z.string().uuid(),
+});
+export type CatalogEntityRoleCreateResult = z.infer<typeof CatalogEntityRoleCreateResultSchema>;
+
+export const CatalogEntityDeletePreviewResultSchema = z.array(
+  z.strictObject({
+    entity: z.strictObject({
+      id: z.string().uuid(),
+      kind: z.enum(["person", "organization"]),
+      name: z.string(),
+      sortName: z.string(),
+      description: z.string(),
+      artworkId: z.union([z.string().uuid(), z.null()]),
+      workCount: z.number(),
+      roles: z.array(z.string()),
+      updatedAt: z.string(),
+    }),
+    draft: z.strictObject({
+      name: z.string().min(1).max(300),
+      sortName: z.string().min(1).max(300),
+      description: z.string().max(20000),
+      aliases: z.array(
+        z.strictObject({
+          id: z.union([z.string().uuid(), z.null()]),
+          alias: z.string().min(1).max(300),
+          language: z.union([z.string().max(30), z.null()]),
+        }),
+      ),
+      profileAssetId: z.union([z.string().uuid(), z.null()]),
+      credits: z.array(
+        z.strictObject({
+          workId: z.string().uuid(),
+          workTitle: z.string(),
+          roleId: z.string().uuid(),
+          roleName: z.string(),
+          roleLabel: z.string(),
+          position: z.number().int().min(0).max(1000000),
+          isPrimary: z.boolean(),
+        }),
+      ),
+    }),
+    revision: z.string().min(64).max(64),
+    links: z.array(
+      z.strictObject({
+        table: z.string(),
+        count: z.number(),
+      }),
+    ),
+    imageCount: z.number(),
+  }),
+);
+export type CatalogEntityDeletePreviewResult = z.infer<
+  typeof CatalogEntityDeletePreviewResultSchema
+>;
+
+export const CatalogEntityBulkDeleteResultSchema = z.strictObject({
+  deleted: z.number(),
+  removedCredits: z.number(),
+});
+export type CatalogEntityBulkDeleteResult = z.infer<typeof CatalogEntityBulkDeleteResultSchema>;
+
+export const CatalogEntityJsonReadResultSchema = z.strictObject({
+  document: z.strictObject({
+    schemaVersion: z.number(),
+    target: z.enum(["people", "studios"]),
+    records: z.array(
+      z.strictObject({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(300),
+        sortName: z.string().min(1).max(300),
+        description: z.string().max(20000),
+        aliases: z.array(
+          z.strictObject({
+            id: z.union([z.string().uuid(), z.null()]),
+            alias: z.string().min(1).max(300),
+            language: z.union([z.string().max(30), z.null()]),
+          }),
+        ),
+        profileImage: z.union([z.string().max(2000), z.null()]),
+        credits: z.array(
+          z.strictObject({
+            work: z.string().min(1).max(300),
+            role: z.string().min(1).max(300),
+            position: z.number().int().min(0).max(1000000),
+            isPrimary: z.boolean(),
+          }),
+        ),
+      }),
+    ),
+  }),
+  originals: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      revision: z.string().min(64).max(64),
+    }),
+  ),
+  previews: z.array(
+    z.strictObject({
+      id: z.string().uuid(),
+      kind: z.enum(["person", "organization"]),
+      name: z.string(),
+      sortName: z.string(),
+      description: z.string(),
+      artworkId: z.union([z.string().uuid(), z.null()]),
+      workCount: z.number(),
+      roles: z.array(z.string()),
+      updatedAt: z.string(),
+    }),
+  ),
+});
+export type CatalogEntityJsonReadResult = z.infer<typeof CatalogEntityJsonReadResultSchema>;
+
+export const CatalogEntityJsonSaveResultSchema = z.strictObject({
+  saved: z.number(),
+});
+export type CatalogEntityJsonSaveResult = z.infer<typeof CatalogEntityJsonSaveResultSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;

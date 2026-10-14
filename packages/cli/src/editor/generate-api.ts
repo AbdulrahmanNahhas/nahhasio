@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { rpcInputs, rpcResults, snapshotSchema } from "@arcadia/contracts/editor-rpc";
 import { z } from "zod";
@@ -23,6 +26,20 @@ function exported(schema: z.ZodType) {
   return clean(z.json().parse(value));
 }
 const schemas = document.components.schemas;
+// Retired operations must leave the generated API as well as its call union.
+const currentCalls = new Set(
+  Object.keys(rpcInputs).map(
+    (operation) => "Catalog" + operation.charAt(0).toUpperCase() + operation.slice(1) + "Call",
+  ),
+);
+for (const call of schemas.CatalogEditorCall?.oneOf ?? []) {
+  const name = z.string().parse(call.$ref).split("/").at(-1);
+  if (!name || currentCalls.has(name)) continue;
+  const base = name.slice(0, -"Call".length);
+  delete schemas[name];
+  delete schemas[base + "Input"];
+  delete schemas[base + "Result"];
+}
 schemas.CatalogSnapshot = exported(snapshotSchema);
 const names = [];
 for (const [operation, input] of Object.entries(rpcInputs)) {
@@ -73,3 +90,7 @@ document.paths["/api/v1/admin/editor"] = {
   },
 };
 await writeFile(path, JSON.stringify(document, null, 2) + "\n");
+await promisify(execFile)(
+  fileURLToPath(new URL("../../../../node_modules/.bin/oxfmt", import.meta.url)),
+  [fileURLToPath(path)],
+);

@@ -28,11 +28,13 @@ export function ChangeReview({
   onBack,
   onSave,
   busy,
+  recordLabel = "عمل",
 }: {
   review: DocumentReview;
   onBack: () => void;
   onSave: () => void;
   busy: boolean;
+  recordLabel?: string;
 }) {
   const [search, setSearch] = useState("");
   const count = review.records.reduce((total, record) => total + record.changes.length, 0);
@@ -52,7 +54,8 @@ export function ChangeReview({
         <div>
           <h2 className="text-xl font-semibold">مراجعة قبل الحفظ</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {review.records.length} عمل · {count} تغيير. راجع القيم السابقة والجديدة ثم أكد الحفظ.
+            {review.records.length} {recordLabel} · {count} تغيير. راجع القيم السابقة والجديدة ثم
+            أكد الحفظ.
           </p>
         </div>
         <Badge variant="outline">لم يُحفظ شيء بعد</Badge>

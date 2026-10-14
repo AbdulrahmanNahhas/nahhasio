@@ -12,12 +12,14 @@ const editorSetup = {
   autocompletion: false,
 };
 const noSuggestions: readonly string[] = [];
+const noValueOptions: Readonly<Record<string, readonly string[]>> = {};
 
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
   suggestions?: readonly string[];
+  valueOptions?: Readonly<Record<string, readonly string[]>>;
   height?: string;
   liveValidation?: boolean;
 }
@@ -26,6 +28,7 @@ export function CodeEditor({
   onChange,
   readOnly = false,
   suggestions = noSuggestions,
+  valueOptions = noValueOptions,
   height = "420px",
   liveValidation = true,
 }: CodeEditorProps) {
@@ -36,8 +39,11 @@ export function CodeEditor({
   // The wrapper reconfigures the entire editor when this callback identity changes.
   const handleChange = useCallback((text: string) => change.current(text), []);
   const setup = useMemo(
-    () => ({ ...editorSetup, autocompletion: suggestions.length > 0 }),
-    [suggestions],
+    () => ({
+      ...editorSetup,
+      autocompletion: suggestions.length > 0 || Object.keys(valueOptions).length > 0,
+    }),
+    [suggestions, valueOptions],
   );
   const extensions = useMemo(
     () => [
@@ -49,7 +55,25 @@ export function CodeEditor({
         autocomplete: (context: {
           matchBefore: (pattern: RegExp) => { from: number; text: string } | null;
           explicit: boolean;
+          pos: number;
+          state: { sliceDoc: (from: number, to: number) => string; doc: { length: number } };
         }) => {
+          const prefix = context.state.sliceDoc(Math.max(0, context.pos - 500), context.pos);
+          const valueMatch = prefix.match(/"([^"\\]+)"\s*:\s*"([^"\\]*)$/);
+          if (valueMatch && valueOptions[valueMatch[1]])
+            return {
+              from: context.pos - valueMatch[2].length,
+              to:
+                context.pos +
+                (context.state
+                  .sliceDoc(context.pos, context.pos + 500)
+                  .match(/^(?:\\.|[^"\\])*/)?.[0].length ?? 0),
+              options: valueOptions[valueMatch[1]].map((label) => ({
+                label,
+                type: "text",
+                apply: JSON.stringify(label).slice(1, -1),
+              })),
+            };
           const word = context.matchBefore(/"[A-Za-z][A-Za-z0-9]*|[A-Za-z][A-Za-z0-9]*/);
           if (!word || (!context.explicit && word.text.length < 2)) return null;
           return {
@@ -61,7 +85,7 @@ export function CodeEditor({
       ...(liveValidation ? [linter(jsonParseLinter(), { delay: 1200 }), lintGutter()] : []),
       EditorView.contentAttributes.of({ "aria-label": "محرر مسودة JSON" }),
     ],
-    [suggestions, liveValidation],
+    [suggestions, liveValidation, valueOptions],
   );
   return (
     <div dir="ltr" className="overflow-hidden rounded-lg border border-border">

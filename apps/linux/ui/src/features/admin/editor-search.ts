@@ -1,5 +1,8 @@
 import { z } from "zod";
-export const editorSearchSchema = z.object({ ids: z.string().max(1200).catch("").default("") });
+export const editorSearchSchema = z.object({
+  target: z.enum(["works", "people", "studios"]).catch("works").default("works"),
+  ids: z.string().max(1200).catch("").default(""),
+});
 
 export const workEditorSearchSchema = z.object({
   section: z

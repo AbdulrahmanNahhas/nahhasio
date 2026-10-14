@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+import { entityInputs, entityResults } from "./admin-entities";
+export {
+  entityDraft as adminEntityDraftSchema,
+  entityCredit as adminEntityCreditSchema,
+  entityJsonDocument as adminEntityJsonDocumentSchema,
+  humanEntity as adminHumanEntitySchema,
+  entitySummary as adminEntitySummarySchema,
+} from "./admin-entities";
 import { artworkSearchQuerySchema, artworkCandidateSchema } from "./index";
 import { workDocument } from "./work-document";
 export const editorTables = [
@@ -80,6 +88,7 @@ export const imageRenameProposal = imageRenameSelection.extend({
 });
 
 export const rpcInputs = {
+  ...entityInputs,
   assetRenamePreview: z.strictObject({ ids: z.array(z.string().uuid()).min(1).max(50) }),
   assetRename: z.strictObject({ items: z.array(imageRenameSelection).min(1).max(50) }),
   assets: z.strictObject({
@@ -165,6 +174,8 @@ export const tableSchema = z.object({
   ),
 });
 export const rpcResults = {
+  entityJsonReview: reviewSchema,
+  ...entityResults,
   assetRenamePreview: z.array(imageRenameProposal),
   assetRename: z.object({ renamed: z.number(), compatibilityLinksRetained: z.boolean() }),
   assets: z.object({
