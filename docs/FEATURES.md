@@ -8,7 +8,7 @@
 - [x] Account menu
 - [x] Keyboard focus and accessible controls
 - [ ] Remember page layouts and filters
-- [ ] Connected server indicator
+- [x] Selected server and login connection status
 - [ ] Offline mode indicator
 - [ ] Background task notifications
 - [ ] Consistent empty, loading and error states
@@ -20,18 +20,18 @@
 - [x] Email and password login
 - [x] Show/hide password
 - [x] Login validation and pending state
-- [ ] Add server
-- [ ] Test server connection
-- [ ] Show server name and version
-- [ ] Remember selected server
-- [ ] Edit/remove saved servers
-- [ ] Switch server
+- [x] Add server
+- [x] Test server connection
+- [x] Show server name and version
+- [x] Remember selected server
+- [x] Rename/remove saved servers; add a new connection to change its address
+- [x] Switch server
 - [x] Remember session in private, server-bound native storage
-- [ ] Explain connection and certificate errors
-- [ ] Explain client/server version mismatch
+- [x] Explain connection and certificate errors
+- [x] Explain client/server version mismatch
 - [ ] Open saved library without the server
 - [ ] First server owner setup
-- [ ] Improve login layout
+- [x] Improve login layout
 
 ## Home Page
 

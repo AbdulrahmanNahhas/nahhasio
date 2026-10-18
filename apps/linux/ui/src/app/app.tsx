@@ -75,8 +75,19 @@ export function App() {
     return () => window.removeEventListener("nahhasio:signed-out", clear);
   }, [client, player.snapshot?.sessionId, playerCommandAsync]);
 
+  useEffect(() => {
+    const changed = () => {
+      requestGeneration.current++;
+      setWatchTarget(null);
+      setDownload(null);
+    };
+    window.addEventListener("nahhasio:server-changed", changed);
+    return () => window.removeEventListener("nahhasio:server-changed", changed);
+  }, []);
+
   const session = useQuery({
     queryKey: ["session"],
+    networkMode: "always",
     queryFn: ({ signal }) => gateway.session(signal),
     refetchInterval: 60000,
   });
@@ -164,14 +175,8 @@ export function App() {
       />
     );
 
-  if (session.isLoading)
-    return (
-      <main className="grid h-dvh place-items-center text-muted-foreground" aria-busy="true">
-        جارٍ فتح المكتبة…
-      </main>
-    );
-
-  if (!session.data) return <Login />;
+  if (!session.data)
+    return <Login restoring={session.isLoading} sessionError={session.error?.message} />;
 
   return (
     <>

@@ -38,6 +38,7 @@ pub fn router_with_admin(pool: PgPool, token: Option<String>) -> Router {
     let admin = admin::routes(pool.clone());
     let auth = auth::routes(pool.clone());
     Router::new()
+        .route("/api/v1/server/info", get(server_info))
         .route("/api/health/live", get(live))
         .route("/api/health/ready", get(ready))
         .layer(TraceLayer::new_for_http())
@@ -46,6 +47,16 @@ pub fn router_with_admin(pool: PgPool, token: Option<String>) -> Router {
         .merge(client)
         .merge(auth)
         .merge(admin)
+}
+
+async fn server_info() -> Json<serde_json::Value> {
+    let name = std::env::var("NAHHASIO_SERVER_NAME")
+        .ok()
+        .filter(|name| !name.trim().is_empty() && name.chars().count() <= 80)
+        .unwrap_or_else(|| "مكتبة العائلة".into());
+    Json(
+        serde_json::json!({"product":"nahhasio","name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1}),
+    )
 }
 
 #[derive(Serialize)]

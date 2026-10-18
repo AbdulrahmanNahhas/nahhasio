@@ -1,6 +1,7 @@
 //! Native shell bootstrap. Client Rust exercises begin after this baseline is reviewed.
 mod assets;
 mod bridge;
+mod connections;
 mod media;
 mod media_bridge;
 mod media_gateway;
@@ -9,6 +10,7 @@ mod media_storage;
 mod player;
 mod player_protocol;
 mod player_smoke;
+mod private_state;
 mod services;
 mod session_store;
 mod smoke;
@@ -257,17 +259,96 @@ fn build_window(
             Err(_) => return,
         };
         let id = request.id.clone();
+        if request.command == "servers.select" {
+            let permit = services.permits.clone().try_acquire_owned();
+            let player = bridge_player.borrow().clone();
+            let media = media.clone();
+            let service = services.clone();
+            let runtime = runtime.clone();
+            let weak = view.downgrade();
+            glib::MainContext::default().spawn_local(async move {
+                let Ok(_permit) = permit else {
+                    if let Some(view) = weak.upgrade() {
+                        send_reply(
+                            &view,
+                            reply(
+                                &id,
+                                Err(Error::new(
+                                    "busy",
+                                    "طلبات الاتصال مشغولة. أعد المحاولة بعد قليل.",
+                                )),
+                            ),
+                        );
+                    }
+                    return;
+                };
+                let operations = service.operations.clone();
+                let operation = runtime
+                    .spawn(async move {
+                        tokio::time::timeout(
+                            std::time::Duration::from_secs(8),
+                            operations.write_owned(),
+                        )
+                        .await
+                    })
+                    .await;
+                let Ok(Ok(operation)) = operation else {
+                    if let Some(view) = weak.upgrade() {
+                        send_reply(
+                            &view,
+                            reply(
+                                &id,
+                                Err(Error::new(
+                                    "busy",
+                                    "هناك عملية قيد التنفيذ. انتظر اكتمالها ثم أعد تبديل الخادم.",
+                                )),
+                            ),
+                        );
+                    }
+                    return;
+                };
+                let result = if player
+                    .as_ref()
+                    .is_some_and(|player| player.snapshot().active)
+                {
+                    Err(Error::new(
+                        "busy",
+                        "أغلق المشغّل قبل تبديل الخادم. ستبقى ملفات الجهاز محفوظة.",
+                    ))
+                } else {
+                    runtime
+                        .spawn(async move {
+                            let _operation = operation;
+                            let result = service.execute(request).await;
+                            if result.is_ok()
+                                && let Some(media) = media
+                            {
+                                media.reset_sources().await;
+                            }
+                            result
+                        })
+                        .await
+                        .unwrap_or_else(|_| Err(Error::new("internal", "تعذّر تبديل الخادم.")))
+                };
+                if let Some(view) = weak.upgrade() {
+                    send_reply(&view, reply(&id, result));
+                }
+            });
+            return;
+        }
         if request.command.starts_with("media.") {
             let player = bridge_player.borrow().clone();
             let media = media.clone();
             let runtime = runtime.clone();
             let command = media::Command::parse(&request);
+            let operations = services.operations.clone();
             let permit = services.permits.clone().try_acquire_owned();
             let weak = view.downgrade();
             glib::MainContext::default().spawn_local(async move {
                 let result = match (player, media, command, permit) {
                     (Some(player), Some(media), Ok(command), Ok(permit)) => {
                         let _permit = permit;
+                        let _operation = operations.read_owned().await;
                         media_bridge::execute(player, media, runtime, command).await
                     }
                     (_, _, Err(error), _) => Err(error),
@@ -311,10 +392,14 @@ fn build_window(
         if request.command.starts_with("player.") {
             let player = bridge_player.borrow().clone();
             let command = player_protocol::Command::parse(&request);
+            let operations = services.operations.clone();
             let weak = view.downgrade();
             glib::MainContext::default().spawn_local(async move {
                 let result = match (player, command) {
-                    (Some(player), Ok(command)) => player.execute(command).await,
+                    (Some(player), Ok(command)) => {
+                        let _operation = operations.read_owned().await;
+                        player.execute(command).await
+                    }
                     (_, Err(error)) => Err(error),
                     _ => Err(Error::new("playback", "Player is not ready")),
                 };
@@ -343,6 +428,7 @@ fn build_window(
         let service = services.clone();
         let task = runtime.spawn(async move {
             let _permit = permit;
+            let _operation = service.operations.clone().read_owned().await;
             service.execute(request).await
         });
         let weak = view.downgrade();

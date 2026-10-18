@@ -2421,6 +2421,14 @@ export const CatalogPlanetDeleteResultSchema = z.strictObject({
 });
 export type CatalogPlanetDeleteResult = z.infer<typeof CatalogPlanetDeleteResultSchema>;
 
+export const ServerInfoSchema = z.strictObject({
+  product: z.enum(["nahhasio"]),
+  name: z.string().min(1).max(80),
+  version: z.string().max(64),
+  apiVersion: z.number().int().min(1),
+});
+export type ServerInfo = z.infer<typeof ServerInfoSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2736,5 +2744,9 @@ export class ApiClient {
   ): Promise<CatalogEditorReply> {
     const response = await this.request("/api/v1/admin/editor", "POST", body, signal);
     return CatalogEditorReplySchema.parse(await response.json());
+  }
+  async getServerInfo(signal?: AbortSignal): Promise<ServerInfo> {
+    const response = await this.request("/api/v1/server/info", "GET", undefined, signal);
+    return ServerInfoSchema.parse(await response.json());
   }
 }

@@ -39,8 +39,10 @@ play/folder/recovery/removal actions and storage information. Aqua approved the 
 and authorized fixing its old-process bridge error, committing the changes, private login
 persistence, and an early downloadable AppImage/release pipeline. Update documentation with
 actual artifact/runtime/CI limits; no release publication or push has been requested.
-The subsequent order is server connection/login, full Saved Works/offline use, Podman foundation,
-then admin overview. Do not start those stages silently. Awards and work-membership ordering
+Aqua committed current card/watched design as `3d12c96` and approved the server connection/login
+checkpoint with a cinematic desktop login redesign. Complete this checkpoint for review. The
+subsequent order is full Saved Works/offline use, then a detailed database-schema/application-logic
+and trusted-update/recovery review **before** Podman foundation, then admin overview. Do not start those stages silently. Awards and work-membership ordering
 remain future tasks.
 Preserve Aqua's current design.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;

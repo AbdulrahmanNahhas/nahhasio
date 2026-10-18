@@ -1,6 +1,6 @@
 # Nahhasio project guide
 
-Updated 2026-10-14. This document owns the current product direction. [ROADMAP.md](ROADMAP.md)
+Updated 2026-10-18. This document owns the current product direction. [ROADMAP.md](ROADMAP.md)
 owns the large task inventory and Alpha/future priorities. Older plans are recoverable in Git.
 
 ## Product and release scope
@@ -39,6 +39,21 @@ current planning; verify the host before deployment.
 - Keep the reviewed desktop design, improve login/server selection and Downloads, and continue
   moving administration into the client in reviewable steps.
 - Delete obsolete guides from the checkout after consolidating useful facts; Git retains history.
+
+## Agreed checkpoint order — 2026-10-18
+
+1. Server connection/login, including the reviewed desktop UI.
+2. Complete Saved Works and offline use.
+3. A detailed database-schema and application-logic review before deployment: report current
+   relationships/constraints/ownership, gaps and duplication; propose justified improvements.
+   This review does not authorize live data/schema changes automatically.
+4. Podman deployment foundation with verified backup/restore, controlled migrations, trusted
+   artifacts and safe explicit update/rollback procedures.
+5. Admin Overview based on real server capabilities.
+
+Keep deployment/update design in the review: image provenance and digest/signature verification,
+version compatibility, persistence/secrets, health checks, rollback limits after schema changes,
+and a rehearsed independent recovery path. Do not enable blind automatic upgrades.
 
 ## Four distinct workflows
 

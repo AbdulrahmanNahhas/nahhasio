@@ -1,14 +1,9 @@
-//! Native-only, server-bound session storage. Passwords and tokens never enter the UI.
-use crate::bridge::Error;
+//! Server-scoped private sessions; the previous single-session file remains readable.
+use crate::{bridge::Error, private_state};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, OpenOptions},
-    io::{Read, Write},
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
-    path::{Path, PathBuf},
-};
-
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Stored {
@@ -25,38 +20,19 @@ impl SessionStore {
             root: root.to_path_buf(),
         }
     }
-    fn file(&self) -> PathBuf {
-        self.root.join("session.json")
-    }
-    fn read(&self) -> Result<Option<Stored>, Error> {
-        let path = self.file();
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(value) => value,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(storage()),
-        };
-        if !metadata.is_file()
-            || metadata.file_type().is_symlink()
-            || metadata.permissions().mode() & 0o077 != 0
-            || metadata.len() > 16384
-        {
-            return Err(storage());
-        }
-        let mut bytes = Vec::new();
-        std::fs::File::open(path)
-            .map_err(|_| storage())?
-            .take(16385)
-            .read_to_end(&mut bytes)
-            .map_err(|_| storage())?;
-        if bytes.len() > 16384 {
-            return Err(storage());
-        }
-        Ok(serde_json::from_slice(&bytes).ok())
+    fn name(server: &str) -> String {
+        format!(
+            "session-{}.json",
+            hex::encode(Sha256::digest(server.as_bytes()))
+        )
     }
     pub fn load(&self, server: &str) -> Result<Option<String>, Error> {
-        let Some(value) = self.read()? else {
-            return Ok(None);
+        let stored: Option<Stored> = private_state::read(&self.root, &Self::name(server))?;
+        let stored = match stored {
+            Some(value) => Some(value),
+            None => private_state::read(&self.root, "session.json")?,
         };
+        let Some(value) = stored else { return Ok(None) };
         if value.server != server {
             return Ok(None);
         }
@@ -72,65 +48,33 @@ impl SessionStore {
         Ok(Some(value.token))
     }
     pub fn save(&self, server: &str, token: &str, expires_at: &str) -> Result<(), Error> {
-        if token.is_empty() || token.len() > 4096 || expires_at.len() > 100 {
-            return Err(storage());
-        }
-        fs::create_dir_all(&self.root).map_err(|_| storage())?;
-        if fs::symlink_metadata(&self.root)
-            .map_err(|_| storage())?
-            .file_type()
-            .is_symlink()
+        if token.is_empty()
+            || token.len() > 4096
+            || DateTime::parse_from_rfc3339(expires_at).is_err()
         {
-            return Err(storage());
+            return Err(Error::new("response", "استجابة جلسة غير صالحة."));
         }
-        fs::set_permissions(&self.root, fs::Permissions::from_mode(0o700))
-            .map_err(|_| storage())?;
-        let mut nonce = [0u8; 16];
-        getrandom::fill(&mut nonce).map_err(|_| storage())?;
-        let temp = self
-            .root
-            .join(format!(".session-{}.tmp", hex::encode(nonce)));
-        let result = (|| {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&temp)
-                .map_err(|_| storage())?;
-            file.write_all(
-                &serde_json::to_vec(&Stored {
-                    server: server.to_owned(),
-                    token: token.to_owned(),
-                    expires_at: expires_at.to_owned(),
-                })
-                .map_err(|_| storage())?,
-            )
-            .map_err(|_| storage())?;
-            file.sync_all().map_err(|_| storage())?;
-            fs::rename(&temp, self.file()).map_err(|_| storage())?;
-            std::fs::File::open(&self.root)
-                .and_then(|folder| folder.sync_all())
-                .map_err(|_| storage())
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(temp);
+        private_state::write(
+            &self.root,
+            &Self::name(server),
+            &Stored {
+                server: server.into(),
+                token: token.into(),
+                expires_at: expires_at.into(),
+            },
+        )?;
+        self.clear_legacy(server)
+    }
+    fn clear_legacy(&self, server: &str) -> Result<(), Error> {
+        if private_state::read::<Stored>(&self.root, "session.json")?
+            .is_some_and(|old| old.server == server)
+        {
+            private_state::remove(&self.root, "session.json")?;
         }
-        result
+        Ok(())
     }
     pub fn clear(&self, server: &str) -> Result<(), Error> {
-        if self.read()?.is_some_and(|stored| stored.server != server) {
-            return Ok(());
-        }
-        match fs::remove_file(self.file()) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(_) => Err(storage()),
-        }
+        private_state::remove(&self.root, &Self::name(server))?;
+        self.clear_legacy(server)
     }
-}
-fn storage() -> Error {
-    Error::new(
-        "session_storage",
-        "تعذّر حفظ أو قراءة الجلسة الخاصة. تحقق من صلاحيات مجلد حالة نحّاسيو.",
-    )
 }

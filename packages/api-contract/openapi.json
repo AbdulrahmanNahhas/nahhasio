@@ -1907,6 +1907,24 @@
           }
         }
       }
+    },
+    "/api/v1/server/info": {
+      "get": {
+        "operationId": "getServerInfo",
+        "description": "Public product/version metadata only; never catalog records, account data or credentials.",
+        "responses": {
+          "200": {
+            "description": "Server identity and API protocol",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10555,6 +10573,29 @@
           }
         },
         "required": ["removed"]
+      },
+      "ServerInfo": {
+        "type": "object",
+        "required": ["product", "name", "version", "apiVersion"],
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": ["nahhasio"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "apiVersion": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     }
   }

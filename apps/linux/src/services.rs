@@ -1,5 +1,6 @@
 //! Network work runs on Tokio workers. The session token never enters the UI.
 use crate::bridge::{Error, Request, valid_id};
+pub use crate::connections::Services;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use tokio::sync::{Mutex, Semaphore};
 use url::Url;
 
 #[derive(Clone)]
-pub struct Services {
+pub(crate) struct ServerSession {
     session_store: Option<Arc<crate::session_store::SessionStore>>,
     client: Client,
     base: Url,
@@ -269,13 +270,31 @@ fn sanitize_release_posters(value: &mut Value) {
 fn parse<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Error> {
     serde_json::from_value(value).map_err(|_| Error::new("bad_request", "Invalid command fields"))
 }
-fn network(_: reqwest::Error) -> Error {
-    Error::new(
-        "network",
-        "Cannot reach the server. Check that devenv is running.",
-    )
+fn network(error: reqwest::Error) -> Error {
+    use std::error::Error as _;
+    let mut source = error.source();
+    while let Some(cause) = source {
+        if cause.to_string().to_lowercase().contains("certificate") {
+            return Error::new(
+                "certificate",
+                "شهادة الخادم غير موثوقة أو غير صالحة. تحقق من العنوان والشهادة أو راجع مدير المكتبة؛ لن يُتجاوز التحقق الأمني.",
+            );
+        }
+        source = cause.source();
+    }
+    if error.is_timeout() {
+        Error::new(
+            "timeout",
+            "لم يستجب الخادم في الوقت المحدد. تحقق من العنوان والشبكة ثم أعد المحاولة.",
+        )
+    } else {
+        Error::new(
+            "network",
+            "تعذّر الوصول إلى الخادم. تأكد من تشغيله واتصالك بالشبكة.",
+        )
+    }
 }
-impl Services {
+impl ServerSession {
     pub fn new_persistent(base: &str) -> Result<Self, Error> {
         let mut service = Self::new(base)?;
         let roots = crate::media_storage::Roots::discover()
@@ -301,7 +320,10 @@ impl Services {
             || base.path() != "/"
             || !(base.scheme() == "https"
                 || (base.scheme() == "http"
-                    && matches!(base.host_str(), Some("127.0.0.1" | "localhost" | "::1"))))
+                    && matches!(
+                        base.host_str(),
+                        Some("127.0.0.1" | "localhost" | "::1" | "[::1]")
+                    )))
         {
             return Err(Error::new(
                 "configuration",
@@ -354,6 +376,53 @@ impl Services {
             },
             message,
         ))
+    }
+    pub(crate) fn address(&self) -> &str {
+        self.base.as_str()
+    }
+    pub(crate) async fn probe(&self) -> Result<crate::connections::ServerInfo, Error> {
+        let response = self
+            .client
+            .get(self.url("api/v1/server/info"))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(network)?;
+        if !response.status().is_success() {
+            return Err(Error::new(
+                "incompatible",
+                "هذا العنوان لا يوفّر اتصال نحّاسيو المتوافق. تحقق من العنوان أو حدّث الخادم.",
+            ));
+        }
+        let info: crate::connections::ServerInfo =
+            serde_json::from_slice(&bounded_body(response, 16384).await?).map_err(|_| {
+                Error::new("incompatible", "استجابة الخادم غير متوافقة مع هذا التطبيق.")
+            })?;
+        if info.product != "nahhasio"
+            || info.api_version != 1
+            || info.name.is_empty()
+            || info.name.chars().count() > 80
+            || info.version.len() > 64
+        {
+            return Err(Error::new(
+                "incompatible",
+                "إصدار الخادم غير متوافق. حدّث التطبيق أو الخادم قبل تسجيل الدخول.",
+            ));
+        }
+        let response = self
+            .client
+            .get(self.url("api/health/ready"))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(network)?;
+        if !response.status().is_success() {
+            return Err(Error::new(
+                "not_ready",
+                "وصلنا إلى الخادم، لكن المكتبة غير جاهزة بعد. انتظر قليلًا أو راجع حالة الخادم.",
+            ));
+        }
+        Ok(info)
     }
     fn url(&self, path: &str) -> Url {
         self.base.join(path).expect("fixed API route")
@@ -864,6 +933,7 @@ async fn bounded_body(mut response: Response, max: usize) -> Result<Vec<u8>, Err
 }
 #[cfg(test)]
 mod tests {
+    use super::ServerSession as Services;
     use super::*;
     #[tokio::test]
     async fn releases_validate_before_network_and_require_session() {

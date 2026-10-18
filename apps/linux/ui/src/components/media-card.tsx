@@ -5,7 +5,7 @@ import type {
   WorkSummary,
 } from "@nahhasio/api-contract";
 import { cn } from "cn";
-import { CalendarDays, CheckIcon, CircleCheckIcon, Film, Star, Tv } from "lucide-react";
+import { CalendarDays, Film, Star, Tv } from "lucide-react";
 
 import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";

@@ -1,6 +1,6 @@
 # Nahhasio roadmap and task inventory
 
-Updated 2026-10-14. **Current milestone: 0.1 Alpha, a reliable base.**
+Updated 2026-10-18. **Current milestone: 0.1 Alpha, a reliable base.**
 [PROJECT.md](PROJECT.md) owns confirmed scope. This is the long-term inventory, not a promise
 that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;
 other platforms follow later. No website ships in the delivered product.
@@ -37,6 +37,23 @@ checkpoints; detailed implementation order stays subject to review.
 - [ ] **A10** Improve the highest-priority admin/login/Downloads flows in reviewed slices.
 - [ ] **A11** Define explicit Alpha installation/update/backup steps and known limitations.
 - [ ] **A12** Run the consolidated Alpha acceptance on isolated data and the target environment.
+
+## Required review before Podman deployment
+
+After server connection/login and Saved Works/offline use, complete a detailed schema and logic
+review. Cover catalog/work/part/episode identity, relationships, constraints/indexes, vocabularies,
+images/assignments and filesystem paths, accounts/profiles/devices/sessions, tracking/offline sync,
+media versions/tracks, download/job ownership, editorial revisions and deletion/recovery behavior.
+Inspect actual consumers, obsolete/duplicate concepts, performance and migration history. Present
+proposed changes with rationale, compatibility/backfill/recovery impact and priorities; retain
+catalog UUIDs, user history and artwork. No speculative live cleanup is implicit approval.
+
+Deployment review must cover trusted container/AppImage sources, pinned base images/actions,
+release provenance/signatures/digests, least privilege and secrets, persistent volumes, verified
+independent backup/restore, explicit migrations, compatibility checks and upgrade health gates.
+Define rollback honestly: an older binary may not support a migrated database. Keep an approved
+recovery path and stage upgrades against restored data before the family server. Initial Alpha
+updates are explicit/confirmed; automatic updates wait for these safeguards and approval.
 
 ## Saved-work and playback requirements clarified by Aqua
 

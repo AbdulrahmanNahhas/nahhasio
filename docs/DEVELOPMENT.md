@@ -67,9 +67,10 @@ no bearer/private admin token, arbitrary native command, browser server fetch or
 Hash routes retain native packaging semantics. Never hand-edit `routeTree.gen.ts` or generated
 API code; regenerate through the owning scripts. Server enforces permissions on every operation.
 
-Native session credentials now persist in private, server-bound native storage; server-selection
-UX is pending. Native server configuration accepts HTTPS or loopback HTTP; LAN trust/connection UX
-must be designed deliberately rather than disabling origin/TLS/session checks.
+Native session credentials persist in private, server-bound native storage. The login and account
+menu provide saved-server selection and connection checks (see the checkpoint below). Native
+configuration accepts HTTPS or loopback HTTP; home-server certificate provisioning remains a
+deployment decision rather than disabling TLS/session checks.
 
 ## Current media behavior and limits
 
@@ -307,3 +308,40 @@ The launcher requires unprivileged user namespaces. Real object mounts keep WebK
 sandbox paths resolvable without chroot, overlayfs or links outside its allowed filesystem.
 This remains initially a NixOS preview: Fedora/non-NixOS graphics, audio/video and fresh-install
 acceptance must be reviewed before calling it a generally supported Linux release.
+
+## Server connection and login checkpoint
+
+The client stores up to eight canonical root URLs and aliases in private versioned
+`connections.json` under the existing device state root. User selection persists across launches;
+an explicit `NAHHASIO_SERVER_URL` overrides it for that launch. URL validation accepts HTTPS or
+loopback HTTP only, never embedded credentials, paths, fragments or queries. A missing scheme
+means HTTPS. TLS verification stays enabled; this checkpoint does not add self-signed certificate
+bypass/import or settle the later deployment certificate provisioning decision.
+
+`GET /api/v1/server/info` exposes bounded product/name/version/API metadata only. Set
+`NAHHASIO_SERVER_NAME` for the display name. Native probes verify protocol compatibility and
+readiness without sending credentials. Login probes again before credentials are sent. This
+endpoint requires the new API build; old servers report an actionable compatibility error.
+The connection address is the current session boundary, not a new durable server UUID.
+
+Native sessions now use `session-<sha256-of-canonical-url>.json` per server with atomic private
+writes. The previous `session.json` remains readable; a successful new login replaces only its
+matching legacy session. Logout/remove clears only that server's credentials. Connections and
+sessions remain native-owned; passwords are never saved. Saved videos/jobs are not deleted by
+switching. Full per-account/server offline cache ownership remains the next checkpoint.
+
+Connection switching takes an exclusive shell operation guard, waits at most eight seconds for
+in-flight catalog/media work, refuses active playback and clears native source candidates. Each
+request snapshots an immutable transport, preventing token/base mixing. The UI cancels queries,
+clears all private/native query data, rejects old-connection replies, resets media selections and
+restores the new server's session. Renaming connections works offline; removing an inactive
+connection has an explicit local confirmation. Choose another server before removing the active
+one. To change an address, add a new connection rather than transferring credentials to a new URL.
+
+The sign-in screen uses original bundled SVG cinema artwork rather than exposing catalog posters
+before authentication. It supports Arabic/RTL, narrow/short windows, live connection status and
+changing servers during session restoration. The account menu also exposes connection management.
+Static checks, production UI/native builds and the live metadata/readiness endpoint passed.
+The refreshed AppImage and visual design still need Aqua's review; consolidated cross-server
+mutation, offline and deployment acceptance remain separate. No catalog migration or live
+mutation suite is part of this checkpoint.

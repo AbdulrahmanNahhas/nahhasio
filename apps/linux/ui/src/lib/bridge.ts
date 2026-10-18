@@ -53,6 +53,10 @@ declare global {
     __nahhasioReply?: (reply: Reply) => void;
   }
 }
+let connectionRevision = 0;
+window.addEventListener("nahhasio:server-changed", () => {
+  connectionRevision++;
+});
 const pending = new Map<
   string,
   { resolve: (reply: Reply) => void; reject: (error: Error) => void }
@@ -74,6 +78,7 @@ export async function nativeCall(
   signal?: AbortSignal,
   timeoutMs = 25000,
 ) {
+  const revision = connectionRevision;
   const handler = window.webkit?.messageHandlers?.nahhasio;
   if (!handler) throw new Error("افتح نحّاسيو من تطبيق Linux للاتصال بمكتبتك.");
   if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
@@ -108,6 +113,7 @@ export async function nativeCall(
       reject(new Error("تعذر الاتصال بالتطبيق."));
     }
   });
+  if (revision !== connectionRevision) throw new DOMException("Server changed", "AbortError");
   if (!response.ok) {
     if (response.error.code === "unauthorized" && command !== "login")
       window.dispatchEvent(new Event("nahhasio:signed-out"));
@@ -176,7 +182,8 @@ export const gateway = {
     AccountMessageSchema.parse(await call("updatePassword", PasswordUpdateSchema.parse(input))),
   session: async (signal?: AbortSignal) =>
     SessionSchema.nullable().parse(await call("session", {}, signal)),
-  login: async (payload: LoginRequest) => SessionSchema.parse(await call("login", payload)),
+  login: async (payload: LoginRequest) =>
+    SessionSchema.parse(await call("login", payload, undefined, 40000)),
   logout: async () => {
     await call("logout", {});
   },

@@ -174,6 +174,9 @@ pub struct Sources {
     pub candidates: Vec<Value>,
 }
 impl Media {
+    pub async fn reset_sources(&self) {
+        self.sources.lock().await.clear();
+    }
     pub fn new(services: Services) -> Result<Arc<Self>, Error> {
         Ok(Arc::new(Self {
             services,
