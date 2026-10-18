@@ -5,7 +5,7 @@ import type {
   WorkSummary,
 } from "@nahhasio/api-contract";
 import { cn } from "cn";
-import { CalendarDays, CheckCircle, Film, Star, Tv } from "lucide-react";
+import { CalendarDays, CheckIcon, CircleCheckIcon, Film, Star, Tv } from "lucide-react";
 
 import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";
@@ -102,7 +102,7 @@ export function MediaCard({
         {...navigation}
         href={workLink(workId, unit?.id)}
         aria-label={`تفاصيل ${title}`}
-        className="group/card flex flex-col gap-3 rounded-3xl text-foreground focus-visible:outline-none"
+        className="group/card flex flex-col gap-3 rounded-2xl text-foreground focus-visible:outline-none"
         onClick={
           onSelect
             ? (event) => {
@@ -114,7 +114,7 @@ export function MediaCard({
       >
         <span
           className={cn(
-            "relative block aspect-2/3 rounded-3xl transition-[box-shadow,border-color] duration-200 group-focus-visible/card:ring-4 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-background group-data-[layout=banner]/media:aspect-video group-data-[layout=logo]/media:aspect-video motion-reduce:transition-none",
+            "relative block aspect-2/3 rounded-2xl transition-[box-shadow,border-color] duration-200 group-focus-visible/card:ring-4 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-background group-data-[layout=banner]/media:aspect-video group-data-[layout=logo]/media:aspect-video motion-reduce:transition-none",
             bareLogo
               ? "rounded-none border-0 bg-transparent"
               : "border border-border bg-card group-hover/card:border-foreground/60 group-hover/card:shadow-lg",
@@ -157,7 +157,10 @@ export function MediaCard({
           </span>
           {!minimal && showScore && score?.rating != null && (
             <span
-              className="absolute start-0 top-0 flex items-center min-w-12 justify-items-center gap-0.5 rounded-ss-3xl rounded-ee-2xl bg-primary px-2.5 py-2 text-primary-foreground shadow-sm"
+              className={cn(
+                "absolute start-0 top-0 flex items-center min-w-12 justify-items-center gap-0.5 rounded-ss-2xl rounded-ee-xl bg-primary px-2.5 py-2 text-primary-foreground shadow-sm",
+                !minimal && watched && "bg-green-700!",
+              )}
               title={`التقييم المحسوب · ${score.scored} من ${score.total} أجزاء مقيّمة`}
             >
               <Star className="size-4 fill-current" aria-hidden="true" />
@@ -167,25 +170,20 @@ export function MediaCard({
             </span>
           )}
           {!minimal && parent?.isPrivate && (
-            <span className="absolute end-2.5 top-1">
+            <span className="absolute end-2.5 bottom-1">
               <Badge variant="secondary">خاص</Badge>
-            </span>
-          )}
-          {!minimal && watched && (
-            <span className="absolute end-3 bottom-3 rounded-full bg-background/90 p-1.5 text-success">
-              <CheckCircle className="size-5" aria-label="تمّت مشاهدته" />
             </span>
           )}
           {!minimal &&
             showStatus &&
-            (status === "announced" || status === "airing" || status === "completed") && (
-              <span className="absolute start-3 bottom-3">
-                <Badge variant="secondary">
-                  {status === "completed" ? (
-                    <CheckCircle data-icon="inline-start" />
-                  ) : (
-                    <CalendarDays data-icon="inline-start" />
-                  )}
+            (status === "announced" || status === "airing") && ( // || status !== "completed"??
+              <span className="absolute left-1/2 -translate-x-1/2 -bottom-1">
+                <Badge variant="secondary" className=" rounded-b-none! mb-1 rounded-t-lg">
+                  {/*{status === "completed" ? (
+                    <CheckIcon data-icon="inline-start" />
+                  ) : (*/}
+                  <CalendarDays data-icon="inline-start" />
+                  {/*// )}*/}
                   {optionLabel(status, status)}
                 </Badge>
               </span>

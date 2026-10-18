@@ -1,4 +1,4 @@
-import { CheckCircle, Eye, EyeOff } from "lucide-react";
+import { CheckIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { useCardNavigation } from "../../components/card-navigation";
@@ -50,7 +50,7 @@ export function WatchedControl({
     : Boolean(summary?.isFullyWatched || (units.length && units.every((unit) => unit.isPlayed)));
   const disabled = !data || !units.length || tracking.pending;
   const text = isPlayed ? `إلغاء مشاهدة ${label}` : `تحديد ${label} كمُشاهَد`;
-  const Icon = isPlayed ? CheckCircle : Eye;
+  const Icon = isPlayed ? CheckIcon : Eye;
   const mutate = () =>
     tracking.watched.mutate(
       { installmentId, episodeId, isPlayed: !isPlayed },
