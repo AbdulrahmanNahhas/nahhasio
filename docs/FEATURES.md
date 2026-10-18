@@ -29,7 +29,7 @@
 - [x] Remember session in private, server-bound native storage
 - [x] Explain connection and certificate errors
 - [x] Explain client/server version mismatch
-- [ ] Open saved library without the server
+- [x] Open saved library without the server
 - [ ] First server owner setup
 - [x] Improve login layout
 
@@ -246,19 +246,21 @@
 
 ## Saved Works Page
 
-- [ ] Browse saved works without the server
+- [x] Browse saved works without the server
 - [ ] Poster/banner/table views
-- [ ] Search/filter/group saved works
-- [ ] Full saved work data
-- [ ] Cached artwork readiness
+- [x] Search saved works
+- [ ] Filter/group saved works
+- [x] Full saved work data
+- [x] Save referenced artwork before publishing a ready snapshot
+- [ ] Detailed cache health/repair tools
 - [ ] Available device videos
 - [ ] Saved work size
-- [ ] Refresh metadata when connected
-- [ ] Show last refresh
-- [ ] Play permitted torrents with internet
-- [ ] Play local video without internet
+- [x] Refresh metadata when connected
+- [x] Show last refresh
+- [x] Play permitted torrents with internet
+- [x] Play local video without internet
 - [ ] Explain unavailable sources
-- [ ] Remove metadata/artwork separately from video
+- [x] Remove metadata/artwork separately from video
 - [ ] Save/unsave multiple works
 
 ## Player Page
@@ -275,10 +277,10 @@
 - [x] Manual subtitle file
 - [x] Subtitle timing/style controls
 - [ ] Play authorized server files
-- [ ] Resume from stored progress
-- [ ] Save progress automatically
+- [x] Resume from stored progress
+- [x] Save progress automatically
 - [ ] Update watched state on completion
-- [ ] Queue offline tracking changes
+- [x] Queue offline tracking changes
 - [ ] Choose another media version
 - [ ] Next/previous episode
 - [ ] Autoplay next episode
@@ -336,7 +338,7 @@
 - [x] Separate removal of a saved-video record from confirmed physical file deletion
 - [ ] Batch cancellation/removal
 - [ ] Keep metadata/artwork/subtitles with video
-- [ ] Play completed downloads offline
+- [x] Play completed downloads offline
 - [x] Open available saved videos directly from Downloads without a catalog request
 - [x] Show available saved videos in their folder
 - [x] Missing/size/link problem states and retry/reselect-source recovery actions

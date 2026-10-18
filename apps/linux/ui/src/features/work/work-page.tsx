@@ -16,6 +16,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { gateway } from "../../lib/bridge";
+import { offlineStatusOptions } from "../player/saved-works-data";
 import { navigate, replaceParams, useViewerRoute } from "../shell/navigation";
 import { ActivityPanel } from "./activity-panel";
 import { CreatorsPanel } from "./creators-panel";
@@ -41,8 +42,10 @@ function onBack() {
   else navigate("/home");
 }
 export function WorkPage({ id, installmentId }: { id: string; installmentId?: string }) {
+  const offline = useQuery(offlineStatusOptions());
   const result = useQuery({
     queryKey: ["work", id],
+    networkMode: "always",
     queryFn: ({ signal }) => gateway.work(id, signal),
   });
   const tracking = useWorkTracking(id);
@@ -144,7 +147,7 @@ export function WorkPage({ id, installmentId }: { id: string; installmentId?: st
                 <div className="min-h-dvh min-w-0">
                   <TabsContent value="profile">
                     <OverviewPanel work={work} tracking={tracking} />
-                    <ActivityPanel id={id} />
+                    {!offline.data?.offline && <ActivityPanel id={id} />}
                   </TabsContent>
                   <TabsContent value="installments">
                     <InstallmentsPanel work={work} initial={installmentId} tracking={tracking} />

@@ -105,6 +105,8 @@ struct SavedRecord {
     title: String,
     work_title: String,
     poster_id: Option<String>,
+    #[serde(default)]
+    scope: Option<String>,
 }
 fn saved_record(value: &str) -> Option<SavedRecord> {
     serde_json::from_str::<SavedRecord>(value)
@@ -119,6 +121,7 @@ fn saved_record(value: &str) -> Option<SavedRecord> {
                     title: String::new(),
                     work_title: String::new(),
                     poster_id: None,
+                    scope: None,
                 })
         })
 }
@@ -208,13 +211,18 @@ impl Media {
     }
     pub async fn saved(&self) -> Result<Value, Error> {
         let engine = self.engine().await?;
+        let scope = self.services.catalog_scope().await.ok();
         tokio::task::spawn_blocking(move || {
             let files = engine.saved_files()?;
             Ok::<_, media_transfer::Error>(Value::Array(
                 files
                     .into_iter()
                     .filter_map(|file| {
-                        let target = saved_record(&file.target)?.target;
+                        let record = saved_record(&file.target)?;
+                        if scope.is_none() || record.scope != scope {
+                            return None;
+                        }
+                        let target = record.target;
                         Some(json!({"target":target,"available":file.available}))
                     })
                     .collect(),
@@ -228,7 +236,16 @@ impl Media {
         &self,
         target: Target,
     ) -> Result<Option<(std::path::PathBuf, ResolvedTarget)>, Error> {
-        let resolved = self.resolve(&target).await?;
+        let work_data = self
+            .services
+            .execute(Request {
+                id: "local-catalog".into(),
+                command: "work".into(),
+                payload: json!({"id":target.work_id}),
+            })
+            .await?;
+        let resolved = resolve_target_for(&work_data, &target, true)?;
+        let scope = self.services.catalog_scope().await?;
         let engine = self.engine().await?;
         let work = resolved.work_id.clone();
         let installment = resolved.installment_id.clone();
@@ -242,7 +259,8 @@ impl Media {
                         file.available
                             && saved_record(&file.target).is_some_and(|record| {
                                 let target = record.target;
-                                target.work_id == work
+                                record.scope.as_deref() == Some(&scope)
+                                    && target.work_id == work
                                     && target.installment_id.as_ref() == Some(&installment)
                                     && target.episode_id == episode
                             })
@@ -497,6 +515,7 @@ impl Media {
     ) -> Result<(), Error> {
         let engine = self.engine().await?;
         let videos = self.roots.videos.clone();
+        let scope = Some(self.services.catalog_scope().await?);
         tokio::task::spawn_blocking(move || {
             engine.keep_export(&id, file, &videos, &resolved.work_title)?;
             let target = Target {
@@ -513,6 +532,7 @@ impl Media {
                     title: resolved.title,
                     work_title: resolved.work_title,
                     poster_id: resolved.poster_id,
+                    scope,
                 })?,
             )
         })
@@ -522,6 +542,7 @@ impl Media {
     }
     pub async fn jobs(&self) -> Result<Value, Error> {
         let engine = self.engine().await?;
+        let scope = self.services.catalog_scope().await.ok();
         tokio::task::spawn_blocking(move || {
             let jobs = engine.jobs()?;
             let saved = engine.saved_files()?;
@@ -530,7 +551,7 @@ impl Media {
                 if !job.selected.is_empty() {
                     let status = engine.status(&job.id)?;
                     let files = engine.files(&job.id).unwrap_or_default();
-                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).map(saved_json).collect();
+                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).map(|file|saved_json(file,scope.as_deref())).collect();
                     if !exports.is_empty() {
                         result.push(json!({"id":job.id.0,"files":files,"selected":job.selected,"status":status,"exports":exports}));
                     }
@@ -583,12 +604,13 @@ impl Media {
         use gtk::gio::prelude::*;
         let engine = self.engine().await?;
         let root = self.roots.videos.clone();
+        let scope = self.services.catalog_scope().await.ok();
         tokio::task::spawn_blocking(move||{
             let saved=engine.saved_files()?;
             let used:u64=saved.iter().filter(|file|file.available).map(|file|file.size).sum();
             let filesystem=gtk::gio::File::for_path(&root).query_filesystem_info("filesystem::free",None::<&gtk::gio::Cancellable>).ok();
             let free=filesystem.filter(|info|info.has_attribute("filesystem::free")).map(|info|info.attribute_uint64("filesystem::free"));
-            Ok::<_,media_transfer::Error>(json!({"files":saved.iter().filter(|file|file.published).map(saved_json).collect::<Vec<_>>(),"root":root,"usedBytes":used,"freeBytes":free}))
+            Ok::<_,media_transfer::Error>(json!({"files":saved.iter().filter(|file|file.published).map(|file|saved_json(file,scope.as_deref())).collect::<Vec<_>>(),"root":root,"usedBytes":used,"freeBytes":free}))
         }).await.map_err(|_|transfer_error())?.map_err(|_|transfer_error())
     }
     pub async fn saved_path(
@@ -625,6 +647,29 @@ impl Media {
             )
         })
     }
+    pub async fn saved_context(&self, id: String, file: u32) -> Option<ResolvedTarget> {
+        let scope = self.services.catalog_scope().await.ok()?;
+        let engine = self.engine().await.ok()?;
+        let record = tokio::task::spawn_blocking(move || {
+            engine
+                .saved_files()
+                .ok()?
+                .into_iter()
+                .find(|saved| saved.id == id && saved.file == file)
+                .and_then(|saved| saved_record(&saved.target))
+        })
+        .await
+        .ok()??;
+        if record.scope.as_deref() != Some(&scope) {
+            return None;
+        }
+        let work = self
+            .services
+            .saved_work(&record.target.work_id)
+            .await
+            .ok()?;
+        resolve_target_for(&work, &record.target, true).ok()
+    }
     pub async fn manage_download(
         &self,
         id: String,
@@ -640,9 +685,12 @@ impl Media {
         }).await.map_err(|_|transfer_error())?.map_err(|_|Error::new("download_action","تعذّر تنفيذ الإجراء. قد يجري حفظ الفيديو، أو تغيّر الملف، أو يحتاج التورنت إلى مصدر جديد. لم تُحذف ملفات خارج التنزيل المسجّل."))
     }
 }
-fn saved_json(file: &media_transfer::SavedFile) -> Value {
+fn saved_json(file: &media_transfer::SavedFile, scope: Option<&str>) -> Value {
     let record = saved_record(&file.target);
-    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":record.as_ref().map(|record|&record.target),"title":record.as_ref().map(|record|&record.title),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":record.as_ref().and_then(|record|record.poster_id.as_ref())})
+    let owned = record
+        .as_ref()
+        .filter(|record| scope.is_some() && record.scope.as_deref() == scope);
+    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":owned.map(|record|&record.target),"title":record.as_ref().map(|record|&record.title),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":owned.and_then(|record|record.poster_id.as_ref())})
 }
 async fn pause_unowned(engine: Engine, id: TorrentId) {
     let _ = tokio::task::spawn_blocking(move || engine.pause_if_unowned(&id)).await;
@@ -668,6 +716,9 @@ fn eligible(item: &Value) -> bool {
         .is_none_or(|date| date <= chrono::Utc::now().date_naive())
 }
 fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error> {
+    resolve_target_for(work, target, false)
+}
+fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<ResolvedTarget, Error> {
     let installments = work["installments"].as_array().ok_or_else(transfer_error)?;
     let installment = match &target.installment_id {
         Some(id) => installments
@@ -705,6 +756,7 @@ fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error
         let number = episode["number"]
             .as_str()
             .and_then(standard_episode_number)
+            .or_else(|| local.then_some(0))
             .ok_or_else(|| {
                 Error::new(
                     "source_mapping",
@@ -728,12 +780,19 @@ fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error
         (
             episode["id"].as_str().map(str::to_owned),
             torrentio::Search {
-                imdb_id: imdb(work)?.to_owned(),
+                imdb_id: if local {
+                    String::new()
+                } else {
+                    imdb(work)?.to_owned()
+                },
                 kind: torrentio::Kind::Series,
                 season: Some(season),
                 episode: Some(number),
             },
-            format!("{title} · الحلقة {number}"),
+            format!(
+                "{title} · الحلقة {}",
+                episode["number"].as_str().unwrap_or("")
+            ),
         )
     } else {
         let only_film = installments
@@ -741,8 +800,11 @@ fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error
             .filter(|item| item["kind"] != "season")
             .count()
             == 1;
-        let identifier =
-            imdb(installment).or_else(|error| if only_film { imdb(work) } else { Err(error) })?;
+        let identifier = if local {
+            ""
+        } else {
+            imdb(installment).or_else(|error| if only_film { imdb(work) } else { Err(error) })?
+        };
         (
             None,
             torrentio::Search {

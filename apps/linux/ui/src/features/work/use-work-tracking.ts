@@ -10,6 +10,7 @@ export function useWorkTracking(id: string) {
   const client = useQueryClient();
   const state = useQuery({
     queryKey: workStateKey(id),
+    networkMode: "always",
     queryFn: ({ signal }) => gateway.workState(id, signal),
   });
   const indexes = useMemo(() => {
@@ -36,6 +37,7 @@ export function useWorkTracking(id: string) {
     onSuccess: refresh,
   });
   const watched = useMutation({
+    networkMode: "always",
     mutationFn: (selection: WatchedSelection) => gateway.setWatched(id, selection),
     onSuccess: refresh,
   });

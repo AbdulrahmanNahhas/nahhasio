@@ -11,6 +11,7 @@ import {
   Server,
   ShieldCheck,
   Trash2,
+  ChevronLeft,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -42,63 +43,69 @@ import type { SavedServer } from "./connections";
 export function CurrentServer({
   onManage,
   disabled = false,
+  sessionError,
 }: {
   onManage: () => void;
   disabled?: boolean;
+  sessionError?: string;
 }) {
   const connections = useQuery(connectionsOptions());
   const current = connections.data?.servers.find(
     (server) => server.url === connections.data.selected,
   );
   const status = useQuery(probeOptions(current?.url));
+  const error = connections.error?.message ?? status.error?.message ?? sessionError;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <Server className="size-5 shrink-0 text-primary" aria-hidden="true" />
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <Server className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{current?.name ?? "اتصال المكتبة"}</p>
-          <p className="truncate text-xs text-muted-foreground" dir="ltr">
-            {current?.url ?? "اختر الخادم الذي يحتفظ بمكتبتك"}
+          <p className="truncate text-sm font-medium">{current?.name ?? "اختر مكتبتك"}</p>
+          <p className="truncate text-xs text-muted-foreground" dir="ltr" title={current?.url}>
+            {current?.url ?? "أضف عنوان خادم المكتبة"}
           </p>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onManage} disabled={disabled}>
           تغيير
+          <ChevronLeft data-icon="inline-end" />
         </Button>
       </div>
       <div className="flex items-center justify-between gap-2 text-xs" aria-live="polite">
-        {status.isFetching ? (
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <Spinner />
-            جارٍ التحقق من الاتصال…
-          </span>
-        ) : status.data ? (
-          <span className="flex items-center gap-2 text-success">
-            <CheckCircle2 className="size-3.5" />
-            {status.data.info.name}
-            <span className="text-muted-foreground" dir="ltr">
-              v{status.data.info.version}
-            </span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground">
-            {status.error ? "الخادم غير متاح" : "لم يُختبر الاتصال"}
-          </span>
-        )}
+        <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+          {status.isFetching ? (
+            <>
+              <Spinner /> جارٍ التحقق من الاتصال…
+            </>
+          ) : error ? (
+            sessionError && !connections.error && !status.error ? (
+              "تعذّرت استعادة الجلسة"
+            ) : (
+              "تعذّر الاتصال بالمكتبة"
+            )
+          ) : status.data ? (
+            <>
+              <CheckCircle2 className="size-3.5 shrink-0 text-success" /> متصل بالمكتبة
+            </>
+          ) : (
+            "اختر مكتبة للمتابعة"
+          )}
+        </span>
         {!status.isFetching && current && (
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
             aria-label="إعادة فحص الاتصال"
+            disabled={disabled}
             onClick={() => void status.refetch()}
           >
             <RefreshCw />
           </Button>
         )}
       </div>
-      {(connections.error || status.error) && (
+      {error && (
         <Alert variant="destructive">
-          <AlertDescription>{connections.error?.message ?? status.error?.message}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
     </div>
@@ -262,15 +269,15 @@ export function ServerConnections({
   };
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {form ? (form.editing ? "تسمية الاتصال" : "أضف مكتبتك") : "مكتباتك"}
+            {form ? (form.editing ? "تسمية الاتصال" : "أضف مكتبتك") : "اختر مكتبتك"}
           </DialogTitle>
           <DialogDescription>
             {form
               ? "اتصل بالخادم الذي يحتفظ بأعمالك وصورك وسجل مشاهدتك."
-              : "اختر مكتبة محفوظة أو أضف عنوان خادم آخر. تبقى ملفات الجهاز محفوظة عند التبديل."}
+              : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل."}
           </DialogDescription>
         </DialogHeader>
         {form ? (
@@ -286,15 +293,16 @@ export function ServerConnections({
               {connections.data?.servers.map((server) => (
                 <div
                   key={server.url}
-                  className="flex items-center gap-2 rounded-2xl border border-border p-3"
+                  className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border p-4 data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/5"
+                  data-selected={connections.data.selected === server.url}
                 >
                   <Server
-                    className="mx-1 size-5 shrink-0 text-muted-foreground"
+                    className="mx-1 size-6 shrink-0 text-muted-foreground"
                     aria-hidden="true"
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-sm font-medium">
-                      {server.name}
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                      <span className="min-w-0 break-words">{server.name}</span>
                       {connections.data.selected === server.url && (
                         <Badge variant="secondary">
                           <Check data-icon="inline-start" />

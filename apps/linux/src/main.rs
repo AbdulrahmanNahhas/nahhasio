@@ -7,6 +7,7 @@ mod media_bridge;
 mod media_gateway;
 mod media_range;
 mod media_storage;
+mod offline;
 mod player;
 mod player_protocol;
 mod player_smoke;
@@ -259,7 +260,12 @@ fn build_window(
             Err(_) => return,
         };
         let id = request.id.clone();
-        if request.command == "servers.select" {
+        let revision = services.revision();
+        let boundary = services.clone();
+        if matches!(
+            request.command.as_str(),
+            "servers.select" | "offline.open" | "offline.close" | "login" | "logout"
+        ) {
             let permit = services.permits.clone().try_acquire_owned();
             let player = bridge_player.borrow().clone();
             let media = media.clone();
@@ -307,13 +313,15 @@ fn build_window(
                     }
                     return;
                 };
-                let result = if player
+                let result = if let Err(error) = service.check_revision(revision) {
+                    Err(error)
+                } else if player
                     .as_ref()
                     .is_some_and(|player| player.snapshot().active)
                 {
                     Err(Error::new(
                         "busy",
-                        "أغلق المشغّل قبل تبديل الخادم. ستبقى ملفات الجهاز محفوظة.",
+                        "أغلق المشغّل قبل تغيير المكتبة أو الخادم. ستبقى ملفات الجهاز محفوظة.",
                     ))
                 } else {
                     runtime
@@ -349,7 +357,10 @@ fn build_window(
                     (Some(player), Some(media), Ok(command), Ok(permit)) => {
                         let _permit = permit;
                         let _operation = operations.read_owned().await;
-                        media_bridge::execute(player, media, runtime, command).await
+                        match boundary.check_revision(revision) {
+                            Ok(()) => media_bridge::execute(player, media, runtime, command).await,
+                            Err(error) => Err(error),
+                        }
                     }
                     (_, _, Err(error), _) => Err(error),
                     (_, _, _, Err(_)) => Err(Error::new("busy", "Media requests are busy")),
@@ -398,7 +409,10 @@ fn build_window(
                 let result = match (player, command) {
                     (Some(player), Ok(command)) => {
                         let _operation = operations.read_owned().await;
-                        player.execute(command).await
+                        match boundary.check_revision(revision) {
+                            Ok(()) => player.execute(command).await,
+                            Err(error) => Err(error),
+                        }
                     }
                     (_, Err(error)) => Err(error),
                     _ => Err(Error::new("playback", "Player is not ready")),
@@ -429,6 +443,7 @@ fn build_window(
         let task = runtime.spawn(async move {
             let _permit = permit;
             let _operation = service.operations.clone().read_owned().await;
+            service.check_revision(revision)?;
             service.execute(request).await
         });
         let weak = view.downgrade();

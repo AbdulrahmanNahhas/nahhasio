@@ -22,6 +22,10 @@ pub(super) fn routes() -> Router<PgPool> {
         .route("/api/v1/works/{id}/state", get(state))
         .route("/api/v1/works/{id}/favorite", axum::routing::put(favorite))
         .route("/api/v1/works/{id}/watched", axum::routing::patch(watched))
+        .route(
+            "/api/v1/works/{id}/tracking",
+            axum::routing::patch(sync_tracking),
+        )
         .route("/api/v1/works/{id}/activity", get(activity))
         .layer(DefaultBodyLimit::max(2048))
         .layer(middleware::from_fn(no_store))
@@ -257,6 +261,91 @@ async fn watched(
         .bind(input.is_played)
         .execute(&mut *tx)
         .await?;
+    let result = snapshot(&mut tx, &id, &account).await?;
+    tx.commit().await?;
+    Ok(Json(result))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TrackingInput {
+    installment_id: String,
+    episode_id: Option<String>,
+    expected_updated_at: Option<String>,
+    is_played: Option<bool>,
+    position_seconds: Option<i32>,
+    duration_seconds: Option<i32>,
+}
+/// Absolute, owner-scoped replay. Identical retries are safe; concurrent edits require review.
+async fn sync_tracking(
+    State(pool): State<PgPool>,
+    Extension(user): Extension<User>,
+    Path(id): Path<String>,
+    input: Result<Json<TrackingInput>, JsonRejection>,
+) -> ApiResult<Json<Value>> {
+    validate_id(&id)?;
+    let input = payload(input)?;
+    validate_id(&input.installment_id)?;
+    if let Some(episode) = &input.episode_id {
+        validate_id(episode)?;
+    }
+    if input
+        .expected_updated_at
+        .as_ref()
+        .is_some_and(|date| date.len() > 64)
+        || input
+            .position_seconds
+            .is_some_and(|n| !(0..=31_536_000).contains(&n))
+        || input
+            .duration_seconds
+            .is_some_and(|n| !(0..=31_536_000).contains(&n))
+        || input.position_seconds.is_some() != input.duration_seconds.is_some()
+        || (input.is_played.is_none() && input.position_seconds.is_none())
+    {
+        return Err(invalid("Invalid tracking change"));
+    }
+    let mut tx = begin(&pool, true).await?;
+    let account = account(&mut tx, &user, true).await?;
+    ensure_work(&mut tx, &id, true).await?;
+    validate_target(
+        &mut tx,
+        &id,
+        &WatchedInput {
+            installment_id: Some(input.installment_id.clone()),
+            episode_id: input.episode_id.clone(),
+            is_played: false,
+        },
+    )
+    .await?;
+    let state = snapshot(&mut tx, &id, &account).await?;
+    let unit = state["units"]
+        .as_array()
+        .and_then(|units| {
+            units.iter().find(|unit| {
+                unit["installmentId"] == input.installment_id
+                    && unit["episodeId"] == serde_json::json!(input.episode_id)
+            })
+        })
+        .ok_or_else(not_found)?;
+    let identical = input
+        .is_played
+        .is_none_or(|played| unit["isPlayed"] == played && unit["playedManually"] == true)
+        && input.position_seconds.is_none_or(|position| {
+            unit["positionSeconds"] == position
+                && unit["durationSeconds"] == serde_json::json!(input.duration_seconds)
+        });
+    if identical {
+        tx.commit().await?;
+        return Ok(Json(state));
+    }
+    if unit["updatedAt"] != serde_json::json!(input.expected_updated_at) {
+        return Err(ApiError(
+            StatusCode::CONFLICT,
+            "Viewing state changed; review the device and server versions",
+        ));
+    }
+    sqlx::query("insert into account_playback_states(account_id,installment_id,episode_id,position_seconds,duration_seconds,is_played,played_manually,played_at) values($1::uuid,$2::uuid,$3::uuid,coalesce($4,0),$5,coalesce($6,false),$6 is not null,case when $6 then now() else null end) on conflict on constraint account_playback_owner_uq do update set position_seconds=coalesce($4,account_playback_states.position_seconds),duration_seconds=coalesce($5,account_playback_states.duration_seconds),is_played=coalesce($6,account_playback_states.is_played),played_manually=case when $6 is null then account_playback_states.played_manually else true end,played_at=case when $6 is null then account_playback_states.played_at when $6 then coalesce(account_playback_states.played_at,now()) else null end,updated_at=now()")
+        .bind(&account).bind(&input.installment_id).bind(&input.episode_id).bind(input.position_seconds).bind(input.duration_seconds).bind(input.is_played).execute(&mut *tx).await?;
     let result = snapshot(&mut tx, &id, &account).await?;
     tx.commit().await?;
     Ok(Json(result))

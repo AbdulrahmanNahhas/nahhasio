@@ -345,3 +345,66 @@ Static checks, production UI/native builds and the live metadata/readiness endpo
 The refreshed AppImage and visual design still need Aqua's review; consolidated cross-server
 mutation, offline and deployment acceptance remain separate. No catalog migration or live
 mutation suite is part of this checkpoint.
+
+## Saved Works and offline checkpoint
+
+Server connection/login is committed as `626d3ef`. Saved work data lives beneath
+`$XDG_STATE_HOME/nahhasio/saved/<server-url-hash>/<account-id-hash>/` (the default state root
+remains `~/.local/state/nahhasio`). Keep that state directory and the separately configured
+video directory persistent. No browser storage, credentials in snapshots or second database
+is introduced. URL identity is the current connection boundary; a durable server identity and
+address-change/certificate recovery belong to the forthcoming database/deployment review.
+
+Saving is an explicit native background operation. It reads the authorized full work projection,
+tracking snapshot and referenced artwork through fixed endpoints, with six bounded image requests
+at a time. A private versioned work document and catalog entry are published after image writes
+complete. A failed refresh retains the prior snapshot; partial image files can remain for retry.
+Limits are 1,000 works per account/server namespace, 2,000 referenced images and 512 MiB of image
+data per save, with bounded individual documents. These are safety limits, not storage targets.
+The original metadata projection retains linked display data, parts/episodes and source identities;
+private provider configuration and session tokens are excluded. Refresh is explicit and retains
+pending viewing changes. Saving never downloads video or changes favorites/server retention.
+
+The login screen offers explicit local library selection for the selected server's known accounts.
+This is access to private files on the current OS user's device, not an offline authentication
+grant. The offline shell exposes saved works and device downloads, not administration/account
+mutation screens. No server token is sent while reading offline data. Normal HTTPS/auth guards
+remain in force after reconnecting. Library/profile transitions use the same exclusive operation
+guard as server switching and clear UI caches/source candidates.
+Login/logout also take the exclusive guard. A native revision captured when a bridge request
+arrives rejects queued work after an account/server/library transition; progress writes carry
+their originating account/server scope as well. Late requests cannot inherit the new transport.
+
+Downloads separates saved work data, transfer jobs and device videos. The saved work page reuses
+the viewing UI, hides uncached discussion and disables favorites; watched/unwatched remains
+available. Local source lookup uses stable work/part/episode IDs without requiring an IMDb ID or
+integer torrent episode number. Permitted torrent resolution still runs on the client and needs
+internet plus an available provider mapping. Whole-work source-policy storage/projection is still
+a pre-existing roadmap gap; this checkpoint does not invent per-part policy or a Jellyfin adapter.
+
+New download records carry a server/account namespace for automatic work/file matching. Legacy
+unscoped records and videos remain on disk and can be played explicitly from device videos;
+they are not silently attributed to a server/account. Catalog-linked local playback retains its
+identity when its saved metadata and download record match. The device-video list remains a
+device-level file management view; it is not an account authorization boundary.
+
+Saved works record playback position roughly every ten seconds and before an ordinary player
+close. Resume uses the local snapshot, avoiding a server dependency. Watched edits and progress
+are absolute per-unit entries in the private work document; ratings/notes/favorite edits are not
+queued offline. Bulk watched applies to the units in the saved snapshot. Playback does not
+automatically mark completion. Pending edits survive metadata refresh and prevent accidental
+snapshot removal. Removal confirms local metadata/artwork deletion and retains videos/server data.
+
+`PATCH /api/v1/works/{id}/tracking` reuses existing account playback tables with owner-scoped
+transactions and target validation. It preserves unrelated progress/manual/subtitle fields and
+uses the cached server `updatedAt` for optimistic concurrency. Identical retries are idempotent;
+changed server state produces a conflict. Native sync sends at most five units per request batch,
+retains unacknowledged edits and runs after a verified login to the same owning account/server.
+Conflict flags persist. The review compares device/server watched and progress values, requires
+explicit confirmation, and binds resolution to the reviewed server-state fingerprint. A later
+server edit needs a fresh review. Server-deleted/restructured targets and corrupt local documents
+remain explicit recovery errors; they are never silently discarded.
+
+Implementation checks use formatting/lint/type checks and native/production builds. Full native
+offline/reconnect, filesystem-failure and concurrent-account acceptance remains for the agreed
+consolidated acceptance; no live family-catalog mutation tests run during this checkpoint.

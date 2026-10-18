@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Play, RefreshCw, Trash2, X } from "lucide-react";
+import { FolderOpen, Play, RefreshCw, Trash2, X, MoreHorizontal } from "lucide-react";
 import { useState, useId } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +14,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -99,24 +107,39 @@ export function SavedVideoActions({ file }: { file: SavedVideo }) {
           إعادة التنزيل
         </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="إزالة السجل مع الاحتفاظ بالفيديو"
-        disabled={action.isPending}
-        onClick={() => ask("remove_record")}
-      >
-        <X data-icon="inline-start" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="حذف ملف الفيديو من الجهاز"
-        disabled={action.isPending}
-        onClick={() => ask("delete_video")}
-      >
-        <Trash2 data-icon="inline-start" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={action.isPending}
+              aria-label={`إجراءات ${videoTitle(file)}`}
+            />
+          }
+        >
+          <MoreHorizontal />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuItem disabled={action.isPending} onClick={() => ask("remove_record")}>
+              <X data-icon="inline-start" />
+              إزالة السجل مع الاحتفاظ بالفيديو
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={action.isPending}
+              onClick={() => ask("delete_video")}
+            >
+              <Trash2 data-icon="inline-start" />
+              حذف ملف الفيديو من الجهاز
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {action.isError && !removal && (
         <Alert variant="destructive">
           <AlertTitle>تعذّر تنفيذ الإجراء</AlertTitle>

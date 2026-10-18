@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
-import { nativeAvailable } from "@/lib/bridge";
+import { toast } from "@/components/ui/toast";
+import { nativeAvailable, nativeCall } from "@/lib/bridge";
 
 import { callPlayer, type PlayerRequest, type PlayerSnapshot } from "./bridge";
 
@@ -58,6 +59,37 @@ export function usePlayerSnapshot() {
             order.closed.has(request.payload.sessionId)
           ) {
             throw new Error("انتهت جلسة هذا الفيديو.");
+          }
+        }
+        if (request.command === "player.close") {
+          const snapshot = client.getQueryData<PlayerSnapshot>(playerSnapshotKey);
+          const saved = client.getQueryData<readonly { id: string }[]>(["offline", "works"]);
+          const scope = client.getQueryData<{ scope: string | null }>(["offline", "status"])?.scope;
+          if (
+            scope &&
+            snapshot?.workId &&
+            snapshot.installmentId &&
+            snapshot.sourceKind &&
+            snapshot.duration > 0 &&
+            saved?.some((work) => work.id === snapshot.workId)
+          ) {
+            try {
+              await nativeCall(
+                "offline.progress",
+                {
+                  workId: snapshot.workId,
+                  scope,
+                  installmentId: snapshot.installmentId,
+                  episodeId: snapshot.episodeId ?? null,
+                  positionSeconds: Math.floor(snapshot.position),
+                  durationSeconds: Math.floor(snapshot.duration),
+                },
+                undefined,
+                5000,
+              );
+            } catch {
+              toast.add({ type: "error", title: "تعذّر حفظ آخر تقدم للمشاهدة على الجهاز" });
+            }
           }
         }
         const next = await callPlayer(request);

@@ -79,6 +79,7 @@ export function Artwork({
   }, [element]);
   const query = useQuery({
     queryKey: ["artwork", id],
+    networkMode: "always",
     queryFn: ({ signal }) => gateway.artwork(id ?? "", signal),
     enabled: Boolean(id) && (priority || near),
     staleTime: Infinity,

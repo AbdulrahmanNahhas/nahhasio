@@ -1925,6 +1925,54 @@
           }
         }
       }
+    },
+    "/api/v1/works/{id}/tracking": {
+      "patch": {
+        "operationId": "syncWorkTracking",
+        "summary": "Replay a single saved unit tracking change with optimistic concurrency",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackingChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Committed viewer state including future manual choices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkViewerState"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Concurrent server edit; explicit device/server resolution required"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Target not available"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10594,6 +10642,50 @@
           "apiVersion": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "TrackingChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "installmentId",
+          "episodeId",
+          "expectedUpdatedAt",
+          "isPlayed",
+          "positionSeconds",
+          "durationSeconds"
+        ],
+        "properties": {
+          "installmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "episodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "isPlayed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "positionSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 31536000,
+            "nullable": true
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 31536000,
+            "nullable": true
           }
         }
       }

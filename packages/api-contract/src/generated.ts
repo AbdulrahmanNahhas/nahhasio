@@ -2429,6 +2429,16 @@ export const ServerInfoSchema = z.strictObject({
 });
 export type ServerInfo = z.infer<typeof ServerInfoSchema>;
 
+export const TrackingChangeSchema = z.strictObject({
+  installmentId: z.string().uuid(),
+  episodeId: z.string().uuid().nullable(),
+  expectedUpdatedAt: z.string().max(64).nullable(),
+  isPlayed: z.boolean().nullable(),
+  positionSeconds: z.number().int().min(0).max(31536000).nullable(),
+  durationSeconds: z.number().int().min(0).max(31536000).nullable(),
+});
+export type TrackingChange = z.infer<typeof TrackingChangeSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2445,6 +2455,7 @@ export class ApiClient {
       | LoginRequest
       | PasswordUpdate
       | ProfileUpdate
+      | TrackingChange
       | WatchedRequest
       | WorkReadRequest
       | WorkReviewRequest
@@ -2748,5 +2759,18 @@ export class ApiClient {
   async getServerInfo(signal?: AbortSignal): Promise<ServerInfo> {
     const response = await this.request("/api/v1/server/info", "GET", undefined, signal);
     return ServerInfoSchema.parse(await response.json());
+  }
+  async syncWorkTracking(
+    id: string,
+    body: TrackingChange,
+    signal?: AbortSignal,
+  ): Promise<WorkViewerState> {
+    const response = await this.request(
+      `/api/v1/works/${encodeURIComponent(id)}/tracking`,
+      "PATCH",
+      body,
+      signal,
+    );
+    return WorkViewerStateSchema.parse(await response.json());
   }
 }

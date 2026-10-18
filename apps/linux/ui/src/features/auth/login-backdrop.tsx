@@ -6,9 +6,9 @@ export function LoginBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-20 overflow-hidden" aria-hidden="true">
       <svg
-        viewBox="0 0 1200 1000"
+        viewBox="0 0 1800 1100"
         preserveAspectRatio="xMidYMid slice"
-        className="h-full w-full text-primary opacity-70"
+        className="h-full w-full text-primary opacity-60"
       >
         <defs>
           <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="1" y2="1">
@@ -108,16 +108,17 @@ export function LoginBackdrop() {
             />
           </g>
         </defs>
-        <g transform="translate(390 -180) rotate(15 500 500)">
-          <use href={`#${id}-space`} x="0" y="0" />
-          <use href={`#${id}-mountain`} x="255" y="0" />
-          <use href={`#${id}-city`} x="510" y="0" />
-          <use href={`#${id}-city`} x="0" y="370" />
-          <use href={`#${id}-space`} x="255" y="370" />
-          <use href={`#${id}-mountain`} x="510" y="370" />
-          <use href={`#${id}-mountain`} x="0" y="740" />
-          <use href={`#${id}-city`} x="255" y="740" />
-          <use href={`#${id}-space`} x="510" y="740" />
+        <g transform="translate(-170 -270) rotate(-12 900 550)">
+          {[0, 1, 2, 3].flatMap((row) =>
+            [0, 1, 2, 3, 4, 5, 6, 7].map((column) => (
+              <use
+                key={`${row}-${column}`}
+                href={`#${id}-${["mountain", "city", "space"][(row + column) % 3]}`}
+                x={column * 255}
+                y={row * 370}
+              />
+            )),
+          )}
         </g>
       </svg>
     </div>

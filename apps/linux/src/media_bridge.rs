@@ -49,14 +49,25 @@ pub async fn execute(
         }
         Command::OpenSaved { id, file } => {
             let expected = player.snapshot().session_id;
-            let (path, title) = runtime
-                .spawn(async move { media.saved_path(id, file).await })
+            let (path, title, target) = runtime
+                .spawn(async move {
+                    let target = media.saved_context(id.clone(), file).await;
+                    media
+                        .saved_path(id, file)
+                        .await
+                        .map(|(path, title)| (path, title, target))
+                })
                 .await
                 .map_err(|_| interrupted())??;
             if player.snapshot().session_id != expected {
                 return Err(interrupted());
             }
             player.open_download(&path, title)?;
+            if let Some(target) = target
+                && let Some(session) = player.snapshot().session_id
+            {
+                player.set_target(&session, target)?;
+            }
             serde_json::to_value(player.snapshot()).map_err(|_| interrupted())
         }
         Command::RevealSaved { id, file } => {

@@ -1,4 +1,5 @@
 import type { WorkDetail } from "@nahhasio/api-contract";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Download, Film, Heart, Play, Tv } from "lucide-react";
 
 import { Artwork } from "../../components/artwork";
@@ -6,6 +7,8 @@ import { useCardNavigation } from "../../components/card-navigation";
 import { ScoreBadge } from "../../components/media-card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { SaveWorkControl } from "../player/saved-works";
+import { offlineStatusOptions } from "../player/saved-works-data";
 import { requestDownload, requestWatch } from "../player/watch-request";
 import { entityLink } from "../shell/navigation";
 import { audienceLabels, statusLabels } from "./format";
@@ -33,6 +36,7 @@ export function WorkHero({
   const navigation = useCardNavigation();
   const Kind = work.installments.some((item) => item.kind === "season") ? Tv : Film;
   const state = tracking.state.data;
+  const offline = useQuery(offlineStatusOptions());
   return (
     <header className="relative isolate overflow-hidden rounded-3xl m-2 border! border-border">
       {work && (
@@ -165,12 +169,13 @@ export function WorkHero({
               aria-label={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
               aria-pressed={state?.isFavorite ?? false}
               title={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
-              disabled={!state || tracking.pending}
+              disabled={!state || tracking.pending || offline.data?.offline}
               onClick={() => tracking.favorite.mutate(!state?.isFavorite)}
             >
               <Heart data-icon="inline-start" />
             </Button>
             <WatchedControl tracking={tracking} label="العمل" compact large />
+            <SaveWorkControl id={work.id} />
           </div>
         </div>
         <div className="hidden lg:block">

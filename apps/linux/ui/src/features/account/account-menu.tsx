@@ -1,6 +1,6 @@
 import type { User } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Server } from "lucide-react";
+import { Server, HardDrive } from "lucide-react";
 import { LogOut, ShieldCheck, UserRound, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
@@ -16,11 +16,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { gateway } from "@/lib/bridge";
 
 import { connectionsOptions } from "../auth/connections";
 import { ServerConnections } from "../auth/server-connections";
+import { changeOfflineMode } from "../player/saved-works-data";
 import { navigate } from "../shell/navigation";
 import { AccountAvatar } from "./account-avatar";
 
@@ -39,6 +41,11 @@ export function AccountMenu({
     (server) => server.url === servers.data.selected,
   );
   const client = useQueryClient();
+  const local = useMutation({
+    networkMode: "always",
+    mutationFn: () => changeOfflineMode(client, user.accountId),
+    onError: (error) => toast.add({ type: "error", title: error.message }),
+  });
   const logout = useMutation({
     mutationFn: gateway.logout,
     onSettled: async () => {
@@ -137,6 +144,13 @@ export function AccountMenu({
             <DropdownMenuItem onClick={() => setConnections(true)}>
               <Server data-icon="inline-start" />
               {currentServer ? `الخادم: ${currentServer.name}` : "الخادم والاتصال"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={local.isPending || logout.isPending}
+              onClick={() => local.mutate()}
+            >
+              <HardDrive data-icon="inline-start" />
+              فتح مكتبة الجهاز دون الخادم
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"

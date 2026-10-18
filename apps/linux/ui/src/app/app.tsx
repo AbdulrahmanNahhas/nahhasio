@@ -1,13 +1,20 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 
 import { Login } from "../features/auth/login";
 import { Library } from "../features/library/library";
 import { PlayerHost, usePlayerSnapshot } from "../features/player";
 import { DownloadDialog } from "../features/player/download-dialog";
 import type { PlayerEpisode } from "../features/player/episode-panel";
+import { OfflineLibrary } from "../features/player/offline-library";
 import { openWatch } from "../features/player/playback";
 import { savedDownloadOptions } from "../features/player/saved-downloads";
+import {
+  offlineStatusOptions,
+  savedWorksOptions,
+  syncSavedWorks,
+} from "../features/player/saved-works-data";
 import {
   WatchTargetSchema,
   watchRequestEvent,
@@ -15,6 +22,7 @@ import {
 } from "../features/player/watch-request";
 import { episodeNumberLabel, pickArtwork } from "../features/work/format";
 import { gateway } from "../lib/bridge";
+import { nativeCall } from "../lib/bridge";
 export function App() {
   const client = useQueryClient();
   const player = usePlayerSnapshot();
@@ -23,6 +31,106 @@ export function App() {
   const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null);
   const [download, setDownload] = useState<{ target: WatchTarget; sessionId: string } | null>(null);
   const playing = Boolean(player.snapshot?.active);
+  const offline = useQuery(offlineStatusOptions());
+  const packs = useQuery({ ...savedWorksOptions(), enabled: Boolean(offline.data?.active) });
+  const latest = useRef(player.snapshot);
+  const lastRecorded = useRef<string | null>(null);
+  const syncing = useRef(false);
+  const resumed = useRef<string | null>(null);
+  useEffect(() => {
+    latest.current = player.snapshot;
+  }, [player.snapshot]);
+  useEffect(() => {
+    const snapshot = player.snapshot;
+    if (
+      !snapshot?.sessionId ||
+      !snapshot.workId ||
+      !snapshot.installmentId ||
+      snapshot.duration <= 0 ||
+      !snapshot.sourceKind ||
+      resumed.current === snapshot.sessionId
+    )
+      return;
+    resumed.current = snapshot.sessionId;
+    if (snapshot.position > 3) return;
+    const sessionId = snapshot.sessionId;
+    void nativeCall("offline.position", {
+      workId: snapshot.workId,
+      installmentId: snapshot.installmentId,
+      episodeId: snapshot.episodeId ?? null,
+    })
+      .then((value) => {
+        const parsed = z.object({ position: z.number().int().nonnegative() }).parse(value);
+        if (
+          latest.current?.sessionId === sessionId &&
+          parsed.position > 5 &&
+          parsed.position < snapshot.duration - 10
+        )
+          return playerCommandAsync({
+            command: "player.seek",
+            payload: { sessionId, seconds: parsed.position, relative: false },
+          });
+        return undefined;
+      })
+      .catch(() => {});
+  }, [player.snapshot, playerCommandAsync]);
+  useEffect(() => {
+    const scope = offline.data?.scope;
+    const record = () => {
+      const snapshot = latest.current;
+      if (
+        !scope ||
+        !snapshot?.workId ||
+        !snapshot.installmentId ||
+        !snapshot.sourceKind ||
+        snapshot.duration <= 0 ||
+        !packs.data?.some((work) => work.id === snapshot.workId)
+      )
+        return;
+      const key = `${snapshot.sessionId}:${Math.floor(snapshot.position)}`;
+      if (lastRecorded.current === key) return;
+      lastRecorded.current = key;
+      void nativeCall("offline.progress", {
+        scope,
+        workId: snapshot.workId,
+        installmentId: snapshot.installmentId,
+        episodeId: snapshot.episodeId ?? null,
+        positionSeconds: Math.floor(snapshot.position),
+        durationSeconds: Math.floor(snapshot.duration),
+      })
+        .then(() => client.invalidateQueries({ queryKey: ["offline"] }))
+        .catch(() => {
+          lastRecorded.current = null;
+        });
+    };
+    const timer = window.setInterval(record, 10000);
+    window.addEventListener("pagehide", record);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", record);
+      record();
+    };
+  }, [client, packs.data, offline.data?.scope]);
+  useEffect(() => {
+    if (!offline.data?.active || offline.data.offline) return;
+    const sync = () => {
+      if (syncing.current || !offline.data?.pending) return;
+      syncing.current = true;
+      void syncSavedWorks()
+        .then(() => client.invalidateQueries({ queryKey: ["offline"] }))
+        .catch(() => {})
+        .finally(() => {
+          syncing.current = false;
+        });
+    };
+    sync();
+    const timer = window.setInterval(sync, 30000);
+    window.addEventListener("online", sync);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", sync);
+    };
+  }, [client, offline.data?.active, offline.data?.offline, offline.data?.pending]);
 
   useEffect(() => {
     const watch = (event: Event) => {
@@ -94,10 +202,11 @@ export function App() {
 
   const saved = useQuery({
     ...savedDownloadOptions(),
-    enabled: Boolean(session.data) && playing,
+    enabled: (Boolean(session.data) || offline.data?.offline) && playing,
     refetchInterval: 5000,
   });
   const watchWork = useQuery({
+    networkMode: "always",
     queryKey: ["work", player.snapshot?.workId ?? watchTarget?.workId],
     queryFn: ({ signal }) => gateway.work(player.snapshot?.workId ?? watchTarget!.workId, signal),
     enabled:
@@ -142,7 +251,7 @@ export function App() {
               current: episode.id === (player.snapshot?.episodeId ?? watchTarget?.episodeId),
             };
           });
-  if (playing && session.data)
+  if (playing && (session.data || offline.data?.offline))
     return (
       <PlayerHost
         player={player}
@@ -175,6 +284,8 @@ export function App() {
       />
     );
 
+  if (offline.data?.offline)
+    return <OfflineLibrary name={offline.data.name ?? "مكتبتي"} pending={offline.data.pending} />;
   if (!session.data)
     return <Login restoring={session.isLoading} sessionError={session.error?.message} />;
 

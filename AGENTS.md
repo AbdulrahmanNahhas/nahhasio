@@ -40,8 +40,10 @@ and authorized fixing its old-process bridge error, committing the changes, priv
 persistence, and an early downloadable AppImage/release pipeline. Update documentation with
 actual artifact/runtime/CI limits; no release publication or push has been requested.
 Aqua committed current card/watched design as `3d12c96` and approved the server connection/login
-checkpoint with a cinematic desktop login redesign. Complete this checkpoint for review. The
-subsequent order is full Saved Works/offline use, then a detailed database-schema/application-logic
+checkpoint with a cinematic desktop login redesign, committed as `626d3ef`. The approved current
+checkpoint is Saved Works/offline use, including scoped metadata/artwork, local browsing/playback
+and progress/watched synchronization. Related fixes are authorized; finish this checkpoint for review.
+The subsequent order is a detailed database-schema/application-logic
 and trusted-update/recovery review **before** Podman foundation, then admin overview. Do not start those stages silently. Awards and work-membership ordering
 remain future tasks.
 Preserve Aqua's current design.

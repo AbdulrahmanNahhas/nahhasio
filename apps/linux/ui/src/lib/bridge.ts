@@ -57,6 +57,12 @@ let connectionRevision = 0;
 window.addEventListener("nahhasio:server-changed", () => {
   connectionRevision++;
 });
+window.addEventListener("nahhasio:session-changed", () => {
+  connectionRevision++;
+});
+window.addEventListener("nahhasio:signed-out", () => {
+  connectionRevision++;
+});
 const pending = new Map<
   string,
   { resolve: (reply: Reply) => void; reject: (error: Error) => void }

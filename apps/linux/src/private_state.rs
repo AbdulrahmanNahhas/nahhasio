@@ -8,6 +8,13 @@ use std::{
     path::Path,
 };
 pub fn read<T: DeserializeOwned>(root: &Path, name: &str) -> Result<Option<T>, Error> {
+    read_limit(root, name, 32768)
+}
+pub fn read_limit<T: DeserializeOwned>(
+    root: &Path,
+    name: &str,
+    limit: usize,
+) -> Result<Option<T>, Error> {
     let path = root.join(name);
     let metadata = match fs::symlink_metadata(&path) {
         Ok(value) => value,
@@ -17,17 +24,17 @@ pub fn read<T: DeserializeOwned>(root: &Path, name: &str) -> Result<Option<T>, E
     if !metadata.is_file()
         || metadata.file_type().is_symlink()
         || metadata.permissions().mode() & 0o077 != 0
-        || metadata.len() > 32768
+        || metadata.len() > limit as u64
     {
         return Err(error());
     }
     let mut bytes = Vec::new();
     fs::File::open(path)
         .map_err(|_| error())?
-        .take(32769)
+        .take(limit as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| error())?;
-    if bytes.len() > 32768 {
+    if bytes.len() > limit {
         return Err(error());
     }
     serde_json::from_slice(&bytes)
@@ -35,6 +42,14 @@ pub fn read<T: DeserializeOwned>(root: &Path, name: &str) -> Result<Option<T>, E
         .map_err(|_| error())
 }
 pub fn write<T: Serialize>(root: &Path, name: &str, value: &T) -> Result<(), Error> {
+    write_limit(root, name, value, 32768)
+}
+pub fn write_limit<T: Serialize>(
+    root: &Path,
+    name: &str,
+    value: &T,
+    limit: usize,
+) -> Result<(), Error> {
     fs::create_dir_all(root).map_err(|_| error())?;
     if fs::symlink_metadata(root)
         .map_err(|_| error())?
@@ -49,7 +64,7 @@ pub fn write<T: Serialize>(root: &Path, name: &str, value: &T) -> Result<(), Err
     let temporary = root.join(format!(".state-{}.tmp", hex::encode(nonce)));
     let result = (|| {
         let bytes = serde_json::to_vec(value).map_err(|_| error())?;
-        if bytes.len() > 32768 {
+        if bytes.len() > limit {
             return Err(error());
         }
         let mut file = OpenOptions::new()

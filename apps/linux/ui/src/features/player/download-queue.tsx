@@ -35,6 +35,7 @@ import {
   type DownloadJob,
 } from "./download-data";
 import { SavedVideoActions } from "./saved-video-actions";
+import { SavedVideoRow } from "./saved-video-row";
 import { formatSourceSize } from "./source-format";
 import { requestDownload } from "./watch-request";
 export { downloadQueueOptions } from "./download-data";
@@ -105,17 +106,19 @@ export function DownloadQueue({ compact = true }: { compact?: boolean }) {
             <Search />
           </InputGroupAddon>
         </InputGroup>
-        <Choice
-          label="حالة التنزيل"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: `الكل (${counts.all})` },
-            { value: "active", label: `قيد النقل (${counts.active})` },
-            { value: "completed", label: `مكتمل (${counts.completed})` },
-            { value: "failed", label: `يحتاج انتباهاً (${counts.failed})` },
-          ]}
-        />
+        <div className="w-44">
+          <Choice
+            label="حالة التنزيل"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "all", label: `الكل (${counts.all})` },
+              { value: "active", label: `قيد النقل (${counts.active})` },
+              { value: "completed", label: `مكتمل (${counts.completed})` },
+              { value: "failed", label: `يحتاج انتباهاً (${counts.failed})` },
+            ]}
+          />
+        </div>
         <Button
           variant="outline"
           size="icon"
@@ -208,11 +211,11 @@ function QueueCard({
             <Artwork
               id={first?.posterId}
               alt=""
-              className="h-28 w-20 shrink-0 rounded-lg object-cover"
+              className="h-18 w-12 shrink-0 rounded-lg object-cover"
               fallback={<Download className="size-6" />}
             />
           )}
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <CardTitle>
               <span dir="auto">{first ? workTitle(first) : "تنزيل فيديو"}</span>
             </CardTitle>
@@ -275,22 +278,15 @@ function QueueCard({
           </Alert>
         )}
         {!compact &&
-          job.exports.map((file) => (
-            <div
-              key={file.file}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm" dir="auto">
-                  {videoTitle(file)}
-                </p>
-                <p className="mt-1 break-all text-xs text-muted-foreground" dir="ltr">
-                  {file.path}
-                </p>
-              </div>
-              {file.published && <SavedVideoActions file={{ ...file, id: job.id }} />}
-            </div>
-          ))}
+          job.exports.map((file) =>
+            file.published ? (
+              <SavedVideoRow key={file.file} file={{ ...file, id: job.id }} />
+            ) : (
+              <p key={file.file} className="truncate text-xs text-muted-foreground" dir="auto">
+                {videoTitle(file)}
+              </p>
+            ),
+          )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         {category === "failed" && target && recoverFile && (

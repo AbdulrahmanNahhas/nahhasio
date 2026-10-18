@@ -74,6 +74,22 @@ These clarify intended behavior; Alpha checkpoint sizing remains to be agreed. C
 and progress/watched/unwatched offline updates are confirmed. There are no per-part/episode
 source-policy overrides or offline ratings/notes mutations in the initial scope.
 
+## Saved Works implementation checkpoint — 2026-10-18
+
+Server connection/login is committed as `626d3ef`. The next approved checkpoint implements
+native account/server-scoped work snapshots and referenced artwork, explicit local library access
+from login/account menu, saved work browsing/search, existing work-page reuse, client torrent
+resolution from saved identities, device-file playback, position/resume and a persistent
+progress/watched queue. Reconnect uses owner-scoped compare-and-write with a reviewed conflict
+choice. No database migration, server acquisition job, Jellyfin adapter or automatic completion
+policy is added. See DEVELOPMENT.md for ownership, limits and recovery boundaries.
+
+Implementation/static checks and consolidated runtime acceptance are separate: restart/offline,
+interrupted writes, cross-account switching, real peer resolution and concurrent sync need the
+agreed acceptance pass. Whole-work torrent/files-only policy remains a database/projection gap;
+legacy unscoped videos remain explicitly playable rather than silently claimed. The detailed
+schema/logic/trusted-update review follows Aqua's review of this checkpoint, before Podman.
+
 ## Future work: promote selectively
 
 Complete remaining catalog/admin pages and website retirement; provider imports and asset tools;

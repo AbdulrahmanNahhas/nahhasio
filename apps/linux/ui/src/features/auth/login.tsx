@@ -1,9 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, EyeOff, Library, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Library, HardDrive, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +23,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { gateway, nativeAvailable } from "@/lib/bridge";
 
+import { OfflineProfiles } from "../player/offline-library";
 import { LoginBackdrop } from "./login-backdrop";
 import { CurrentServer, ServerConnections } from "./server-connections";
 
@@ -35,6 +44,7 @@ export function Login({
     networkMode: "always",
     mutationFn: gateway.login,
     onSuccess: async (session) => {
+      window.dispatchEvent(new Event("nahhasio:session-changed"));
       setPassword("");
       setVisible(false);
       await client.cancelQueries();
@@ -61,33 +71,38 @@ export function Login({
     <main className="relative isolate flex h-dvh flex-col overflow-x-hidden overflow-y-auto bg-background">
       <LoginBackdrop />
       <div
-        className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-l from-background via-background/95 to-background/30"
+        className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-t from-background via-background/65 to-background/40"
         aria-hidden="true"
       />
-      <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-6 sm:px-12 sm:py-8">
+      <header className="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-10 sm:py-5">
         <div className="flex items-center gap-2.5 text-primary">
           <Library className="size-7 shrink-0" aria-hidden="true" />
           <span className="font-display text-2xl font-semibold">نحّاسيو</span>
         </div>
-        <span className="hidden text-xs text-muted-foreground sm:block">
-          مكتبتك الخاصة، أينما كنت.
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="size-4" aria-hidden="true" />
+          مكتبتك العائلية الخاصة
         </span>
       </header>
-      <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-16 px-5 py-8 sm:px-12 sm:py-14 lg:grid-cols-2">
+      <div className="flex flex-1 shrink-0 items-center justify-center px-5 py-3 sm:px-8">
         <section
-          className="mx-auto flex w-full max-w-md flex-col gap-7 rounded-3xl border border-border/50 bg-background/95 p-6 sm:p-10 lg:mx-0"
+          className="flex w-full max-w-100 flex-col gap-5 rounded-xl bg-background/95 px-6 py-6 shadow-2xl sm:px-9 sm:py-7"
           aria-labelledby="login-heading"
         >
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
             <h1 id="login-heading" className="font-display text-3xl font-semibold">
               ادخل إلى مكتبتك
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              قصص تحبّها، ومكان يجمعها. سجّل الدخول للمتابعة.
+              سجّل الدخول بحساب مكتبتك.
             </p>
           </div>
-          <div className="border-y border-border py-4">
-            <CurrentServer onManage={() => setConnections(true)} disabled={login.isPending} />
+          <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+            <CurrentServer
+              onManage={() => setConnections(true)}
+              disabled={login.isPending}
+              sessionError={!restoring ? sessionError : undefined}
+            />
             {restoring && (
               <p
                 className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"
@@ -97,11 +112,6 @@ export function Login({
                 جارٍ استعادة جلسة المكتبة…
               </p>
             )}
-            {!restoring && sessionError && (
-              <p className="mt-3 text-xs text-muted-foreground" role="status">
-                {sessionError}
-              </p>
-            )}
           </div>
           <form
             onSubmit={(event) => {
@@ -109,7 +119,7 @@ export function Login({
               if (!login.isPending && !restoring) login.mutate({ email: email.trim(), password });
             }}
           >
-            <FieldGroup>
+            <FieldGroup className="gap-4">
               <Field data-disabled={login.isPending || restoring}>
                 <FieldLabel htmlFor="email">البريد الإلكتروني</FieldLabel>
                 <Input
@@ -170,7 +180,7 @@ export function Login({
               )}
               <Button
                 size="lg"
-                className="mt-2 h-12 w-full"
+                className="mt-1 h-12 w-full"
                 disabled={login.isPending || restoring || !nativeAvailable()}
                 type="submit"
               >
@@ -180,28 +190,26 @@ export function Login({
               </Button>
             </FieldGroup>
           </form>
-          <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            مكتبة خاصة لك ولعائلتك. للدخول، استخدم حساب مكتبتك.
-          </p>
+          <Dialog>
+            <DialogTrigger render={<Button variant="ghost" size="sm" />}>
+              <HardDrive data-icon="inline-start" />
+              فتح مكتبة الجهاز دون اتصال
+            </DialogTrigger>
+            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>مكتبة هذا الجهاز</DialogTitle>
+                <DialogDescription>
+                  اختر حسابًا لفتح أعماله المحفوظة. هذه نسخة محلية متاحة لمستخدم الجهاز، وليست تسجيل
+                  دخول إلى الخادم.
+                </DialogDescription>
+              </DialogHeader>
+              <OfflineProfiles />
+            </DialogContent>
+          </Dialog>
         </section>
-        <aside className="hidden max-w-lg flex-col gap-5 pb-16 lg:flex">
-          <h2 className="font-display text-6xl leading-tight font-semibold tracking-tight">
-            كل حكاية،
-            <br />
-            تستحق مكانها.
-          </h2>
-          <p className="max-w-sm text-lg leading-relaxed text-muted-foreground">
-            أفلامك ومسلسلاتك، تفاصيلها، واللحظات التي توقّفت عندها. مكتبة واحدة لك ولعائلتك.
-          </p>
-          <div className="mt-3 flex items-center gap-3 text-sm text-muted-foreground">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            خادمك. مكتبتك. خصوصيتك.
-          </div>
-        </aside>
       </div>
-      <footer className="px-6 py-5 text-center text-xs text-muted-foreground sm:px-12">
-        يُحفظ اتصالك على هذا الجهاز. كلمة مرورك لا تُحفظ.
+      <footer className="shrink-0 px-5 py-3 text-center text-xs leading-relaxed text-muted-foreground sm:px-10 sm:py-4">
+        يبقى حسابك متصلاً على هذا الجهاز. كلمة مرورك لا تُحفظ.
       </footer>
       <ServerConnections open={connections} onOpenChange={setConnections} />
     </main>

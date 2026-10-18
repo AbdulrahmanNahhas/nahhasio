@@ -750,6 +750,31 @@ impl ServerSession {
                     .send().await.map_err(network)?;
                 self.json(response).await
             }
+            "syncTracking" => {
+                let work = request.payload["workId"]
+                    .as_str()
+                    .filter(|id| valid_id(id))
+                    .ok_or_else(|| Error::new("bad_request", "Invalid tracking target"))?;
+                let mut payload = request.payload.clone();
+                payload
+                    .as_object_mut()
+                    .ok_or_else(|| Error::new("bad_request", "Invalid tracking request"))?
+                    .remove("workId");
+                let response = self
+                    .authorized(Method::PATCH, &format!("api/v1/works/{work}/tracking"))
+                    .await?
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(network)?;
+                if response.status() == reqwest::StatusCode::CONFLICT {
+                    return Err(Error::new(
+                        "conflict",
+                        "تغيّرت حالة المشاهدة على الخادم. اختر نسخة الجهاز أو الخادم.",
+                    ));
+                }
+                self.json(response).await
+            }
             "workActivity" => {
                 let input: ActivityCommand = parse(request.payload)?;
                 if !valid_id(&input.id) || !(1..=100_000).contains(&input.page) {
