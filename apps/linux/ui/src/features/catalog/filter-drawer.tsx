@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useState, useRef, useSyncExternalStore } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { RefObject } from "react";
 
 import { Failure } from "../../components/status";
@@ -43,12 +43,6 @@ import {
 } from "../../components/ui/input-group";
 import { Separator } from "../../components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../../components/ui/tooltip";
 import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import {
@@ -113,13 +107,6 @@ const categories = [
   },
 ];
 const knownFacets = new Set(categories.flatMap((category) => category.facets));
-const largeScreen = () => window.matchMedia("(min-width: 1024px)").matches;
-function subscribeScreen(notify: () => void) {
-  const media = window.matchMedia("(min-width: 1024px)");
-  media.addEventListener("change", notify);
-  return () => media.removeEventListener("change", notify);
-}
-
 // Mounted on open: the draft has one owner and is discarded on every close.
 export function FilterDrawer({
   value,
@@ -141,7 +128,6 @@ export function FilterDrawer({
   const [draft, setDraft] = useState(value);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("basics");
-  const large = useSyncExternalStore(subscribeScreen, largeScreen, () => false);
   const content = useRef<HTMLDivElement>(null);
   const [previewDraft, setPreviewDraft] = useState(draft);
   useEffect(() => {
@@ -185,15 +171,14 @@ export function FilterDrawer({
       )
     : categories;
 
-  const displayed =
-    large && !searchText
-      ? visibleCategories.filter((item) => item.key === category)
-      : visibleCategories;
+  const displayed = !searchText
+    ? visibleCategories.filter((item) => item.key === category)
+    : visibleCategories;
 
   return (
     <DrawerContent
       dir="rtl"
-      className="h-dvh w-full max-w-3xl sm:w-11/12 data-[swipe-direction=right]:end-auto data-[swipe-direction=right]:right-0"
+      className="h-dvh w-full max-w-4xl sm:w-11/12 data-[swipe-direction=right]:end-auto data-[swipe-direction=right]:right-0"
       finalFocus={returnFocus}
       initialFocus={searchInput}
     >
@@ -208,7 +193,7 @@ export function FilterDrawer({
           </DrawerClose>
         </div>
         <DrawerDescription className="w-full text-start">
-          اختر مرشحاتك، ثم طبّقها على المكتبة. إغلاق اللوحة يلغي التغييرات.
+          اختر مرشحاتك ثم طبّقها. تُحفظ الاختيارات المطبّقة؛ إغلاق اللوحة يلغي التعديلات الجديدة.
         </DrawerDescription>
       </DrawerHeader>
       <Separator />
@@ -258,6 +243,30 @@ export function FilterDrawer({
             إزالة
           </Badge>
         </div>
+      </div>
+      <div className="overflow-x-auto px-5 pb-3 lg:hidden">
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          spacing={2}
+          value={searchText ? [] : [category]}
+          aria-label="قسم المرشحات"
+          onValueChange={(values) => {
+            const next = categories.find((item) => item.key === values[0]);
+            if (next) {
+              setCategory(next.key);
+              setSearch("");
+              content.current?.scrollTo({ top: 0 });
+            }
+          }}
+        >
+          {categories.map((item) => (
+            <ToggleGroupItem key={item.key} value={item.key} aria-label={item.label}>
+              <item.icon data-icon="inline-start" />
+              {item.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
       <Separator />
       <div className="flex min-h-0 flex-1">
@@ -419,50 +428,42 @@ export function FilterDrawer({
           </div>
         </div>
         <aside
-          className="hidden w-18 shrink-0 flex-col items-center gap-3 overflow-y-auto border-s border-border px-2 py-4 lg:flex"
+          className="hidden w-52 shrink-0 flex-col gap-3 overflow-y-auto border-s border-border p-3 lg:flex"
           aria-label="أقسام المرشحات"
         >
-          <TooltipProvider delay={200}>
-            <ToggleGroup
-              orientation="vertical"
-              variant="outline"
-              spacing={2}
-              value={searchText ? [] : [category]}
-              aria-label="قسم المرشحات"
-              onValueChange={(values) => {
-                const next = categories.find((item) => item.key === values[0]);
-                if (next) {
-                  setCategory(next.key);
-                  setSearch("");
-                  content.current?.scrollTo({ top: 0 });
-                }
-              }}
-            >
-              {categories.map((item) => (
-                <Tooltip key={item.key}>
-                  <TooltipTrigger
-                    render={
-                      <ToggleGroupItem
-                        value={item.key}
-                        className="relative size-11"
-                        aria-label={item.label}
-                      />
-                    }
-                  >
-                    <item.icon data-icon="inline-start" aria-hidden="true" />
-                    {categoryCount(item.key, item.facets, draft, locked) > 0 && (
-                      <span className="absolute -end-1 -top-1">
-                        <Badge variant="secondary">
-                          {categoryCount(item.key, item.facets, draft, locked)}
-                        </Badge>
-                      </span>
-                    )}
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              ))}
-            </ToggleGroup>
-          </TooltipProvider>
+          <ToggleGroup
+            orientation="vertical"
+            variant="outline"
+            spacing={2}
+            value={searchText ? [] : [category]}
+            aria-label="قسم المرشحات"
+            className="w-full"
+            onValueChange={(values) => {
+              const next = categories.find((item) => item.key === values[0]);
+              if (next) {
+                setCategory(next.key);
+                setSearch("");
+                content.current?.scrollTo({ top: 0 });
+              }
+            }}
+          >
+            {categories.map((item) => (
+              <ToggleGroupItem
+                key={item.key}
+                value={item.key}
+                className="h-auto min-h-11 justify-start gap-2 px-3 py-3"
+                aria-label={item.label}
+              >
+                <item.icon data-icon="inline-start" aria-hidden="true" />
+                <span className="flex-1 text-start whitespace-normal">{item.label}</span>
+                {categoryCount(item.key, item.facets, draft, locked) > 0 && (
+                  <Badge variant="secondary">
+                    {categoryCount(item.key, item.facets, draft, locked)}
+                  </Badge>
+                )}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </aside>
       </div>
       <Separator />

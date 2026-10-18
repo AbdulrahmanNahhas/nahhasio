@@ -1,4 +1,5 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { rpcResults } from "@arcadia/contracts/editor-rpc";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import {
   Users,
@@ -8,9 +9,10 @@ import {
   ArrowLeft,
   ArrowRight,
   RefreshCw,
-  Braces,
   Trash2,
   X,
+  SlidersHorizontal,
+  CheckCheck,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -27,14 +29,23 @@ import {
   EmptyDescription,
   EmptyMedia,
 } from "@/components/ui/empty";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupInput,
   InputGroupAddon,
   InputGroupButton,
 } from "@/components/ui/input-group";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverDescription,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableHeader,
@@ -46,7 +57,10 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
+import { gateway } from "@/lib/bridge";
 
+import { useCatalogSelection, CatalogSelectionActions } from "../catalog-selection";
+import { useMatchingSelection } from "../use-matching-selection";
 import {
   entityListOptions,
   entityDetailOptions,
@@ -55,6 +69,9 @@ import {
 } from "./entities.queries";
 import { EntityDelete } from "./entity-delete";
 import { EntityDrawer } from "./entity-editor";
+
+const number = new Intl.NumberFormat("ar");
+const date = new Intl.DateTimeFormat("ar", { dateStyle: "medium" });
 
 export function EntitiesPage({
   kind,
@@ -68,43 +85,62 @@ export function EntitiesPage({
   const people = kind === "person";
   const path = people ? "people" : "studios";
   const title = people ? "الأشخاص" : "الاستوديوهات";
-  const result = useQuery(entityListOptions(kind, search));
+  const session = useQuery({
+    queryKey: ["session"],
+    queryFn: ({ signal }) => gateway.session(signal),
+  });
+  const selection = useCatalogSelection(session.data?.user.id ?? "signed-out", path);
+  const selected = new Set(selection.selected.map((record) => record.id));
+  const result = useQuery({
+    ...entityListOptions(kind, search),
+    placeholderData: keepPreviousData,
+  });
   const client = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const pages = Math.max(1, Math.ceil((result.data?.total ?? 0) / 24));
   const items = result.data?.items ?? [];
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id));
   const preload = (id: string) => void client.prefetchQuery(entityDetailOptions(kind, id));
   const open = (id: string) => onChange({ person: id }, false);
+  const matchingQuery = { kind, q: search.q, image: search.image, usage: search.usage };
+  const selectAll = useMatchingSelection({
+    key: ["admin", "entities", "selection", session.data?.user.id ?? "signed-out", matchingQuery],
+    load: async () =>
+      rpcResults.entitySelection.parse(
+        await gateway.editorCall({ operation: "entitySelection", data: matchingQuery }),
+      ),
+    selected: selection.selected,
+    pageRecords: items.map(({ id, name }) => ({ id, name })),
+    total: result.data?.total ?? 0,
+    change: selection.change,
+  });
+  const activeFilters =
+    Number(search.image !== "all") +
+    Number(search.usage !== "all") +
+    Number(search.sort !== "works");
   function select(id: string, checked: boolean) {
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (checked && next.size < 50) next.add(id);
-      else if (!checked) next.delete(id);
-      return next;
-    });
+    const record = items.find((item) => item.id === id);
+    if (record) selection.change([{ id, name: record.name }], checked);
   }
   function selectPage(checked: boolean) {
-    setSelected((previous) => {
-      const next = new Set(previous);
-      for (const item of items) {
-        if (!checked) next.delete(item.id);
-        else if (next.size < 50) next.add(item.id);
-      }
-      return next;
-    });
+    selection.change(
+      items.map(({ id, name }) => ({ id, name })),
+      checked,
+    );
   }
   async function deleted() {
-    setSelected((previous) => new Set([...previous].filter((id) => !deleteIds.includes(id))));
+    selection.change(
+      selection.selected.filter((record) => deleteIds.includes(record.id)),
+      false,
+    );
     setDeleteIds([]);
     await invalidateCatalogEdit(client);
   }
   return (
     <article
       className={cn(
-        "mx-auto flex w-full min-w-0 max-w-400 flex-col gap-5 p-4 sm:p-6",
-        selected.size > 0 && "pb-28 sm:pb-28",
+        "mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-5 p-4 sm:p-6",
+        selected.size > 0 && "pb-24 sm:pb-24",
       )}
       aria-label={`إدارة ${title}`}
     >
@@ -112,7 +148,7 @@ export function EntitiesPage({
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="text-sm text-muted-foreground">
-            الأسماء والصور والمساهمات. افتح السجل للتحرير أو حدد عدة سجلات لـ JSON والحذف.
+            الأسماء والصور والمساهمات. افتح سجلاً للتحرير، أو حدّد عدة سجلات لتحريرها معاً.
           </p>
         </div>
         <Button onClick={() => open("new")}>
@@ -122,45 +158,82 @@ export function EntitiesPage({
       </header>
       <div className="flex flex-wrap items-center gap-3">
         <EntitySearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
-        <Choice
-          label="توفر الصورة"
-          value={search.image}
-          options={[
-            { value: "all", label: "كل الصور" },
-            { value: "with", label: "بصورة" },
-            { value: "without", label: "بدون صورة" },
-          ]}
-          onChange={(image) =>
-            onChange({ image: image === "with" || image === "without" ? image : "all" })
-          }
-        />
-        <Choice
-          label="عدد الأعمال"
-          value={search.usage}
-          options={[
-            { value: "all", label: "كل السجلات" },
-            { value: "one", label: "عمل واحد فقط" },
-            { value: "linked", label: "لها أعمال" },
-            { value: "unlinked", label: "بدون أعمال" },
-          ]}
-          onChange={(usage) =>
-            onChange({
-              usage: usage === "linked" || usage === "unlinked" || usage === "one" ? usage : "all",
-            })
-          }
-        />
-        <Choice
-          label="الترتيب"
-          value={search.sort}
-          options={[
-            { value: "name", label: "الاسم" },
-            { value: "works", label: "الأكثر أعمالاً" },
-            { value: "updated", label: "آخر تعديل" },
-          ]}
-          onChange={(sort) =>
-            onChange({ sort: sort === "works" || sort === "updated" ? sort : "name" })
-          }
-        />
+        <Popover>
+          <PopoverTrigger render={<Button variant="outline" />}>
+            <SlidersHorizontal data-icon="inline-start" /> المرشحات
+            {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)]">
+            <PopoverHeader>
+              <PopoverTitle>مرشحات {title}</PopoverTitle>
+              <PopoverDescription>تُطبّق اختياراتك مباشرة على النتائج.</PopoverDescription>
+            </PopoverHeader>
+            <FieldGroup className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel htmlFor="entity-filter-image">توفر الصورة</FieldLabel>
+                <Choice
+                  id="entity-filter-image"
+                  label="توفر الصورة"
+                  value={search.image}
+                  options={[
+                    { value: "all", label: "كل الصور" },
+                    { value: "with", label: "بصورة" },
+                    { value: "without", label: "بدون صورة" },
+                  ]}
+                  onChange={(image) =>
+                    onChange({ image: image === "with" || image === "without" ? image : "all" })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="entity-filter-usage">عدد الأعمال</FieldLabel>
+                <Choice
+                  id="entity-filter-usage"
+                  label="عدد الأعمال"
+                  value={search.usage}
+                  options={[
+                    { value: "all", label: "كل السجلات" },
+                    { value: "one", label: "عمل واحد فقط" },
+                    { value: "linked", label: "لها أعمال" },
+                    { value: "unlinked", label: "بدون أعمال" },
+                  ]}
+                  onChange={(usage) =>
+                    onChange({
+                      usage:
+                        usage === "linked" || usage === "unlinked" || usage === "one"
+                          ? usage
+                          : "all",
+                    })
+                  }
+                />
+              </Field>
+              <Field className="col-span-2">
+                <FieldLabel htmlFor="entity-filter-sort">الترتيب</FieldLabel>
+                <Choice
+                  id="entity-filter-sort"
+                  label="الترتيب"
+                  value={search.sort}
+                  options={[
+                    { value: "name", label: "الاسم" },
+                    { value: "works", label: "الأكثر أعمالاً" },
+                    { value: "updated", label: "آخر تعديل" },
+                  ]}
+                  onChange={(sort) =>
+                    onChange({ sort: sort === "works" || sort === "updated" ? sort : "name" })
+                  }
+                />
+              </Field>
+            </FieldGroup>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!activeFilters}
+              onClick={() => onChange({ image: "all", usage: "all", sort: "works" })}
+            >
+              <X data-icon="inline-start" /> إعادة ضبط المرشحات
+            </Button>
+          </PopoverContent>
+        </Popover>
         <Button
           variant="ghost"
           size="icon"
@@ -168,11 +241,11 @@ export function EntitiesPage({
           disabled={result.isFetching}
           onClick={() => void result.refetch()}
         >
-          <RefreshCw data-icon="inline-start" />
+          {result.isFetching ? <Spinner /> : <RefreshCw />}
         </Button>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Checkbox
             checked={allSelected}
             indeterminate={items.some((item) => selected.has(item.id)) && !allSelected}
@@ -180,15 +253,28 @@ export function EntitiesPage({
             aria-label="تحديد سجلات الصفحة"
             onCheckedChange={(checked) => selectPage(checked === true)}
           />
-          <Badge variant="outline">
-            {result.data ? new Intl.NumberFormat("ar").format(result.data.total) : "…"} سجل
-          </Badge>
-          {selected.size > 0 && (
-            <span className="text-xs text-muted-foreground">{selected.size} محدد عبر الصفحات</span>
-          )}
+          <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+            {result.data ? number.format(result.data.total) : "…"} سجل
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!result.data?.total || result.isFetching || selectAll.pending}
+            onClick={selectAll.toggle}
+          >
+            {selectAll.pending ? (
+              <Spinner data-icon="inline-start" />
+            ) : selectAll.allSelected ? (
+              <X data-icon="inline-start" />
+            ) : (
+              <CheckCheck data-icon="inline-start" />
+            )}
+            {selectAll.allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+          </Button>
         </div>
         <ToggleGroup
           variant="outline"
+          spacing={0}
           value={[search.view]}
           aria-label="طريقة العرض"
           onValueChange={(values) => {
@@ -204,8 +290,14 @@ export function EntitiesPage({
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
+      {selectAll.error && (
+        <Alert variant="destructive">
+          <AlertTitle>تعذّر تحديد السجلات</AlertTitle>
+          <AlertDescription>{selectAll.error.message}</AlertDescription>
+        </Alert>
+      )}
       {result.isPending ? (
-        <Skeleton className="h-96" />
+        <EntityListSkeleton kind={kind} view={search.view} />
       ) : result.isError ? (
         <Alert variant="destructive">
           <AlertTitle>تعذّر تحميل السجلات</AlertTitle>
@@ -269,7 +361,7 @@ export function EntitiesPage({
                 <div className="absolute start-2 top-2 rounded-lg bg-background p-2">
                   <Checkbox
                     checked={selected.has(item.id)}
-                    disabled={!selected.has(item.id) && selected.size >= 50}
+                    disabled={result.isFetching}
                     aria-label={`تحديد ${item.name}`}
                     onCheckedChange={(checked) => select(item.id, checked === true)}
                   />
@@ -314,7 +406,7 @@ export function EntitiesPage({
                   <TableCell>
                     <Checkbox
                       checked={selected.has(item.id)}
-                      disabled={!selected.has(item.id) && selected.size >= 50}
+                      disabled={result.isFetching}
                       aria-label={`تحديد ${item.name}`}
                       onCheckedChange={(checked) => select(item.id, checked === true)}
                     />
@@ -354,9 +446,7 @@ export function EntitiesPage({
                   </TableCell>
                   <TableCell>{item.workCount}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Intl.DateTimeFormat("ar", { dateStyle: "medium" }).format(
-                      new Date(item.updatedAt),
-                    )}
+                    {date.format(new Date(item.updatedAt))}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -395,39 +485,14 @@ export function EntitiesPage({
           <ArrowLeft data-icon="inline-end" />
         </Button>
       </nav>
-      {selected.size > 0 && (
-        <div
-          className="fixed inset-x-4 bottom-4 z-30 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-3 rounded-2xl border border-border bg-popover p-3 shadow-lg"
-          role="region"
-          aria-label="إجراءات السجلات المحددة"
-        >
-          <Badge variant="secondary">{selected.size} محدد</Badge>
-          <Button
-            disabled={selected.size > 30}
-            title={selected.size > 30 ? "حد JSON هو ٣٠ سجلاً في الدفعة" : undefined}
-            render={
-              <a
-                href={`#/admin/json?target=${path}&ids=${encodeURIComponent([...selected].join(","))}`}
-              />
-            }
-          >
-            <Braces data-icon="inline-start" />
-            JSON
-          </Button>
-          <Button variant="outline" onClick={() => setDeleteIds([...selected])}>
-            <Trash2 data-icon="inline-start" />
-            حذف المحدد
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="إلغاء تحديد السجلات"
-            onClick={() => setSelected(new Set())}
-          >
-            <X data-icon="inline-start" />
-          </Button>
-        </div>
-      )}
+      <CatalogSelectionActions
+        target={path}
+        selected={selection.selected}
+        visible={result.isPlaceholderData || result.isError ? [] : items.map((item) => item.id)}
+        onClear={selection.clear}
+        onRemove={(record) => selection.change([record], false)}
+        onDelete={() => setDeleteIds(selection.selected.map((record) => record.id))}
+      />
       <EntityDrawer
         kind={kind}
         id={search.person}
@@ -450,7 +515,7 @@ function EntitySearchForm({ value, onSearch }: { value: string; onSearch: (q: st
   const [draft, setDraft] = useState(value);
   return (
     <form
-      className="w-full sm:max-w-md"
+      className="min-w-0 flex-1 basis-full sm:basis-auto"
       onSubmit={(event) => {
         event.preventDefault();
         onSearch(draft.trim());
@@ -469,10 +534,55 @@ function EntitySearchForm({ value, onSearch }: { value: string; onSearch: (q: st
             onChange={(event) => setDraft(event.target.value)}
           />
           <InputGroupAddon align="inline-end">
+            {draft && (
+              <InputGroupButton
+                aria-label="مسح البحث"
+                onClick={() => {
+                  setDraft("");
+                  onSearch("");
+                }}
+              >
+                <X />
+              </InputGroupButton>
+            )}
             <InputGroupButton type="submit">بحث</InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
       </Field>
     </form>
+  );
+}
+
+function EntityListSkeleton({ kind, view }: { kind: EntityKind; view: EntitySearch["view"] }) {
+  return (
+    <div
+      role="status"
+      aria-label="جارٍ تحميل السجلات"
+      className={
+        view === "grid"
+          ? "grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+          : "flex flex-col gap-3"
+      }
+    >
+      {Array.from({ length: view === "grid" ? 12 : 8 }, (_, index) => (
+        <div key={index} className="flex flex-col gap-3">
+          <Skeleton
+            className={
+              view === "table"
+                ? "h-20 w-full"
+                : kind === "person"
+                  ? "aspect-4/5 w-full"
+                  : "aspect-square w-full"
+            }
+          />
+          {view === "grid" && (
+            <>
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

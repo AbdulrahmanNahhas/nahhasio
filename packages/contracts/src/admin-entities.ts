@@ -43,8 +43,7 @@ export const entityDetail = z.object({
 });
 const selectedEntities = z
   .array(z.object({ id: z.string().uuid(), revision: z.string().length(64) }))
-  .min(1)
-  .max(50);
+  .min(1);
 export const humanEntity = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(300),
@@ -66,7 +65,7 @@ export const humanEntity = z.strictObject({
 export const entityJsonDocument = z.strictObject({
   schemaVersion: z.literal(1),
   target: z.enum(["people", "studios"]),
-  records: z.array(humanEntity).min(1).max(30),
+  records: z.array(humanEntity).min(1),
 });
 export const entityOptions = z.object({
   works: z.array(
@@ -96,18 +95,24 @@ export const entityInputs = {
   }),
   entityBulkDelete: z.strictObject({
     kind: entityKind,
-    records: selectedEntities,
+    records: selectedEntities.max(50),
     removeCredits: z.boolean(),
   }),
   entityJsonRead: z.strictObject({
     kind: entityKind,
-    ids: z.array(z.string().uuid()).min(1).max(30),
+    ids: z.array(z.string().uuid()).min(1),
   }),
   entityJsonReview: z.strictObject({
     json: z.string().max(4000000),
-    originals: selectedEntities.max(30),
+    originals: selectedEntities,
   }),
   entityJsonSave: z.strictObject({ ticket: z.string().max(8000000) }),
+  entitySelection: z.strictObject({
+    kind: entityKind,
+    q: z.string().max(300).default(""),
+    image: z.enum(["all", "with", "without"]).default("all"),
+    usage: z.enum(["all", "linked", "unlinked", "one"]).default("all"),
+  }),
   entityList: z.strictObject({
     kind: entityKind,
     q: z.string().max(300).default(""),
@@ -126,6 +131,7 @@ export const entityInputs = {
 };
 export const entityResults = {
   entityOptions,
+  entitySelection: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
   entityRoleCreate: z.object({ id: z.string().uuid() }),
   entityDeletePreview: z.array(entityDetail),
   entityBulkDelete: z.object({ deleted: z.number(), removedCredits: z.number() }),

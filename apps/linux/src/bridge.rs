@@ -21,7 +21,12 @@ impl Request {
         let request: Self = serde_json::from_str(raw)
             .map_err(|_| Error::new("bad_request", "Invalid bridge request"))?;
         // Only bounded document writes have a larger payload; other commands retain 16 KiB.
-        if raw.len() > 16384
+        let limit = if request.command == "browsePreferences.save" {
+            128 * 1024
+        } else {
+            16384
+        };
+        if raw.len() > limit
             && !matches!(
                 request.command.as_str(),
                 "workReview" | "workSave" | "editorCall"

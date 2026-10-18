@@ -1,21 +1,10 @@
 import type { AdminWork } from "@nahhasio/api-contract";
 import { cn } from "cn";
-import {
-  ArrowUpLeft,
-  Braces,
-  CheckCheck,
-  Pencil,
-  X,
-  LayoutGrid,
-  List,
-  LockKeyhole,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowUpLeft, LayoutGrid, List, LockKeyhole } from "lucide-react";
 
 import { Artwork } from "@/components/artwork";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -30,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const editLink = (id: string) => `#/admin/works/${id}`;
+import { selectedWork, type SelectedRecord } from "./catalog-selection-model";
 import { workflowLabels } from "./works-model";
 
 const date = new Intl.DateTimeFormat("ar-u-nu-latn", { dateStyle: "medium" });
@@ -46,63 +36,28 @@ const views = [
 export function WorksResults({
   works,
   view,
-  onView,
   busy,
+  selection,
+  onSelection,
 }: {
   works: AdminWork[];
   view: WorksView;
-  onView: (value: WorksView) => void;
   busy: boolean;
+  selection: SelectedRecord[];
+  onSelection: (records: SelectedRecord[], checked: boolean) => void;
 }) {
-  // Selection belongs to this result page; editors receive only these selected IDs.
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const allSelected = works.length > 0 && works.every((work) => selected.has(work.id));
-  const toggle = (id: string, checked: boolean) =>
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  const selectAll = (checked: boolean) =>
-    setSelected(checked ? new Set(works.map((work) => work.id)) : new Set());
+  const selected = new Set(selection.map((record) => record.id));
+  const toggle = (id: string, checked: boolean) => {
+    const work = works.find((record) => record.id === id);
+    if (work) onSelection([selectedWork(work)], checked);
+  };
   return (
-    <section className="flex min-w-0 flex-col gap-3" aria-label="نتائج الأعمال" aria-busy={busy}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <Checkbox
-            checked={allSelected}
-            indeterminate={selected.size > 0 && !allSelected}
-            disabled={busy}
-            onCheckedChange={selectAll}
-            aria-label="تحديد كل أعمال هذه الصفحة"
-          />
-          <span className="text-xs text-muted-foreground" role="status">
-            {selected.size ? `${selected.size} محدّد` : `${works.length} عمل في هذه الصفحة`}
-          </span>
-        </div>
-        <TooltipProvider delay={350}>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            value={[view]}
-            aria-label="عرض نتائج الأعمال"
-            onValueChange={(values) => {
-              const next = views.find((item) => item.value === values[0]);
-              if (next) onView(next.value);
-            }}
-          >
-            {views.map(({ value, label, icon: Icon }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} />}>
-                  <Icon aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </ToggleGroup>
-        </TooltipProvider>
-      </div>
+    <section
+      className="flex min-w-0 flex-col gap-3 transition-opacity data-[pending=true]:opacity-60 motion-reduce:transition-none"
+      data-pending={busy}
+      aria-label="نتائج الأعمال"
+      aria-busy={busy}
+    >
       {view === "table" ? (
         <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
           <Table>
@@ -262,56 +217,38 @@ export function WorksResults({
           })}
         </div>
       )}
-      {selected.size > 0 && (
-        <div
-          className="fixed inset-x-4 bottom-4 z-30 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-3 rounded-2xl border border-border bg-popover p-3 shadow-lg"
-          data-slot="work-selection-actions"
-          role="region"
-          aria-label="إجراءات الأعمال المحددة"
-        >
-          <Badge variant="secondary" role="status" aria-live="polite">
-            {new Intl.NumberFormat("ar").format(selected.size)} محدّد
-          </Badge>
-          <ButtonGroup aria-label="فتح التحرير">
-            <Button
-              size="sm"
-              disabled={busy}
-              render={
-                <a href={`#/admin/json?ids=${encodeURIComponent([...selected].join(","))}`} />
-              }
-            >
-              <Braces data-icon="inline-start" />
-              JSON
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              render={
-                <a href={`#/admin/works/bulk?ids=${encodeURIComponent([...selected].join(","))}`} />
-              }
-            >
-              <Pencil data-icon="inline-start" />
-              تحرير جماعي
-            </Button>
-          </ButtonGroup>
-          {!allSelected && (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => selectAll(true)}>
-              <CheckCheck data-icon="inline-start" />
-              تحديد الصفحة
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            disabled={busy}
-            aria-label="إلغاء تحديد الأعمال"
-            onClick={() => setSelected(new Set())}
-          >
-            <X data-icon="inline-start" />
-          </Button>
-        </div>
-      )}
     </section>
+  );
+}
+
+export function WorksViewToggle({
+  value: currentView,
+  onChange,
+}: {
+  value: WorksView;
+  onChange: (value: WorksView) => void;
+}) {
+  return (
+    <TooltipProvider delay={350}>
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        value={[currentView]}
+        aria-label="عرض نتائج الأعمال"
+        onValueChange={(values) => {
+          const next = views.find((item) => item.value === values[0]);
+          if (next) onChange(next.value);
+        }}
+      >
+        {views.map(({ value, label, icon: Icon }) => (
+          <Tooltip key={value}>
+            <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} />}>
+              <Icon aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </ToggleGroup>
+    </TooltipProvider>
   );
 }

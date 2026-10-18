@@ -125,10 +125,10 @@ export const rpcInputs = {
     assignmentId: z.string().uuid(),
     expectedPrimary: z.boolean(),
   }),
-  read: z.strictObject({ ids: z.array(z.string().uuid()).min(1).max(30) }),
+  read: z.strictObject({ ids: z.array(z.string().uuid()).min(1) }),
   review: z.strictObject({
     json: z.string().max(4000000),
-    originals: z.array(originalSchema).min(1).max(30),
+    originals: z.array(originalSchema).min(1),
   }),
   save: z.strictObject({ ticket: z.string().max(8000000) }),
   create: z.strictObject({ json: z.string().max(4000000) }),

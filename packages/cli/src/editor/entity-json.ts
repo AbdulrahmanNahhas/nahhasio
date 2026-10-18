@@ -27,8 +27,7 @@ const planSchema = z.strictObject({
         draft: adminEntityDraftSchema,
       }),
     )
-    .min(1)
-    .max(30),
+    .min(1),
 });
 const secret = Buffer.from(process.env.NAHHASIO_EDITOR_SECRET ?? "", "hex");
 function sign(plan: z.infer<typeof planSchema>) {

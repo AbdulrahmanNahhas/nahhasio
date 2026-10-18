@@ -211,7 +211,6 @@ fn identifier(id: &str) -> Result<(), Error> {
 }
 fn ids_valid(ids: &[String]) -> Result<(), Error> {
     if ids.is_empty()
-        || ids.len() > 30
         || ids
             .iter()
             .map(|id| id.to_ascii_lowercase())
@@ -221,7 +220,7 @@ fn ids_valid(ids: &[String]) -> Result<(), Error> {
     {
         return Err(Error(
             StatusCode::BAD_REQUEST,
-            "اختر من عمل واحد إلى ٣٠ عملاً دون تكرار.",
+            "اختر عملًا واحدًا أو أكثر دون تكرار.",
         ));
     }
     for id in ids {
@@ -496,4 +495,17 @@ async fn save(
         saved,
         documents: output,
     }))
+}
+
+#[cfg(test)]
+mod selection_tests {
+    #[test]
+    fn accepts_more_than_thirty_unique_work_ids_and_still_rejects_duplicates() {
+        let mut ids = (1..=75)
+            .map(|index| format!("00000000-0000-4000-8000-{index:012}"))
+            .collect::<Vec<_>>();
+        assert!(super::ids_valid(&ids).is_ok());
+        ids.push(ids[0].clone());
+        assert!(super::ids_valid(&ids).is_err());
+    }
 }

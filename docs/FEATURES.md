@@ -76,10 +76,10 @@
   - [x] Audience
   - [x] Release status
   - [x] Watched state
-  - [ ] Planet
-  - [ ] Genre
-  - [ ] Country
-  - [ ] Studio
+  - [x] Planet
+  - [x] Genre
+  - [x] Country
+  - [x] Studio
   - [ ] Media availability
 - [x] Sort by
   - [x] Latest released part
@@ -99,7 +99,8 @@
 - [ ] Filter by device downloads
 - [ ] Filter by saved works
 - [ ] Filter by audio/subtitle availability
-- [ ] Save filter presets
+- [x] Remember Browse filters, year range, sorting, grouping and display on this device (per server/account)
+- [x] Save up to eight named Browse presets and restore defaults
 - [ ] Select works and save locally
 - [ ] Offline browsing of saved works
 
@@ -405,7 +406,9 @@
 - [x] Search and filters
 - [x] Table/poster views
 - [x] Pagination
-- [x] Select works
+- [x] Select works across search, filters and pages
+- [x] Select all matching works without the former 30-work cap
+- [x] Compact selection bar, searchable review and full-selection editor handoff
 - [x] Open full work editor
 - [x] Open bulk/JSON editor
 - [x] New-work entry
@@ -513,7 +516,7 @@
 ## Admin People Page
 
 - [x] Paginated grid/table, search and image/linked-work/exactly-one-work filters
-- [x] Cross-page selection and floating JSON/delete actions
+- [x] Cross-search/page/route selection, select/deselect all matching records and compact review/JSON actions
 - [x] Single editing Drawer without tabs
 - [x] Create/edit name, sort name, description and aliases/languages
 - [x] Portrait upload/selection with reviewed primary-image changes
@@ -534,7 +537,7 @@
 - [x] Paginated grid/table, search, filters and most-works default sort
 - [x] Create/edit identity and aliases in a single Drawer
 - [x] Logo upload/selection and square artwork cards
-- [x] Cross-page selection with floating JSON/delete actions
+- [x] Cross-search/page/route selection, select/deselect all matching records and compact review/JSON actions
 - [ ] Parent/related organizations
 - [x] Direct credits, linked works and organization-role creation
 - [x] Contribution order, up/down controls and primary state

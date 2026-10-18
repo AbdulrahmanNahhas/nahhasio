@@ -19,6 +19,7 @@ type EntityRevisionInput = { draft: Draft; images: EntityImage[]; updatedAt: str
 function fingerprint(value: EntityRevisionInput) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
+const entityWhere = `e.kind::text=$1 and ($2='' or strpos(lower(concat_ws(' ',e.name,e.sort_name)),lower($2))>0 or exists(select 1 from entity_aliases a where a.entity_id=e.id and strpos(lower(a.alias),lower($2))>0)) and ($3='all' or ($3='with')=exists(select 1 from media_asset_assignments a where a.entity_id=e.id)) and ($4='all' or ($4='linked' and exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='unlinked' and not exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='one' and (select count(distinct c.title_id) from contributions c where c.entity_id=e.id)=1))`;
 export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.entityList>) {
   const order = {
     name: "e.sort_name,e.name,e.id",
@@ -26,15 +27,15 @@ export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.ent
       "(select count(distinct c.title_id) from contributions c where c.entity_id=e.id) desc,e.sort_name,e.id",
     updated: "e.updated_at desc,e.id",
   }[input.sort];
-  const where = `e.kind::text=$1 and ($2='' or strpos(lower(concat_ws(' ',e.name,e.sort_name)),lower($2))>0 or exists(select 1 from entity_aliases a where a.entity_id=e.id and strpos(lower(a.alias),lower($2))>0)) and ($3='all' or ($3='with')=exists(select 1 from media_asset_assignments a where a.entity_id=e.id)) and ($4='all' or ($4='linked' and exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='unlinked' and not exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='one' and (select count(distinct c.title_id) from contributions c where c.entity_id=e.id)=1))`;
+
   return sql.begin("isolation level repeatable read read only", async (tx) => {
     const params = [input.kind, input.q, input.image, input.usage];
     const rows = await tx.unsafe<{ value: unknown }[]>(
-      `select ${summary} as value from entities e where ${where} order by ${order} limit 24 offset $5`,
+      `select ${summary} as value from entities e where ${entityWhere} order by ${order} limit 24 offset $5`,
       [...params, (input.page - 1) * 24],
     );
     const [total] = await tx.unsafe<{ count: string }[]>(
-      `select count(*) as count from entities e where ${where}`,
+      `select count(*) as count from entities e where ${entityWhere}`,
       params,
     );
     return rpcResults.entityList.parse({
@@ -42,6 +43,14 @@ export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.ent
       total: Number(total?.count ?? 0),
     });
   });
+}
+/** Explicit bulk selection returns membership only, using exactly the list filters. */
+export async function selectEntities(sql: Sql, input: z.infer<typeof rpcInputs.entitySelection>) {
+  const rows = await sql.unsafe<{ id: string; name: string }[]>(
+    `select e.id,e.name from entities e where ${entityWhere} order by e.id`,
+    [input.kind, input.q, input.image, input.usage],
+  );
+  return rpcResults.entitySelection.parse(rows);
 }
 export async function dependencies(tx: TransactionSql, id: string) {
   const schema = await loadSchema(tx);

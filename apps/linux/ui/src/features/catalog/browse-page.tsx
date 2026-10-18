@@ -1,12 +1,12 @@
 import type { CatalogEntry } from "@nahhasio/api-contract";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { cn } from "cn";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useCardNavigation, useLoadMoreNavigation } from "../../components/card-navigation";
 import { MediaCard, ScoreBadge } from "../../components/media-card";
 import { Failure, NoResults } from "../../components/status";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Drawer, DrawerTrigger } from "../../components/ui/drawer";
@@ -22,6 +22,13 @@ import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams, workLink } from "../shell/navigation";
 import { AppliedFilters } from "./applied-filters";
 import {
+  useBrowsePreferences,
+  defaultPreferences,
+  rememberedSearch,
+  type BrowsePreferences,
+} from "./browse-preferences";
+import { BrowsePresets } from "./browse-presets";
+import {
   groupKey,
   groupTitle,
   parseGroup,
@@ -31,16 +38,55 @@ import {
   withPreset,
 } from "./browse-refinements";
 import type { BrowseRefinements } from "./browse-refinements";
+import { browseGridClass, BrowseResultsSkeleton } from "./browse-results-skeleton";
 import { DisplaySettings, displayDefaults } from "./display-settings";
 import { FilterDrawer } from "./filter-drawer";
 import { parseFilters, optionLabel } from "./filter-model";
 import { OrganizationControls } from "./organization-controls";
-export function BrowsePage({
+type BrowseProps = {
+  params: URLSearchParams;
+  path?: string;
+  title?: string;
+  preset?: { key: string; value: string };
+};
+export function BrowsePage(props: BrowseProps) {
+  const preferences = useBrowsePreferences();
+  if (preferences.loading)
+    return (
+      <div className="mx-auto max-w-400 px-10 py-8">
+        <BrowseResultsSkeleton display={preferences.query.data?.display ?? displayDefaults} />
+      </div>
+    );
+  const saved = preferences.query.data ?? defaultPreferences;
+  // A direct/search link owns its query. Only a bare Browse entry restores the last view.
+  const params =
+    props.params.size || props.preset ? props.params : new URLSearchParams(saved.search);
+  return (
+    <BrowseContent
+      {...props}
+      key={preferences.scope}
+      params={params}
+      preferences={saved}
+      onRemember={(value) => preferences.save.mutate(value)}
+      onPersist={(value) => preferences.save.mutateAsync(value)}
+      preferenceError={preferences.query.error ?? preferences.save.error}
+    />
+  );
+}
+function BrowseContent({
   params,
   path = "/browse",
   title = "تصفّح المكتبة",
   preset,
+  preferences,
+  onRemember,
+  onPersist,
+  preferenceError,
 }: {
+  preferences: BrowsePreferences;
+  onRemember: (value: BrowsePreferences) => void;
+  onPersist: (value: BrowsePreferences) => Promise<void>;
+  preferenceError?: Error | null;
   params: URLSearchParams;
   path?: string;
   title?: string;
@@ -64,8 +110,10 @@ export function BrowsePage({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersMounted, setFiltersMounted] = useState(false);
   const filterTrigger = useRef<HTMLButtonElement>(null);
-  const [display, setDisplay] = useState(displayDefaults);
-  const { layout, size } = display;
+  const display = preferences.display;
+  const setDisplay = (value: typeof display) =>
+    onRemember({ ...preferences, search: rememberedSearch(params), display: value });
+  const { layout } = display;
   const group = parseGroup(params.get("group"));
   const refinements: BrowseRefinements = {
     filters,
@@ -81,6 +129,7 @@ export function BrowsePage({
       if (value) next.set(key, value);
       else next.delete(key);
     }
+    onRemember({ ...preferences, search: rememberedSearch(next) });
     replaceParams(path, next);
   };
   const apply = (value: BrowseRefinements) =>
@@ -113,7 +162,7 @@ export function BrowsePage({
   const items = result.data?.pages.flatMap((page) => page.items) ?? [];
   const groups = new Map<string, CatalogEntry[]>();
   for (const item of items) {
-    const key = groupKey(group, item);
+    const key = item.groupKey ?? groupKey(group, item);
     const entries = groups.get(key) ?? [];
     entries.push(item);
     groups.set(key, entries);
@@ -130,7 +179,7 @@ export function BrowsePage({
   const moreLabel =
     group !== "none" && lastGroup
       ? lastGroup.entries.length < (totals.get(lastGroup.key) ?? lastGroup.entries.length)
-        ? `تحميل المزيد من ${groupTitle(group, lastGroup.key)}`
+        ? `تحميل المزيد من ${groupTitle(group, lastGroup.key, options.data)}`
         : "تحميل المجموعة التالية"
       : "تحميل المزيد";
 
@@ -154,7 +203,12 @@ export function BrowsePage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl leading-relaxed font-semibold">{title}</h1>
             <Badge variant="secondary" aria-live="polite">
-              {result.data?.pages[0]?.total ?? "…"} {view === "works" ? "عمل" : "موسم وإصدار"}
+              {result.data?.pages[0]?.total ?? "…"}{" "}
+              {["planet", "genre", "country", "studio"].includes(group)
+                ? "نتيجة في المجموعات"
+                : view === "works"
+                  ? "عمل"
+                  : "موسم وإصدار"}
             </Badge>
           </div>
           <ToggleGroup
@@ -220,27 +274,43 @@ export function BrowsePage({
             />
             <DisplaySettings value={display} onChange={setDisplay} />
           </div>
+          <BrowsePresets
+            value={{ ...preferences, search: rememberedSearch(params) }}
+            onSave={onPersist}
+            onApply={(search, nextDisplay) => {
+              onRemember({ ...preferences, search, display: nextDisplay });
+              replaceParams(path, new URLSearchParams(search));
+            }}
+            onReset={() => {
+              const next = new URLSearchParams();
+              next.set("filters", JSON.stringify(parseFilters(null)));
+              onRemember({ ...preferences, search: next.toString(), display: displayDefaults });
+              replaceParams(path, next);
+            }}
+          />
         </div>
+        {preferenceError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>
+              تعذّر حفظ أو استعادة تفضيلات التصفح: {preferenceError.message}
+            </AlertDescription>
+          </Alert>
+        )}
         <AppliedFilters
           value={refinements}
           options={options.data}
           locked={preset}
           onChange={apply}
         />
-        {group !== "none" && (
-          <p className="mb-4 text-sm text-muted-foreground">
-            تُحمّل المجموعات بالترتيب، ويُطبّق ترتيب الأعمال داخل كل مجموعة.
-          </p>
-        )}
         {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
-        {result.isLoading && <p role="status">جارٍ تحميل الكتالوج…</p>}
+        {result.isLoading && <BrowseResultsSkeleton display={display} />}
         {items.length === 0 && !result.isLoading && !result.error && <NoResults />}
         {groupedEntries.map(({ key, entries }) => (
           <section key={key}>
             {key !== "all" && (
               <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold">{groupTitle(group, key)}</h2>
+                  <h2 className="text-xl font-semibold">{groupTitle(group, key, options.data)}</h2>
                   <Badge variant="secondary">{totals.get(key) ?? entries.length}</Badge>
                 </div>
                 {totals.has(key) && entries.length < totals.get(key)! && (
@@ -307,29 +377,7 @@ export function BrowsePage({
                 </table>
               </div>
             ) : (
-              <div
-                className={cn(
-                  "grid",
-                  layout === "banner"
-                    ? cn(
-                        "max-[900px]:grid-cols-3 max-[600px]:grid-cols-2 max-[450px]:grid-cols-1",
-                        size === "compact"
-                          ? "grid-cols-5"
-                          : size === "comfortable"
-                            ? "grid-cols-3"
-                            : "grid-cols-4",
-                      )
-                    : cn(
-                        "max-[1100px]:grid-cols-5 max-[800px]:grid-cols-4 max-[600px]:grid-cols-3 max-[450px]:grid-cols-2",
-                        size === "compact"
-                          ? "grid-cols-7"
-                          : size === "comfortable"
-                            ? "grid-cols-5"
-                            : "grid-cols-6",
-                      ),
-                  "my-7 gap-x-5 gap-y-7 max-[600px]:gap-x-3 max-[600px]:gap-y-5",
-                )}
-              >
+              <div className={browseGridClass(display)}>
                 {entries.map((item) => (
                   <MediaCard
                     key={item.installment?.id ?? item.work.id}
@@ -345,6 +393,7 @@ export function BrowsePage({
             )}
           </section>
         ))}
+        {result.isFetchingNextPage && <BrowseResultsSkeleton display={display} singleRow />}
         {result.hasNextPage && (
           <Button
             {...navigation}

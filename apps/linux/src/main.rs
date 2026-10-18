@@ -1,6 +1,7 @@
 //! Native shell bootstrap. Client Rust exercises begin after this baseline is reviewed.
 mod assets;
 mod bridge;
+mod browse_preferences;
 mod connections;
 mod media;
 mod media_bridge;
@@ -496,7 +497,9 @@ fn build_window(
     view.connect_load_failed({
         let recovery = recovery.clone();
         move |_, _, _, error| {
-            if error.matches(webkit6::NetworkError::Cancelled) {
+            if error.matches(webkit6::NetworkError::Cancelled)
+                || error.matches(gio::IOErrorEnum::Cancelled)
+            {
                 return false;
             }
             eprintln!("desktop: interface load failed: {error}");
@@ -505,7 +508,10 @@ fn build_window(
         }
     });
     view.connect_load_changed(move |_, event| {
-        if event == webkit6::LoadEvent::Started {
+        if matches!(
+            event,
+            webkit6::LoadEvent::Started | webkit6::LoadEvent::Committed
+        ) {
             recovery.set_visible(false);
         }
     });

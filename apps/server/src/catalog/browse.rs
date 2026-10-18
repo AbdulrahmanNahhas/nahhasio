@@ -82,7 +82,16 @@ impl Input {
             || !matches!(privacy, "public" | "all" | "private")
             || !matches!(
                 self.group.as_deref().unwrap_or("none"),
-                "none" | "year" | "format" | "audience" | "status" | "watchState"
+                "none"
+                    | "year"
+                    | "format"
+                    | "audience"
+                    | "status"
+                    | "watchState"
+                    | "planet"
+                    | "genre"
+                    | "country"
+                    | "studio"
             )
             || self.q.as_ref().is_some_and(|v| v.chars().count() > 200)
             || self.filters.as_ref().is_some_and(|v| v.len() > 8000)
@@ -243,14 +252,23 @@ pub(super) async fn browse(
     Query(input): Query<Input>,
 ) -> ApiResult<Json<Value>> {
     let (page, size, view, privacy, order, filters) = input.validated()?;
-    let (group_key, group_rank) = grouping(input.group.as_deref().unwrap_or("none"));
+    let group = input.group.as_deref().unwrap_or("none");
+    let memberships = membership_groups(group);
+    let (group_key, group_rank) = if memberships.is_some() {
+        ("browse_group_key", "browse_group_rank")
+    } else {
+        grouping(group)
+    };
+    let expanded = memberships.map_or_else(|| "select * from filtered".to_owned(), |(fact, rank)| format!(
+        "select filtered.*, membership.key browse_group_key, {rank} browse_group_rank from filtered cross join lateral (select distinct value key from jsonb_array_elements_text(case when jsonb_array_length(facts->'{fact}') > 0 then facts->'{fact}' else '[\"__none__\"]'::jsonb end) options(value)) membership"
+    ));
     let order = if input.group.as_deref().unwrap_or("none") == "none" {
         order.to_owned()
     } else {
         format!("{group_rank} asc nulls last,{group_key},{order}")
     };
     let query = format!(
-        "with base as ({base}), filtered as (select * from base where {condition}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from filtered group by {group_key}), page as (select entry || jsonb_build_object('contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=filtered.id) work_roles),'[]'::jsonb)) entry,row_number() over(order by {order}) ord from filtered order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from filtered),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',{page},'pageSize',{size})",
+        "with base as ({base}), filtered as (select * from base where {condition}), expanded as ({expanded}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from expanded group by {group_key}), page as (select entry || jsonb_build_object('groupKey',{group_key},'contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=expanded.id) work_roles),'[]'::jsonb)) entry,row_number() over(order by {order}) ord from expanded order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from expanded),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',{page},'pageSize',{size})",
         base = base(),
         condition = condition()
     );
@@ -267,6 +285,18 @@ pub(super) async fn browse(
         .fetch_one(&pool)
         .await?;
     Ok(Json(value.0))
+}
+fn membership_groups(group: &str) -> Option<(&'static str, &'static str)> {
+    match group {
+        "planet" => Some((
+            "planets",
+            "coalesce((select p.display_order from planets p where p.slug=membership.key and p.is_active),2147483647)",
+        )),
+        "genre" => Some(("genres", "0")),
+        "country" => Some(("countries", "0")),
+        "studio" => Some(("studios", "0")),
+        _ => None,
+    }
 }
 fn grouping(group: &str) -> (&'static str, &'static str) {
     match group {

@@ -16,6 +16,7 @@ use sqlx::{AssertSqlSafe, PgPool, types::Json as SqlJson};
 pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/admin/works", get(works))
+        .route("/api/v1/admin/works/selection", get(work_selection))
         .route_layer(middleware::from_fn_with_state(
             pool.clone(),
             crate::auth::require_admin,
@@ -152,6 +153,29 @@ SELECT jsonb_build_object('items',coalesce((SELECT jsonb_agg(item ORDER BY ordin
         .bind(input.gap)
         .bind(page)
         .bind(size)
+        .fetch_one(&pool)
+        .await?;
+    Ok(Json(value.0))
+}
+
+/// Explicit selection intent returns identity/labels only, using the same filters as the page.
+async fn work_selection(
+    State(pool): State<PgPool>,
+    input: Result<Query<WorksQuery>, QueryRejection>,
+) -> Result<Json<Value>, Error> {
+    let Query(input) =
+        input.map_err(|_| Error(StatusCode::BAD_REQUEST, "Invalid administration query"))?;
+    let (_, _, order) = input.validate()?;
+    let query = format!(
+        "select coalesce(jsonb_agg(item order by ordinal),'[]'::jsonb) from (select row_number() over(order by {order}) ordinal,jsonb_build_object('id',t.id,'name',coalesce(nullif(trim(t.title_ar),''),t.canonical_title)) item from titles t where {FILTER}) selected"
+    );
+    let value = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(query))
+        .bind(input.q.as_deref().map(str::trim).filter(|v| !v.is_empty()))
+        .bind(input.format)
+        .bind(input.structure)
+        .bind(input.workflow)
+        .bind(input.visibility)
+        .bind(input.gap)
         .fetch_one(&pool)
         .await?;
     Ok(Json(value.0))

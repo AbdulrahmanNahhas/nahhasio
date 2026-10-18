@@ -1081,7 +1081,18 @@
             "description": "Order complete groups before pagination; sort applies within each group.",
             "schema": {
               "type": "string",
-              "enum": ["none", "year", "format", "audience", "status", "watchState"]
+              "enum": [
+                "none",
+                "year",
+                "format",
+                "audience",
+                "status",
+                "watchState",
+                "planet",
+                "genre",
+                "country",
+                "studio"
+              ]
             }
           },
           {
@@ -1484,7 +1495,7 @@
     "/api/v1/admin/works/{id}": {
       "get": {
         "operationId": "getWorkDocument",
-        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Maximum 30 documents. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
+        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1583,7 +1594,7 @@
     "/api/v1/admin/works/read": {
       "post": {
         "operationId": "readWorkDocuments",
-        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Maximum 30 documents. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
+        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1681,7 +1692,7 @@
     "/api/v1/admin/works/review": {
       "post": {
         "operationId": "reviewWorkDocuments",
-        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Maximum 30 documents. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
+        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1779,7 +1790,7 @@
     "/api/v1/admin/works/save": {
       "post": {
         "operationId": "saveWorkDocuments",
-        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Maximum 30 documents. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
+        "description": "Active administrator session required. Core title fields only; relationships, provider identities and owned data are preserved. Review is read-only and actor-bound, expires in 10 minutes; save checks the signed exact draft and revisions, locks all records, writes and audits atomically.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1962,14 +1973,137 @@
               }
             }
           },
-          "409": {
-            "description": "Concurrent server edit; explicit device/server resolution required"
-          },
           "401": {
             "description": "Unauthenticated"
           },
           "404": {
             "description": "Target not available"
+          },
+          "409": {
+            "description": "Concurrent server edit; explicit device/server resolution required"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/works/selection": {
+      "get": {
+        "operationId": "getAdminWorkSelection",
+        "description": "Explicit read-only selection of every matching work. Same administrator authorization and filters as the paginated list; returns IDs and names only in one database snapshot.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["animated", "live-action"]
+            }
+          },
+          {
+            "name": "structure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["movie", "series"]
+            }
+          },
+          {
+            "name": "workflow",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["draft", "in_review", "approved", "published", "archived"]
+            }
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["public", "private"]
+            }
+          },
+          {
+            "name": "gap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["poster", "summary", "arabic-name", "structure"]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["updated", "title", "year-desc", "year-asc"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded administrative catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkSelection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Expired or missing session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -4195,6 +4329,10 @@
             "items": {
               "$ref": "#/components/schemas/EntityContributionRole"
             }
+          },
+          "groupKey": {
+            "type": "string",
+            "description": "Server-assigned group membership for this result; a work may occur in several groups."
           }
         }
       },
@@ -5544,7 +5682,6 @@
         "properties": {
           "ids": {
             "minItems": 1,
-            "maxItems": 30,
             "type": "array",
             "items": {
               "type": "string",
@@ -5578,7 +5715,6 @@
           },
           "originals": {
             "minItems": 1,
-            "maxItems": 30,
             "type": "array",
             "items": {
               "type": "object",
@@ -7909,6 +8045,9 @@
             "$ref": "#/components/schemas/CatalogEntityJsonSaveCall"
           },
           {
+            "$ref": "#/components/schemas/CatalogEntitySelectionCall"
+          },
+          {
             "$ref": "#/components/schemas/CatalogEntityListCall"
           },
           {
@@ -9364,7 +9503,6 @@
           },
           "ids": {
             "minItems": 1,
-            "maxItems": 30,
             "type": "array",
             "items": {
               "type": "string",
@@ -9398,7 +9536,6 @@
           },
           "originals": {
             "minItems": 1,
-            "maxItems": 30,
             "type": "array",
             "items": {
               "type": "object",
@@ -9830,7 +9967,6 @@
               },
               "records": {
                 "minItems": 1,
-                "maxItems": 30,
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -9952,7 +10088,6 @@
           },
           "originals": {
             "minItems": 1,
-            "maxItems": 50,
             "type": "array",
             "items": {
               "type": "object",
@@ -10687,6 +10822,79 @@
             "maximum": 31536000,
             "nullable": true
           }
+        }
+      },
+      "AdminWorkSelection": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CatalogEntitySelectionInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["person", "organization"]
+          },
+          "q": {
+            "default": "",
+            "type": "string",
+            "maxLength": 300
+          },
+          "image": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "with", "without"]
+          },
+          "usage": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "linked", "unlinked", "one"]
+          }
+        },
+        "required": ["kind"],
+        "additionalProperties": false
+      },
+      "CatalogEntitySelectionCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["entitySelection"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogEntitySelectionInput"
+          }
+        }
+      },
+      "CatalogEntitySelectionResult": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["id", "name"]
         }
       }
     }

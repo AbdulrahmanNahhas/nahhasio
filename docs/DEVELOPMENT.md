@@ -155,8 +155,15 @@ The JSON reference schema uses coalesced PostgreSQL generation metadata: ordinar
 null identity_generation, so boolean OR must not leak null into the typed generated flag.
 Schema-response parsing stays strict but reports readable errors. The reference panel mounts
 only when expanded. JSON drafts retain same-route protection when selected IDs change. Works
-selection remains page-scoped and appears in floating bottom actions; editing receives only the
-explicit selected UUIDs. This is a UI/introspection correction, with no database migration/write.
+selection survives search, filters, paging and admin route changes in a session-only query cache
+scoped by server/user. Page selection adds/removes only the visible records, without the old 30-work cap. Select-all returns IDs/names for all matching results from
+a single read-only API snapshot. Floating actions stay available for empty/error results; a searchable review dialog
+shows selected names incrementally and permits individual removal. Logout/server switching clears this
+state. Editors consume the full session selection through `selection=works`, avoiding truncated
+UUID URLs. Work read/review contracts no longer cap record count; request-byte limits and
+review/revision/transaction guards remain in force. The compact bottom bar has clear, review
+and one direct JSON editing action. Select-all toggles to deselect-all and removes only the
+current matching results. Filters use a popover, and pagination shows the visible range with direct page entry. This is a UI/introspection correction, with no database migration/write.
 
 ## People and Studios administration checkpoint
 
@@ -168,8 +175,15 @@ The single Drawer covers existing entity fields, aliases/languages, portrait sel
 direct work/role editing, contribution order/primary state and new-role creation. Up/down arrows
 reorder contribution cards and persist their numeric positions. This uses the existing contribution
 position, which also orders contributors inside work details; it is not a separate viewer-library
-sort setting. List selection
-persists across pages (50 records); JSON editing accepts 30. Filters include exactly one linked
+sort setting. People, Organizations and Works share compact two-row controls, a filters popover,
+selection review and one direct JSON action. Selection is scoped by server/account and entity kind,
+survives search/page/route changes, and remains session-only. Explicit select-all loads only IDs/names
+from the same SQL predicates as the paginated list; normal browsing makes no extra membership request.
+People/Organizations have no selection/JSON record-count cap; request/ticket-byte limits, revisions,
+authorization and transactional reconciliation still apply. Deletion retains its 50-record batch
+limit and existing impact/count review, behind a separate menu. JSON handoff reads the session
+selection instead of long UUID URLs. Loading skeletons match portrait/logo/table views; search
+has a clear action, and date/number formatters are reused. Filters include exactly one linked
 work. No schema is added. External identities currently belong to titles/installments, not
 entities; no entity identity model or birth/country data is invented.
 
@@ -408,3 +422,41 @@ remain explicit recovery errors; they are never silently discarded.
 Implementation checks use formatting/lint/type checks and native/production builds. Full native
 offline/reconnect, filesystem-failure and concurrent-account acceptance remains for the agreed
 consolidated acceptance; no live family-catalog mutation tests run during this checkpoint.
+
+## Browse preferences and membership grouping
+
+Browse remembers applied filters, year range, sorting, grouping, works/installments and display
+options through native `browsePreferences.load/save`. Rust owns version-1 private atomic files
+under the existing device state root, scoped by hashes of the canonical server URL and account.
+Eight named presets share that scope. Search text is temporary; an explicit navigation query
+takes precedence over the last view. A bare Browse entry restores it. Reset restores Browse
+defaults without deleting named presets. Invalid versions/data and storage failures surface
+in the page; browser localStorage remains disabled. No database migration is required.
+
+The filter drawer has labelled desktop categories and horizontal category navigation in narrow
+windows. Selected facet values sort first; closing discards the draft and applying remembers it.
+Planet, genre, country and studio grouping expands all matching memberships before pagination.
+An entry carries its server-assigned `groupKey`, so a work can appear once in each applicable
+group. Totals count grouped results; absent memberships have an explicit unassigned group.
+Planet groups follow planet display order, with unassigned works last.
+
+Focused checks cover preference parsing, native file round-trips/account-server isolation and
+synthetic SQL membership totals and page boundaries without catalog reads or mutations. Fresh
+server and desktop processes are required for the new API grouping and native preferences;
+UI hot reload alone cannot add these capabilities. GTK appearance and hands-on restart review
+remain separate from static/build and fixture checks.
+
+### Browse refresh and loading follow-up
+
+Packaged entry reloads accept local hash-route fragments while retaining scheme/host/path and
+query guards; successful document commits clear the native recovery overlay. The native Browse
+validator now accepts the four membership grouping modes as well as the server/API contract.
+Regression tests cover refreshing a packaged hash URL and new groups reaching authorization
+rather than being rejected as invalid input.
+
+Results and skeletons share one responsive grid definition. Poster, banner and logo loading
+placeholders follow the selected layout/size; table view uses placeholder rows and reduced
+motion is respected. Presets live inside the Browse toolbar, show view summaries, support
+updating an existing name and show pending/error/success feedback. Saved Works adds a clear
+search action, result count and compact card placeholders. Hands-on GTK refresh remains a
+separate acceptance check after relaunching the freshly built native process.

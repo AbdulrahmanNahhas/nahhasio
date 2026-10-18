@@ -617,7 +617,7 @@ impl ServerSession {
                     .map_err(network)?;
                 self.json_limit(response, 16 * 1024 * 1024).await
             }
-            "adminWorks" => {
+            "adminWorks" | "adminWorksSelection" => {
                 let input: AdminWorksQuery = parse(request.payload)?;
                 if input.page.is_some_and(|v| !(1..=100_000).contains(&v))
                     || input.page_size.is_some_and(|v| !(1..=100).contains(&v))
@@ -636,13 +636,20 @@ impl ServerSession {
                     return Err(Error::new("bad_request", "Invalid administration query"));
                 }
                 let response = self
-                    .authorized(Method::GET, "api/v1/admin/works")
+                    .authorized(
+                        Method::GET,
+                        if request.command == "adminWorksSelection" {
+                            "api/v1/admin/works/selection"
+                        } else {
+                            "api/v1/admin/works"
+                        },
+                    )
                     .await?
                     .query(&input)
                     .send()
                     .await
                     .map_err(network)?;
-                self.json(response).await
+                self.json_limit(response, 16 * 1024 * 1024).await
             }
             "profile" | "adminAccess" => {
                 let path = if request.command == "profile" {
@@ -829,7 +836,16 @@ impl ServerSession {
                     || input.group.as_deref().is_some_and(|v| {
                         !matches!(
                             v,
-                            "none" | "year" | "format" | "audience" | "status" | "watchState"
+                            "none"
+                                | "year"
+                                | "format"
+                                | "audience"
+                                | "status"
+                                | "watchState"
+                                | "planet"
+                                | "genre"
+                                | "country"
+                                | "studio"
                         )
                     })
                 {
@@ -959,6 +975,34 @@ async fn bounded_body(mut response: Response, max: usize) -> Result<Vec<u8>, Err
 #[cfg(test)]
 mod tests {
     use super::ServerSession as Services;
+    #[tokio::test]
+    async fn new_catalog_groups_reach_authorization_instead_of_bad_request() {
+        let service = Services::new("http://127.0.0.1:9/").unwrap();
+        for group in ["planet", "genre", "country", "studio"] {
+            let error = service
+                .execute(crate::bridge::Request {
+                    id: "group-check".into(),
+                    command: "browse".into(),
+                    payload: serde_json::json!({"group":group,"page":1,"pageSize":30}),
+                })
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.code, "unauthorized",
+                "group {group} must reach authorization"
+            );
+        }
+        let error = service
+            .execute(crate::bridge::Request {
+                id: "group-check".into(),
+                command: "browse".into(),
+                payload: serde_json::json!({"group":"unsupported"}),
+            })
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, "bad_request");
+    }
+
     use super::*;
     #[tokio::test]
     async fn releases_validate_before_network_and_require_session() {

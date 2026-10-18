@@ -1,7 +1,8 @@
 import { z } from "zod";
 export const editorSearchSchema = z.object({
   target: z.enum(["works", "people", "studios"]).catch("works").default("works"),
-  ids: z.string().max(1200).catch("").default(""),
+  selection: z.enum(["", "works", "people", "studios"]).catch("").default(""),
+  ids: z.string().max(4000000).catch("").default(""),
 });
 
 export const workEditorSearchSchema = z.object({

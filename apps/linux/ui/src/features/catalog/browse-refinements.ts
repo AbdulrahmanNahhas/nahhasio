@@ -1,4 +1,4 @@
-import type { BrowseFilters, CatalogEntry } from "@nahhasio/api-contract";
+import type { BrowseFilters, CatalogEntry, FacetCatalog } from "@nahhasio/api-contract";
 
 import type { CatalogQuery } from "../../lib/bridge";
 import { criteria, emptyFilters, filterCount, optionLabel } from "./filter-model";
@@ -18,6 +18,10 @@ export const sortChoices = [
 ] as const;
 export const groupChoices = [
   { value: "none", label: "بلا تجميع" },
+  { value: "planet", label: "الكوكب" },
+  { value: "genre", label: "النوع الفني" },
+  { value: "country", label: "البلد" },
+  { value: "studio", label: "الاستوديو" },
   { value: "year", label: "سنة الإصدار" },
   { value: "format", label: "الصيغة" },
   { value: "audience", label: "الجمهور" },
@@ -128,7 +132,22 @@ export function groupKey(value: BrowseGroup, item: CatalogEntry) {
   return "all";
 }
 
-export function groupTitle(group: BrowseGroup, key: string) {
+export function groupTitle(group: BrowseGroup, key: string, options?: FacetCatalog) {
+  const facets = { planet: "planets", genre: "genres", country: "countries", studio: "studios" };
+  if (group === "planet" || group === "genre" || group === "country" || group === "studio") {
+    if (key === "__none__")
+      return {
+        planet: "دون كوكب",
+        genre: "دون نوع فني",
+        country: "دون بلد",
+        studio: "دون استوديو",
+      }[group];
+    return (
+      options?.groups
+        .find((facet) => facet.key === facets[group])
+        ?.options.find((option) => option.value === key)?.label ?? "جارٍ تحميل اسم المجموعة…"
+    );
+  }
   if (group === "format") return key === "animated" ? "رسوم متحركة" : "تمثيل حي";
   return optionLabel(key, key === "unknown" ? "غير معروف" : key);
 }

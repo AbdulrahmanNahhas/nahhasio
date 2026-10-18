@@ -601,6 +601,7 @@ export const CatalogEntrySchema = z.strictObject({
   watchState: z.string(),
   criteria: CatalogCriteriaSchema,
   contributionRoles: z.array(EntityContributionRoleSchema).optional(),
+  groupKey: z.string().optional(),
 });
 export type CatalogEntry = z.infer<typeof CatalogEntrySchema>;
 
@@ -1790,6 +1791,20 @@ export const CatalogEntityJsonSaveCallSchema = z.strictObject({
 });
 export type CatalogEntityJsonSaveCall = z.infer<typeof CatalogEntityJsonSaveCallSchema>;
 
+export const CatalogEntitySelectionInputSchema = z.strictObject({
+  kind: z.enum(["person", "organization"]),
+  q: z.string().max(300).optional(),
+  image: z.enum(["all", "with", "without"]).optional(),
+  usage: z.enum(["all", "linked", "unlinked", "one"]).optional(),
+});
+export type CatalogEntitySelectionInput = z.infer<typeof CatalogEntitySelectionInputSchema>;
+
+export const CatalogEntitySelectionCallSchema = z.strictObject({
+  operation: z.enum(["entitySelection"]),
+  data: CatalogEntitySelectionInputSchema,
+});
+export type CatalogEntitySelectionCall = z.infer<typeof CatalogEntitySelectionCallSchema>;
+
 export const CatalogEntityListInputSchema = z.strictObject({
   kind: z.enum(["person", "organization"]),
   q: z.string().max(300).optional(),
@@ -1980,6 +1995,7 @@ export const CatalogEditorCallSchema = z.union([
   CatalogEntityJsonReadCallSchema,
   CatalogEntityJsonReviewCallSchema,
   CatalogEntityJsonSaveCallSchema,
+  CatalogEntitySelectionCallSchema,
   CatalogEntityListCallSchema,
   CatalogEntityDetailCallSchema,
   CatalogEntitySaveCallSchema,
@@ -2439,6 +2455,22 @@ export const TrackingChangeSchema = z.strictObject({
 });
 export type TrackingChange = z.infer<typeof TrackingChangeSchema>;
 
+export const AdminWorkSelectionSchema = z.array(
+  z.strictObject({
+    id: z.string().uuid(),
+    name: z.string(),
+  }),
+);
+export type AdminWorkSelection = z.infer<typeof AdminWorkSelectionSchema>;
+
+export const CatalogEntitySelectionResultSchema = z.array(
+  z.strictObject({
+    id: z.string().uuid(),
+    name: z.string(),
+  }),
+);
+export type CatalogEntitySelectionResult = z.infer<typeof CatalogEntitySelectionResultSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2637,7 +2669,17 @@ export class ApiClient {
       pageSize?: number;
       q?: string;
       sort?: string;
-      group?: "none" | "year" | "format" | "audience" | "status" | "watchState";
+      group?:
+        | "none"
+        | "year"
+        | "format"
+        | "audience"
+        | "status"
+        | "watchState"
+        | "planet"
+        | "genre"
+        | "country"
+        | "studio";
       view?: "works" | "installments";
       privacy?: "public" | "all" | "private";
       filters?: string;
@@ -2772,5 +2814,28 @@ export class ApiClient {
       signal,
     );
     return WorkViewerStateSchema.parse(await response.json());
+  }
+  async getAdminWorkSelection(
+    query: {
+      q?: string;
+      format?: "animated" | "live-action";
+      structure?: "movie" | "series";
+      workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
+      visibility?: "public" | "private";
+      gap?: "poster" | "summary" | "arabic-name" | "structure";
+      sort?: "updated" | "title" | "year-desc" | "year-asc";
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<AdminWorkSelection> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/works/selection" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return AdminWorkSelectionSchema.parse(await response.json());
   }
 }

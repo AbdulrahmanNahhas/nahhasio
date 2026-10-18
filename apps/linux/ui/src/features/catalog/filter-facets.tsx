@@ -93,7 +93,10 @@ function FacetOptions({
 }) {
   const [limit, setLimit] = useState(30);
   const selection = filters.facets.find((facet) => facet.key === group.key);
-  const visible = group.options.slice(0, limit);
+  const chosen = (value: string) =>
+    Number(Boolean(selection?.include.includes(value) || selection?.exclude.includes(value)));
+  const ordered = group.options.toSorted((a, b) => chosen(b.value) - chosen(a.value));
+  const visible = ordered.slice(0, limit);
   const remaining = group.options.length - visible.length;
   const selected = (selection?.include.length ?? 0) + (selection?.exclude.length ?? 0);
   const removable =

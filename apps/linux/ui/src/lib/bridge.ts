@@ -9,6 +9,7 @@ import {
   WorkReviewRequestSchema,
   WorkSaveRequestSchema,
   AdminWorksPageSchema,
+  AdminWorkSelectionSchema,
   UserSchema,
   ProfileUpdateSchema,
   PasswordUpdateSchema,
@@ -180,6 +181,8 @@ export const gateway = {
     WorkSavedSchema.parse(await call("workSave", WorkSaveRequestSchema.parse(input))),
   adminWorks: async (query: AdminWorksQuery, signal?: AbortSignal) =>
     AdminWorksPageSchema.parse(await call("adminWorks", query, signal)),
+  adminWorksSelection: async (query: AdminWorksQuery, signal?: AbortSignal) =>
+    AdminWorkSelectionSchema.parse(await call("adminWorksSelection", query, signal)),
   adminAccess: async (signal?: AbortSignal) =>
     UserSchema.parse(await call("adminAccess", {}, signal)),
   updateProfile: async (input: z.input<typeof ProfileUpdateSchema>) =>

@@ -13,6 +13,7 @@ import {
   deletePreview,
   bulkDelete,
   listEntities,
+  selectEntities,
   detailEntity,
   saveEntity,
 } from "./entities";
@@ -61,6 +62,7 @@ const envelope = z.strictObject({
     "entityJsonReview",
     "entityJsonSave",
     "entityList",
+    "entitySelection",
     "entityDetail",
     "entitySave",
     "assets",
@@ -151,6 +153,8 @@ async function execute(input: z.infer<typeof envelope>) {
       return reviewEntityJson(sql, rpcInputs.entityJsonReview.parse(input.data), input.context);
     case "entityJsonSave":
       return saveEntityJson(sql, rpcInputs.entityJsonSave.parse(input.data), input.context);
+    case "entitySelection":
+      return selectEntities(sql, rpcInputs.entitySelection.parse(input.data));
     case "entityList":
       return listEntities(sql, rpcInputs.entityList.parse(input.data));
     case "entityDetail":

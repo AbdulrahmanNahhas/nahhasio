@@ -167,6 +167,15 @@ impl Services {
         Ok(json!({"selected":settings.selected,"servers":settings.servers}))
     }
     pub async fn execute(&self, request: Request) -> Result<Value, Error> {
+        if request.command.starts_with("browsePreferences.") {
+            let scope = self.catalog_scope().await?;
+            return crate::browse_preferences::execute(
+                &self.root,
+                &scope,
+                &request.command,
+                request.payload,
+            );
+        }
         if request.command.starts_with("offline.") {
             let session = self.snapshot()?;
             let changes_mode = matches!(request.command.as_str(), "offline.open" | "offline.close");

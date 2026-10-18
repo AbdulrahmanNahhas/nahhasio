@@ -71,6 +71,7 @@ async fn call(
         "entityJsonReview",
         "entityJsonSave",
         "entityList",
+        "entitySelection",
         "entityDetail",
         "entitySave",
         "assets",

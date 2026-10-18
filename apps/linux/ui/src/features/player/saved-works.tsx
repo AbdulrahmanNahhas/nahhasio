@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Check, Download, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Bookmark, Check, Download, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -17,7 +17,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupButton,
+} from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -232,9 +237,39 @@ export function SavedWorks() {
         <InputGroupAddon>
           <Search />
         </InputGroupAddon>
+        {q && (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              size="icon-sm"
+              aria-label="مسح بحث الأعمال المحفوظة"
+              onClick={() => setQ("")}
+            >
+              <X />
+            </InputGroupButton>
+          </InputGroupAddon>
+        )}
       </InputGroup>
+      <p className="text-xs text-muted-foreground" role="status">
+        {visible.length} من {works.data?.length ?? 0} عمل محفوظ
+        {status.data?.pending ? ` · ${status.data.pending} تغيير ينتظر المزامنة` : ""}
+      </p>
       {works.isPending && status.data?.active ? (
-        <Skeleton className="h-64" />
+        <div
+          className="grid gap-4 lg:grid-cols-2"
+          role="status"
+          aria-label="جارٍ تحميل الأعمال المحفوظة"
+        >
+          {[0, 1, 2, 3].map((key) => (
+            <div key={key} className="flex gap-4 rounded-2xl bg-card p-4">
+              <Skeleton className="h-24 w-16 shrink-0 motion-reduce:animate-none" />
+              <div className="flex flex-1 flex-col gap-3">
+                <Skeleton className="h-5 w-3/4 motion-reduce:animate-none" />
+                <Skeleton className="h-3 w-1/2 motion-reduce:animate-none" />
+                <Skeleton className="h-5 w-28 motion-reduce:animate-none" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : !visible.length ? (
         <Empty>
           <EmptyHeader>

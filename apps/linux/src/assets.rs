@@ -16,7 +16,6 @@ fn locate(root: &Path, uri: &str) -> Result<(PathBuf, &'static str), String> {
         || uri.password().is_some()
         || uri.port().is_some()
         || uri.query().is_some()
-        || uri.fragment().is_some()
         || uri.path().contains('%')
     {
         return Err("Invalid packaged asset address".into());
@@ -114,6 +113,9 @@ mod tests {
             .expect("test symlink");
         let root = path.join("ui").canonicalize().expect("canonical root");
         assert!(locate(&root, ENTRY).is_ok());
+        // Refresh retains the local route fragment; it is not part of the asset path.
+        assert!(locate(&root, "nahhasio://app/#/browse?group=planet").is_ok());
+        assert!(locate(&root, "nahhasio://app/?path=outside.html").is_err());
         assert!(locate(&root, "nahhasio://app/escape.html").is_err());
         assert!(locate(&root, "nahhasio://other/index.html").is_err());
         assert!(locate(&root, "nahhasio://app/%2e%2e/outside.html").is_err());
