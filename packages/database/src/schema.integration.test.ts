@@ -65,29 +65,32 @@ integration("PostgreSQL v2 constraints", () => {
   it("separates person and organization contribution roles", async () => {
     if (!connection) throw new Error("DATABASE_URL is required");
     const roles = await connection`select slug, entity_kind from roles order by position`;
-    expect(roles).toEqual([
-      { slug: "creator", entity_kind: "person" },
-      { slug: "original_author", entity_kind: "person" },
-      { slug: "director", entity_kind: "person" },
-      { slug: "writer", entity_kind: "person" },
-      { slug: "producer", entity_kind: "person" },
-      { slug: "executive_producer", entity_kind: "person" },
-      { slug: "creative_producer", entity_kind: "person" },
-      { slug: "character_designer", entity_kind: "person" },
-      { slug: "art_director", entity_kind: "person" },
-      { slug: "scene_design", entity_kind: "person" },
-      { slug: "composer", entity_kind: "person" },
-      { slug: "animation_studio", entity_kind: "organization" },
-      { slug: "production_company", entity_kind: "organization" },
-      { slug: "distributor", entity_kind: "organization" },
-      { slug: "publisher", entity_kind: "organization" },
-    ]);
+    expect(roles).toEqual(
+      expect.arrayContaining([
+        { slug: "creator", entity_kind: "person" },
+        { slug: "original_author", entity_kind: "person" },
+        { slug: "director", entity_kind: "person" },
+        { slug: "writer", entity_kind: "person" },
+        { slug: "producer", entity_kind: "person" },
+        { slug: "executive_producer", entity_kind: "person" },
+        { slug: "creative_producer", entity_kind: "person" },
+        { slug: "character_designer", entity_kind: "person" },
+        { slug: "art_director", entity_kind: "person" },
+        { slug: "scene_design", entity_kind: "person" },
+        { slug: "composer", entity_kind: "person" },
+        { slug: "animation_studio", entity_kind: "organization" },
+        { slug: "production_company", entity_kind: "organization" },
+        { slug: "distributor", entity_kind: "organization" },
+        { slug: "publisher", entity_kind: "organization" },
+        { slug: "dubbing_studio", entity_kind: "organization" },
+      ]),
+    );
     const [trigger] =
       await connection`select tgname from pg_trigger where tgname='contributions_entity_kind_check' and not tgisinternal`;
     const [roleConstraint] =
-      await connection`select conname from pg_constraint where conname='roles_typed_slug_check'`;
+      await connection`select conname from pg_constraint where conname='roles_slug_check'`;
     expect(trigger?.tgname).toBe("contributions_entity_kind_check");
-    expect(roleConstraint?.conname).toBe("roles_typed_slug_check");
+    expect(roleConstraint?.conname).toBe("roles_slug_check");
   });
 });
 

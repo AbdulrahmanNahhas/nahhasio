@@ -1,5 +1,5 @@
 {
-  "id": "63f2ced4-cec2-4442-8c9a-c0dc9c7b2fd8",
+  "id": "900df938-8f2d-4403-8187-41f8a09b7d33",
   "prevId": "847836f8-f303-43e8-8781-b59f58e0d728",
   "version": "7",
   "dialect": "postgresql",
@@ -547,12 +547,44 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "account_downloads_device_fk": {
+          "name": "account_downloads_device_fk",
+          "tableFrom": "account_downloads",
+          "tableTo": "devices",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "installation_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "account_downloads_episode_installment_fk": {
+          "name": "account_downloads_episode_installment_fk",
+          "tableFrom": "account_downloads",
+          "tableTo": "episodes",
+          "columnsFrom": [
+            "episode_id",
+            "installment_id"
+          ],
+          "columnsTo": [
+            "id",
+            "installment_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "account_downloads_size_check": {
+          "name": "account_downloads_size_check",
+          "value": "\"account_downloads\".\"size_bytes\" >= 0"
+        },
         "account_downloads_state_check": {
           "name": "account_downloads_state_check",
           "value": "\"account_downloads\".\"state\" in ('queued', 'downloading', 'paused', 'completed', 'failed')"
@@ -1001,6 +1033,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_device_id": {
+          "name": "last_device_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -1068,6 +1113,19 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
+        "account_playback_states_last_device_id_devices_id_fk": {
+          "name": "account_playback_states_last_device_id_devices_id_fk",
+          "tableFrom": "account_playback_states",
+          "tableTo": "devices",
+          "columnsFrom": [
+            "last_device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "account_playback_episode_installment_fk": {
           "name": "account_playback_episode_installment_fk",
           "tableFrom": "account_playback_states",
@@ -1101,6 +1159,10 @@
         "playback_position_check": {
           "name": "playback_position_check",
           "value": "\"account_playback_states\".\"position_seconds\" >= 0 and (\"account_playback_states\".\"duration_seconds\" is null or \"account_playback_states\".\"duration_seconds\" >= 0)"
+        },
+        "playback_revision_check": {
+          "name": "playback_revision_check",
+          "value": "\"account_playback_states\".\"revision\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -1134,14 +1196,21 @@
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": "ARRAY['ar']::text[]"
+          "default": "ARRAY['en','ar','es']::text[]"
         },
         "allowed_audio": {
           "name": "allowed_audio",
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": "ARRAY['ar','en']::text[]"
+          "default": "ARRAY['ar','en','es']::text[]"
+        },
+        "preferred_subtitles": {
+          "name": "preferred_subtitles",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY['ar']::text[]"
         },
         "subtitle_mode": {
           "name": "subtitle_mode",
@@ -1999,7 +2068,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "award_categories_id_organization_uq": {
+          "name": "award_categories_id_organization_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "award_categories_values_check": {
@@ -2111,7 +2189,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "award_ceremonies_id_organization_uq": {
+          "name": "award_ceremonies_id_organization_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "award_ceremonies_year_check": {
@@ -2466,6 +2553,36 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "award_recognitions_category_organization_fk": {
+          "name": "award_recognitions_category_organization_fk",
+          "tableFrom": "award_recognitions",
+          "tableTo": "award_categories",
+          "columnsFrom": [
+            "category_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "award_recognitions_ceremony_organization_fk": {
+          "name": "award_recognitions_ceremony_organization_fk",
+          "tableFrom": "award_recognitions",
+          "tableTo": "award_ceremonies",
+          "columnsFrom": [
+            "ceremony_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2475,6 +2592,10 @@
         "award_recognitions_values_check": {
           "name": "award_recognitions_values_check",
           "value": "btrim(\"award_recognitions\".\"organization_slug\") <> '' and btrim(\"award_recognitions\".\"organization_name\") <> '' and btrim(\"award_recognitions\".\"category\") <> '' and (\"award_recognitions\".\"year\" is null or \"award_recognitions\".\"year\" between 1900 and 2100) and \"award_recognitions\".\"position\" >= 0"
+        },
+        "award_recognitions_owner_check": {
+          "name": "award_recognitions_owner_check",
+          "value": "(\"award_recognitions\".\"category_id\" is null and \"award_recognitions\".\"ceremony_id\" is null) or \"award_recognitions\".\"organization_id\" is not null"
         }
       },
       "isRLSEnabled": false
@@ -2554,6 +2675,64 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
+        },
+        "run_after": {
+          "name": "run_after",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heartbeat_at": {
+          "name": "heartbeat_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_requested_at": {
+          "name": "cancel_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -2562,6 +2741,61 @@
           "columns": [
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "background_jobs_idempotency_uq": {
+          "name": "background_jobs_idempotency_uq",
+          "columns": [
+            {
+              "expression": "coalesce(\"created_by_account_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"background_jobs\".\"idempotency_key\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "background_jobs_queue_idx": {
+          "name": "background_jobs_queue_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "run_after",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2601,6 +2835,14 @@
         "background_jobs_progress_check": {
           "name": "background_jobs_progress_check",
           "value": "\"background_jobs\".\"progress\" between 0 and 100"
+        },
+        "background_jobs_attempts_check": {
+          "name": "background_jobs_attempts_check",
+          "value": "\"background_jobs\".\"attempts\" >= 0 and \"background_jobs\".\"max_attempts\" between 1 and 100 and \"background_jobs\".\"attempts\" <= \"background_jobs\".\"max_attempts\""
+        },
+        "background_jobs_lease_check": {
+          "name": "background_jobs_lease_check",
+          "value": "(\"background_jobs\".\"lease_owner\" is null) = (\"background_jobs\".\"lease_expires_at\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -3036,6 +3278,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "languages": {
+          "name": "languages",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::text[]"
         }
       },
       "indexes": {
@@ -3127,6 +3376,10 @@
         "contributions_position_check": {
           "name": "contributions_position_check",
           "value": "\"contributions\".\"position\" >= 0"
+        },
+        "contributions_languages_check": {
+          "name": "contributions_languages_check",
+          "value": "nahhasio_language_codes_valid(\"contributions\".\"languages\")"
         }
       },
       "isRLSEnabled": false
@@ -3206,6 +3459,85 @@
         "countries_position_check": {
           "name": "countries_position_check",
           "value": "\"countries\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.devices": {
+      "name": "devices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "installation_id": {
+          "name": "installation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "platform": {
+          "name": "platform",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "devices_installation_id_unique": {
+          "name": "devices_installation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "installation_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "devices_installation_id_check": {
+          "name": "devices_installation_id_check",
+          "value": "char_length(btrim(\"devices\".\"installation_id\")) between 1 and 200"
         }
       },
       "isRLSEnabled": false
@@ -3719,15 +4051,15 @@
           "name": "external_identity_provider_uq",
           "columns": [
             {
-              "expression": "title_id",
-              "isExpression": false,
+              "expression": "coalesce(\"title_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
-              "expression": "installment_id",
-              "isExpression": false,
+              "expression": "coalesce(\"installment_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -4493,6 +4825,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "tvdb_id": {
+          "name": "tvdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4509,6 +4847,22 @@
         }
       },
       "indexes": {
+        "installments_tvdb_id_uq": {
+          "name": "installments_tvdb_id_uq",
+          "columns": [
+            {
+              "expression": "tvdb_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"installments\".\"tvdb_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "installments_title_position_uq": {
           "name": "installments_title_position_uq",
           "columns": [
@@ -4798,6 +5152,85 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.library_roots": {
+      "name": "library_roots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_read_only": {
+          "name": "is_read_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_scanned_at": {
+          "name": "last_scanned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "library_roots_path_unique": {
+          "name": "library_roots_path_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "path"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "library_roots_values_check": {
+          "name": "library_roots_values_check",
+          "value": "btrim(\"library_roots\".\"name\") <> '' and \"library_roots\".\"path\" like '/%' and \"library_roots\".\"path\" !~ '(^|/)\\.\\.(/|$)'"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.media_asset_assignments": {
       "name": "media_asset_assignments",
       "schema": "",
@@ -4885,27 +5318,27 @@
               "nulls": "last"
             },
             {
-              "expression": "title_id",
-              "isExpression": false,
+              "expression": "coalesce(\"title_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
-              "expression": "installment_id",
-              "isExpression": false,
+              "expression": "coalesce(\"installment_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
-              "expression": "episode_id",
-              "isExpression": false,
+              "expression": "coalesce(\"episode_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
-              "expression": "entity_id",
-              "isExpression": false,
+              "expression": "coalesce(\"entity_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
@@ -5282,7 +5715,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "media_assets_variant_of_asset_id_media_assets_id_fk": {
+          "name": "media_assets_variant_of_asset_id_media_assets_id_fk",
+          "tableFrom": "media_assets",
+          "tableTo": "media_assets",
+          "columnsFrom": [
+            "variant_of_asset_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -5293,7 +5740,11 @@
         },
         "media_assets_mime_check": {
           "name": "media_assets_mime_check",
-          "value": "\"media_assets\".\"mime_type\" in ('image/jpeg','image/png','image/webp','image/gif')"
+          "value": "\"media_assets\".\"mime_type\" in ('image/jpeg','image/png','image/webp','image/gif','image/avif')"
+        },
+        "media_assets_variant_self_check": {
+          "name": "media_assets_variant_self_check",
+          "value": "\"media_assets\".\"variant_of_asset_id\" is null or \"media_assets\".\"variant_of_asset_id\" <> \"media_assets\".\"id\""
         },
         "media_assets_values_check": {
           "name": "media_assets_values_check",
@@ -5334,6 +5785,56 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "library_root_id": {
+          "name": "library_root_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modified_at": {
+          "name": "modified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_verified_at": {
+          "name": "last_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "availability": {
+          "name": "availability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "probe_metadata": {
+          "name": "probe_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "duration_seconds": {
           "name": "duration_seconds",
@@ -5392,6 +5893,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "media_files_root_path_uq": {
+          "name": "media_files_root_path_uq",
+          "columns": [
+            {
+              "expression": "library_root_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "relative_path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"media_files\".\"library_root_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5420,6 +5943,19 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "media_files_library_root_id_library_roots_id_fk": {
+          "name": "media_files_library_root_id_library_roots_id_fk",
+          "tableFrom": "media_files",
+          "tableTo": "library_roots",
+          "columnsFrom": [
+            "library_root_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -5433,6 +5969,14 @@
         "media_file_duration_check": {
           "name": "media_file_duration_check",
           "value": "\"media_files\".\"duration_seconds\" is null or \"media_files\".\"duration_seconds\" >= 0"
+        },
+        "media_files_location_check": {
+          "name": "media_files_location_check",
+          "value": "(\"media_files\".\"library_root_id\" is null and \"media_files\".\"relative_path\" is null) or (\"media_files\".\"library_root_id\" is not null and \"media_files\".\"relative_path\" is not null and \"media_files\".\"relative_path\" <> '' and \"media_files\".\"relative_path\" not like '/%' and \"media_files\".\"relative_path\" !~ '(^|/)\\.\\.(/|$)')"
+        },
+        "media_files_values_check": {
+          "name": "media_files_values_check",
+          "value": "(\"media_files\".\"byte_size\" is null or \"media_files\".\"byte_size\" >= 0) and (\"media_files\".\"sha256\" is null or \"media_files\".\"sha256\" ~ '^[0-9a-f]{64}$') and \"media_files\".\"availability\" in ('unknown','present','missing','unreadable') and jsonb_typeof(\"media_files\".\"probe_metadata\")='object'"
         }
       },
       "isRLSEnabled": false
@@ -5465,7 +6009,45 @@
           "name": "stream_index",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'embedded'"
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_hearing_impaired": {
+          "name": "is_hearing_impaired",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "language": {
           "name": "language",
@@ -5521,6 +6103,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "media_tracks_sidecar_uq": {
+          "name": "media_tracks_sidecar_uq",
+          "columns": [
+            {
+              "expression": "media_file_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "relative_path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"media_tracks\".\"source\"='external'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5545,6 +6149,14 @@
         "media_tracks_stream_index_check": {
           "name": "media_tracks_stream_index_check",
           "value": "\"media_tracks\".\"stream_index\" >= 0"
+        },
+        "media_tracks_source_check": {
+          "name": "media_tracks_source_check",
+          "value": "(\"media_tracks\".\"source\"='embedded' and \"media_tracks\".\"stream_index\" is not null and \"media_tracks\".\"relative_path\" is null) or (\"media_tracks\".\"source\"='external' and \"media_tracks\".\"kind\"='subtitle' and \"media_tracks\".\"stream_index\" is null and \"media_tracks\".\"relative_path\" is not null and \"media_tracks\".\"relative_path\" <> '' and \"media_tracks\".\"relative_path\" not like '/%' and \"media_tracks\".\"relative_path\" !~ '(^|/)\\.\\.(/|$)')"
+        },
+        "media_tracks_hash_check": {
+          "name": "media_tracks_hash_check",
+          "value": "\"media_tracks\".\"sha256\" is null or \"media_tracks\".\"sha256\" ~ '^[0-9a-f]{64}$'"
         }
       },
       "isRLSEnabled": false
@@ -6047,9 +6659,9 @@
           "name": "roles_position_check",
           "value": "\"roles\".\"position\" >= 0"
         },
-        "roles_typed_slug_check": {
-          "name": "roles_typed_slug_check",
-          "value": "\"roles\".\"slug\" in ('creator', 'original_author', 'director', 'writer', 'producer', 'executive_producer', 'creative_producer', 'character_designer', 'art_director', 'scene_design', 'composer', 'animation_studio', 'production_company', 'distributor', 'publisher')"
+        "roles_slug_check": {
+          "name": "roles_slug_check",
+          "value": "\"roles\".\"slug\" ~ '^[a-z][a-z0-9_]{0,79}$' and btrim(\"roles\".\"label_en\") <> '' and btrim(\"roles\".\"label_ar\") <> ''"
         }
       },
       "isRLSEnabled": false
@@ -6179,6 +6791,67 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.server_instance": {
+      "name": "server_instance",
+      "schema": "",
+      "columns": {
+        "singleton": {
+          "name": "singleton",
+          "type": "boolean",
+          "primaryKey": true,
+          "notNull": true,
+          "default": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'\u0645\u0643\u062a\u0628\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u0629'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "server_instance_id_uq": {
+          "name": "server_instance_id_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "server_instance_singleton_check": {
+          "name": "server_instance_singleton_check",
+          "value": "\"server_instance\".\"singleton\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.auth_sessions": {
       "name": "auth_sessions",
       "schema": "",
@@ -6222,6 +6895,12 @@
         "impersonated_by": {
           "name": "impersonated_by",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -6284,6 +6963,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "auth_sessions_device_id_devices_id_fk": {
+          "name": "auth_sessions_device_id_devices_id_fk",
+          "tableFrom": "auth_sessions",
+          "tableTo": "devices",
+          "columnsFrom": [
+            "device_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -6756,6 +7448,21 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
+        "title_comments_parent_title_fk": {
+          "name": "title_comments_parent_title_fk",
+          "tableFrom": "title_comments",
+          "tableTo": "title_comments",
+          "columnsFrom": [
+            "parent_id",
+            "title_id"
+          ],
+          "columnsTo": [
+            "id",
+            "title_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "title_comments_parent_fk": {
           "name": "title_comments_parent_fk",
           "tableFrom": "title_comments",
@@ -6771,9 +7478,22 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "title_comments_id_title_uq": {
+          "name": "title_comments_id_title_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "title_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
+        "title_comments_parent_self_check": {
+          "name": "title_comments_parent_self_check",
+          "value": "\"title_comments\".\"parent_id\" is null or \"title_comments\".\"parent_id\" <> \"title_comments\".\"id\""
+        },
         "title_comments_body_check": {
           "name": "title_comments_body_check",
           "value": "char_length(btrim(\"title_comments\".\"body\")) between 1 and 1200"
@@ -7111,7 +7831,15 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "title_planets_single_planet_uq": {
+          "name": "title_planets_single_planet_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "title_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "title_planets_featured_rank_check": {
@@ -7269,7 +7997,7 @@
           "name": "rating",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "body": {
           "name": "body",
@@ -7572,6 +8300,151 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.title_trailers": {
+      "name": "title_trailers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title_id": {
+          "name": "title_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "youtube_video_id": {
+          "name": "youtube_video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "title_trailers_primary_uq": {
+          "name": "title_trailers_primary_uq",
+          "columns": [
+            {
+              "expression": "title_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"title_trailers\".\"is_primary\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "title_trailers_order_idx": {
+          "name": "title_trailers_order_idx",
+          "columns": [
+            {
+              "expression": "title_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "title_trailers_title_id_titles_id_fk": {
+          "name": "title_trailers_title_id_titles_id_fk",
+          "tableFrom": "title_trailers",
+          "tableTo": "titles",
+          "columnsFrom": [
+            "title_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "title_trailers_video_uq": {
+          "name": "title_trailers_video_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "title_id",
+            "youtube_video_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "title_trailers_values_check": {
+          "name": "title_trailers_values_check",
+          "value": "\"title_trailers\".\"youtube_video_id\" ~ '^[A-Za-z0-9_-]{11}$' and \"title_trailers\".\"position\" >= 0 and (\"title_trailers\".\"language\" is null or nahhasio_language_codes_valid(ARRAY[\"title_trailers\".\"language\"]))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.title_trivia": {
       "name": "title_trivia",
       "schema": "",
@@ -7742,6 +8615,27 @@
           "notNull": true,
           "default": "'published'"
         },
+        "playback_policy": {
+          "name": "playback_policy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'torrents-allowed'"
+        },
+        "dub_languages": {
+          "name": "dub_languages",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::text[]"
+        },
+        "dubbing_notes": {
+          "name": "dubbing_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "quality_score": {
           "name": "quality_score",
           "type": "integer",
@@ -7795,6 +8689,12 @@
         },
         "mal_id": {
           "name": "mal_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tvdb_id": {
+          "name": "tvdb_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -7885,6 +8785,70 @@
           "method": "btree",
           "with": {}
         },
+        "titles_visibility_sort_idx": {
+          "name": "titles_visibility_sort_idx",
+          "columns": [
+            {
+              "expression": "workflow_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_private",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_title",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "titles_dub_languages_idx": {
+          "name": "titles_dub_languages_idx",
+          "columns": [
+            {
+              "expression": "dub_languages",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "titles_tvdb_id_uq": {
+          "name": "titles_tvdb_id_uq",
+          "columns": [
+            {
+              "expression": "tvdb_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"titles\".\"tvdb_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "titles_search_trgm_idx": {
           "name": "titles_search_trgm_idx",
           "columns": [
@@ -7970,6 +8934,14 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "titles_playback_policy_check": {
+          "name": "titles_playback_policy_check",
+          "value": "\"titles\".\"playback_policy\" in ('torrents-allowed','files-only')"
+        },
+        "titles_dub_languages_check": {
+          "name": "titles_dub_languages_check",
+          "value": "nahhasio_language_codes_valid(\"titles\".\"dub_languages\")"
+        },
         "titles_imdb_id_check": {
           "name": "titles_imdb_id_check",
           "value": "\"titles\".\"imdb_id\" is null or \"titles\".\"imdb_id\" ~ '^tt[0-9]{7,10}$'"
@@ -8425,7 +9397,8 @@
         "poster",
         "banner",
         "logo",
-        "profile"
+        "profile",
+        "still"
       ]
     },
     "public.moderation_status": {

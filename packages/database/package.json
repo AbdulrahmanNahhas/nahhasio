@@ -14,20 +14,22 @@
     "test": "vitest run --passWithNoTests",
     "schema:graph": "tsx src/export-schema-graph.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
-    "db:migrate": "tsx src/prepare-media-backfill.ts && drizzle-kit migrate --config drizzle.config.ts",
+    "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx src/seed.ts",
     "db:studio": "drizzle-kit studio --config drizzle.config.ts",
     "db:import": "tsx src/import-v1.ts",
     "db:import:knowledge": "tsx src/import-v1-knowledge.ts",
     "db:consolidate": "tsx src/consolidate-v1-franchises.ts",
-    "db:repair:scores": "tsx src/repair-v1-duplicate-scores.ts"
+    "db:repair:scores": "tsx src/repair-v1-duplicate-scores.ts",
+    "db:prepare-legacy-media": "tsx src/prepare-media-backfill.ts"
   },
   "dependencies": {
     "@arcadia/domain": "workspace:*",
     "better-auth": "^1.6.29",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.7"
+    "postgres": "^3.4.7",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

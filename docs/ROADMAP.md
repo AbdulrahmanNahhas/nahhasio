@@ -25,7 +25,7 @@ Aqua's clarified priority is database/catalog, images and tracking first. Playba
 retention, device video and saved-work browsing build on that foundation. These are proposed
 checkpoints; detailed implementation order stays subject to review.
 
-- [ ] **A01** Agree direct Nahhasio library versus initial Jellyfin integration.
+- [x] **A01** Jellyfin supplies stored media; Nahhasio owns catalog, images and tracking.
 - [ ] **A02** Agree file organization; implement confirmed client streaming, explicit server downloads, whole-work policy and progress/watched offline sync.
 - [ ] **A03** Connect the Linux client to a chosen LAN server through the login/server UI.
 - [ ] **A04** Establish server identity, version/capabilities and connection/session ownership.
@@ -37,6 +37,12 @@ checkpoints; detailed implementation order stays subject to review.
 - [ ] **A10** Improve the highest-priority admin/login/Downloads flows in reviewed slices.
 - [ ] **A11** Define explicit Alpha installation/update/backup steps and known limitations.
 - [ ] **A12** Run the consolidated Alpha acceptance on isolated data and the target environment.
+
+## Approved three-phase transition — 2026-10-18
+
+The review decisions and execution checklist are in [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md):
+schema/preservation → API and whole client → Nahhasio agent tools/skills. Each phase returns for
+review. No runtime feature is complete merely because its table or basic read view exists.
 
 ## Required review before Podman deployment
 

@@ -8,11 +8,16 @@ provider search. Fanart movie artwork continues to use TMDB; Fanart series artwo
 AniList remains installment-owned. Existing migration history and the frozen reference website
 are historical records and are not rewritten.
 
-`packages/database/drizzle/0029_remove_tvdb.sql` removes the two columns and their unique
-indexes. The migration is prepared but **not applied to the live family database**. Aqua
-prioritized preserving the complete catalog over physically deleting the stored identifiers.
-The live database can retain these unused nullable columns without affecting the updated code.
-Do not run the migration automatically at startup.
+## Preservation decision — 2026-10-18
+
+The never-applied `0029_remove_tvdb.sql` proposal has been replaced by
+`packages/database/drizzle/0029_nahhasio_foundation.sql`. Applied migrations 0000–0028 are unchanged.
+The replacement retains the TVDB columns, indexes and stored values; the schema marks these as
+recovery identifiers, not an active provider integration. There is no pending automatic TVDB drop.
+See [the approved transition](../SCHEMA-FOUNDATION.md) for the backed-up migration checkpoint.
+
+The removal/rollback evidence below is historical only. Do not apply its removal or restore SQL
+as part of an ordinary update. Any future physical retirement needs a fresh explicit decision.
 
 ## Verified recovery — 2026-10-08
 

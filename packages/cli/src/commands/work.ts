@@ -775,6 +775,11 @@ export async function workApply(
     }
 
     if (document.planets) {
+      if (document.planets.length > 1)
+        throw new CliError(
+          "A work can belong to at most one planet.",
+          "Choose one planet or leave the list empty.",
+        );
       const planetIds: string[] = [];
       for (const planet of document.planets) {
         const rows = await transaction.unsafe<Array<{ id: string }>>(
@@ -789,15 +794,18 @@ export async function workApply(
           );
         }
         planetIds.push(row.id);
-        await transaction.unsafe(
-          `insert into title_planets (title_id, planet_id) values ($1, $2) on conflict do nothing`,
-          [titleId, row.id],
-        );
       }
-      if (listMode("planets") === "replace")
+      // Remove the former membership before inserting the explicitly selected single planet.
+      // Retain an unchanged membership's featured rank. An empty merge remains a no-op.
+      if (planetIds.length || listMode("planets") === "replace")
         await transaction.unsafe(
           `delete from title_planets where title_id = $1 and not (planet_id = any($2::uuid[]))`,
           [titleId, planetIds],
+        );
+      for (const planetId of planetIds)
+        await transaction.unsafe(
+          `insert into title_planets (title_id, planet_id) values ($1, $2) on conflict do nothing`,
+          [titleId, planetId],
         );
     }
 

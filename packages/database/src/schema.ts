@@ -17,6 +17,7 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const audienceEnum = pgEnum("audience", ["general", "teen", "young-adult", "adult"]);
@@ -45,6 +46,7 @@ export const mediaAssetRoleEnum = pgEnum("media_asset_role", [
   "banner",
   "logo",
   "profile",
+  "still",
 ]);
 export const trackKindEnum = pgEnum("track_kind", ["video", "audio", "subtitle"]);
 export const relationKindEnum = pgEnum("title_relation_kind", [
@@ -103,6 +105,8 @@ const externalIdColumns = {
   imdbId: text("imdb_id"),
   anilistId: integer("anilist_id"),
   malId: integer("mal_id"),
+  /** Retained recovery identifiers; not an active provider integration. */
+  tvdbId: integer("tvdb_id"),
 };
 
 const classificationDefaults = {
@@ -127,6 +131,12 @@ export const titles = pgTable(
     format: titleFormatEnum("format").notNull().default("animated"),
     isPrivate: boolean("is_private").notNull().default(false),
     workflowStatus: workflowStatusEnum("workflow_status").notNull().default("published"),
+    playbackPolicy: text("playback_policy").notNull().default("torrents-allowed"),
+    dubLanguages: text("dub_languages")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    dubbingNotes: text("dubbing_notes").notNull().default(""),
     qualityScore: integer("quality_score").notNull().default(0),
     curatorNotes: text("curator_notes").notNull().default(""),
     provenance: jsonb("provenance")
@@ -141,6 +151,16 @@ export const titles = pgTable(
   (t) => [
     index("titles_sort_idx").on(t.sortTitle),
     index("titles_release_year_idx").on(t.releaseYear),
+    index("titles_visibility_sort_idx").on(t.workflowStatus, t.isPrivate, t.sortTitle, t.id),
+    index("titles_dub_languages_idx").using("gin", t.dubLanguages),
+    check(
+      "titles_playback_policy_check",
+      sql`${t.playbackPolicy} in ('torrents-allowed','files-only')`,
+    ),
+    check("titles_dub_languages_check", sql`nahhasio_language_codes_valid(${t.dubLanguages})`),
+    uniqueIndex("titles_tvdb_id_uq")
+      .on(t.tvdbId)
+      .where(sql`${t.tvdbId} is not null`),
     index("titles_search_trgm_idx").using("gin", sql`${t.canonicalTitle} gin_trgm_ops`),
     check("titles_imdb_id_check", sql`${t.imdbId} is null or ${t.imdbId} ~ '^tt[0-9]{7,10}$'`),
     uniqueIndex("titles_tmdb_id_uq")
@@ -223,6 +243,9 @@ export const installments = pgTable(
     ...timestamps,
   },
   (t) => [
+    uniqueIndex("installments_tvdb_id_uq")
+      .on(t.tvdbId)
+      .where(sql`${t.tvdbId} is not null`),
     uniqueIndex("installments_title_position_uq").on(t.titleId, t.position),
     uniqueIndex("installments_id_title_uq").on(t.id, t.titleId),
     check(
@@ -284,6 +307,7 @@ export const awardCategories = pgTable(
   },
   (t) => [
     uniqueIndex("award_categories_organization_slug_uq").on(t.organizationId, t.slug),
+    unique("award_categories_id_organization_uq").on(t.id, t.organizationId),
     index("award_categories_organization_idx").on(t.organizationId, t.isActive),
     check(
       "award_categories_values_check",
@@ -307,6 +331,7 @@ export const awardCeremonies = pgTable(
   },
   (t) => [
     uniqueIndex("award_ceremonies_organization_year_uq").on(t.organizationId, t.year),
+    unique("award_ceremonies_id_organization_uq").on(t.id, t.organizationId),
     check("award_ceremonies_year_check", sql`${t.year} between 1900 and 2100`),
   ],
 );
@@ -353,6 +378,20 @@ export const awardRecognitions = pgTable(
       foreignColumns: [installments.id, installments.titleId],
       name: "award_recognitions_installment_title_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [t.categoryId, t.organizationId],
+      foreignColumns: [awardCategories.id, awardCategories.organizationId],
+      name: "award_recognitions_category_organization_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [t.ceremonyId, t.organizationId],
+      foreignColumns: [awardCeremonies.id, awardCeremonies.organizationId],
+      name: "award_recognitions_ceremony_organization_fk",
+    }).onDelete("restrict"),
+    check(
+      "award_recognitions_owner_check",
+      sql`(${t.categoryId} is null and ${t.ceremonyId} is null) or ${t.organizationId} is not null`,
+    ),
   ],
 );
 export const episodes = pgTable(
@@ -438,8 +477,8 @@ export const roles = pgTable(
   (t) => [
     check("roles_position_check", sql`${t.position} >= 0`),
     check(
-      "roles_typed_slug_check",
-      sql`${t.slug} in ('creator', 'original_author', 'director', 'writer', 'producer', 'executive_producer', 'creative_producer', 'character_designer', 'art_director', 'scene_design', 'composer', 'animation_studio', 'production_company', 'distributor', 'publisher')`,
+      "roles_slug_check",
+      sql`${t.slug} ~ '^[a-z][a-z0-9_]{0,79}$' and btrim(${t.labelEn}) <> '' and btrim(${t.labelAr}) <> ''`,
     ),
   ],
 );
@@ -512,6 +551,7 @@ export const titlePlanets = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.titleId, t.planetId] }),
+    unique("title_planets_single_planet_uq").on(t.titleId),
     uniqueIndex("title_planets_featured_rank_uq")
       .on(t.planetId, t.featuredRank)
       .where(sql`${t.featuredRank} is not null`),
@@ -561,12 +601,17 @@ export const contributions = pgTable(
       .references(() => roles.id, { onDelete: "restrict" }),
     position: integer("position").notNull().default(0),
     isPrimary: boolean("is_primary").notNull().default(false),
+    languages: text("languages")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
   },
   (t) => [
     primaryKey({ columns: [t.titleId, t.entityId, t.roleId] }),
     index("contributions_entity_idx").on(t.entityId),
     index("contributions_role_idx").on(t.roleId),
     check("contributions_position_check", sql`${t.position} >= 0`),
+    check("contributions_languages_check", sql`nahhasio_language_codes_valid(${t.languages})`),
   ],
 );
 export const organizationRelations = pgTable(
@@ -625,8 +670,8 @@ export const externalIdentities = pgTable(
     // free-form references (Wikipedia, official site, trailer, Fanart image ids) — the four
     // typed catalog ids (tmdb/imdb/anilist/mal) live on `titles`/`installments` directly.
     uniqueIndex("external_identity_provider_uq").on(
-      t.titleId,
-      t.installmentId,
+      sql`coalesce(${t.titleId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.installmentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       sql`lower(btrim(${t.provider}))`,
       t.externalId,
     ),
@@ -651,7 +696,9 @@ export const mediaAssets = pgTable(
     deletionError: text("deletion_error"),
     focalX: integer("focal_x").notNull().default(50),
     focalY: integer("focal_y").notNull().default(50),
-    variantOfAssetId: uuid("variant_of_asset_id"),
+    variantOfAssetId: uuid("variant_of_asset_id").references((): AnyPgColumn => mediaAssets.id, {
+      onDelete: "restrict",
+    }),
     ...timestamps,
   },
   (t) => [
@@ -660,7 +707,11 @@ export const mediaAssets = pgTable(
     check("media_assets_sha256_check", sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
     check(
       "media_assets_mime_check",
-      sql`${t.mimeType} in ('image/jpeg','image/png','image/webp','image/gif')`,
+      sql`${t.mimeType} in ('image/jpeg','image/png','image/webp','image/gif','image/avif')`,
+    ),
+    check(
+      "media_assets_variant_self_check",
+      sql`${t.variantOfAssetId} is null or ${t.variantOfAssetId} <> ${t.id}`,
     ),
     check(
       "media_assets_values_check",
@@ -698,10 +749,10 @@ export const mediaAssetAssignments = pgTable(
     uniqueIndex("media_assignment_identity_uq").on(
       t.assetId,
       t.role,
-      t.titleId,
-      t.installmentId,
-      t.episodeId,
-      t.entityId,
+      sql`coalesce(${t.titleId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.installmentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.episodeId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.entityId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
     ),
     uniqueIndex("media_assignment_title_primary_uq")
       .on(t.titleId, t.role)
@@ -757,6 +808,7 @@ export const session = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     impersonatedBy: text("impersonated_by"),
+    deviceId: uuid("device_id").references((): AnyPgColumn => devices.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [
@@ -877,11 +929,15 @@ export const accountPreferences = pgTable(
     preferredAudio: text("preferred_audio")
       .array()
       .notNull()
-      .default(sql`ARRAY['ar']::text[]`),
+      .default(sql`ARRAY['en','ar','es']::text[]`),
     allowedAudio: text("allowed_audio")
       .array()
       .notNull()
-      .default(sql`ARRAY['ar','en']::text[]`),
+      .default(sql`ARRAY['ar','en','es']::text[]`),
+    preferredSubtitles: text("preferred_subtitles")
+      .array()
+      .notNull()
+      .default(sql`ARRAY['ar']::text[]`),
     subtitleMode: text("subtitle_mode").notNull().default("allowed"),
     canSwitchTracks: boolean("can_switch_tracks").notNull().default(true),
     autoplay: boolean("autoplay").notNull().default(false),
@@ -1036,6 +1092,10 @@ export const accountPlaybackStates = pgTable(
     playedAt: timestamp("played_at", { withTimezone: true }),
     /** Live `sub-delay` offset in milliseconds, restored alongside position on resume. */
     subtitleOffsetMs: integer("subtitle_offset_ms"),
+    revision: bigint("revision", { mode: "number" }).notNull().default(0),
+    lastDeviceId: uuid("last_device_id").references((): AnyPgColumn => devices.id, {
+      onDelete: "set null",
+    }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -1058,6 +1118,7 @@ export const accountPlaybackStates = pgTable(
       "playback_position_check",
       sql`${t.positionSeconds} >= 0 and (${t.durationSeconds} is null or ${t.durationSeconds} >= 0)`,
     ),
+    check("playback_revision_check", sql`${t.revision} >= 0`),
   ],
 );
 
@@ -1119,6 +1180,17 @@ export const accountDownloads = pgTable(
     ...timestamps,
   },
   (t) => [
+    foreignKey({
+      columns: [t.deviceId],
+      foreignColumns: [devices.installationId],
+      name: "account_downloads_device_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [t.episodeId, t.installmentId],
+      foreignColumns: [episodes.id, episodes.installmentId],
+      name: "account_downloads_episode_installment_fk",
+    }).onDelete("cascade"),
+    check("account_downloads_size_check", sql`${t.sizeBytes} >= 0`),
     uniqueIndex("account_downloads_unit_uq").on(
       t.accountId,
       t.deviceId,
@@ -1143,7 +1215,8 @@ export const titleReviews = pgTable(
     titleId: uuid("title_id")
       .notNull()
       .references(() => titles.id, { onDelete: "cascade" }),
-    rating: integer("rating").notNull(),
+    /** Compatibility projection of account_title_states.personal_rating; synchronized by SQL triggers. */
+    rating: integer("rating"),
     body: text("body").notNull().default(""),
     containsSpoilers: boolean("contains_spoilers").notNull().default(false),
     moderationStatus: moderationStatusEnum("moderation_status").notNull().default("published"),
@@ -1177,6 +1250,16 @@ export const titleComments = pgTable(
     ...timestamps,
   },
   (t) => [
+    unique("title_comments_id_title_uq").on(t.id, t.titleId),
+    foreignKey({
+      columns: [t.parentId, t.titleId],
+      foreignColumns: [t.id, t.titleId],
+      name: "title_comments_parent_title_fk",
+    }).onDelete("cascade"),
+    check(
+      "title_comments_parent_self_check",
+      sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`,
+    ),
     foreignKey({
       columns: [t.parentId],
       foreignColumns: [t.id],
@@ -1492,10 +1575,35 @@ export const backgroundJobs = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    runAfter: timestamp("run_after", { withTimezone: true }).notNull().defaultNow(),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    idempotencyKey: text("idempotency_key"),
   },
   (t) => [
     index("background_jobs_status_idx").on(t.status, t.createdAt),
     check("background_jobs_progress_check", sql`${t.progress} between 0 and 100`),
+    check(
+      "background_jobs_attempts_check",
+      sql`${t.attempts} >= 0 and ${t.maxAttempts} between 1 and 100 and ${t.attempts} <= ${t.maxAttempts}`,
+    ),
+    check(
+      "background_jobs_lease_check",
+      sql`(${t.leaseOwner} is null) = (${t.leaseExpiresAt} is null)`,
+    ),
+    uniqueIndex("background_jobs_idempotency_uq")
+      .on(
+        sql`coalesce(${t.createdByAccountId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        t.type,
+        t.idempotencyKey,
+      )
+      .where(sql`${t.idempotencyKey} is not null`),
+    index("background_jobs_queue_idx").on(t.status, t.runAfter, t.createdAt),
   ],
 );
 export const sourceEvidence = pgTable(
@@ -1517,6 +1625,87 @@ export const sourceEvidence = pgTable(
   (t) => [index("source_evidence_entity_idx").on(t.entityType, t.entityId, t.fieldPath)],
 );
 
+/** One durable identity per installed server; addresses and release versions are not identities. */
+export const serverInstance = pgTable(
+  "server_instance",
+  {
+    singleton: boolean("singleton").primaryKey().default(true),
+    id: uuid("id").notNull().defaultRandom(),
+    name: text("name").notNull().default("مكتبة العائلة"),
+    ...timestamps,
+  },
+  (t) => [
+    check("server_instance_singleton_check", sql`${t.singleton}`),
+    unique("server_instance_id_uq").on(t.id),
+  ],
+);
+
+/** Installation identity is independent of the accounts that log in on a shared device. */
+export const devices = pgTable(
+  "devices",
+  {
+    ...id,
+    installationId: text("installation_id").notNull().unique(),
+    name: text("name").notNull().default(""),
+    platform: text("platform").notNull().default("unknown"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    check(
+      "devices_installation_id_check",
+      sql`char_length(btrim(${t.installationId})) between 1 and 200`,
+    ),
+  ],
+);
+
+export const libraryRoots = pgTable(
+  "library_roots",
+  {
+    ...id,
+    name: text("name").notNull(),
+    path: text("path").notNull().unique(),
+    isReadOnly: boolean("is_read_only").notNull().default(true),
+    isActive: boolean("is_active").notNull().default(true),
+    lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    check(
+      "library_roots_values_check",
+      sql`btrim(${t.name}) <> '' and ${t.path} like '/%' and ${t.path} !~ '(^|/)\\.\\.(/|$)'`,
+    ),
+  ],
+);
+
+export const titleTrailers = pgTable(
+  "title_trailers",
+  {
+    ...id,
+    titleId: uuid("title_id")
+      .notNull()
+      .references(() => titles.id, { onDelete: "cascade" }),
+    youtubeVideoId: text("youtube_video_id").notNull(),
+    title: text("title").notNull().default(""),
+    language: text("language"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    position: integer("position").notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [
+    unique("title_trailers_video_uq").on(t.titleId, t.youtubeVideoId),
+    uniqueIndex("title_trailers_primary_uq")
+      .on(t.titleId)
+      .where(sql`${t.isPrimary}`),
+    index("title_trailers_order_idx").on(t.titleId, t.position, t.id),
+    check(
+      "title_trailers_values_check",
+      sql`${t.youtubeVideoId} ~ '^[A-Za-z0-9_-]{11}$' and ${t.position} >= 0 and (${t.language} is null or nahhasio_language_codes_valid(ARRAY[${t.language}]))`,
+    ),
+  ],
+);
+
 export const mediaFiles = pgTable(
   "media_files",
   {
@@ -1526,6 +1715,18 @@ export const mediaFiles = pgTable(
     }),
     episodeId: uuid("episode_id").references(() => episodes.id, { onDelete: "cascade" }),
     path: text("path").notNull(),
+    libraryRootId: uuid("library_root_id").references(() => libraryRoots.id, {
+      onDelete: "restrict",
+    }),
+    relativePath: text("relative_path"),
+    byteSize: bigint("byte_size", { mode: "bigint" }),
+    sha256: text("sha256"),
+    modifiedAt: timestamp("modified_at", { withTimezone: true }),
+    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+    availability: text("availability").notNull().default("unknown"),
+    probeMetadata: jsonb("probe_metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     durationSeconds: integer("duration_seconds"),
     probeVersion: text("probe_version"),
     ...timestamps,
@@ -1541,6 +1742,17 @@ export const mediaFiles = pgTable(
     ),
     index("media_files_installment_idx").on(t.installmentId),
     index("media_files_episode_idx").on(t.episodeId),
+    uniqueIndex("media_files_root_path_uq")
+      .on(t.libraryRootId, t.relativePath)
+      .where(sql`${t.libraryRootId} is not null`),
+    check(
+      "media_files_location_check",
+      sql`(${t.libraryRootId} is null and ${t.relativePath} is null) or (${t.libraryRootId} is not null and ${t.relativePath} is not null and ${t.relativePath} <> '' and ${t.relativePath} not like '/%' and ${t.relativePath} !~ '(^|/)\\.\\.(/|$)')`,
+    ),
+    check(
+      "media_files_values_check",
+      sql`(${t.byteSize} is null or ${t.byteSize} >= 0) and (${t.sha256} is null or ${t.sha256} ~ '^[0-9a-f]{64}$') and ${t.availability} in ('unknown','present','missing','unreadable') and jsonb_typeof(${t.probeMetadata})='object'`,
+    ),
   ],
 );
 export const mediaTracks = pgTable(
@@ -1551,7 +1763,13 @@ export const mediaTracks = pgTable(
       .notNull()
       .references(() => mediaFiles.id, { onDelete: "cascade" }),
     kind: trackKindEnum("kind").notNull(),
-    streamIndex: integer("stream_index").notNull(),
+    streamIndex: integer("stream_index"),
+    source: text("source").notNull().default("embedded"),
+    relativePath: text("relative_path"),
+    sha256: text("sha256"),
+    provider: text("provider"),
+    providerId: text("provider_id"),
+    isHearingImpaired: boolean("is_hearing_impaired").notNull().default(false),
     language: text("language"),
     codec: text("codec"),
     title: text("title"),
@@ -1561,6 +1779,14 @@ export const mediaTracks = pgTable(
   (t) => [
     uniqueIndex("media_tracks_stream_uq").on(t.mediaFileId, t.streamIndex),
     check("media_tracks_stream_index_check", sql`${t.streamIndex} >= 0`),
+    uniqueIndex("media_tracks_sidecar_uq")
+      .on(t.mediaFileId, t.relativePath)
+      .where(sql`${t.source}='external'`),
+    check(
+      "media_tracks_source_check",
+      sql`(${t.source}='embedded' and ${t.streamIndex} is not null and ${t.relativePath} is null) or (${t.source}='external' and ${t.kind}='subtitle' and ${t.streamIndex} is null and ${t.relativePath} is not null and ${t.relativePath} <> '' and ${t.relativePath} not like '/%' and ${t.relativePath} !~ '(^|/)\\.\\.(/|$)')`,
+    ),
+    check("media_tracks_hash_check", sql`${t.sha256} is null or ${t.sha256} ~ '^[0-9a-f]{64}$'`),
   ],
 );
 export const jellyfinServers = pgTable("jellyfin_servers", {

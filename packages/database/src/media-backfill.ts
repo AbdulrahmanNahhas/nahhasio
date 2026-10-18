@@ -33,8 +33,8 @@ function dimensions(bytes: Buffer, mimeType: string) {
 }
 
 /**
- * Pre-migration media pass, run by `db:migrate` and by the API image's `dist/migrate.js` before
- * Drizzle applies pending migrations: on a v1-shaped database it records every referenced image
+ * Explicit legacy recovery pass (`db:prepare-legacy-media`), never implicit in normal migration
+ * or startup. On a v1-shaped database it records every referenced image
  * into `media_asset_backfill` for the media migration to consume; on a v2 database it re-hashes
  * every `media_assets` row from disk (fixing dimensions/sha, merging exact duplicates). Media
  * files are read from `ARCADIA_MEDIA_ROOT`, the same directory the API serves.

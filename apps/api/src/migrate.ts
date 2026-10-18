@@ -1,11 +1,11 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { prepareMediaBackfill, runMigrations } from "@arcadia/database";
+import { runMigrations } from "@arcadia/database";
 
 /**
- * Container-friendly `db:migrate`: the same two steps `pnpm db:migrate` runs (the media backfill
- * pass, then Drizzle's pending migrations) bundled into `dist/migrate.js` so a deployed API image
+ * Container-friendly explicit `db:migrate`: Drizzle's pending migrations, without implicit
+ * media rehashing/merging. Legacy media recovery has its own explicit command. A deployed API image
  * can migrate its own database with `node dist/migrate.js` — no repo checkout, no drizzle-kit, no
  * pnpm on the server. Never runs on API start; schema changes stay an explicit step (see
  * "Database and API safety" in CLAUDE.md and the Quadlet `arcadia-migrate` unit).
@@ -28,8 +28,6 @@ function migrationsFolder() {
 }
 
 const folder = migrationsFolder();
-console.log(`Preparing media backfill…`);
-await prepareMediaBackfill();
 console.log(`Applying pending migrations from ${folder}…`);
 await runMigrations(folder);
 console.log("Database is up to date.");

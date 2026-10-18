@@ -19,7 +19,8 @@ Read `docs/PROJECT.md`, `docs/ROADMAP.md` and `docs/design-rules.md` for current
 The Linux client uses Rust GTK4/libadwaita, WebKitGTK, React/Vite/TypeScript and libmpv.
 Preserve Aqua's reviewed desktop design. Website/legacy libraries remain transitional consumers
 until replacement acceptance; no website ships in the delivered product. Initial access is LAN,
-with admin/family-user accounts. Jellyfin/library-adapter choice is pending, not mandatory Alpha.
+with admin/family-user accounts. Nahhasio owns catalog/images/tracking; Jellyfin supplies stored
+media for native playback. Existing folders are scanned/linked without moving originals.
 
 For this transition, Aqua explicitly requires confirmation after each step or visible change.
 Work only within the approved step, show the concrete result and actual checks, then stop.
@@ -40,20 +41,23 @@ and authorized fixing its old-process bridge error, committing the changes, priv
 persistence, and an early downloadable AppImage/release pipeline. Update documentation with
 actual artifact/runtime/CI limits; no release publication or push has been requested.
 Aqua committed current card/watched design as `3d12c96` and approved the server connection/login
-checkpoint with a cinematic desktop login redesign, committed as `626d3ef`. The approved current
-checkpoint is Saved Works/offline use, including scoped metadata/artwork, local browsing/playback
-and progress/watched synchronization. Related fixes are authorized; finish this checkpoint for review.
-The subsequent order is a detailed database-schema/application-logic
-and trusted-update/recovery review **before** Podman foundation, then admin overview. Do not start those stages silently. Awards and work-membership ordering
-remain future tasks.
+checkpoint with a cinematic desktop login redesign, committed as `626d3ef`. The approved transition is now three phases, specified in docs/SCHEMA-FOUNDATION.md:
+(1) preserved schema migration with backup/restored rehearsal, (2) API/whole-client integration
+and Rust runtime administration parity, (3) Nahhasio agent CLI/database/cataloging skills.
+Finish the current phase and return for review before the next; commits require confirmation.
+Aqua explicitly chose a local backup under this persistent project's data/backups for the local
+schema checkpoint. Independent recovery remains required before production deployment.
+Podman foundation and then admin overview follow these phases.
 Preserve Aqua's current design.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
 server and device video downloads remain separate. Torrent streaming is the main online source;
 linked files support completed downloads and deliberately non-torrent works. Torrent streaming
 runs on the client only; the server runs acquisition jobs only after explicit Download to server
 requests. Files-only/torrent policy is whole-work, with no part/episode overrides initially.
-Offline mutations are progress and watched/unwatched only. Library adapter and file organization
-remain open; do not confuse files-only playback with a mandatory Jellyfin dependency.
+Offline mutations are progress and watched/unwatched only. Jellyfin is the confirmed stored-media backend, with no Jellyfin tracking synchronization.
+Whole-work dub metadata, a dubbing-studio organization role, one planet per work, server-owned
+episode stills and YouTube trailer links are approved. Do not add edition/version systems,
+alternate episode listings or extra availability-label UI.
 Use focused compile/static checks during implementation and consolidated acceptance later;
 no repeated full suites for small changes, and no mutation tests on the live family catalog.
 

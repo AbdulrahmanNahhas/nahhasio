@@ -92,9 +92,8 @@ Confirmed 2026-10-14:
   torrent streaming. The laptop does not have to download then upload the file.
 - **The source policy applies to the whole work.** A work may be files-only: no torrent search or
   playback, and all parts/episodes use linked supplied/downloaded files. No part/episode overrides
-  initially. Calling these works “Jellyfin only” means local-video-library playback; it does not
-  require installing Jellyfin as the backend. Deliberate disabling differs from no search results
-  or unavailable peers.
+  initially. Jellyfin is now the confirmed stored-media backend. Deliberate disabling differs from no
+  search results or unavailable peers.
 - **Offline tracking changes are progress and watched/unwatched only.** Queue them locally and
   synchronize under the owning server/account when reconnected. Ratings/notes editing does not
   become an offline mutation feature now; existing cached data may remain readable.
@@ -112,8 +111,7 @@ part and episode IDs, support manual correction, and play linked media. Detect m
 files without removing catalog identities or viewing history. Multiple media versions may link
 to one catalog item. Do not silently guess episode matches or require torrent/source packs.
 
-The initial copy/rename/move policy is awaiting an answer. The safe default proposal is to scan
-and link existing files without changing filenames or folders. File organization is a separate
+The approved initial policy is to scan and link existing files without changing filenames or folders. File organization is a separate
 explicit operation. Current folder layout and catalog linkage can be inspected when files are
 supplied; they are not blockers to the architectural plan.
 
@@ -138,24 +136,36 @@ The complete work editor temporarily reuses a **private Node/tsx worker** behind
 Before packaging it, explicitly support/package that dependency or replace it with Rust.
 It is not a website process, but the current editor is not a Rust-only runtime.
 
-## Library service and Jellyfin: choice pending
+## Confirmed library, catalog and tracking decisions — 2026-10-18
 
-Jellyfin can be installed, but Aqua questions its metadata and update maintenance. It is **not
-an unconditional Alpha requirement**. Recommendation awaiting approval: Nahhasio owns/scans
-files, serves authorized byte ranges and feeds the existing mpv player; retain Jellyfin as an
-optional adapter for capabilities such as transcoding later. This is a proposal, not an approved
-replacement or permission to build a complete Jellyfin clone.
+Nahhasio owns all catalog/editorial data, images and tracking. Jellyfin is the stored-media
+backend only; play its media inside Nahhasio's native player. Link existing folders without
+moving originals. Do not synchronize Jellyfin watched/progress state or use its metadata as
+catalog authority. Select a device file, then a server file, then a permitted client torrent.
+Whole-work files-only policy suppresses torrent actions regardless of peer/search availability.
 
-Existing `jellyfin_servers`/`jellyfin_items` tables remain data; do not delete them merely because
-the optional integration has not been selected. Regardless of the adapter, Nahhasio's curated
-catalog remains authoritative. Two-way external progress synchronization is future/unconfirmed.
+Dub metadata is whole-work: recorded dub languages/notes and existing organization contributions
+with a dubbing-studio role and credit languages. No edition/version system or alternate episode
+listings. People/studio credits stay at work level. Each work has at most one planet. Trailers
+are YouTube links only. Episode stills come from a provider/manual upload or an available video
+capture and are registered in Nahhasio's server artwork library, not left as external image URLs.
+
+Every active supported account can log in and track its own viewing. Normal viewers see only
+published/non-private works. Auto-watched threshold is 90%, preserving manual overrides; work
+completion counts released units. Save work is not a prerequisite for recording progress.
 
 ## Current approved checkpoint
 
-Review and commit pending documentation, editor/native reliability and toolchain changes, then
-implement the admin image library: paginated search/grid/table, image details/linked owners,
-upload, existing asset assignment and replacement. Preserve the reviewed desktop design and
-return for review before another feature checkpoint.
+Aqua approved the three-phase transition in [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md):
+
+1. Schema foundation, local verified backup/restored rehearsal and preservation-safe migration.
+2. API and whole-client integration, basic authorized views for unfinished areas, and Rust runtime
+   administration parity before deployment. Internal/authentication tables are not raw client dumps.
+3. Nahhasio-named agent CLI/database/cataloging skills and clearer powerful agent workflows.
+
+Complete one phase, report actual results/limits, then stop for review. No commit is implied.
+Aqua chose a backup under this persistent project's data/backups for the local schema checkpoint;
+an independent backup remains required before production cutover. Keep all pending user design edits.
 
 ## Current implementation and acceptance
 
@@ -167,8 +177,8 @@ cleanup and compact details. Its latest UI review and isolated mutation acceptan
 see DEVELOPMENT.md for file compatibility and recovery limits. There are pending source changes;
 preserve them during documentation/other work.
 
-The native client accepts an HTTPS server configured outside the UI. Server selection and
-secure persistent connection/session UX still need implementation. Local/manual subtitle
+The native client has saved server selection and private per-server persistent sessions.
+Restart/switching/native acceptance remains distinct from source/static-check completion. Local/manual subtitle
 support exists; provider retrieval, server-file ingest/playback, Fedora deployment and AppImage
 release delivery remain to be completed/accepted.
 
@@ -184,12 +194,11 @@ and server/device/saved-work workflows build on it. Continue complete database/a
 and storage planning without treating the entire future roadmap as Alpha gates. Server selection,
 file availability/resolution, offline cache ownership and packaging remain foundational follow-ups.
 
-Also awaiting answers: direct Nahhasio library versus initial Jellyfin integration, existing
-file scan/link versus managed copies/moves. Torrent streaming location, server acquisition,
-whole-work source policy and initial offline tracking actions are confirmed above; synchronization
-conflict handling is an implementation design detail to define within that scope. Other detailed features stay in the future roadmap
-until promoted to an approved checkpoint. No automatic downloads/transcoding/graphs or a fixed
-v1.0 feature list was authorized by answering the planning questions.
+Jellyfin as media backend, scan/link without moving originals, whole-work dubbing/source policy,
+one planet, YouTube trailers and Nahhasio-only tracking are now confirmed above. The current
+three-phase implementation owns remaining API/UI/runtime work and agent-tool changes. Detailed
+family features stay in the roadmap until approved; this schema foundation does not authorize
+unrelated chat, watch parties, transcoding or a fixed v1.0 feature list.
 
 ## Documentation and working boundary
 

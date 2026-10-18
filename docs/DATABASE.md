@@ -4,6 +4,21 @@ The database/catalog, images and tracking are Nahhasio's primary product. Playba
 selection, server retention, device downloads and saved metadata build on stable catalog IDs.
 Read [PROJECT](PROJECT.md) for intent and [ROADMAP](ROADMAP.md) for current/future tasks.
 
+## Applied foundation — 2026-10-18
+
+The live development database now has **75 public tables** and **30 applied migrations**.
+The four additions are `server_instance`, `devices`, `library_roots` and `title_trailers`.
+Current preserved catalog counts: 226 works, 375 installments, 1,879 episodes, 843 images and
+1,626 playback-state rows. All original column values/rows in the backed-up 71 tables survived;
+TVDB recovery values remain on five works. Three legacy device IDs were registered without
+changing existing download ownership or paths. No existing table was deleted.
+
+See [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md) for the full change list, 75-table service-owner
+inventory, backup/rehearsal/apply commands, verification evidence and the two remaining phases.
+The new schemas do not imply implemented playback/import/admin services. Episode stills, dub
+fields and YouTube trailers still need their Phase 2 API/client consumers. Authentication and
+internal records need protected projections, not raw secret-bearing table views.
+
 ## Inspected live inventory — 2026-10-13
 
 Read-only `./bin/arcadia schema`, `stats` and targeted schema inspection reported:
@@ -31,7 +46,7 @@ This is a dated snapshot, not a permanently current count. No data/schema was ch
 - Access: accounts, authentication/session records, capabilities and existing restriction/policy
   tables. Initial product use is an admin account and a family user, not new profile machinery.
 - Administration: audit logs, editorial revisions, jobs and saved views.
-- Media: media assets/assignments, files/tracks, device-download records and optional Jellyfin links.
+- Media: media assets/assignments, files/tracks, device-download records and Jellyfin media links.
 
 Do not rebuild these concepts or remove populated tables because Alpha initially uses fewer
 features. Inspect ownership/links and define migrations before adding duplicates or deleting data.
