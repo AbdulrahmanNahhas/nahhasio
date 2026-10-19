@@ -65,7 +65,8 @@ export async function prepareMediaBackfill(databaseUrl = process.env.DATABASE_UR
     : await sql`
   select id, path from media_assets`;
   const uploadRoot = resolve(
-    process.env.ARCADIA_MEDIA_ROOT ??
+    process.env.NAHHASIO_MEDIA_ROOT ??
+      process.env.ARCADIA_MEDIA_ROOT ??
       fileURLToPath(new URL("../../../data/media/uploads", import.meta.url)),
   );
   const mediaRoot = resolve(uploadRoot, "..");

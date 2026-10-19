@@ -2,7 +2,7 @@
  * Turning human-readable references into primary keys.
  *
  * This is the single biggest token saver in the CLI. Without it every write is a two-step
- * dance: look up a UUID, then use it. With it, `arcadia title get Arcane` and
+ * dance: look up a UUID, then use it. With it, `nahhasio title get Arcane` and
  * `--set planet_id=emerald` just work, and foreign keys can be written as slugs or names
  * anywhere a UUID is accepted.
  */
@@ -54,7 +54,7 @@ export async function resolveRef(
     if (keyColumn?.type === "text") return ref;
     throw new CliError(
       `No ${table.name} row matches "${ref}"`,
-      `Search with: arcadia ${resourceNameFor(table)} list --search "${ref}"`,
+      `Search with: nahhasio ${resourceNameFor(table)} list --search "${ref}"`,
     );
   }
   throw new CliError(

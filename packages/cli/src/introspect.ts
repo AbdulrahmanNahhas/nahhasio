@@ -5,7 +5,7 @@
  * the running database rather than from a hand-maintained table list. That means a Drizzle
  * migration can add a column or a whole table and every generic command
  * (`list`/`get`/`create`/`update`/`delete`/`stats`) picks it up with no CLI change, and
- * `arcadia schema` is always describing what actually exists.
+ * `nahhasio schema` is always describing what actually exists.
  */
 
 import { assertIdentifier, type Sql, type TransactionSql } from "./db";
@@ -153,8 +153,8 @@ export function requireTable(schema: SchemaInfo, name: string): TableInfo {
     throw new CliError(
       `Unknown table "${name}"`,
       suggestion
-        ? `Did you mean "${suggestion}"? Run "arcadia schema" to list every table.`
-        : `Run "arcadia schema" to list every table.`,
+        ? `Did you mean "${suggestion}"? Run "nahhasio schema" to list every table.`
+        : `Run "nahhasio schema" to list every table.`,
     );
   }
   return table;
@@ -170,8 +170,8 @@ export function requireColumn(table: TableInfo, name: string): ColumnInfo {
     throw new CliError(
       `Table "${table.name}" has no column "${name}"`,
       suggestion
-        ? `Did you mean "${suggestion}"? Run "arcadia schema ${table.name}" for the full column list.`
-        : `Run "arcadia schema ${table.name}" for the full column list.`,
+        ? `Did you mean "${suggestion}"? Run "nahhasio schema ${table.name}" for the full column list.`
+        : `Run "nahhasio schema ${table.name}" for the full column list.`,
     );
   }
   return column;

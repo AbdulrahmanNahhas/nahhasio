@@ -25,10 +25,12 @@ async fn registered_path(path: &str) -> ApiResult<PathBuf> {
         return Err(ApiError(StatusCode::NOT_FOUND, "Artwork unavailable"));
     }
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let uploads = std::env::var_os("ARCADIA_MEDIA_ROOT")
+    let uploads = std::env::var_os("NAHHASIO_MEDIA_ROOT")
+        .or_else(|| std::env::var_os("ARCADIA_MEDIA_ROOT"))
         .map(PathBuf::from)
         .unwrap_or_else(|| repository.join("data/media/uploads"));
-    let public = std::env::var_os("ARCADIA_PUBLIC_MEDIA_ROOT")
+    let public = std::env::var_os("NAHHASIO_PUBLIC_MEDIA_ROOT")
+        .or_else(|| std::env::var_os("ARCADIA_PUBLIC_MEDIA_ROOT"))
         .map(PathBuf::from)
         .unwrap_or_else(|| uploads.parent().unwrap_or(&repository).to_path_buf());
     let (root, suffix) = relative

@@ -1,5 +1,5 @@
 /**
- * `arcadia media` — content-addressed image ingest and assignment.
+ * `nahhasio media` — content-addressed image ingest and assignment.
  *
  * Mirrors `apps/api/src/media-storage.ts`: files are hashed with sha256, stored under
  * `/media/uploads/<role>s/<slug>-<role>-<hash>.<ext>`, and deduplicated by hash so re-ingesting
@@ -110,7 +110,8 @@ function detectMime(bytes: Buffer): DetectedImage {
 
 function mediaRoot(): string {
   return resolve(
-    process.env.ARCADIA_MEDIA_ROOT ??
+    process.env.NAHHASIO_MEDIA_ROOT ??
+      process.env.ARCADIA_MEDIA_ROOT ??
       fileURLToPath(new URL("../../../../data/media/uploads", import.meta.url)),
   );
 }
@@ -158,7 +159,7 @@ export async function mediaCommand(
   if (verb === "purge") return purge(sql, args);
   throw new CliError(
     `Unknown media command "${verb ?? ""}"`,
-    "Use: arcadia media ingest <file-or-url> --role poster [--title <ref>] | media assign | media purge",
+    "Use: nahhasio media ingest <file-or-url> --role poster [--title <ref>] | media assign | media purge",
   );
 }
 
@@ -170,7 +171,7 @@ async function ingest(
   if (!source) {
     throw new CliError(
       "No image given",
-      "arcadia media ingest ./poster.jpg --role poster --title 'Arcane'",
+      "nahhasio media ingest ./poster.jpg --role poster --title 'Arcane'",
     );
   }
   // SAFETY: validated against mediaRoles on the next line; an unknown role throws.
@@ -276,7 +277,7 @@ async function assign(
   if (!assetRef) {
     throw new CliError(
       "No asset given",
-      "arcadia media assign <asset-id-or-path> --role banner --title 'Arcane'",
+      "nahhasio media assign <asset-id-or-path> --role banner --title 'Arcane'",
     );
   }
   // SAFETY: validated against mediaRoles on the next line; an unknown role throws.

@@ -130,7 +130,7 @@ async function register(
 }
 async function execute(input: z.infer<typeof envelope>) {
   await authorize(input.context);
-  process.env.ARCADIA_CLI_ACTOR = input.context.accountId;
+  process.env.NAHHASIO_CLI_ACTOR = input.context.accountId;
   switch (input.operation) {
     case "planetDetail":
       return planetDetail(sql, rpcInputs.planetDetail.parse(input.data).id);

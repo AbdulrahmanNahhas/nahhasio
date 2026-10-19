@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Arcadia CLI entry point.
+ * Nahhasio CLI entry point.
  *
- * Dispatch is intentionally flat: `arcadia <command|resource> <verb> [ref] [flags]`. Anything
+ * Dispatch is intentionally flat: `nahhasio <command|resource> <verb> [ref] [flags]`. Anything
  * that is not a built-in command is treated as a resource, which is what makes every table in
  * the database reachable without a per-table code path.
  */
+
+import { workDocument } from "@arcadia/contracts/work";
+import { z } from "zod";
 
 import { boolFlag, type ParsedArgs, parseArgs } from "./args";
 import { helpDocument, helpText } from "./commands/help";
@@ -40,9 +43,11 @@ const verbAliases = new Map([
 async function run(args: ParsedArgs, mode: OutputMode): Promise<CommandResult> {
   const [first, second, third] = args.positionals;
 
-  if (!first || first === "help") {
+  if (!first || first === "help" || boolFlag(args, "help")) {
     if (mode === "json") return helpDocument();
-    process.stdout.write(`${helpText(second)}\n`);
+    process.stdout.write(
+      `${helpText(first === "help" ? second : [first, second].filter(Boolean).join(" "))}\n`,
+    );
     return undefined;
   }
 
@@ -53,14 +58,16 @@ async function run(args: ParsedArgs, mode: OutputMode): Promise<CommandResult> {
 
   if (first === "work") {
     if (second === "template") return workTemplate();
+    if (second === "schema") return z.json().parse(z.toJSONSchema(workDocument, { io: "input" }));
     if (second === "export") {
-      if (!third) throw new CliError("work export needs a reference", "arcadia work export Arcane");
+      if (!third)
+        throw new CliError("work export needs a reference", "nahhasio work export Arcane");
       return workExport(openDatabase(), third);
     }
     if (second === "apply") return workApply(openDatabase(), args, third);
     throw new CliError(
       `Unknown work command "${second ?? ""}"`,
-      "Use: arcadia work apply | work export | work template",
+      "Use: nahhasio work apply | work export | work template",
     );
   }
 
@@ -70,7 +77,7 @@ async function run(args: ParsedArgs, mode: OutputMode): Promise<CommandResult> {
       select (select count(*)::int from titles) as titles, now()::text as now`;
     return {
       ok: true,
-      database: process.env.DATABASE_URL ?? "postgresql://127.0.0.1:23102/arcadia",
+      product: "nahhasio",
       ...row,
     };
   }
@@ -94,7 +101,7 @@ async function run(args: ParsedArgs, mode: OutputMode): Promise<CommandResult> {
     if (!third) {
       throw new CliError(
         `${resource.name} get needs a reference`,
-        `Try: arcadia ${resource.name} list --search "…"`,
+        `Try: nahhasio ${resource.name} list --search "…"`,
       );
     }
     return getRow(context, third);

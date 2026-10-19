@@ -11,14 +11,14 @@
 export type ResourceScope = Record<string, string>;
 
 export type Resource = {
-  /** Command name, e.g. `title` in `arcadia title list`. */
+  /** Command name, e.g. `title` in `nahhasio title list`. */
   name: string;
   table: string;
   aliases?: readonly string[];
   summary: string;
   /**
    * Columns a free-text reference is matched against, in priority order, when resolving
-   * something like `arcadia title get "Arcane"` to a primary key.
+   * something like `nahhasio title get "Arcane"` to a primary key.
    */
   refColumns?: readonly string[];
   /** Columns scanned by `--search`; defaults to `refColumns`. */
@@ -35,6 +35,45 @@ export type Resource = {
 };
 
 export const resources: readonly Resource[] = [
+  {
+    name: "server",
+    table: "server_instance",
+    summary: "Stable server identity; deployment configuration, not a new server per launch.",
+  },
+  { name: "device", table: "devices", summary: "Registered installations and revocations." },
+  {
+    name: "library-root",
+    table: "library_roots",
+    summary: "Selected server video roots; scanning is pending.",
+  },
+  {
+    name: "trailer",
+    table: "title_trailers",
+    summary: "Ordered YouTube trailers owned by a work.",
+  },
+  {
+    name: "media-file",
+    table: "media_files",
+    summary: "Stored video links; runtime acquisition and linking are separate.",
+  },
+  {
+    name: "media-track",
+    table: "media_tracks",
+    summary: "Audio and embedded or external subtitle tracks.",
+  },
+  {
+    name: "playback",
+    table: "account_playback_states",
+    summary: "Account progress, explicit watched state and revisions.",
+  },
+  { name: "download", table: "account_downloads", summary: "Account/device download records." },
+  {
+    name: "jellyfin-server",
+    table: "jellyfin_servers",
+    summary: "Private Jellyfin backend configuration.",
+  },
+  { name: "jellyfin-item", table: "jellyfin_items", summary: "Stored-media backend mappings." },
+
   {
     name: "title",
     table: "titles",
@@ -189,7 +228,7 @@ export const resources: readonly Resource[] = [
     table: "contributions",
     aliases: ["contribution"],
     summary: "Who did what on a title (title + entity + role).",
-    listColumns: ["title_id", "entity_id", "role_id", "position", "is_primary"],
+    listColumns: ["title_id", "entity_id", "role_id", "languages", "position", "is_primary"],
     orderBy: "title_id, position",
   },
   {
@@ -236,7 +275,7 @@ export const resources: readonly Resource[] = [
   {
     name: "role",
     table: "roles",
-    summary: "Credit roles (constrained to a fixed slug list by a CHECK constraint).",
+    summary: "Credit roles, including custom roles; entity-kind compatibility is enforced.",
     refColumns: ["slug", "label_en", "label_ar"],
     listColumns: ["id", "slug", "entity_kind", "label_en", "label_ar", "position"],
     orderBy: "position",
@@ -259,8 +298,8 @@ export const resources: readonly Resource[] = [
     name: "external-id",
     table: "external_identities",
     summary:
-      "Free-form references (Wikipedia, official site, trailer, Fanart image ids) for a title " +
-      "or installment. The four typed catalog ids (tmdb/imdb/anilist/mal) live as columns " +
+      "Free-form references (Wikipedia, official site, Fanart image ids) for a title " +
+      "or installment. The five typed catalog ids (tmdb/imdb/tvdb/anilist/mal) live as columns " +
       "on `title`/`installment` directly, not here.",
     listColumns: ["id", "title_id", "installment_id", "provider", "external_id", "url"],
     orderBy: "provider",
@@ -398,7 +437,7 @@ export function findResource(name: string): Resource | undefined {
 
 /**
  * Resolve a command word to a resource. Unregistered tables are still usable — they get a
- * synthetic resource so `arcadia jellyfin_items list` works without a registry entry.
+ * synthetic resource so `nahhasio jellyfin_items list` works without a registry entry.
  */
 export function resolveResource(name: string, knownTables: ReadonlySet<string>): Resource {
   const registered = findResource(name);

@@ -1,5 +1,5 @@
 /**
- * Output formatting for the Arcadia CLI.
+ * Output formatting for the Nahhasio CLI.
  *
  * The default rendering is a compact text table rather than JSON. That is a deliberate cost
  * decision: this CLI's primary caller is an AI agent, and pretty-printed JSON spends a large

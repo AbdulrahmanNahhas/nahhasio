@@ -194,7 +194,10 @@ adminMaintenanceRoutes.get("/api/v1/admin/health", async (context) => {
       node: process.version,
       uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
       environment: process.env.NODE_ENV ?? "development",
-      mediaRoot: process.env.ARCADIA_MEDIA_ROOT ?? "data/media/uploads (default)",
+      mediaRoot:
+        process.env.NAHHASIO_MEDIA_ROOT ??
+        process.env.ARCADIA_MEDIA_ROOT ??
+        "data/media/uploads (default)",
     },
     database: {
       bytes: Number(db?.bytes ?? 0),

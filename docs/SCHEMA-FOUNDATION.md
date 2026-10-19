@@ -10,7 +10,8 @@ The local backup/restored rehearsal preserved the original columns and all rows 
 23 disposable integrity assertions passed and every fixture rolled back. Static `pnpm check`
 passed; the media-transfer C++ bridge still emits an existing generated-code compiler warning.
 This is schema acceptance, not API/client/runtime parity. Phase 1 is committed as `990b704`.
-Phase 2 is in progress; Phase 3 remains pending.
+The Phase 2 existing-screen integration is committed as `9bd5122`; its remaining runtime work
+is deferred below. Aqua authorized Phase 3 tooling now, separately from those runtime tasks.
 
 - [x] Back up PostgreSQL and artwork in the persistent project `data/backups/` directory.
 - [x] Verify archive checksums, restore a disposable database and compare all original data.
@@ -80,7 +81,7 @@ the migration history; do not introduce a second SQLx migration ledger.
 ### Phase 2 integration checkpoint — 2026-10-19
 
 Aqua authorized the Phase 1 commit and the existing-screen integration. No new route/page was added.
-Current changes are uncommitted pending review. Existing work editing includes whole-work source
+This integration checkpoint is committed as `9bd5122`. Existing work editing includes whole-work source
 policy, dub languages/notes, ordered YouTube trailers, credit languages and per-episode stills.
 Episode images use the existing native artwork boundary in work details, episode lists and player
 selection; TMDB imports record source evidence and manual/upload/library choices remain explicit.
@@ -113,8 +114,8 @@ This is a focused integration pass, not physical input/GPU/playback or full Phas
 
 Remaining Phase 2 work is explicit: video-derived still capture, folder scanning/linking and the
 Jellyfin/native server-file source workflow, and removal of the remaining private Node editor/
-provider/artwork worker after Rust parity. The broader phase is not complete and Phase 3 has not
-started. A table view does not complete these runtime services or deployment acceptance.
+provider/artwork worker after Rust parity. The broader phase is not complete. Aqua authorized proceeding with Phase 3 tools while retaining
+these runtime tasks for later. A table view does not complete these runtime services or deployment acceptance.
 
 ### Complete database coverage boundary
 
@@ -147,14 +148,37 @@ tables, additional client platforms or a shipped website. Preserve the reviewed 
 
 ## Phase 3 — Nahhasio agent tools and guidance
 
-- [ ] Make `nahhasio` the public CLI name and update discoverable commands/help/examples.
-- [ ] Update the database skill to the Nahhasio name and new schema/API workflows.
-- [ ] Update the cataloging skill for dub credits, whole-work policy, one planet and image ownership.
-- [ ] Provide name/alias/UUID lookup, structured schema/reference discovery and bounded pagination.
-- [ ] Improve actionable structured errors, JSON input/output, dry runs, review/apply and idempotency.
-- [ ] Keep destructive operations explicit and preserve recovery sources and private credentials.
-- [ ] Inventory/retire remaining Arcadia-facing names without accidentally changing database identity,
+- [x] Make `nahhasio` the public CLI name and update discoverable commands/help/examples.
+- [x] Update the database skill to the Nahhasio name and new schema/API workflows.
+- [x] Update the cataloging skill for dub credits, whole-work policy, one planet and image ownership.
+- [x] Provide name/alias/UUID lookup, structured schema/reference discovery and bounded pagination.
+- [x] Improve actionable structured errors, JSON input/output, dry runs, review/apply and idempotency.
+- [x] Keep destructive operations explicit and preserve recovery sources and private credentials.
+- [x] Inventory/retire remaining Arcadia-facing names without accidentally changing database identity,
       catalog UUIDs, persisted device paths, package dependencies or migration history.
 
 Podman foundation follows the approved phases. Production acceptance still requires independent
 recovery, trusted artifacts, migration compatibility and a real target-host check.
+
+### Phase 3 tooling checkpoint — 2026-10-19
+
+The public entry is `./bin/nahhasio`; `bin/arcadia` remains a silent compatibility wrapper.
+Agent skills are now `nahhasio-db` and `nahhasio-cataloging`. Public help/examples use Nahhasio;
+`work schema --json` exposes the current input schema without a database connection. New resource
+aliases cover server/device/library roots/trailers/files/tracks/downloads/Jellyfin and playback.
+Lists are bounded to 1–500 rows (default 50) with offsets; invalid apply modes fail explicitly.
+Existing name/alias/UUID resolution, transactional dry runs, audited writes and export/apply remain.
+The template includes new fields and no fabricated provider ID; health omits connection credentials.
+Preferred audit/artwork environment variables use NAHHASIO names with legacy fallbacks.
+
+Internal workspace package scopes, database name, UUIDs, artwork paths, migration history and
+legacy recovery/auth variables remain intentionally compatible. No catalog data was changed for
+this tooling checkpoint. The earlier Phase 2 runtime tasks remain unchecked; this checkpoint does
+not imply production, Jellyfin playback or worker parity.
+
+Verification: `pnpm check` passed (lint, formatting, TypeScript, Rust formatting/Clippy; existing
+C++ bridge warning remains). Focused read-only CLI checks discovered all 75 tables, resolved the
+10 new aliases, exported a real work, validated the work template/export against the current
+contract, checked JSON help/compatibility output and rejected invalid pagination/apply mode.
+Both skills passed YAML frontmatter/name validation using the installed YAML parser (the bundled
+Python validator lacked PyYAML). No live catalog write or repeated application suite was run.

@@ -1,5 +1,5 @@
 /**
- * `arcadia work apply` / `arcadia work export` — whole-work editing as a single document.
+ * `nahhasio work apply` / `nahhasio work export` — whole-work editing as a single document.
  *
  * Creating a title the granular way means a dozen ordered commands across nine tables
  * (title, aliases, trivia, genres/tones/tags/countries, planet, credits, installments,
@@ -93,7 +93,7 @@ async function resolveVocabulary(
   if (!createMissing) {
     throw new CliError(
       `No ${table.slice(0, -1)} matches "${value}"`,
-      `List them with "arcadia ${table.slice(0, -1)} list", or pass --create-missing to add it.`,
+      `List them with "nahhasio ${table.slice(0, -1)} list", or pass --create-missing to add it.`,
     );
   }
   const inserted = await transaction.unsafe<Array<{ id: string }>>(
@@ -125,7 +125,7 @@ async function resolveEntity(
   if (!createMissing) {
     throw new CliError(
       `No ${roleKind} named "${name}"`,
-      `Create it with "arcadia ${roleKind === "person" ? "person" : "studio"} create --set name='${name}' --set sort_name='${name}'", or pass --create-missing.`,
+      `Create it with "nahhasio ${roleKind === "person" ? "person" : "studio"} create --set name='${name}' --set sort_name='${name}'", or pass --create-missing.`,
     );
   }
   const inserted = await transaction.unsafe<Array<{ id: string }>>(
@@ -194,7 +194,7 @@ async function assignMedia(
     if (!asset)
       throw new CliError(
         `No registered media asset at "${path}"`,
-        `Ingest it first: arcadia media ingest <file-or-url> --role ${role}`,
+        `Ingest it first: nahhasio media ingest <file-or-url> --role ${role}`,
       );
     await transaction.unsafe(
       `update media_asset_assignments set is_primary=false where "${owner.column}"=$1 and role=$2 and is_primary and asset_id<>$3`,
@@ -491,7 +491,7 @@ async function syncCredits(
     if (!role) {
       throw new CliError(
         `Unknown credit role "${document.role}"`,
-        'List valid roles with "arcadia role list" or create a compatible role in the People/Studios editor.',
+        'List valid roles with "nahhasio role list" or create a compatible role in the People/Studios editor.',
       );
     }
     const entityId = await resolveEntity(
@@ -552,7 +552,7 @@ async function syncAwards(
       if (!createMissing) {
         throw new CliError(
           `No award organization matches "${document.organization}"`,
-          'List them with "arcadia award-org list", or pass --create-missing.',
+          'List them with "nahhasio award-org list", or pass --create-missing.',
         );
       }
       const inserted = await transaction.unsafe<
@@ -577,7 +577,7 @@ async function syncAwards(
       if (!createMissing) {
         throw new CliError(
           `Award organization "${organization.slug}" has no category "${document.category}"`,
-          'List them with "arcadia award-category list", or pass --create-missing.',
+          'List them with "nahhasio award-category list", or pass --create-missing.',
         );
       }
       const inserted = await transaction.unsafe<Array<{ id: string }>>(
@@ -659,7 +659,7 @@ export async function workApply(
   if (!file && !inline) {
     throw new CliError(
       "No work document provided",
-      'Pass a file: arcadia work apply work.json — or --json \'{"canonicalTitle":"…"}\'. Start from "arcadia work template".',
+      'Pass a file: nahhasio work apply work.json — or --json \'{"canonicalTitle":"…"}\'. Start from "nahhasio work template".',
     );
   }
   // SAFETY: `file` is non-empty here — the guard above returns when both it and `inline` are unset.
@@ -684,7 +684,11 @@ export async function workApply(
     );
   }
   const document = parsed.data;
-  const mode: ApplyMode = stringFlag(args, "mode") === "replace" ? "replace" : "merge";
+  const requestedMode = stringFlag(args, "mode") ?? "merge";
+  if (requestedMode !== "merge" && requestedMode !== "replace") {
+    throw new CliError("Invalid apply mode", "Use --mode merge or --mode replace.");
+  }
+  const mode: ApplyMode = requestedMode;
   const createMissing = boolFlag(args, "create-missing");
   const dryRun = boolFlag(args, "dry-run");
   if (enclosingTransaction && dryRun) throw new CliError("The caller owns transaction rollback.");
@@ -807,7 +811,7 @@ export async function workApply(
         if (!row) {
           throw new CliError(
             `No planet matches "${planet}"`,
-            'List them with "arcadia planet list".',
+            'List them with "nahhasio planet list".',
           );
         }
         planetIds.push(row.id);
@@ -1227,6 +1231,10 @@ export function workTemplate(): WorkDocument {
     contentWarnings: "عنف خفيف، مشاهد حزن.",
     analysisNotes: "لا توجد مشكلة عقدية.",
     releaseYear: 2024,
+    playbackPolicy: "torrents-allowed",
+    dubLanguages: [],
+    dubbingNotes: "",
+    trailers: [],
     format: "animated",
     workflowStatus: "draft",
     audience: "general",
@@ -1241,8 +1249,8 @@ export function workTemplate(): WorkDocument {
     tags: [],
     countries: ["jp"],
     planets: ["adventure-fantasy"],
-    credits: [{ entity: "Studio Name", role: "animation_studio", isPrimary: true }],
-    externalIds: [{ provider: "mal", externalId: "00000", url: null }],
+    credits: [{ entity: "Studio Name", role: "animation_studio", isPrimary: true, languages: [] }],
+    externalIds: [],
     media: { poster: null, banner: null, logo: null },
     installments: [
       {
@@ -1261,7 +1269,15 @@ export function workTemplate(): WorkDocument {
           originality: 7.5,
           craft: 9,
         },
-        episodes: [{ number: 1, position: 1, title: "الحلقة الأولى", runtimeMinutes: 24 }],
+        episodes: [
+          {
+            number: 1,
+            position: 1,
+            title: "الحلقة الأولى",
+            runtimeMinutes: 24,
+            media: { still: null },
+          },
+        ],
       },
     ],
     awards: [],

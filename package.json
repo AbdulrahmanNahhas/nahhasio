@@ -28,7 +28,8 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "format:check": "oxfmt --check .",
-    "dev:reference-api": "pnpm --filter @arcadia/api dev"
+    "dev:reference-api": "pnpm --filter @arcadia/api dev",
+    "nahhasio": "pnpm --filter @arcadia/cli exec tsx src/main.ts"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.87.0",

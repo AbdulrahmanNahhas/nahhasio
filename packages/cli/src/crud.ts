@@ -94,6 +94,12 @@ export async function listRows(context: CrudContext): Promise<CommandResult> {
 
   const limit = intFlag(args, "limit") ?? defaultLimit;
   const offset = intFlag(args, "offset") ?? 0;
+  if (limit < 1 || limit > 500 || offset < 0 || !Number.isSafeInteger(offset)) {
+    throw new CliError(
+      "Invalid pagination",
+      "Use --limit 1..500 and a nonnegative --offset; default limit is 50.",
+    );
+  }
   const text = [
     `select ${selectList(columns, table)} from "${table.name}"`,
     combine(conditions),
@@ -113,7 +119,7 @@ export async function getRow(context: CrudContext, ref: string): Promise<Command
   if (!primaryKey) {
     throw new CliError(
       `Table "${table.name}" has no single-column primary key`,
-      `Use: arcadia ${context.resource.name} list --where "…"`,
+      `Use: nahhasio ${context.resource.name} list --where "…"`,
     );
   }
   const id = await resolveRef(context.sql, table, ref, { scope: context.resource.scope ?? {} });
@@ -161,7 +167,7 @@ export async function createRow(context: CrudContext): Promise<CommandResult> {
   if (assignments.size === 0) {
     throw new CliError(
       `Nothing to insert into ${context.table.name}`,
-      `Provide values: arcadia ${context.resource.name} create --set column=value`,
+      `Provide values: nahhasio ${context.resource.name} create --set column=value`,
     );
   }
   const missing = context.table.columns.filter(
@@ -174,7 +180,7 @@ export async function createRow(context: CrudContext): Promise<CommandResult> {
   if (missing.length > 0) {
     throw new CliError(
       `Missing required columns for ${context.table.name}: ${missing.map((column) => column.name).join(", ")}`,
-      `Inspect the table with: arcadia schema ${context.table.name}`,
+      `Inspect the table with: nahhasio schema ${context.table.name}`,
     );
   }
 
@@ -260,7 +266,7 @@ export async function updateRows(
   if (assignments.size === 0) {
     throw new CliError(
       `Nothing to update`,
-      `Provide values: arcadia ${context.resource.name} update <ref> --set column=value`,
+      `Provide values: nahhasio ${context.resource.name} update <ref> --set column=value`,
     );
   }
 

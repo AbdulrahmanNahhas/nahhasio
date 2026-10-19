@@ -21,7 +21,7 @@ internal records need protected projections, not raw secret-bearing table views.
 
 ## Inspected live inventory — 2026-10-13
 
-Read-only `./bin/arcadia schema`, `stats` and targeted schema inspection reported:
+Read-only `./bin/nahhasio schema`, `stats` and targeted schema inspection reported:
 
 | Measure                 | Count |
 | ----------------------- | ----- |
@@ -99,13 +99,13 @@ is required to browse data already saved on the device.
 ## Inspection, migration and cutover
 
 ```sh
-./bin/arcadia schema
-./bin/arcadia schema account_title_states
-./bin/arcadia schema media_assets
-./bin/arcadia stats
+./bin/nahhasio schema
+./bin/nahhasio schema account_title_states
+./bin/nahhasio schema media_assets
+./bin/nahhasio stats
 ```
 
-Use the arcadia-db skill. Raw CLI SQL is read-only by default. Do not export session/password
+Use the nahhasio-db skill. Raw CLI SQL is read-only by default. Do not export session/password
 rows or log secrets during inspection. PostgreSQL is canonical; the sole schema history is
 `packages/database/drizzle/`.
 

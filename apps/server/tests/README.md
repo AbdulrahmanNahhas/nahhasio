@@ -42,7 +42,7 @@ No production endpoint fix was needed for the verified cases.
 NAHHASIO_RUN_VIEWER_READONLY_REPORT=1 devenv shell -- cargo test -p nahhasio-server --test viewer_postgres --locked representative_live_work_payload_sizes -- --ignored --nocapture
 ```
 
-This uses production detail SQL via `./bin/arcadia sql`, which enforces a PostgreSQL `READ ONLY`
+This uses production detail SQL via `./bin/nahhasio sql`, which enforces a PostgreSQL `READ ONLY`
 transaction. It scans JSONB detail sizes to identify the largest catalog candidate, then measures
 compact UTF-8 JSON (the API serializer form) for that candidate and Oshi No Ko, Frieren and the
 longest episode work at this checkpoint, Black Clover. It prints names/counts/byte sizes only,

@@ -16,7 +16,8 @@ export type MediaKind = (typeof mediaKinds)[number];
  */
 export function getMediaDirectory() {
   return resolve(
-    process.env.ARCADIA_MEDIA_ROOT ??
+    process.env.NAHHASIO_MEDIA_ROOT ??
+      process.env.ARCADIA_MEDIA_ROOT ??
       fileURLToPath(new URL("../../../data/media/uploads", import.meta.url)),
   );
 }
@@ -24,8 +25,9 @@ export function getMediaDirectory() {
  *  `/media/uploads/...` keeps resolving exactly as it did when this lived under `apps/web/public`. */
 export function getPublicMediaDirectory() {
   return resolve(
-    process.env.ARCADIA_PUBLIC_MEDIA_ROOT ??
-      (process.env.ARCADIA_MEDIA_ROOT
+    process.env.NAHHASIO_PUBLIC_MEDIA_ROOT ??
+      process.env.ARCADIA_PUBLIC_MEDIA_ROOT ??
+      ((process.env.NAHHASIO_MEDIA_ROOT ?? process.env.ARCADIA_MEDIA_ROOT)
         ? dirname(getMediaDirectory())
         : fileURLToPath(new URL("../../../data/media", import.meta.url))),
   );

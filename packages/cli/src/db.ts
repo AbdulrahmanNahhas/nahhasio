@@ -79,7 +79,7 @@ export type AuditEntry = {
 /**
  * Mirrors the `audit_logs` row every non-GET admin route writes in `apps/api/src/app.ts`, so
  * catalog edits made from an agent session are as traceable as edits made from the admin UI.
- * The actor is resolved from `ARCADIA_CLI_ACTOR` (an account id, slug, or display name) and is
+ * The actor is resolved from `NAHHASIO_CLI_ACTOR` (legacy `ARCADIA_CLI_ACTOR` remains supported) (an account id, slug, or display name) and is
  * left null when unset rather than failing the write.
  */
 export async function recordAudit(sql: TransactionSql | Sql, entry: AuditEntry): Promise<void> {
@@ -100,7 +100,7 @@ let actorCache: { value: string | null } | undefined;
 
 async function resolveActorAccountId(sql: TransactionSql | Sql): Promise<string | null> {
   if (actorCache) return actorCache.value;
-  const reference = process.env.ARCADIA_CLI_ACTOR?.trim();
+  const reference = (process.env.NAHHASIO_CLI_ACTOR ?? process.env.ARCADIA_CLI_ACTOR)?.trim();
   if (!reference) {
     actorCache = { value: null };
     return null;

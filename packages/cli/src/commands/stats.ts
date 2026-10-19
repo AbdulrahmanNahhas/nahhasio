@@ -1,5 +1,5 @@
 /**
- * `arcadia stats` — aggregate reporting.
+ * `nahhasio stats` — aggregate reporting.
  *
  * Two layers: named presets for the questions asked most often about a catalog (coverage gaps,
  * score distribution, vocabulary usage), and a generic group-by that works on any resource so
@@ -239,7 +239,7 @@ export async function statsCommand(
   const name = target ?? "overview";
   const preset = presets.get(name);
   // A preset wins unless the caller asked for a grouping, in which case they want the generic
-  // aggregate over that resource (`arcadia stats titles --by audience`).
+  // aggregate over that resource (`nahhasio stats titles --by audience`).
   if (preset && listFlag(args, "by").length === 0 && listFlag(args, "metric").length === 0) {
     return preset(sql);
   }

@@ -1,5 +1,5 @@
 /**
- * Flag parsing for the Arcadia CLI.
+ * Flag parsing for the Nahhasio CLI.
  *
  * Deliberately dependency-free and permissive about ordering: agents compose these commands
  * from templates, so `--flag value`, `--flag=value`, bare booleans, `--no-flag`, and repeated
@@ -22,7 +22,7 @@ const booleanNegationPrefix = "no-";
 /**
  * Flags that never take a value.
  *
- * Without this, `arcadia sql --write "delete from …"` parses the statement as the value of
+ * Without this, `nahhasio sql --write "delete from …"` parses the statement as the value of
  * `--write` and the command sees no SQL at all. Valueless flags have to be known up front
  * because "is the next token a value or a positional?" is otherwise undecidable.
  */

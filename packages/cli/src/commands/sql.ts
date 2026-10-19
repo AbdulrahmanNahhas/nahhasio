@@ -1,5 +1,5 @@
 /**
- * `arcadia sql` — the escape hatch.
+ * `nahhasio sql` — the escape hatch.
  *
  * No fixed command surface will cover every question worth asking of a catalog this shape, so
  * raw SQL stays available. Statements are read-only unless `--write` is passed: the guard is a
@@ -26,7 +26,7 @@ export async function sqlCommand(
   if (!query || query.trim().length === 0) {
     throw new CliError(
       "No SQL provided",
-      'Pass a statement: arcadia sql "select count(*) from titles" — or --file query.sql',
+      'Pass a statement: nahhasio sql "select count(*) from titles" — or --file query.sql',
     );
   }
 

@@ -44,7 +44,8 @@ Aqua committed current card/watched design as `3d12c96` and approved the server 
 checkpoint with a cinematic desktop login redesign, committed as `626d3ef`. The approved transition is now three phases, specified in docs/SCHEMA-FOUNDATION.md:
 (1) preserved schema migration with backup/restored rehearsal, (2) API/whole-client integration
 and Rust runtime administration parity, (3) Nahhasio agent CLI/database/cataloging skills.
-Finish the current phase and return for review before the next; commits require confirmation.
+Aqua authorized committing the current Phase 2 integration and proceeding directly with Phase 3
+CLI/skills, then committing Phase 3. Other phase transitions and commits still require confirmation.
 Aqua explicitly chose a local backup under this persistent project's data/backups for the local
 schema checkpoint. Independent recovery remains required before production deployment.
 Podman foundation and then admin overview follow these phases.
@@ -174,8 +175,8 @@ Before a live cutover, secure a verified independent backup of both PostgreSQL a
 `data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tools require an explicit
 `ARCADIA_V1_DB_PATH`. Backups and recovery artwork are private and never committed.
 
-The existing CLI is `./bin/arcadia` and talks directly to PostgreSQL. Use the `arcadia-db` skill
-for live catalog reads/writes and the `arcadia-cataloging` skill for editorial classification.
+The public CLI is `./bin/nahhasio` and talks directly to PostgreSQL. Use the `nahhasio-db` skill
+for live catalog reads/writes and the `nahhasio-cataloging` skill for editorial classification.
 Preserve the current Better Auth identity/password ownership during Rust migration; verify
 hash compatibility with fixtures before cutover. Do not weaken existing production auth guards.
 The legacy test bypass requires both `NODE_ENV=test` and `ARCADIA_MOCK_AUTH=true`.

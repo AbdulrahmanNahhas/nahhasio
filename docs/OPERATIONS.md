@@ -8,7 +8,7 @@ configuration from the installation/update procedures still to be delivered.
 
 - Rust server: `DATABASE_URL`; `NAHHASIO_BIND` defaults to `127.0.0.1:23103`.
 - Native client: `NAHHASIO_SERVER_URL` defaults to the loopback development server.
-- Artwork: `ARCADIA_MEDIA_ROOT` (uploads) and `ARCADIA_PUBLIC_MEDIA_ROOT` (public media root).
+- Artwork: `NAHHASIO_MEDIA_ROOT` (uploads) and `NAHHASIO_PUBLIC_MEDIA_ROOT` (public media root), with legacy `ARCADIA_*` fallbacks.
   Default source-development roots are `data/media/uploads` and `data/media`.
 - Device video destination: `NAHHASIO_MEDIA_ROOT`, otherwise `~/Videos/nahhasio`.
 - Device job state: XDG state directory, normally `~/.local/state/nahhasio`.

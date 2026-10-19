@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# Direct entrypoint for the Arcadia CLI.
-#
-# Bypasses `devenv shell`, whose enterShell banner writes to stdout and corrupts --json output.
-# Only DATABASE_URL is required, so this works from any shell.
+# Compatibility entry point for existing scripts. The public command is nahhasio.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export DATABASE_URL="${DATABASE_URL:-postgresql://127.0.0.1:23102/arcadia}"
-exec "$root/node_modules/.bin/tsx" "$root/packages/cli/src/main.ts" "$@"
+exec "$root/bin/nahhasio" "$@"

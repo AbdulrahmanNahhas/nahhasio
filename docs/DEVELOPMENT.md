@@ -100,7 +100,7 @@ or public torrent-transfer reliability.
 ## Data and learning
 
 PostgreSQL is canonical. Preserve catalog IDs and user/media links. Startup does not migrate,
-seed, import or clean data. CLI is `./bin/arcadia`; apply the arcadia-db skill for catalog data
+seed, import or clean data. CLI is `./bin/nahhasio`; apply the nahhasio-db skill for catalog data
 operations. Mutation/migration verification uses restored disposable databases.
 
 Aqua owns selected Rust-learning exercises. Supply stable exercise IDs, interfaces, hints and
@@ -511,3 +511,14 @@ and uses its existing theme colors directly; it no longer requests redundant inl
 the vendored chart. These fixes preserve CSP and reviewed presentation. The native environment
 still reported an unavailable accessibility bus and a Vulkan surface warning; no physical-input,
 compositor smoothness, real-provider import, cross-address/restart or playback claim follows.
+
+### Agent CLI
+
+Run `./bin/nahhasio help --json`, `./bin/nahhasio work schema --json` and
+`./bin/nahhasio schema <table> --json` for command/input/live database discovery.
+Skills are `nahhasio-db` and `nahhasio-cataloging`. The old executable is a compatibility alias;
+internal `@arcadia/*` workspace dependencies and the PostgreSQL database name remain unchanged.
+List pages default to 50 with a maximum of 500; use `--offset` and `--count` for complete reads.
+`NAHHASIO_CLI_ACTOR`, `NAHHASIO_MEDIA_ROOT` and `NAHHASIO_PUBLIC_MEDIA_ROOT` are preferred;
+legacy environment variables remain fallbacks. This trusted local CLI does not provide remote
+user authorization. See `docs/SCHEMA-FOUNDATION.md` for deferred runtime work.

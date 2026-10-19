@@ -91,7 +91,7 @@ export function coerceValue(column: ColumnInfo, raw: string): SqlValue {
   if (column.type === "uuid" && !isUuid(raw.trim())) {
     throw new CliError(
       `Column "${column.name}" expects a UUID but received "${raw}"`,
-      'Pass a UUID, or use a reference the CLI can resolve (see "arcadia help refs").',
+      'Pass a UUID, or use a reference the CLI can resolve (see "nahhasio help refs").',
     );
   }
   return raw;

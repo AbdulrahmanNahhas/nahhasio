@@ -1,12 +1,12 @@
 ---
-name: arcadia-cataloging
-description: Editorial conventions for adding or revising a work in the Arcadia family media archive — how to score installments across the six criteria, how to set audience and the sexuality/behavioral/theology risk levels, and how to write the Arabic contentWarnings and analysisNotes fields. Use when adding a new title, rescoring, reclassifying, writing content warnings or theological notes, or reviewing whether an existing entry follows house style.
+name: nahhasio-cataloging
+description: Editorial conventions for adding or revising a work in the Nahhasio family media archive — how to score installments across the six criteria, how to set audience and the sexuality/behavioral/theology risk levels, and how to write the Arabic contentWarnings and analysisNotes fields. Use when adding a new title, rescoring, reclassifying, writing content warnings or theological notes, or reviewing whether an existing entry follows house style.
 ---
 
-# Cataloging a work in Arcadia
+# Cataloging a work in Nahhasio
 
 This skill is the editorial half. For the mechanics of actually writing to the database, use the
-**arcadia-db** skill (`./bin/arcadia work apply`).
+**nahhasio-db** skill (`./bin/nahhasio work apply`).
 
 Everything reader-facing in this catalog is **Arabic**: `summary`, `contentWarnings`,
 `analysisNotes`, and installment titles. English is used only for `canonicalTitle` and slugs.
@@ -33,9 +33,8 @@ Five fields on the title:
 | `behavioralRisk` | `none` · `low` · `medium` · `high`           |
 | `theologyRisk`   | `none` · `low` · `medium` · `high`           |
 
-**In practice `age` is `all` for all 172 titles** — `audience` plus the three risk
-dimensions carry the gating signal, and per-account content policies filter on those. Do not
-start setting `age` unless the user asks for it.
+Preserve the existing age classification unless Aqua requests a change. Inspect current
+classification statistics rather than relying on historical counts.
 
 `audience` is the overall maturity of the work. `general` is the default and the largest group;
 `adult` is rare and reserved for works like Arcane.
@@ -49,8 +48,8 @@ in the catalog is `none`.
 Verify against neighbours before committing to a level:
 
 ```bash
-./bin/arcadia stats classification
-./bin/arcadia title list --where "behavioral_risk=high" --columns canonical_title,audience --limit 15
+./bin/nahhasio stats classification
+./bin/nahhasio title list --where "behavioral_risk=high" --columns canonical_title,audience --limit 15
 ```
 
 ## Theology risk — the creedal (عقدي) judgement
@@ -99,7 +98,7 @@ The deciding axes are **centrality** (background detail vs. the premise) and **r
 
 ## analysisNotes — always written
 
-**Every title in the catalog has `analysisNotes`, including all 79 with `theologyRisk: none`.**
+**Every work should have `analysisNotes`, including works with `theologyRisk: none`.**
 Never leave it empty. It is the justification for the theology level — so it must name the
 creedal element specifically, not gesture at "fantasy content". Remember that magic by itself
 is not that element.
@@ -149,9 +148,8 @@ title's rating entirely — a partial score is worse than no score.
 
 ### What the numbers mean
 
-Across the 245 fully-scored installments the observed range is 3.0–10 (only `depth` reaches
-as low as 3.0; every other criterion bottoms out at 4.5). The median installment sits near 8,
-so the scale actually in use is roughly 4.5–10, not 0–10.
+Historical examples below are calibration references, not current catalog statistics.
+Use `./bin/nahhasio stats scores` for the current distribution; the legal scale remains 0–10.
 
 | Band    | Meaning                                       | Reference                                           |
 | ------- | --------------------------------------------- | --------------------------------------------------- |
@@ -162,7 +160,7 @@ so the scale actually in use is roughly 4.5–10, not 0–10.
 | 9.0–9.5 | Excellent.                                    | Monster 9.50 · FMAB 9.55 · Spider-Verse ATSV 9.58   |
 | 9.5+    | The very top; used sparingly.                 | Attack on Titan final 9.90 · Avatar Book 3 9.83     |
 
-A 10 on a single criterion is rare — 6 of the 245 scored installments have `story: 10`. Reserve it.
+A 10 on a single criterion is exceptional; calibrate against current comparable works.
 
 ### Reading each criterion
 
@@ -182,9 +180,9 @@ A 10 on a single criterion is rare — 6 of the 245 scored installments have `st
 Calibrate against neighbours before writing:
 
 ```bash
-./bin/arcadia stats top
-./bin/arcadia stats scores
-./bin/arcadia sql "select t.canonical_title, i.title, s.* from installment_scores s
+./bin/nahhasio stats top
+./bin/nahhasio stats scores
+./bin/nahhasio sql "select t.canonical_title, i.title, s.* from installment_scores s
   join installments i on i.id=s.installment_id join titles t on t.id=i.title_id
   where t.canonical_title ilike '%<similar work>%'"
 ```
@@ -207,18 +205,18 @@ Calibrate against neighbours before writing:
   > Castle in the Sky: `الأصل والقصة: قصة أصلية كتبها هاياو ميازاكي، مستلهمة من جزيرة "لابوتا" الطائرة في كتاب رحلات جاليفر لجوناثان سويفت.`, `المكان: عالم خيالي مستوحى من مناجم وقرى ويلز في بريطانيا إبان الثورة الصناعية.`, `أول فيلم يُنتج رسمياً تحت اسم "استوديو جيبلي".`
 
   Each fact is its own array entry (own row in `title_trivia`), in display order.
-  `./bin/arcadia work apply`'s usual `--mode` rule applies: `--mode replace` makes the document's
+  `./bin/nahhasio work apply`'s usual `--mode` rule applies: `--mode replace` makes the document's
   array the whole list (anything already there and not repeated is dropped); the default
   `--mode merge` only appends the given facts after whatever is already there — reorder or edit
   existing ones with `--mode replace` and the full list, not merge.
 - **`planets`** — the browse universes (`adventure-fantasy`, `emerald`, `bonbon`, `action`,
   `future-technology`, `comedy-fun`, `darkness-mystery`, `history-knowledge`,
-  `sports-challenge`). Most titles get exactly one. `./bin/arcadia planet list`.
-- **`genres` / `tones` / `tags`** — reuse existing vocabulary. Run `./bin/arcadia genre list`
+  `sports-challenge`). A work has at most one planet (the schema enforces this). `./bin/nahhasio planet list`.
+- **`genres` / `tones` / `tags`** — reuse existing vocabulary. Run `./bin/nahhasio genre list`
   first; only pass `--create-missing` when you have confirmed nothing suitable exists, or you
   will fragment the taxonomy.
-- **`credits`** — roles come from a fixed list enforced by a database constraint
-  (`./bin/arcadia role list`). Person roles and organization roles are distinct; an animation
+- **`credits`** — roles are reusable vocabulary, including custom roles; entity-kind compatibility is enforced
+  (`./bin/nahhasio role list`). Person roles and organization roles are distinct; an animation
   studio must be an organization.
 - **`workflowStatus`** — new titles start `draft`. Promote to `published` once summary,
   classification, both prose fields, and at least one scored installment are in place.
@@ -245,7 +243,7 @@ Calibrate against neighbours before writing:
     title.
   - `tvdbId`, `anilistId`, `malId` are used sparingly and only where they add real value — leave
     them null rather than guessing.
-  - Verify what you set actually landed: `./bin/arcadia sql "select canonical_title, tmdb_id,
+  - Verify what you set actually landed: `./bin/nahhasio sql "select canonical_title, tmdb_id,
     imdb_id from titles where canonical_title='<name>'"` for the title, or join `installments` for
     a movie's own id. A stale admin-editor tab can still show old values after a write — reload
     it rather than assuming the write failed.
@@ -253,18 +251,18 @@ Calibrate against neighbours before writing:
 ## Adding a new work, end to end
 
 1. **Check it is not already there** — including under another name:
-   `./bin/arcadia title list --search "<name>"`
+   `./bin/nahhasio title list --search "<name>"`
 2. **Research** the work: premise, seasons/films, studio, staff, year, and specifically the
    content and creedal issues you will need to describe.
-3. **Start from the template**: `./bin/arcadia work template --json > new.json`
+3. **Start from the template**: `./bin/nahhasio work template --json > new.json`
 4. **Fill it in**: Arabic `summary`, `contentWarnings`, `analysisNotes`; the classification; one
    installment per season/film with its own six scores and episode list.
 5. **Check vocabulary and credits resolve** — `genre list`, `role list`, `studio list` — so you
    do not need `--create-missing`.
-6. **Rehearse**: `./bin/arcadia work apply new.json --dry-run`
-7. **Commit**: `./bin/arcadia work apply new.json`
-8. **Add images**: `./bin/arcadia media ingest <file|url> --role poster --title "<name>"`
-9. **Verify**: `./bin/arcadia work export "<name>" --json`, then `./bin/arcadia stats coverage`
+6. **Rehearse**: `./bin/nahhasio work apply new.json --dry-run`
+7. **Commit**: `./bin/nahhasio work apply new.json`
+8. **Add images**: `./bin/nahhasio media ingest <file|url> --role poster --title "<name>"`
+9. **Verify**: `./bin/nahhasio work export "<name>" --json`, then `./bin/nahhasio stats coverage`
    to confirm you have not left a gap.
 10. **Publish** when complete: `--set workflow_status=published`.
 
@@ -279,3 +277,28 @@ Calibrate against neighbours before writing:
 - The title has a planet, a release year, and a poster.
 - External ids are on the right level: title-level for a series, installment-level only for a
   movie (`title.tmdbId`/`title.imdbId` must be null there, even for a single film).
+
+## Dubbing, sources, trailers and episode artwork
+
+- Whole-work `playbackPolicy` is `torrents-allowed` or `files-only`. Do not infer files-only
+  from Arabic dubbing alone; use Aqua's declared source policy. No episode/part overrides.
+- `dubLanguages` records confirmed available dubs, using language codes such as `ar`, `en`,
+  `es`; `dubbingNotes` carries useful Arabic details. Do not invent edition/version systems.
+- Credit dubbing organizations with the `dubbing_studio` role and `languages: ["ar"]` (or the
+  actual languages). Reuse compatible entities/roles; custom roles are allowed. All credits
+  remain whole-work credits; do not create installment credits to imply unsupported detail.
+- `planets` contains zero or one existing planet. Preserve current membership unless requested.
+- `trailers` stores YouTube video IDs, not downloaded videos. Preserve IDs/order/primary choice
+  when editing existing entries. Verify provider links rather than guessing them.
+- Episode `media.still` must refer to registered server-owned artwork assigned to that episode.
+  Ingest with `--role still --episode <UUID>` before referencing its path. TMDB still imports
+  preserve source evidence; respect manually chosen images. Video screenshots are still pending.
+- Nahhasio owns metadata, artwork and tracking. Jellyfin is only the stored-media backend;
+  do not import its catalog as authority or synchronize its watched state.
+- Torrent streaming runs on the client; server downloads require an explicit request. Saved
+  work metadata/artwork, server videos and device video downloads are separate things.
+
+Read `docs/SCHEMA-FOUNDATION.md` for implementation status. Historical examples in this skill
+are editorial references, not guaranteed current counts. Use current exports/statistics to
+calibrate. Aqua's personal “classic” means a work watched in Arabic, regardless of release age;
+do not assign that label from age or popularity alone.

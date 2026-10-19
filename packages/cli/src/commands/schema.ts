@@ -1,5 +1,5 @@
 /**
- * `arcadia schema` — machine-readable schema discovery.
+ * `nahhasio schema` — machine-readable schema discovery.
  *
  * Exists so an agent never has to open `packages/database/src/schema.ts` (1400+ lines) just to
  * learn a column name or the members of an enum.
@@ -58,6 +58,7 @@ export async function schemaCommand(
       type: column.isArray ? `${column.type}[]` : column.type,
       null: column.nullable ? "yes" : "NOT NULL",
       default: column.hasDefault ? "yes" : "",
+      generated: column.isGenerated,
       pk: table.primaryKey.includes(column.name) ? "pk" : "",
       references: foreignKey ? `${foreignKey.referencesTable}.${foreignKey.referencesColumn}` : "",
       values: column.enumValues ? column.enumValues.join(" | ") : "",
