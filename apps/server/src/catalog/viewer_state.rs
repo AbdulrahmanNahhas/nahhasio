@@ -27,6 +27,10 @@ pub(super) fn routes() -> Router<PgPool> {
             axum::routing::patch(sync_tracking),
         )
         .route("/api/v1/works/{id}/activity", get(activity))
+        .route(
+            "/api/v1/works/{id}/comments",
+            axum::routing::post(change_comment).layer(DefaultBodyLimit::max(8192)),
+        )
         .layer(DefaultBodyLimit::max(2048))
         .layer(middleware::from_fn(no_store))
 }
@@ -432,9 +436,110 @@ async fn activity(
     Ok(Json(result))
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum CommentAction {
+    Create,
+    Update,
+    Delete,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CommentInput {
+    action: CommentAction,
+    comment_id: Option<String>,
+    parent_id: Option<String>,
+    #[serde(default)]
+    body: String,
+    #[serde(default)]
+    contains_spoilers: bool,
+}
+impl CommentInput {
+    fn validate(&self) -> ApiResult<()> {
+        if let Some(id) = &self.comment_id {
+            validate_id(id)?;
+        }
+        if let Some(id) = &self.parent_id {
+            validate_id(id)?;
+        }
+        let writing = !matches!(self.action, CommentAction::Delete);
+        if writing && (self.body.trim().is_empty() || self.body.chars().count() > 1200) {
+            return Err(invalid("Comment must contain 1 to 1200 characters"));
+        }
+        if matches!(self.action, CommentAction::Create) != self.comment_id.is_none()
+            || (!matches!(self.action, CommentAction::Create) && self.parent_id.is_some())
+        {
+            return Err(invalid("Invalid comment target"));
+        }
+        Ok(())
+    }
+}
+async fn change_comment(
+    State(pool): State<PgPool>,
+    Extension(user): Extension<User>,
+    Path(id): Path<String>,
+    input: Result<Json<CommentInput>, JsonRejection>,
+) -> ApiResult<Json<Value>> {
+    validate_id(&id)?;
+    let input: CommentInput = payload(input)?;
+    input.validate()?;
+    let mut tx = begin(&pool, true).await?;
+    let actor = account(&mut tx, &user, true).await?;
+    let visible=sqlx::query_scalar::<_,String>("select id::text from titles where id=$1::uuid and (($2::boolean) or (not is_private and workflow_status='published')) for share")
+        .bind(&id).bind(matches!(user.role.as_str(),"owner"|"admin")).fetch_optional(&mut *tx).await?;
+    if visible.is_none() {
+        return Err(not_found());
+    }
+    let result=match input.action {
+        CommentAction::Create => {
+            if let Some(parent)=&input.parent_id {
+                let found=sqlx::query_scalar::<_,String>("select c.id::text from title_comments c join accounts a on a.id=c.account_id where c.id=$1::uuid and c.title_id=$2::uuid and c.moderation_status='published' and a.status='active' and a.is_discoverable for share of c")
+                    .bind(parent).bind(&id).fetch_optional(&mut *tx).await?;
+                if found.is_none() {return Err(not_found());}
+            }
+            sqlx::query_scalar::<_,String>("insert into title_comments(account_id,title_id,parent_id,body,contains_spoilers) values($1::uuid,$2::uuid,$3::uuid,$4,$5) returning id::text")
+                .bind(&actor).bind(&id).bind(&input.parent_id).bind(input.body.trim()).bind(input.contains_spoilers).fetch_one(&mut *tx).await?
+        },
+        CommentAction::Update => {
+            sqlx::query_scalar::<_,String>("update title_comments set body=$4,contains_spoilers=$5,updated_at=now() where id=$1::uuid and title_id=$2::uuid and account_id=$3::uuid and moderation_status='published' returning id::text")
+                .bind(&input.comment_id).bind(&id).bind(&actor).bind(input.body.trim()).bind(input.contains_spoilers).fetch_optional(&mut *tx).await?.ok_or_else(not_found)?
+        },
+        CommentAction::Delete => {
+            // Hide only this author's comment; other family members' replies are preserved.
+            sqlx::query_scalar::<_,String>("update title_comments set moderation_status='hidden',updated_at=now() where id=$1::uuid and title_id=$2::uuid and account_id=$3::uuid and moderation_status='published' returning id::text")
+                .bind(&input.comment_id).bind(&id).bind(&actor).fetch_optional(&mut *tx).await?.ok_or_else(not_found)?
+        },
+    };
+    tx.commit().await?;
+    Ok(Json(
+        serde_json::json!({"id":result,"deleted":matches!(input.action,CommentAction::Delete)}),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn comment_requests_keep_identity_and_targets_server_owned() {
+        for value in [
+            serde_json::json!({"action":"create","body":"  "}),
+            serde_json::json!({"action":"update","body":"نص"}),
+            serde_json::json!({"action":"create","body":"نص","commentId":"00112233-4455-6677-8899-aabbccddeeff"}),
+        ] {
+            let input: CommentInput = serde_json::from_value(value).unwrap();
+            assert!(input.validate().is_err());
+        }
+        assert!(serde_json::from_value::<CommentInput>(serde_json::json!({"action":"create","body":"نص","accountId":"00112233-4455-6677-8899-aabbccddeeff"})).is_err());
+        let input: CommentInput =
+            serde_json::from_value(serde_json::json!({"action":"create","body":"ع".repeat(1200)}))
+                .unwrap();
+        assert!(input.validate().is_ok());
+        let input: CommentInput =
+            serde_json::from_value(serde_json::json!({"action":"create","body":"ع".repeat(1201)}))
+                .unwrap();
+        assert!(input.validate().is_err());
+    }
+
     use serde_json::json;
     const ID: &str = "00112233-4455-6677-8899-aabbccddeeff";
 

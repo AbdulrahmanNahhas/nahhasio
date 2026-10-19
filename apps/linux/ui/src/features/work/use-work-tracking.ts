@@ -6,10 +6,11 @@ import type { WatchedSelection } from "../../lib/bridge";
 
 export const workStateKey = (id: string) => ["viewer", "work", id] as const;
 
-export function useWorkTracking(id: string) {
+export function useWorkTracking(id: string, enabled = true) {
   const client = useQueryClient();
   const state = useQuery({
     queryKey: workStateKey(id),
+    enabled,
     networkMode: "always",
     queryFn: ({ signal }) => gateway.workState(id, signal),
   });

@@ -2203,6 +2203,53 @@
           }
         }
       }
+    },
+    "/api/v1/works/{id}/comments": {
+      "post": {
+        "operationId": "changeWorkComment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentMutation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Own comment changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid comment"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Comment or work unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12108,6 +12155,47 @@
             "items": {
               "$ref": "#/components/schemas/RecommendationReason"
             }
+          }
+        }
+      },
+      "CommentMutation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["create", "update", "delete"]
+          },
+          "commentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1200
+          },
+          "containsSpoilers": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CommentChanged": {
+        "type": "object",
+        "required": ["id", "deleted"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deleted": {
+            "type": "boolean"
           }
         }
       }

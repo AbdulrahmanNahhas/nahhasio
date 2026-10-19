@@ -28,6 +28,8 @@ import {
   WorkPageSchema,
   WorkViewerStateSchema,
   WorkActivityPageSchema,
+  CommentMutationSchema,
+  CommentChangedSchema,
   FavoriteRequestSchema,
   WatchedRequestSchema,
 } from "@nahhasio/api-contract";
@@ -237,6 +239,10 @@ export const gateway = {
       throw new Error("اختر الجزء الذي تنتمي إليه الحلقة.");
     return WorkViewerStateSchema.parse(await call("setWatched", { workId, ...input }));
   },
+  workComment: async (id: string, data: z.infer<typeof CommentMutationSchema>) =>
+    CommentChangedSchema.parse(
+      await call("workComment", { id, data: CommentMutationSchema.parse(data) }),
+    ),
   workActivity: async (id: string, page = 1, signal?: AbortSignal) => {
     z.number().int().min(1).max(100000).parse(page);
     return WorkActivityPageSchema.parse(await call("workActivity", { id, page }, signal));

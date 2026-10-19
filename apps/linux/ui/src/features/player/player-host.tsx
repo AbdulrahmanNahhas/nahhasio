@@ -1,6 +1,6 @@
 import { DirectionProvider } from "@base-ui/react/direction-provider";
+import { cn } from "cn";
 import {
-  ArrowRight,
   AudioLines,
   Captions,
   Cast,
@@ -53,6 +53,8 @@ type Panel = "source" | "audio" | "subtitle" | "settings" | "episodes" | "downlo
 
 type PlayerHostProps = {
   player: PlayerController;
+  embedded?: boolean;
+  hideEpisodes?: boolean;
   episodes?: readonly PlayerEpisode[];
   installmentTitle?: string;
   onSelectEpisode?: (episode: PlayerEpisode) => void;
@@ -83,6 +85,8 @@ export function PlayerHost(props: PlayerHostProps) {
 
 function ActivePlayer({
   player,
+  embedded = false,
+  hideEpisodes = false,
   snapshot: s,
   episodes,
   installmentTitle,
@@ -92,7 +96,7 @@ function ActivePlayer({
 }: PlayerHostProps & { snapshot: PlayerSnapshot }) {
   const hasSource = s.sourceKind !== null;
   const [panel, setPanel] = useState<Panel | null>(
-    !hasSource && (sourcePanel || sourceTarget) ? "source" : null,
+    !embedded && !hasSource && (sourcePanel || sourceTarget) ? "source" : null,
   );
 
   const [idle, setIdle] = useState(false);
@@ -156,6 +160,7 @@ function ActivePlayer({
   // Consume Escape before a popup closes, so one key never also exits the player.
   useEffect(() => {
     function keyboard(event: KeyboardEvent) {
+      if (embedded && !s.fullscreen && !root.current?.contains(document.activeElement)) return;
       if (
         event.defaultPrevented ||
         event.repeat ||
@@ -199,18 +204,13 @@ function ActivePlayer({
     return () => window.removeEventListener("keydown", keyboard, true);
   });
   const hidden = idle && !keepVisible;
-  const currentEpisode = episodes?.find((episode) => episode.current);
-  const subtitle =
-    currentEpisode?.detail ??
-    (s.sourceKind === "local"
-      ? "ملف من جهازك"
-      : hasSource
-        ? "تشغيل الفيديو"
-        : "معاينة المشغّل · لم يبدأ التشغيل");
   return (
     <section
       ref={root}
-      className="player-host fixed inset-0 text-foreground bg-transparent outline-none font-sans [&[data-controls-hidden=true]]:cursor-none [&[data-controls-hidden=true]_.player-top]:opacity-0 [&[data-controls-hidden=true]_.player-top]:pointer-events-none [&[data-controls-hidden=true]_.player-bottom]:opacity-0 [&[data-controls-hidden=true]_.player-bottom]:pointer-events-none"
+      className={cn(
+        embedded && !s.fullscreen ? "relative size-full" : "fixed inset-0",
+        "player-host text-foreground bg-transparent outline-none font-sans [&[data-controls-hidden=true]]:cursor-none [&[data-controls-hidden=true]_.player-bottom]:opacity-0 [&[data-controls-hidden=true]_.player-bottom]:pointer-events-none",
+      )}
       dir="rtl"
       tabIndex={-1}
       aria-label="مشغّل الفيديو"
@@ -225,28 +225,6 @@ function ActivePlayer({
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
     >
-      <header className="player-top absolute inset-x-0 px-7 transition-opacity duration-180 top-0 flex items-start justify-between gap-4 pt-4 pb-10 [background:linear-gradient(to_bottom,_var(--rail),_transparent)] max-[800px]:px-4 motion-reduce:animate-none motion-reduce:transition-none">
-        <div className="player-title-group flex min-w-0 items-center gap-[0.65rem]">
-          <PlayerControl aria-label="إغلاق المشغّل" title="العودة إلى المكتبة" onClick={close}>
-            <ArrowRight data-icon="inline-start" />
-          </PlayerControl>
-          <div className="player-title min-w-0 pt-[0.1rem] [&_h1]:m-0 [&_h1]:overflow-hidden [&_h1]:line-clamp-2 [&_h1]:text-base [&_h1]:leading-[1.6] [&_h1]:font-semibold [&_h1]:wrap-anywhere [&_p]:mt-[0.15rem] [&_p]:mx-0 [&_p]:mb-0 [&_p]:text-xs [&_p]:text-muted-foreground">
-            <h1>{s.title || "فيديو محلي"}</h1>
-            <p>{subtitle}</p>
-          </div>
-        </div>
-        <PlayerControl
-          aria-label={s.fullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
-          title={s.fullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
-          onClick={fullscreen}
-        >
-          {s.fullscreen ? (
-            <Minimize data-icon="inline-start" />
-          ) : (
-            <Maximize data-icon="inline-start" />
-          )}
-        </PlayerControl>
-      </header>
       {!hasSource && !sources && (
         <div className="player-message absolute top-24 inset-x-6 max-w-128 mx-auto">
           <Alert>
@@ -364,34 +342,47 @@ function ActivePlayer({
             className="player-tools flex items-center gap-[0.35rem] flex-wrap max-[800px]:w-full max-[800px]:justify-center max-[480px]:gap-[0.1rem]"
             aria-label="خيارات التشغيل"
           >
-            <PlayerPopover
-              title="الحلقات"
-              icon={<ListVideo data-icon="inline-start" />}
-              open={panel === "episodes"}
-              onOpenChange={(open) => changePanel("episodes", open)}
-              anchor={footer}
-              wide
+            <PlayerControl
+              aria-label={s.fullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
+              title={s.fullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
+              onClick={fullscreen}
             >
-              {episodes?.length ? (
-                <EpisodePanel
-                  episodes={episodes}
-                  installmentTitle={installmentTitle}
-                  onSelectEpisode={(episode) => {
-                    if (!episode.current) onSelectEpisode?.(episode);
-                    setPanel(null);
-                  }}
-                />
+              {s.fullscreen ? (
+                <Minimize data-icon="inline-start" />
               ) : (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>هذا الملف غير مرتبط بحلقات</EmptyTitle>
-                    <EmptyDescription>
-                      قائمة الحلقات تظهر عند تشغيل عمل مرتبط بالمكتبة.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <Maximize data-icon="inline-start" />
               )}
-            </PlayerPopover>
+            </PlayerControl>
+            {!hideEpisodes && (
+              <PlayerPopover
+                title="الحلقات"
+                icon={<ListVideo data-icon="inline-start" />}
+                open={panel === "episodes"}
+                onOpenChange={(open) => changePanel("episodes", open)}
+                anchor={footer}
+                wide
+              >
+                {episodes?.length ? (
+                  <EpisodePanel
+                    episodes={episodes}
+                    installmentTitle={installmentTitle}
+                    onSelectEpisode={(episode) => {
+                      if (!episode.current) onSelectEpisode?.(episode);
+                      setPanel(null);
+                    }}
+                  />
+                ) : (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>هذا الملف غير مرتبط بحلقات</EmptyTitle>
+                      <EmptyDescription>
+                        قائمة الحلقات تظهر عند تشغيل عمل مرتبط بالمكتبة.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )}
+              </PlayerPopover>
+            )}
             <DirectionProvider direction="ltr">
               <Drawer
                 swipeDirection="right"
@@ -411,7 +402,7 @@ function ActivePlayer({
                 </DrawerTrigger>
                 <DrawerContent
                   finalFocus={sourceTrigger}
-                  className="player-source-drawer font-sans w-[calc(100vw_-_1rem)] max-w-lg sm:max-w-lg [--drawer-inset:--spacing(2)] [--drawer-bleed-background:transparent] rounded-3xl border shadow-xl"
+                  className="player-source-drawer font-sans w-[calc(100vw_-_1rem)] max-w-lg sm:max-w-lg [--drawer-inset:--spacing(2)] [--drawer-bleed-background:transparent] rounded-none border shadow-xl"
                   dir="ltr"
                 >
                   <DirectionProvider direction="rtl">

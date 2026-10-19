@@ -66,6 +66,16 @@ export const PlayerRequestSchema = z.discriminatedUnion("command", [
     command: z.literal("player.preview"),
     payload: z.strictObject({ title: z.string().trim().min(1).max(1024) }),
   }),
+  z.object({
+    command: z.literal("player.viewport"),
+    payload: z.strictObject({
+      ...session,
+      x: finite.min(-32768).max(32768),
+      y: finite.min(-32768).max(32768),
+      width: finite.int().min(1).max(16384),
+      height: finite.int().min(1).max(16384),
+    }),
+  }),
   z.object({ command: z.literal("player.close"), payload: z.strictObject(session) }),
   z.object({
     command: z.literal("player.pause"),

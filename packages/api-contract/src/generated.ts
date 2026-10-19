@@ -2742,6 +2742,21 @@ export const CatalogEpisodeImagesResultSchema = z.array(
 );
 export type CatalogEpisodeImagesResult = z.infer<typeof CatalogEpisodeImagesResultSchema>;
 
+export const CommentMutationSchema = z.strictObject({
+  action: z.enum(["create", "update", "delete"]),
+  commentId: z.string().uuid().nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
+  body: z.string().max(1200).optional(),
+  containsSpoilers: z.boolean().optional(),
+});
+export type CommentMutation = z.infer<typeof CommentMutationSchema>;
+
+export const CommentChangedSchema = z.strictObject({
+  id: z.string().uuid(),
+  deleted: z.boolean(),
+});
+export type CommentChanged = z.infer<typeof CommentChangedSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2754,6 +2769,7 @@ export class ApiClient {
     method: string,
     body?:
       | CatalogEditorCall
+      | CommentMutation
       | DeviceRegistration
       | FavoriteRequest
       | LoginRequest
@@ -3133,5 +3149,18 @@ export class ApiClient {
   async registerDevice(body: DeviceRegistration, signal?: AbortSignal): Promise<DeviceRegistered> {
     const response = await this.request("/api/v1/me/device", "POST", body, signal);
     return DeviceRegisteredSchema.parse(await response.json());
+  }
+  async changeWorkComment(
+    id: string,
+    body: CommentMutation,
+    signal?: AbortSignal,
+  ): Promise<CommentChanged> {
+    const response = await this.request(
+      `/api/v1/works/${encodeURIComponent(id)}/comments`,
+      "POST",
+      body,
+      signal,
+    );
+    return CommentChangedSchema.parse(await response.json());
   }
 }

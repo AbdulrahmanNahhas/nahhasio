@@ -5,6 +5,8 @@ import {
 } from "@nahhasio/api-contract";
 import type {
   Classification,
+  CommentMutation,
+  CommentChanged,
   RecommendationPage,
   Episode,
   Installment,
@@ -21,8 +23,33 @@ import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import type { z } from "zod";
 
+import type { PlayerSnapshot } from "../src/features/player/bridge";
 import { offlineStatusSchema } from "../src/features/player/saved-works-data";
 
+const inactivePlayer: PlayerSnapshot = {
+  active: false,
+  sessionId: null,
+  title: "",
+  sourceKind: null,
+  paused: true,
+  position: 0,
+  duration: 0,
+  seekable: false,
+  volume: 75,
+  muted: false,
+  speed: 1,
+  buffering: false,
+  ended: false,
+  fullscreen: false,
+  audioDelay: 0,
+  subtitleDelay: 0,
+  subtitleSize: 55,
+  subtitlePosition: 100,
+  tracks: [],
+  hwdec: null,
+  videoCodec: null,
+  error: null,
+};
 const id = (number: number) => `10000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
 const workId = id(1);
 const workTitle = "مغامرات المكتبة";
@@ -309,6 +336,11 @@ type BridgeRequest = {
     isPlayed?: boolean;
     isFavorite?: boolean;
     page?: number;
+    title?: string;
+    sessionId?: string;
+    data?: CommentMutation;
+    width?: number;
+    height?: number;
   };
 };
 type WorkPageFixture = {
@@ -329,7 +361,10 @@ async function installBridge(page: Page) {
   // Fail closed: these journeys must never fall through to a real catalog API.
   await page.route("**/api/**", (route) => route.abort());
   await page.addInitScript(
-    ({ fixtureWork, fixtureState, fixtureActivity }) => {
+    ({ fixtureWork, fixtureState, fixtureActivity, fixturePlayer }) => {
+      let playback = fixturePlayer;
+      let playbackGeneration = 0;
+
       const fixture: WorkPageFixture = {
         requests: [],
         state: structuredClone(fixtureState),
@@ -367,6 +402,10 @@ async function installBridge(page: Page) {
               fixture.requests.push(request);
               const success = (
                 result:
+                  | PlayerSnapshot
+                  | CommentChanged
+                  | { found: false }
+                  | []
                   | Session
                   | WorkDetail
                   | WorkViewerState
@@ -390,6 +429,88 @@ async function installBridge(page: Page) {
                   }),
                 );
               switch (request.command) {
+                case "player.status":
+                case "player.viewport":
+                  success(playback);
+                  return;
+                case "player.preview":
+                  playback = {
+                    ...fixturePlayer,
+                    active: true,
+                    sessionId: `watch-fixture-${++playbackGeneration}`,
+                    title: request.payload.title ?? "اختبار",
+                  };
+                  success(playback);
+                  return;
+                case "player.pickVideo":
+                  playback = {
+                    ...fixturePlayer,
+                    active: true,
+                    sessionId: `local-fixture-${++playbackGeneration}`,
+                    title: "Frieren.mkv",
+                    sourceKind: "local",
+                    duration: 1440,
+                    seekable: true,
+                  };
+                  success(playback);
+                  return;
+                case "player.close":
+                  playback = { ...fixturePlayer };
+                  success(playback);
+                  return;
+                case "media.local":
+                  success({ found: false });
+                  return;
+                case "media.saved":
+                  success([]);
+                  return;
+                case "media.search":
+                  playback = {
+                    ...playback,
+                    workId: fixtureWork.id,
+                    installmentId: request.payload.installmentId ?? fixtureWork.installments[0]?.id,
+                    episodeId:
+                      request.payload.episodeId ?? fixtureWork.installments[0]?.episodes[0]?.id,
+                  };
+                  failure("تعذّر الوصول إلى Torrentio. أعد المحاولة لاحقًا.");
+                  return;
+                case "workComment": {
+                  const data = request.payload.data;
+                  if (!data) {
+                    failure("Missing comment");
+                    return;
+                  }
+                  const commentId = data.commentId ?? crypto.randomUUID();
+                  if (data.action === "create")
+                    fixtureActivity.unshift({
+                      id: commentId,
+                      kind: "comment",
+                      body: data.body ?? "",
+                      containsSpoilers: data.containsSpoilers ?? false,
+                      rating: null,
+                      parentId: data.parentId ?? null,
+                      author: {
+                        id: "00000000-0000-4000-8000-000000000001",
+                        displayName: "العائلة",
+                        avatarKey: "default",
+                      },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  if (data.action === "update") {
+                    const item = fixtureActivity.find((entry) => entry.id === commentId);
+                    if (item) {
+                      item.body = data.body ?? "";
+                      item.containsSpoilers = data.containsSpoilers ?? false;
+                    }
+                  }
+                  if (data.action === "delete") {
+                    const index = fixtureActivity.findIndex((item) => item.id === commentId);
+                    if (index >= 0) fixtureActivity.splice(index, 1);
+                  }
+                  success({ id: commentId, deleted: data.action === "delete" });
+                  return;
+                }
                 case "session":
                   success({
                     user: {
@@ -521,7 +642,12 @@ async function installBridge(page: Page) {
         },
       };
     },
-    { fixtureWork: work, fixtureState: initialState, fixtureActivity: activity },
+    {
+      fixtureWork: work,
+      fixtureState: initialState,
+      fixtureActivity: activity,
+      fixturePlayer: inactivePlayer,
+    },
   );
 }
 async function openWork(page: Page, query = "") {
@@ -1404,3 +1530,102 @@ for (const width of [520, 1440]) {
     });
   });
 }
+
+for (const width of [520, 1440]) {
+  test(`watch page ${width}: source failure keeps episodes and discussion usable`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await openWork(page);
+    await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+    const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
+    await expect(watch).toBeVisible();
+    const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
+    await expect(sources).toContainText("تعذّر الوصول إلى Torrentio");
+    await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
+    const composer = watch.getByLabel("اكتب تعليقًا للعائلة", { exact: true });
+    await composer.fill("تعليق الاختبار بدون تشغيل");
+    await page.keyboard.press("Space");
+    await expect(watch).toBeVisible();
+    await watch.getByRole("button", { name: "إرسال التعليق", exact: true }).click();
+    await expect(
+      watch.getByRole("article").getByText("تعليق الاختبار بدون تشغيل", { exact: true }),
+    ).toBeVisible();
+    const comment = watch
+      .getByRole("article")
+      .filter({ has: page.getByText("تعليق الاختبار بدون تشغيل", { exact: true }) });
+    await comment.getByRole("button", { name: "تعديل تعليقك", exact: true }).click();
+    await watch.getByLabel("تعديل التعليق", { exact: true }).fill("تعليق معدّل");
+    await watch.getByRole("button", { name: "حفظ التعديل", exact: true }).click();
+    await expect(watch.getByText("تعليق معدّل", { exact: true })).toBeVisible();
+    await expectNoOverflow(page);
+    await expect
+      .poll(async () => (await requests(page, "player.viewport")).length)
+      .toBeGreaterThan(0);
+    await watch.getByRole("button", { name: "العودة", exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `/tmp/nahhasio-watch-${width}.png`, fullPage: true });
+    await expect(
+      watch.getByLabel("حلقات العمل", { exact: true }).getByRole("button").first(),
+    ).toBeVisible();
+  });
+}
+
+for (const width of [520, 1440]) {
+  test(`watch page movie ${width}: no episode sidebar and installment choices below video`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await openWork(page);
+    await page.evaluate(
+      ({ workId: selectedWorkId, movieId: selectedMovieId }) => {
+        window.dispatchEvent(
+          new CustomEvent("nahhasio:watch-request", {
+            detail: {
+              workId: selectedWorkId,
+              installmentId: selectedMovieId,
+              title: "فيلم المكتبة",
+              intent: "watch",
+            },
+          }),
+        );
+      },
+      { workId, movieId },
+    );
+    const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
+    await expect(watch).toBeVisible();
+    await expect(watch.getByLabel("مصادر الفيديو", { exact: true })).toContainText(
+      "تعذّر الوصول إلى Torrentio",
+    );
+    await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
+    await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toHaveCount(0);
+    await expect(watch.getByRole("button", { name: "التالية", exact: true })).toHaveCount(0);
+    const selector = watch.getByRole("combobox", { name: "الإصدار", exact: true });
+    await selector.scrollIntoViewIfNeeded();
+    await expect(selector).toContainText("فيلم المكتبة");
+    await selector.click();
+    await expect(page.getByRole("option", { name: "الموسم الأول", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expectNoOverflow(page);
+    await page.screenshot({ path: `/tmp/nahhasio-watch-movie-${width}.png`, fullPage: true });
+  });
+}
+
+test("watch page local file: no sidebar, one filename and fullscreen in bottom controls", async ({
+  page,
+}) => {
+  await openWork(page);
+  await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+  const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
+  await watch.getByRole("button", { name: "فتح فيديو من الجهاز", exact: true }).click();
+  await expect(watch.getByRole("heading", { name: "Frieren.mkv", exact: true })).toBeVisible();
+  await expect(watch.getByText("Frieren.mkv", { exact: true })).toHaveCount(1);
+  await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
+  await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toHaveCount(0);
+  const player = watch.getByRole("region", { name: "مشغّل الفيديو", exact: true });
+  await expect(player.locator("header")).toHaveCount(0);
+  await expect(player.getByRole("button", { name: "الحلقات", exact: true })).toHaveCount(0);
+  await expect(
+    player.locator("footer").getByRole("button", { name: "ملء الشاشة", exact: true }),
+  ).toBeVisible();
+  await expectNoOverflow(page);
+});

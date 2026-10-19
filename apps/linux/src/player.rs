@@ -23,36 +23,64 @@ struct Session {
     target: Option<ResolvedTarget>,
     pending: bool,
     error: Option<String>,
-    initial_fullscreen: bool,
 }
 
 pub struct Player {
     window: glib::WeakRef<adw::ApplicationWindow>,
-    overlay: glib::WeakRef<gtk::Overlay>,
+    surface: glib::WeakRef<gtk::Fixed>,
+    viewport: Cell<Option<(f64, f64, i32, i32)>>,
+    video_fullscreen: Cell<bool>,
+    restore_fullscreen: Cell<bool>,
     session: RefCell<Option<Session>>,
     generation: Cell<u64>,
     dialog: Cell<bool>,
 }
 
 impl Player {
-    pub fn new(window: &adw::ApplicationWindow, overlay: &gtk::Overlay) -> Rc<Self> {
+    pub fn new(window: &adw::ApplicationWindow, surface: &gtk::Fixed) -> Rc<Self> {
         Rc::new(Self {
             window: window.downgrade(),
-            overlay: overlay.downgrade(),
+            surface: surface.downgrade(),
+            viewport: Cell::new(None),
+            video_fullscreen: Cell::new(false),
+            restore_fullscreen: Cell::new(false),
             session: RefCell::new(None),
             generation: Cell::new(0),
             dialog: Cell::new(false),
         })
     }
 
+    fn clear_surface(&self) {
+        if let Some(surface) = self.surface.upgrade() {
+            while let Some(child) = surface.first_child() {
+                surface.remove(&child);
+            }
+        }
+    }
+    fn attach_surface(&self, area: &gtk::GLArea) -> Result<(), Error> {
+        let surface = self.surface.upgrade().ok_or_else(interrupted)?;
+        self.clear_surface();
+        let (x, y, width, height) = self.viewport.get().unwrap_or((
+            0.0,
+            0.0,
+            surface.width().max(1),
+            surface.height().max(1),
+        ));
+        area.set_size_request(width, height);
+        surface.put(area, x, y);
+        Ok(())
+    }
+    fn set_viewport(&self, x: f64, y: f64, width: i32, height: i32) {
+        self.viewport.set(Some((x, y, width, height)));
+        if let Some(surface) = self.surface.upgrade()
+            && let Some(child) = surface.first_child()
+        {
+            child.set_size_request(width, height);
+            surface.move_(&child, x, y);
+        }
+    }
     pub fn open_local(&self, path: &Path) -> Result<(), Error> {
         let player = NativePlayer::local(path).map_err(playback_error)?;
-        let overlay = self.overlay.upgrade().ok_or_else(interrupted)?;
-        let window = self.window.upgrade().ok_or_else(interrupted)?;
-        let initial_fullscreen = self.session.borrow().as_ref().map_or_else(
-            || window.is_fullscreen(),
-            |session| session.initial_fullscreen,
-        );
         let generation = self
             .generation
             .get()
@@ -60,7 +88,7 @@ impl Player {
             .ok_or_else(interrupted)?;
         self.generation.set(generation);
         self.cancel_stream();
-        overlay.set_child(Some(player.area()));
+        self.attach_surface(player.area())?;
         *self.session.borrow_mut() = Some(Session {
             id: format!("media-{generation}"),
             title: path.file_name().map_or_else(
@@ -72,7 +100,6 @@ impl Player {
             target: None,
             pending: false,
             error: None,
-            initial_fullscreen,
         });
         Ok(())
     }
@@ -85,10 +112,7 @@ impl Player {
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        let fullscreen = self
-            .window
-            .upgrade()
-            .is_some_and(|window| window.is_fullscreen());
+        let fullscreen = self.video_fullscreen.get();
         let session = self.session.borrow();
         let Some(session) = session.as_ref() else {
             return Snapshot {
@@ -185,12 +209,14 @@ impl Player {
         }
         match command {
             Command::Status {} => {}
+            Command::Viewport {
+                x,
+                y,
+                width,
+                height,
+                ..
+            } => self.set_viewport(x, y, width, height),
             Command::Preview { title } => {
-                let window = self.window.upgrade().ok_or_else(interrupted)?;
-                let initial_fullscreen = self.session.borrow().as_ref().map_or_else(
-                    || window.is_fullscreen(),
-                    |session| session.initial_fullscreen,
-                );
                 let generation = self
                     .generation
                     .get()
@@ -198,9 +224,7 @@ impl Player {
                     .ok_or_else(interrupted)?;
                 self.generation.set(generation);
                 self.cancel_stream();
-                if let Some(overlay) = self.overlay.upgrade() {
-                    overlay.set_child(gtk::Widget::NONE);
-                }
+                self.clear_surface();
                 *self.session.borrow_mut() = Some(Session {
                     id: format!("media-{generation}"),
                     title,
@@ -209,7 +233,6 @@ impl Player {
                     target: None,
                     pending: false,
                     error: None,
-                    initial_fullscreen,
                 });
             }
             Command::PickVideo {} => {
@@ -253,9 +276,13 @@ impl Player {
             }
             Command::Fullscreen { enabled } => {
                 let window = self.window.upgrade().ok_or_else(interrupted)?;
-                if enabled {
+                if enabled && !self.video_fullscreen.replace(true) {
+                    self.restore_fullscreen.set(window.is_fullscreen());
                     window.fullscreen();
-                } else {
+                } else if !enabled
+                    && self.video_fullscreen.replace(false)
+                    && !self.restore_fullscreen.get()
+                {
                     window.unfullscreen();
                 }
             }
@@ -266,14 +293,18 @@ impl Player {
     pub fn close(&self) {
         self.generation.set(self.generation.get().saturating_add(1));
         self.cancel_stream();
-        if let Some(overlay) = self.overlay.upgrade() {
-            overlay.set_child(gtk::Widget::NONE);
-        }
-        if let Some(session) = self.session.borrow_mut().take()
-            && !session.initial_fullscreen
+        self.clear_surface();
+        self.session.borrow_mut().take();
+        if self.video_fullscreen.replace(false)
+            && !self.restore_fullscreen.get()
             && let Some(window) = self.window.upgrade()
         {
             window.unfullscreen();
+        }
+    }
+    pub fn window_fullscreen_changed(&self, fullscreen: bool) {
+        if !fullscreen {
+            self.video_fullscreen.set(false);
         }
     }
 
@@ -322,8 +353,7 @@ impl Player {
         self.require_session(id)?;
         let player = NativePlayer::loopback(gateway.endpoint()).map_err(playback_error)?;
         self.cancel_stream();
-        let overlay = self.overlay.upgrade().ok_or_else(interrupted)?;
-        overlay.set_child(Some(player.area()));
+        self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
             session.gateway = Some(gateway);
@@ -338,8 +368,7 @@ impl Player {
         self.require_session(id)?;
         let player = NativePlayer::local(path).map_err(playback_error)?;
         self.cancel_stream();
-        let overlay = self.overlay.upgrade().ok_or_else(interrupted)?;
-        overlay.set_child(Some(player.area()));
+        self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
             session.gateway = None;
@@ -459,4 +488,71 @@ fn stale() -> Error {
 }
 fn interrupted() -> Error {
     Error::new("playback", "The player window is unavailable")
+}
+
+#[cfg(test)]
+mod viewport_tests {
+    use super::*;
+    fn settle() {
+        let context = glib::MainContext::default();
+        for _ in 0..60 {
+            while context.pending() {
+                context.iteration(false);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(3));
+        }
+    }
+    #[test]
+    #[ignore = "Requires a real GTK display; run explicitly with one test thread"]
+    fn bounded_video_surface_does_not_lock_window_size() {
+        adw::init().expect("GTK display is required");
+        let app = adw::Application::builder()
+            .application_id("io.nahhasio.ViewportTest")
+            .flags(gio::ApplicationFlags::NON_UNIQUE)
+            .build();
+        app.register(None::<&gio::Cancellable>).unwrap();
+        let window = adw::ApplicationWindow::builder()
+            .application(&app)
+            .default_width(900)
+            .default_height(700)
+            .build();
+        let overlay = gtk::Overlay::new();
+        let surface = gtk::Fixed::new();
+        surface.set_hexpand(true);
+        surface.set_vexpand(true);
+        overlay.add_overlay(&surface);
+        overlay.set_measure_overlay(&surface, false);
+        overlay.set_clip_overlay(&surface, true);
+        let page = gtk::DrawingArea::new();
+        page.set_hexpand(true);
+        page.set_vexpand(true);
+        overlay.add_overlay(&page);
+        overlay.set_measure_overlay(&page, true);
+        window.set_content(Some(&overlay));
+        window.present();
+        settle();
+        let player = Player::new(&window, &surface);
+        let area = gtk::GLArea::new();
+        player.set_viewport(40.0, 50.0, 700, 394);
+        player.attach_surface(&area).unwrap();
+        settle();
+        assert_eq!((area.width(), area.height()), (700, 394));
+        let bounds = area.compute_bounds(&surface).unwrap();
+        assert_eq!(
+            (bounds.x().round() as i32, bounds.y().round() as i32),
+            (40, 50)
+        );
+        window.set_default_size(600, 500);
+        settle();
+        assert!(
+            window.measure(gtk::Orientation::Horizontal, -1).0 <= 600,
+            "Native video must not impose its previous width as a window minimum"
+        );
+        player.set_viewport(20.0, -30.0, 500, 281);
+        settle();
+        assert_eq!((area.width(), area.height()), (500, 281));
+        player.clear_surface();
+        window.close();
+        settle();
+    }
 }

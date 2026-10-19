@@ -46,6 +46,25 @@ struct LoginResponse {
     expires_at: String,
 }
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CommentCommand {
+    id: String,
+    data: CommentData,
+}
+#[derive(serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CommentData {
+    action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    comment_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    contains_spoilers: Option<bool>,
+}
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Resource {
     id: String,
@@ -839,6 +858,37 @@ impl ServerSession {
                         "تغيّرت حالة المشاهدة على الخادم. اختر نسخة الجهاز أو الخادم.",
                     ));
                 }
+                self.json(response).await
+            }
+            "workComment" => {
+                let input: CommentCommand = parse(request.payload)?;
+                if !valid_id(&input.id)
+                    || !matches!(input.data.action.as_str(), "create" | "update" | "delete")
+                    || input
+                        .data
+                        .comment_id
+                        .as_ref()
+                        .is_some_and(|id| !valid_id(id))
+                    || input
+                        .data
+                        .parent_id
+                        .as_ref()
+                        .is_some_and(|id| !valid_id(id))
+                    || input
+                        .data
+                        .body
+                        .as_ref()
+                        .is_some_and(|body| body.chars().count() > 1200)
+                {
+                    return Err(Error::new("bad_request", "Invalid comment"));
+                }
+                let response = self
+                    .authorized(Method::POST, &format!("api/v1/works/{}/comments", input.id))
+                    .await?
+                    .json(&input.data)
+                    .send()
+                    .await
+                    .map_err(network)?;
                 self.json(response).await
             }
             "workActivity" => {

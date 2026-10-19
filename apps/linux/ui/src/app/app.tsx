@@ -4,19 +4,17 @@ import { z } from "zod";
 
 import { Login } from "../features/auth/login";
 import { Library } from "../features/library/library";
-import { PlayerHost, usePlayerSnapshot } from "../features/player";
+import { usePlayerSnapshot } from "../features/player";
 import { DownloadDialog } from "../features/player/download-dialog";
-import type { PlayerEpisode } from "../features/player/episode-panel";
 import { OfflineLibrary } from "../features/player/offline-library";
 import { openWatch } from "../features/player/playback";
-import { savedDownloadOptions } from "../features/player/saved-downloads";
 import { offlineStatusOptions, syncSavedWorks } from "../features/player/saved-works-data";
+import { WatchPage } from "../features/player/watch-page";
 import {
   WatchTargetSchema,
   watchRequestEvent,
   type WatchTarget,
 } from "../features/player/watch-request";
-import { episodeNumberLabel, pickArtwork } from "../features/work/format";
 import { gateway } from "../lib/bridge";
 import { nativeCall } from "../lib/bridge";
 export function App() {
@@ -25,6 +23,7 @@ export function App() {
   const playerCommandAsync = player.commandAsync;
   const requestGeneration = useRef(0);
   const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null);
+  const [sourceReady, setSourceReady] = useState(false);
   const [download, setDownload] = useState<{ target: WatchTarget; sessionId: string } | null>(null);
   const playing = Boolean(player.snapshot?.active);
   const offline = useQuery(offlineStatusOptions());
@@ -136,10 +135,14 @@ export function App() {
         return;
       }
       const generation = ++requestGeneration.current;
-      setWatchTarget(null);
+      setWatchTarget(parsed.data);
+      setSourceReady(false);
       void openWatch(parsed.data, { commandAsync: playerCommandAsync }, client)
         .finally(() => {
-          if (generation === requestGeneration.current) setWatchTarget(parsed.data);
+          if (generation === requestGeneration.current) {
+            setWatchTarget(parsed.data);
+            setSourceReady(true);
+          }
         })
         .catch(() => {
           // Source errors live in the source query/native snapshot, not fake playback state.
@@ -194,85 +197,48 @@ export function App() {
     refetchInterval: 60000,
   });
 
-  const saved = useQuery({
-    ...savedDownloadOptions(),
-    enabled: (Boolean(session.data) || offline.data?.offline) && playing,
-    refetchInterval: 5000,
-  });
+  const playingWorkId = player.snapshot?.sourceKind
+    ? player.snapshot.workId
+    : (watchTarget?.workId ?? player.snapshot?.workId);
+  const currentTarget: WatchTarget | null =
+    player.snapshot?.sourceKind && player.snapshot.workId
+      ? {
+          workId: player.snapshot.workId,
+          installmentId: player.snapshot.installmentId ?? undefined,
+          episodeId: player.snapshot.episodeId ?? undefined,
+          title: player.snapshot.title,
+          intent: "watch",
+        }
+      : player.snapshot?.sourceKind === "local"
+        ? null
+        : watchTarget;
   const watchWork = useQuery({
     networkMode: "always",
-    queryKey: ["work", player.snapshot?.workId ?? watchTarget?.workId],
-    queryFn: ({ signal }) => gateway.work(player.snapshot?.workId ?? watchTarget!.workId, signal),
-    enabled:
-      playing &&
-      (player.snapshot?.sourceKind !== "local" || Boolean(player.snapshot.workId)) &&
-      Boolean(player.snapshot?.workId ?? watchTarget),
+    queryKey: ["work", playingWorkId],
+    queryFn: ({ signal }) => gateway.work(playingWorkId!, signal),
+    enabled: playing && Boolean(playingWorkId),
   });
-  const selectedInstallment =
-    watchWork.data?.installments.find(
-      (installment) =>
-        installment.id === (player.snapshot?.installmentId ?? watchTarget?.installmentId),
-    ) ?? watchWork.data?.installments[0];
-  const episodes: PlayerEpisode[] | undefined =
-    player.snapshot?.sourceKind === "local" && !player.snapshot.workId
-      ? undefined
-      : selectedInstallment?.episodes
-          .toSorted((a, b) => a.position - b.position)
-          .map((episode) => {
-            const number = episodeNumberLabel(episode.number);
-            return {
-              id: episode.id,
-              number,
-              title: episode.title || `الحلقة ${number}`,
-              detail: `الحلقة ${number}`,
-              image:
-                episode.still ??
-                pickArtwork(episode.artwork, "still") ??
-                pickArtwork(episode.artwork, "banner") ??
-                pickArtwork(selectedInstallment.artwork, "banner") ??
-                pickArtwork(watchWork.data?.artwork ?? [], "banner"),
-              summary: episode.summary,
-              runtimeMinutes: episode.runtimeMinutes,
-              downloaded:
-                saved.data?.some(
-                  (file) =>
-                    file.available &&
-                    file.target.workId === watchWork.data?.id &&
-                    file.target.episodeId === episode.id,
-                ) ?? false,
-              disabled: episode.releaseState === "upcoming",
-              disabledReason:
-                episode.releaseState === "upcoming" ? "قادم" : "موعد الإصدار غير معروف",
-              current: episode.id === (player.snapshot?.episodeId ?? watchTarget?.episodeId),
-            };
-          });
   if (playing && (session.data || offline.data?.offline))
     return (
-      <PlayerHost
+      <WatchPage
         player={player}
-        episodes={episodes}
-        installmentTitle={selectedInstallment?.title}
-        sourceTarget={player.snapshot?.sourceKind === "local" ? null : watchTarget}
-        onSelectEpisode={(episode) => {
-          if (!watchTarget || !selectedInstallment) return;
-          const selectedEpisode = selectedInstallment.episodes.find(
-            (item) => item.id === episode.id,
-          );
-          if (!selectedEpisode || selectedEpisode.releaseState === "upcoming") return;
-          const number = episodeNumberLabel(selectedEpisode.number);
-          const title = `الحلقة ${number}${selectedEpisode.title ? ` · ${selectedEpisode.title}` : ""}`;
-          const target = {
-            ...watchTarget,
-            intent: "watch" as const,
-            installmentId: selectedInstallment.id,
-            episodeId: episode.id,
-            title: `${watchWork.data?.titleAr || watchWork.data?.canonicalTitle} · ${title}`,
-          };
+        sourceReady={sourceReady}
+        work={playingWorkId ? watchWork.data : undefined}
+        target={currentTarget}
+        accountId={session.data?.user.accountId}
+        offline={offline.data?.offline ?? false}
+        error={watchWork.error}
+        onRetry={() => void watchWork.refetch()}
+        onWatch={(target) => {
           const generation = ++requestGeneration.current;
-          setWatchTarget(null);
+          setWatchTarget(target);
+          setSourceReady(false);
           void openWatch(target, { commandAsync: playerCommandAsync }, client)
             .finally(() => {
-              if (generation === requestGeneration.current) setWatchTarget(target);
+              if (generation === requestGeneration.current) {
+                setWatchTarget(target);
+                setSourceReady(true);
+              }
             })
             .catch(() => {});
         }}

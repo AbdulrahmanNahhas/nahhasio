@@ -63,6 +63,8 @@ export function TextField({
   );
 }
 export function SelectField<T extends string>({
+  alignItemWithTrigger = true,
+  hideLabel = false,
   label,
   value,
   items,
@@ -70,13 +72,17 @@ export function SelectField<T extends string>({
 }: {
   label: string;
   value: T;
+  alignItemWithTrigger?: boolean;
+  hideLabel?: boolean;
   items: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
   const id = useId();
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
+        {label}
+      </FieldLabel>
       <Select
         items={items}
         value={value}
@@ -88,7 +94,7 @@ export function SelectField<T extends string>({
         <SelectTrigger id={id} aria-label={label} className="w-full">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent alignItemWithTrigger={alignItemWithTrigger}>
           <SelectGroup>
             {items.map((item) => (
               <SelectItem key={item.value} value={item.value}>

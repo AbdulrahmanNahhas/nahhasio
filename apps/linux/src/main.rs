@@ -505,6 +505,12 @@ fn build_window(
     let overlay = gtk::Overlay::new();
     overlay.set_hexpand(true);
     overlay.set_vexpand(true);
+    let video_surface = gtk::Fixed::new();
+    video_surface.set_hexpand(true);
+    video_surface.set_vexpand(true);
+    overlay.add_overlay(&video_surface);
+    overlay.set_measure_overlay(&video_surface, false);
+    overlay.set_clip_overlay(&video_surface, true);
     overlay.add_overlay(&view);
     overlay.set_measure_overlay(&view, true);
     content.append(&overlay);
@@ -574,7 +580,13 @@ fn build_window(
         .content(&content)
         .build();
     window.set_size_request(520, 480);
-    let player = player::Player::new(&window, &overlay);
+    let player = player::Player::new(&window, &video_surface);
+    let fullscreen_player = std::rc::Rc::downgrade(&player);
+    window.connect_fullscreened_notify(move |window| {
+        if let Some(player) = fullscreen_player.upgrade() {
+            player.window_fullscreen_changed(window.is_fullscreen());
+        }
+    });
     *player_handle.borrow_mut() = Some(player.clone());
     if !std::env::args().any(|arg| arg == "--torrent-smoke")
         && let Some(path) = &config.playback_file

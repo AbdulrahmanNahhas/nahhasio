@@ -78,6 +78,8 @@ export function sourceOptions(sessionId: string, target: WatchTarget) {
       ),
     staleTime: 60000,
     retry: false,
+    retryOnMount: false,
+    refetchOnWindowFocus: false,
     networkMode: "always",
   });
 }

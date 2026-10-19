@@ -17,6 +17,14 @@ pub enum Command {
     PickVideo {},
     #[serde(rename = "player.preview")]
     Preview { title: String },
+    #[serde(rename = "player.viewport")]
+    Viewport {
+        session_id: String,
+        x: f64,
+        y: f64,
+        width: i32,
+        height: i32,
+    },
     #[serde(rename = "player.close")]
     Close { session_id: String },
     #[serde(rename = "player.pause")]
@@ -74,6 +82,18 @@ impl Command {
             return Err(invalid());
         }
         let valid = match &command {
+            Self::Viewport {
+                x,
+                y,
+                width,
+                height,
+                ..
+            } => {
+                within(*x, -32768.0, 32768.0)
+                    && within(*y, -32768.0, 32768.0)
+                    && (1..=16384).contains(width)
+                    && (1..=16384).contains(height)
+            }
             Self::Preview { title } => !title.trim().is_empty() && title.chars().count() <= 1024,
             Self::Seek {
                 seconds, relative, ..
@@ -103,7 +123,8 @@ impl Command {
             | Self::PickVideo {}
             | Self::Preview { .. }
             | Self::Fullscreen { .. } => None,
-            Self::Close { session_id }
+            Self::Viewport { session_id, .. }
+            | Self::Close { session_id }
             | Self::Pause { session_id, .. }
             | Self::Seek { session_id, .. }
             | Self::Volume { session_id, .. }
@@ -226,6 +247,24 @@ mod tests {
         })
     }
 
+    #[test]
+    fn viewport_is_bounded_and_session_scoped() {
+        assert!(
+            parse(
+                "player.viewport",
+                json!({"sessionId":"media-1","x":10,"y":-80,"width":800,"height":450})
+            )
+            .is_ok()
+        );
+        for payload in [
+            json!({"x":0,"y":0,"width":800,"height":450}),
+            json!({"sessionId":"media-1","x":0,"y":0,"width":0,"height":450}),
+            json!({"sessionId":"media-1","x":0,"y":0,"width":20000,"height":450}),
+            json!({"sessionId":"media-1","x":0,"y":-40000,"width":800,"height":450}),
+        ] {
+            assert!(parse("player.viewport", payload).is_err());
+        }
+    }
     #[test]
     fn no_paths_urls_or_generic_commands_cross_the_player_bridge() {
         assert!(parse("player.status", json!({})).is_ok());

@@ -341,7 +341,7 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
   await page.goto(`/tests/player/?scenario=${scenario}`);
   if (scenario === "download") await expect(page.getByRole("dialog")).toBeVisible();
   else if (snapshot.active)
-    await expect(page.locator(".player-title h1")).toHaveText(initial.title);
+    await expect(page.getByRole("region", { name: "مشغّل الفيديو", exact: true })).toBeVisible();
   else await expect(page.getByRole("button", { name: "Watch test work" })).toBeVisible();
 }
 
@@ -391,7 +391,7 @@ test("preview panels never invent playback progress or tracks", async ({ page })
     hwdec: null,
     videoCodec: null,
   });
-  await expect(page.getByText("معاينة المشغّل · لم يبدأ التشغيل")).toBeVisible();
+  await expect(page.getByText("اختر مصدر الفيديو", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "تشغيل", exact: true })).toBeDisabled();
   await expect(page.getByRole("slider", { name: "موضع التشغيل" })).toBeDisabled();
   await page.keyboard.press("Space");
@@ -422,7 +422,7 @@ test("honest source, episode, subtitle and codec panels", async ({ page }) => {
     ]);
   await page.getByRole("button", { name: "إضافة ملف ترجمة" }).click();
   await expect.poll(async () => (await calls(page, "player.pickSubtitle")).length).toBe(1);
-  await expect(page.getByRole("heading", { name: initial.title })).toBeVisible();
+  await expect(page.getByRole("region", { name: "مشغّل الفيديو", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "إعدادات التشغيل" }).click();
   await expect(page.getByText("h264")).toBeVisible();
@@ -527,7 +527,7 @@ test("closed sessions cannot be reopened by late snapshots; fresh picker can ope
   await page.waitForTimeout(1300);
   await expect(page.locator(".player-host")).toHaveCount(0);
   await page.getByRole("button", { name: "Open test video" }).click();
-  await expect(page.getByRole("heading", { name: initial.title })).toBeVisible();
+  await expect(page.getByRole("region", { name: "مشغّل الفيديو", exact: true })).toBeVisible();
 });
 
 test("scrubbing retains draft over remote polling and focused slider consumes arrows", async ({
@@ -562,7 +562,7 @@ test("auto hide protects menus, focus, pause, ended and errors at 480px RTL", as
   await page.waitForTimeout(3200);
   await expect(page.locator(".player-host")).toHaveAttribute("data-controls-hidden", "true");
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "إغلاق المشغّل" })).toBeFocused();
+  await expect(page.getByRole("slider", { name: "موضع التشغيل", exact: true })).toBeFocused();
   await expect(page.locator(".player-host")).toHaveAttribute("data-controls-hidden", "false");
   await page.mouse.move(200, 300);
   await page.getByRole("button", { name: "الصوت", exact: true }).click();
@@ -621,7 +621,7 @@ test("wide episode shelf shows artwork, exact labels and RTL keyboard navigation
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mock(page, initial, "episodes");
-  await expect(page.locator(".player-title p")).toHaveText("الحلقة 5");
+  await expect(page.locator(".player-host header")).toHaveCount(0);
   await page.getByRole("button", { name: "الحلقات", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "الحلقات", exact: true });
   await expect(panel).toBeVisible();
@@ -734,12 +734,12 @@ test("grouped subtitles search and customization use actual tracks and bounded c
   await expect(page.getByRole("button", { name: "الترجمة", exact: true })).toBeFocused();
 });
 
-test("speed presets, compact RTL header and torrent keep-download remain functional", async ({
+test("speed presets, bottom fullscreen control and torrent keep-download remain functional", async ({
   page,
 }) => {
   await mock(page, { ...initial, sourceKind: "torrent" });
   await expect(
-    page.locator(".player-top").getByRole("button", { name: "ملء الشاشة", exact: true }),
+    page.locator(".player-bottom").getByRole("button", { name: "ملء الشاشة", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator(".player-tools").getByRole("button", { name: "البث إلى جهاز آخر غير متاح" }),
