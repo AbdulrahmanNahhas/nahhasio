@@ -233,6 +233,21 @@ mod tests {
             "scope=upcoming&month=1&day=1",
         ] {
             let response = super::super::routes(unavailable_database())
+                // The real router installs this after authentication. Supply it here so
+                // malformed query handling, rather than a missing extension, is exercised.
+                .layer(Extension(User {
+                    id: "fixture-release-user".into(),
+                    name: "Fixture".into(),
+                    email: "fixture@example.invalid".into(),
+                    role: "member".into(),
+                    account_id: "00000000-0000-4000-8000-000000000001".into(),
+                    kind: "family".into(),
+                    avatar_key: "orbit".into(),
+                    bio: String::new(),
+                    is_admin: false,
+                    updated_at: String::new(),
+                    unrestricted: false,
+                }))
                 .oneshot(
                     Request::get(format!("/api/v1/releases?{query}"))
                         .body(Body::empty())
@@ -253,7 +268,8 @@ mod tests {
                 .count(),
             2
         );
-        assert!(!sql.contains("release_year"));
+        // Work-card metadata may display a release year; scheduling must use real dates.
+        assert!(!ENTRIES.contains("release_year"));
         assert!(sql.contains("limit $6::bigint offset"));
         assert!(sql.contains(
             "release_date asc nulls last,sort_title,installment_position,episode_position,kind,id"
@@ -265,6 +281,6 @@ mod tests {
         assert!(sql.contains("and ($7::integer is null or extract(day from release_date)=$7)"));
         assert!(sql.contains("select release_date,count(*) count from filtered where release_date is not null group by release_date"));
         assert!(sql.find("day_counts as (").unwrap() < sql.find("page_entries as (").unwrap());
-        assert!(sql.contains("order by release_date) from day_counts),'[]'::jsonb)"));
+        assert!(sql.contains("order by d.release_date) from day_counts d),'[]'::jsonb)"));
     }
 }

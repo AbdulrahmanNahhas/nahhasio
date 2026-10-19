@@ -1,5 +1,12 @@
 [workspace]
-members = ["apps/server", "apps/linux", "crates/native-player", "crates/media-transfer"]
+members = [
+  "apps/server",
+  "apps/linux",
+  "crates/native-player",
+  "crates/media-transfer",
+  "crates/catalog-core",
+  "crates/cli",
+]
 resolver = "3"
 
 [workspace.package]

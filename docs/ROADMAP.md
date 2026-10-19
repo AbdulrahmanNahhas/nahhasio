@@ -245,7 +245,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-06-10** Protect unsaved navigation, including changes to selected IDs/search on the same route.
 - [ ] **NH-06-11** Connect before/after review to atomic authorized saves and recoverable revision records.
 - [ ] **NH-06-12** Clean up superseded core editor API/native methods and duplicate contracts.
-- [ ] **NH-06-13** DECISION: package/support the private Node worker or replace it with Rust before release.
+- [ ] **NH-06-13** Replace the private Node worker with shared Rust services before release (chosen 2026-10-19).
 - [ ] **NH-06-14** Ensure provider/library operations used by editors work without the website process.
 
 ### 07. Other catalog administration
@@ -407,7 +407,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 ### 17. Fedora Atomic deployment
 
 - [ ] **NH-17-01** Build a versioned server container with every required runtime dependency.
-- [ ] **NH-17-02** Package the Node reconciliation dependency explicitly if it remains.
+- [ ] **NH-17-02** Prove the installed server/editor/migration runtime works with Node absent.
 - [ ] **NH-17-03** Provide Quadlet/systemd units with the chosen rootless/service ownership.
 - [ ] **NH-17-04** Configure PostgreSQL networking, persistent volumes and readiness ordering.
 - [ ] **NH-17-05** Configure artwork/media/subtitle/staging mounts with Fedora permissions/SELinux labels.
@@ -425,7 +425,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-18-01** Publish immutable versioned container tags/digests to the chosen registry.
 - [ ] **NH-18-02** Define stable release channels and supported client/API compatibility.
 - [ ] **NH-18-03** Provide a release/migration manifest and current/update version reporting.
-- [ ] **NH-18-04** Implement the chosen notification/confirmation/scheduled update policy.
+- [ ] **NH-18-04** Implement verified automatic server application updates, gated by compatibility, backup/recovery and explicit schema maintenance.
 - [ ] **NH-18-05** Run preflight checks and backups before schema-affecting updates.
 - [ ] **NH-18-06** Run schema migrations explicitly with a maintenance lock and recoverable logs.
 - [ ] **NH-18-07** Keep safe schema compatibility with the previous supported client/server where required.
@@ -448,7 +448,7 @@ The checkboxes below retain supported-platform/runtime, CI and publication accep
 - [ ] **NH-19-06** Connect a packaged client to a separately running server through the chooser.
 - [ ] **NH-19-07** Build reproducible release artifacts in GitHub CI.
 - [ ] **NH-19-08** Publish versioned AppImages, checksums/signatures and release notes.
-- [ ] **NH-19-09** Embed AppImage update metadata and implement the chosen update UX.
+- [ ] **NH-19-09** Implement verified automatic AppImage updates with atomic replacement, failure recovery and persistent-state preservation.
 - [ ] **NH-19-10** Keep user connections/settings/downloads across desktop updates.
 - [ ] **NH-19-11** Handle unsupported server versions and failed/partial client updates.
 - [ ] **NH-19-12** Validate Wayland/XWayland behavior on the chosen supported systems.

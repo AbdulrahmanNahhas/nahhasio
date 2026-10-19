@@ -20,6 +20,7 @@ use tokio::{
 };
 #[derive(Clone)]
 struct WorkerState {
+    pool: PgPool,
     root: PathBuf,
     secret: Arc<String>,
     workers: Arc<Semaphore>,
@@ -39,12 +40,13 @@ pub(super) fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/admin/editor", post(call))
         .route_layer(middleware::from_fn_with_state(
-            pool,
+            pool.clone(),
             crate::auth::require_admin,
         ))
         .layer(DefaultBodyLimit::max(16 * 1024 * 1024))
         .layer(middleware::from_fn(super::no_store))
         .with_state(WorkerState {
+            pool,
             root,
             secret: Arc::new(hex::encode(secret)),
             workers: Arc::new(Semaphore::new(2)),
@@ -56,6 +58,9 @@ async fn call(
     headers: HeaderMap,
     Json(input): Json<Call>,
 ) -> Result<Response, super::Error> {
+    if nahhasio_catalog::planets::Request::handles(&input.operation) {
+        return planet(&state.pool, &headers, input).await;
+    }
     if ![
         "planetDetail",
         "planetSave",
@@ -182,4 +187,81 @@ async fn call(
         Json(json!({"message":result["message"].as_str().unwrap_or("تعذّر تنفيذ العملية.")})),
     )
         .into_response())
+}
+
+async fn planet(pool: &PgPool, headers: &HeaderMap, input: Call) -> Result<Response, super::Error> {
+    use nahhasio_catalog::{Error, planets};
+    let request: planets::Request =
+        serde_json::from_value(json!({"operation":input.operation,"data":input.data}))
+            .map_err(|_| super::Error(StatusCode::BAD_REQUEST, "طلب كوكب غير صالح."))?;
+    let mut transaction = pool.begin().await.map_err(|_| {
+        super::Error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "تعذّر الوصول إلى قاعدة البيانات.",
+        )
+    })?;
+    let actor = if request.writes() {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE, READ WRITE")
+            .execute(&mut *transaction)
+            .await
+            .map_err(|_| {
+                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر بدء عملية التحرير.")
+            })?;
+        Some(
+            crate::auth::lock_admin_session(&mut transaction, headers)
+                .await
+                .map_err(|_| {
+                    super::Error(
+                        StatusCode::FORBIDDEN,
+                        "انتهت الجلسة أو تغيّرت صلاحيات الإدارة.",
+                    )
+                })?,
+        )
+    } else {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            .execute(&mut *transaction)
+            .await
+            .map_err(|_| {
+                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر بدء عملية القراءة.")
+            })?;
+        None
+    };
+    match planets::execute(&mut transaction, request, actor.as_deref()).await {
+        Ok(result) => {
+            transaction.commit().await.map_err(|_| {
+                super::Error(
+                    StatusCode::CONFLICT,
+                    "تعذّر تأكيد الحفظ. أعد تحميل البيانات قبل المحاولة.",
+                )
+            })?;
+            Ok(Json(json!({"result":result})).into_response())
+        }
+        Err(error) => {
+            transaction.rollback().await.map_err(|_| {
+                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر إغلاق عملية التحرير.")
+            })?;
+            let (status, message) = match error {
+                Error::Invalid(message) => (StatusCode::BAD_REQUEST, message),
+                Error::Conflict(message) => (StatusCode::CONFLICT, message),
+                Error::Database(error)
+                    if error
+                        .as_database_error()
+                        .and_then(|error| error.code())
+                        .is_some_and(|code| {
+                            matches!(code.as_ref(), "23503" | "23505" | "40001" | "40P01")
+                        }) =>
+                {
+                    (
+                        StatusCode::CONFLICT,
+                        "تغيّرت البيانات أو ترتبط بسجلات أخرى. أعد تحميلها قبل المحاولة.".into(),
+                    )
+                }
+                _ => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "تعذّر تنفيذ عملية الكوكب.".into(),
+                ),
+            };
+            Ok((status, Json(json!({"message":message}))).into_response())
+        }
+    }
 }

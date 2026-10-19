@@ -8,6 +8,10 @@ description: Editorial conventions for adding or revising a work in the Nahhasio
 This skill is the editorial half. For the mechanics of actually writing to the database, use the
 **nahhasio-db** skill (`./bin/nahhasio work apply`).
 
+The compiled Rust CLI is currently partial: whole-work apply/export, media commands and advanced
+editorial statistics still use `./bin/nahhasio`. Follow `nahhasio-db` for the runtime distinction;
+the Rust Planets API port does not change this editorial workflow.
+
 Everything reader-facing in this catalog is **Arabic**: `summary`, `contentWarnings`,
 `analysisNotes`, and installment titles. English is used only for `canonicalTitle` and slugs.
 
@@ -41,8 +45,8 @@ classification statistics rather than relying on historical counts.
 
 **`sexualityRisk`** — romance, intimacy, fanservice, nudity, explicit relationships.
 **`behavioralRisk`** — violence, gore, cruelty, crime, drugs, suicide, bullying, foul language;
-anything a child might imitate or be disturbed by. This is the busiest dimension: only one title
-in the catalog is `none`.
+anything a child might imitate or be disturbed by. Verify the current distribution with
+`stats classification`; historical counts are not editorial rules.
 **`theologyRisk`** — see below. This is the dimension that most distinguishes this archive.
 
 Verify against neighbours before committing to a level:
@@ -226,12 +230,13 @@ Calibrate against neighbours before writing:
   Only its animated/live-action half is a real column (`titles.format`); the movie/series half is
   derived from whether the title has any `season` installment, so it always agrees with the
   structure — set `format` and the installment structure, never `kind` directly.
-- **External ids (`tmdbId`, `imdbId`, `tvdbId`, `anilistId`, `malId`)** — both the title and each
-  installment carry all five columns, but which level to fill in depends on the movie/series half
-  of `kind`:
+- **External ids (`tmdbId`, `imdbId`, `anilistId`, `malId`)** — TVDB fields were retired; do not
+  add `tvdbId` to documents. The supported identifiers exist on titles and installments; choose
+  their owner according to the movie/series structure and the actual provider entry:
   - **Series titles (`animated-series`/`live-action-series`)** — set them **on the title**. The
-    title is the one TMDB/AniList/MAL/TVDB entry; season installments never carry their own ids
-    by design (a season has no separate entry on those sites — only the show does).
+    title owns the show-level identity. An installment may have its own AniList/MAL or other
+    provider entry when that provider identifies the specific season/special separately. Verify
+    the actual owner; never copy an umbrella/show identifier onto every installment.
   - **Movie titles (`animated-movie`/`live-action-movie`)** — set them **on the installment only**,
     never the title, even when the title has just one film. A title can hold several films (a
     franchise like Toy Story), each with its own distinct TMDB/IMDb id, so there is no single id
@@ -241,7 +246,7 @@ Calibrate against neighbours before writing:
     extra coverage — the CLI does not stop you from setting it, so this is on you to avoid.
   - AniList/MyAnimeList only catalog animation — never set `anilistId`/`malId` on a live-action
     title.
-  - `tvdbId`, `anilistId`, `malId` are used sparingly and only where they add real value — leave
+  - `anilistId` and `malId` are used only where they add real value — leave
     them null rather than guessing.
   - Verify what you set actually landed: `./bin/nahhasio sql "select canonical_title, tmdb_id,
     imdb_id from titles where canonical_title='<name>'"` for the title, or join `installments` for
@@ -275,8 +280,9 @@ Calibrate against neighbours before writing:
 - Scores sit sensibly against comparable works — check `stats top` if anything is above 9.
 - Genres, tones, and credits reuse existing terms.
 - The title has a planet, a release year, and a poster.
-- External ids are on the right level: title-level for a series, installment-level only for a
-  movie (`title.tmdbId`/`title.imdbId` must be null there, even for a single film).
+- External ids identify the correct owner: show-level entries on the title, separately identified
+  seasons/specials on their installment, movie entries on the movie installment only
+  (`title.tmdbId`/`title.imdbId` must be null for movie titles, even for a single film).
 
 ## Dubbing, sources, trailers and episode artwork
 
@@ -293,8 +299,8 @@ Calibrate against neighbours before writing:
 - Episode `media.still` must refer to registered server-owned artwork assigned to that episode.
   Ingest with `--role still --episode <UUID>` before referencing its path. TMDB still imports
   preserve source evidence; respect manually chosen images. Video screenshots are still pending.
-- Nahhasio owns metadata, artwork and tracking. Jellyfin is only the stored-media backend;
-  do not import its catalog as authority or synchronize its watched state.
+- Nahhasio owns metadata, artwork and tracking. Jellyfin supplies media playback/streaming only;
+  do not import its metadata/artwork or synchronize its watched state.
 - Torrent streaming runs on the client; server downloads require an explicit request. Saved
   work metadata/artwork, server videos and device video downloads are separate things.
 

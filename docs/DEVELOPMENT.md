@@ -6,23 +6,65 @@ WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` wi
 
 ## Repository map
 
-| Path                           | Responsibility                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------------- |
-| apps/server                    | Rust/Axum/SQLx authentication, bounded catalog/viewer API and authorized administration |
-| apps/linux/src                 | GTK/WebKit lifecycle, contained assets, native network/session, player/device media     |
-| apps/linux/ui                  | React/Vite viewing/admin UI, TanStack Router/Query, Tailwind/shadcn                     |
-| crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                     |
-| crates/media-transfer          | UI-independent torrent engine and durable device state                                  |
-| packages/api-contract          | Single OpenAPI definition, generator and validated TypeScript contract                  |
-| packages/contracts             | Shared work/editor schemas and domain contracts                                         |
-| packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools               |
-| packages/domain, packages/i18n | Scoring/policy/taxonomy and labels                                                      |
-| packages/cli                   | CLI, SQL helpers and shared full-document reconciliation                                |
-| apps/web, apps/api             | Transitional dashboard/legacy API and still-consumed provider/media helpers             |
+| Path                           | Responsibility                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| apps/server                    | Rust/Axum/SQLx authentication, bounded catalog/viewer API and authorized administration                                               |
+| apps/linux/src                 | GTK/WebKit lifecycle, contained assets, native network/session, player/device media                                                   |
+| apps/linux/ui                  | React/Vite viewing/admin UI, TanStack Router/Query, Tailwind/shadcn                                                                   |
+| crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                                                                   |
+| crates/media-transfer          | UI-independent torrent engine and durable device state                                                                                |
+| crates/catalog-core            | Shared Rust database pool, schema discovery, local operator operations, redaction and explicit Drizzle-compatible migration execution |
+| crates/cli                     | Compiled `nahhasio` operator binary; initial generic database/migration commands, not yet whole-work/media parity                     |
+| packages/api-contract          | Single OpenAPI definition, generator and validated TypeScript contract                                                                |
+| packages/contracts             | Shared work/editor schemas and domain contracts                                                                                       |
+| packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools                                                             |
+| packages/domain, packages/i18n | Scoring/policy/taxonomy and labels                                                                                                    |
+| packages/cli                   | CLI, SQL helpers and shared full-document reconciliation                                                                              |
+| apps/web, apps/api             | Transitional dashboard/legacy API and still-consumed provider/media helpers                                                           |
 
 Do not remove legacy helpers until their consumers are replaced. The full work editor calls a
 fixed Rust facade/private Node worker; containers need that source/runtime dependency until it
-is intentionally replaced. Schema ownership does not move from Drizzle to a second SQLx tree.
+is replaced with Rust. Packaging that worker is no longer the chosen deployment path.
+Schema ownership does not move from Drizzle to a second SQLx tree.
+
+### Rust operator CLI checkpoint
+
+Build with `devenv shell -- cargo build --locked -p nahhasio-cli`; the executable is
+`target/debug/nahhasio`. It runs outside the checkout and needs no Node process. To install a
+release binary on the operator's PATH, use `cargo install --locked --path crates/cli` in the
+development environment. `DATABASE_URL` is required; no database is implicitly selected.
+
+Implemented: health, live schema/enums, generic resource list/get/create/update/delete,
+name/alias/foreign-key resolution, typed filters, bounded pages, row-count statistics, single
+result-producing SQL statements and explicit migration manifest/status/apply. Outputs include
+compact tables, JSON, NDJSON and CSV. Writes require `--write` or `--dry-run`; multiple matching
+rows additionally require `--yes` to commit. Dry runs execute constraints/audits and roll back.
+Mutations use serializable transactions; audit failure prevents commit. Authentication/audit
+tables and secret fields require dedicated operations rather than generic edits. Schema/table output masks
+known secret fields; database errors expose SQLSTATE rather than sensitive record diagnostics.
+The CLI remains a trusted local operator tool with direct database credentials, not a client API.
+
+`sql` accepts one SELECT or a data-modifying statement with RETURNING. The result CTE prevents
+transaction-control/multiple statements from escaping rollback; DDL belongs to explicit migration
+execution. SQL results and generic pages are capped at 500 rows. `stats` currently provides counts,
+not the legacy editorial/coverage reports. Whole-work apply/export, media ingest/assignment/purge
+and the existing server editor still use TypeScript. Therefore `./bin/nahhasio` and its agent
+skill remain on the legacy implementation until full parity; no silent Node fallback exists in
+the compiled binary.
+
+Migrations embed the sole `packages/database/drizzle/` history in the binary, compare applied
+hashes/timestamps, refuse gaps/unknown/newer histories and unjournalled nonempty databases, and
+use the existing `(23103,1000)` PostgreSQL maintenance lock. No `_sqlx_migrations` ledger is added.
+They run only through `nahhasio migrate apply --dry-run` or `--write`, never application startup.
+The server shares database connection setup, schema discovery and redaction with this library.
+All six Planets operations now use `crates/catalog-core/src/planets.rs` through the existing
+authenticated editor endpoint. Definitions and membership edits retain stale-revision checks,
+dependency/deletion guards, deterministic locks and atomic audit/revision writes. Read operations
+use repeatable-read transactions; writes revalidate/lock the admin session inside serializable
+transactions. Revisions are opaque fingerprints; forms loaded before this backend transition
+must reload/review if their old fingerprint is rejected. The transitional web dashboard retains
+its existing TypeScript services until its replacement is accepted. People/Studios, whole-work
+reconciliation and artwork/provider operations still require the remaining worker port.
 
 ## Run/build
 

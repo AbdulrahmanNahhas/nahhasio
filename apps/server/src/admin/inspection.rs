@@ -7,6 +7,7 @@ use axum::{
     middleware,
     routing::get,
 };
+use nahhasio_catalog::redaction::{protected, scrub};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::{AssertSqlSafe, PgPool, types::Json as SqlJson};
@@ -47,115 +48,40 @@ pub(super) fn routes(pool: PgPool) -> Router {
         .layer(middleware::from_fn(no_store))
         .with_state(pool)
 }
-fn protected(table: &str, column: &str) -> bool {
-    match table {
-        "auth_users" => ![
-            "id",
-            "name",
-            "email",
-            "email_verified",
-            "username",
-            "display_username",
-            "role",
-            "banned",
-            "ban_expires",
-            "created_at",
-            "updated_at",
-        ]
-        .contains(&column),
-        "auth_accounts" => {
-            !["id", "user_id", "provider_id", "created_at", "updated_at"].contains(&column)
-        }
-        "auth_sessions" => ![
-            "id",
-            "user_id",
-            "device_id",
-            "expires_at",
-            "created_at",
-            "updated_at",
-        ]
-        .contains(&column),
-        "auth_verifications" => !["id", "expires_at", "created_at", "updated_at"].contains(&column),
-        _ => secret_key(column),
-    }
-}
-fn secret_key(key: &str) -> bool {
-    let key = key
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .collect::<String>()
-        .to_ascii_lowercase();
-    key.contains("password")
-        || key.contains("secret")
-        || key.contains("token")
-        || key.contains("credential")
-        || key.contains("sessionkey")
-        || key.contains("apikey")
-        || key.contains("privatekey")
-}
-fn scrub(value: &mut Value, depth: usize) {
-    if depth > 24 {
-        *value = json!("[value too deeply nested]");
-        return;
-    }
-    match value {
-        Value::Object(map) => {
-            for (key, value) in map.iter_mut() {
-                if secret_key(key) {
-                    *value = json!("[protected]");
-                } else {
-                    scrub(value, depth + 1);
-                }
-            }
-        }
-        Value::Array(items) => {
-            for item in items {
-                scrub(item, depth + 1);
-            }
-        }
-        Value::String(text) if text.contains("://") || text.starts_with("magnet:") => {
-            // Tracker passkeys, signed URLs and embedded connection credentials stay server-side.
-            if let Some(index) = text.find('?') {
-                text.truncate(index);
-                text.push_str("?[protected parameters]");
-            }
-            if text.contains('@') || text.starts_with("postgres") {
-                *text = "[protected connection]".into();
-            }
-        }
-        _ => {}
-    }
-}
 fn quote(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 async fn metadata(pool: &PgPool) -> Result<Vec<Table>, Error> {
-    let records=sqlx::query_scalar::<_,SqlJson<Value>>(r#"select jsonb_build_object('name',t.table_name,'columns',(
-        select jsonb_agg(jsonb_build_object('name',c.column_name,'dataType',c.udt_name,'nullable',c.is_nullable='YES',
-        'primary',exists(select 1 from information_schema.key_column_usage k join information_schema.table_constraints x using(constraint_catalog,constraint_schema,constraint_name) where k.table_schema='public' and k.table_name=t.table_name and k.column_name=c.column_name and x.constraint_type='PRIMARY KEY'),
-        'generated',coalesce(c.is_generated<>'NEVER',false),'defaultValue',c.column_default,
-        'enumValues',coalesce((select jsonb_agg(e.enumlabel order by e.enumsortorder) from pg_enum e join pg_type p on p.oid=e.enumtypid where p.typname=c.udt_name),'[]'::jsonb),'protected',false)
-        order by c.ordinal_position) from information_schema.columns c where c.table_schema='public' and c.table_name=t.table_name))
-        from information_schema.tables t where t.table_schema='public' and t.table_type='BASE TABLE' order by t.table_name"#)
-        .fetch_all(pool).await?;
-    records
+    let mut connection = pool.acquire().await?;
+    let tables = nahhasio_catalog::schema::load(&mut connection)
+        .await
+        .map_err(|_| Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر قراءة تعريف الجداول."))?;
+    Ok(tables
         .into_iter()
-        .map(|record| {
-            let mut table: Table = serde_json::from_value(record.0).map_err(|_| {
-                Error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "تعذّر قراءة تعريف الجداول.",
-                )
-            })?;
-            for column in &mut table.columns {
-                column.protected = protected(&table.name, &column.name);
-                if column.protected {
-                    column.default_value = None;
-                }
+        .map(|table| {
+            let columns = table
+                .columns
+                .into_iter()
+                .map(|column| {
+                    let hidden = protected(&table.name, &column.name);
+                    Column {
+                        name: column.name,
+                        data_type: column.data_type,
+                        nullable: column.nullable,
+                        primary: column.primary,
+                        generated: column.generated,
+                        default_value: if hidden { None } else { column.default_value },
+                        enum_values: column.enum_values,
+                        protected: hidden,
+                    }
+                })
+                .collect();
+            Table {
+                name: table.name,
+                columns,
             }
-            Ok(table)
         })
-        .collect()
+        .collect())
 }
 async fn schema(State(pool): State<PgPool>) -> Result<Json<Value>, Error> {
     Ok(Json(json!({"tables":metadata(&pool).await?})))

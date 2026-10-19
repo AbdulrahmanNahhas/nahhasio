@@ -696,15 +696,7 @@ async fn pause_unowned(engine: Engine, id: TorrentId) {
     let _ = tokio::task::spawn_blocking(move || engine.pause_if_unowned(&id)).await;
 }
 pub fn is_video(path: &str) -> bool {
-    std::path::Path::new(path)
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            [
-                "mkv", "mp4", "m4v", "webm", "avi", "mov", "ts", "m2ts", "ogv", "mpeg", "mpg",
-            ]
-            .contains(&extension.to_ascii_lowercase().as_str())
-        })
+    media_transfer::is_video(path)
 }
 fn eligible(item: &Value) -> bool {
     if item["status"] == "announced" || item["releaseState"] == "upcoming" {

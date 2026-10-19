@@ -98,11 +98,26 @@ fn prepare(path: &std::path::Path) -> Result<(Fixture, Engine, TorrentId, File),
         .map_err(|_| "Could not stage seeder media")?;
     std::fs::copy(input.join("readme.txt"), payload.join("readme.txt"))
         .map_err(|_| "Could not stage seeder sidecar")?;
+    // Restore only after staging so the engine's asynchronous storage check sees all bytes.
+    drop(seed);
+    let seed = Engine::open_with_network(
+        directories[1].path(),
+        directories[2].path(),
+        NetworkPolicy::LoopbackOnly,
+    )
+    .map_err(|_| "Could not restore loopback seeder")?;
     let files = seed
         .files(&id)
         .map_err(|_| "Could not validate fixture files")?;
-    seed.select_download(&id, files.iter().map(|file| file.index).collect())
-        .map_err(|_| "Could not select fixture")?;
+    seed.select_download(
+        &id,
+        files
+            .iter()
+            .filter(|file| media_transfer::is_video(&file.path))
+            .map(|file| file.index)
+            .collect(),
+    )
+    .map_err(|_| "Could not select fixture")?;
     seed.start(&id)
         .map_err(|_| "Could not start fixture verification")?;
     let deadline = Instant::now() + Duration::from_secs(15);

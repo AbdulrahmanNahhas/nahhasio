@@ -575,13 +575,17 @@ mod tests {
     fn manual_writes_preserve_progress_and_identity() {
         let sql = watched_query();
         let update = sql.split("do update set").nth(1).unwrap();
+        let assignments = update
+            .split(',')
+            .filter_map(|part| part.split_once('=').map(|(column, _)| column.trim()))
+            .collect::<Vec<_>>();
         for field in [
-            "position_seconds=",
-            "duration_seconds=",
-            "subtitle_offset_ms=",
-            "id=",
+            "position_seconds",
+            "duration_seconds",
+            "subtitle_offset_ms",
+            "id",
         ] {
-            assert!(!update.contains(field));
+            assert!(!assignments.contains(&field));
         }
         assert!(update.contains("played_manually=true"));
         assert!(update.contains("else null end"));

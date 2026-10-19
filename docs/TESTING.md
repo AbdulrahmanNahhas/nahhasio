@@ -7,6 +7,28 @@ available verification procedures, not a requirement to run every suite on every
 Use disposable restored databases for mutations. Documentation-only changes need link/format
 checks, not application tests. Preserve Aqua's Rust-learning ownership.
 
+## Rust CLI and migration acceptance
+
+```sh
+devenv shell -- bash bin/test-rust-catalog
+```
+
+This starts and removes a private socket-only PostgreSQL cluster under `/tmp`; it never uses the
+development/family `DATABASE_URL`. It exercises the bundled migration history, rollback, the shared
+maintenance lock, guarded/audited mutations, reference/scoped lookup, redaction and the actual CLI
+binary's JSON/exit behavior. Separate empty fixture databases prove Rust → Drizzle and Drizzle →
+Rust continuation of the same ledger without replaying migrations. The ignored Rust integration
+test requires `NAHHASIO_TEST_DATABASE_URL` and refuses databases outside its named socket fixture.
+Do not set that variable to the family catalog. These checks are local runtime acceptance, not
+production migration, Fedora installation, native desktop or independent-backup acceptance.
+
+The same script runs `apps/server/tests/editor_postgres.rs` on one of its fully migrated fixture
+databases with the Node editor root deliberately unavailable. This verifies authenticated Rust
+Planets create/read/edit/options/membership/delete flows, stale/conflicting edits, rollback of a
+partially processed batch, guarded deletion, admin revocation, audit/revision records and retained
+viewing notes. It also checks that shared schema discovery/inspection still masks session secrets.
+No live catalog mutation or native-client runtime claim is implied.
+
 ## 1. Browser fixtures and ordinary checks
 
 ```sh

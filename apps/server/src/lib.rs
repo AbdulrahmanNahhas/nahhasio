@@ -2,27 +2,14 @@ mod admin;
 mod auth;
 mod catalog;
 mod database;
-use std::time::Duration;
-
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Serialize;
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
 /// Sessions default to read-only. Authorized mutation transactions explicitly opt into writes.
 pub fn database_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    PgPoolOptions::new()
-        .max_connections(5)
-        .acquire_timeout(Duration::from_secs(2))
-        .after_connect(|connection, _| {
-            Box::pin(async move {
-                sqlx::query("SET default_transaction_read_only = on")
-                    .execute(connection)
-                    .await?;
-                Ok(())
-            })
-        })
-        .connect_lazy(database_url)
+    nahhasio_catalog::database_pool(database_url, 5)
 }
 
 pub fn router(pool: PgPool) -> Router {

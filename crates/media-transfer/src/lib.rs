@@ -68,6 +68,22 @@ pub struct File {
     pub path: String,
     pub size: u64,
 }
+/// Selection policy shared with the desktop. An extension is an eligibility check, not a
+/// claim that untrusted bytes are a valid or harmless video. Playback still uses libmpv's
+/// restricted demuxer/protocol policy; content validation is a separate boundary.
+pub fn is_video(path: &str) -> bool {
+    validate_path(path).is_ok()
+        && !path.chars().any(char::is_control)
+        && Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                [
+                    "mkv", "mp4", "m4v", "webm", "avi", "mov", "ts", "m2ts", "ogv", "mpeg", "mpg",
+                ]
+                .contains(&extension.to_ascii_lowercase().as_str())
+            })
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Job {
     pub id: TorrentId,
@@ -431,6 +447,11 @@ impl Engine {
             .iter()
             .find(|f| f.index == file)
             .ok_or_else(|| Error::Invalid("file".into()))?;
+        if !is_video(&entry.path) || entry.size == 0 {
+            return Err(Error::Invalid(
+                "only supported video files may be read".into(),
+            ));
+        }
         validate_range(entry.size, offset, length)?;
         if cancel.is_cancelled() {
             return Err(Error::Cancelled);
@@ -795,11 +816,15 @@ impl Owner {
     fn validate_selection(&self, id: &str, selected: &[u32]) -> Result<()> {
         let files = self.files(id)?;
         if selected.len() > files.len()
-            || selected
-                .iter()
-                .any(|i| !files.iter().any(|f| f.index == *i))
+            || selected.iter().any(|i| {
+                !files
+                    .iter()
+                    .any(|f| f.index == *i && f.size > 0 && is_video(&f.path))
+            })
         {
-            return Err(Error::Invalid("selection".into()));
+            return Err(Error::Invalid(
+                "only nonempty supported video files may be selected".into(),
+            ));
         }
         Ok(())
     }

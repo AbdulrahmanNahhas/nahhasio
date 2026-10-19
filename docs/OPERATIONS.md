@@ -41,10 +41,40 @@ provide documented persistent mounts/HTTPS trust/owner setup. No website belongs
 product. Exact host hardware and library adapter are unresolved. Rootless Quadlets, service boot
 ordering and certificate/setup mechanics will be chosen and verified during implementation.
 
-Alpha upgrades should be explicit and guided. Mature stable update notifications, container
-registry delivery and AppImage update metadata come with release tooling. Automatic scheduled
-updates remain future scope until compatibility/recovery are dependable. Database migrations
-remain explicit; restarting a service never implicitly migrates/seeds/imports/cleans the catalog.
+The approved target includes automatic updates for both Nahhasio and its Linux AppImage.
+Implementation must verify artifact provenance/integrity and compatibility, preserve private
+state, handle failed downloads/activation and provide recovery. No updater is enabled by this
+checkpoint. Server schema maintenance remains explicit and coordinated; restarting a service
+never implicitly migrates/seeds/imports/cleans the catalog. PostgreSQL/Jellyfin upgrades are
+managed separately from Nahhasio application updates.
+
+### Rust-only runtime delivery order — 2026-10-19
+
+1. Shared Rust catalog services and compiled operator tooling. Initial database/migration CLI,
+   common schema discovery/redaction/pool setup and transfer-engine video selection restrictions
+   are implemented; see [DEVELOPMENT.md](DEVELOPMENT.md#rust-operator-cli-checkpoint). Planets
+   definition/membership workflows have also moved to shared Rust services behind the existing API.
+2. Port whole-work reconciliation/review/save, remaining entity editors, artwork storage/operations
+   and metadata/artwork providers into shared Rust services. Preserve client contracts, UUIDs,
+   transactions, revision/conflict checks, authorization and artwork paths; retire the Node worker
+   only after isolated workflow parity. Finish the operator CLI's whole-work/media commands.
+3. Add server-owned provider credential management through authenticated desktop administration.
+   Saved keys are write-only through the API; responses report configured state. Keep secrets out
+   of images, browser storage, logs, raw inspection and ordinary API responses.
+4. Build a Node-free server image, private persistent storage, rootless Fedora Quadlets and
+   trusted LAN HTTPS; deliver explicit install/backup/restore/update commands. Rehearse restoration
+   and schema compatibility before moving family data. No live migration/cutover is implied here.
+5. Complete versioned AppImage delivery and verified server/client automatic updates, then run
+   installed native/LAN/reboot/reconnect/update/recovery acceptance. Jellyfin remains a later,
+   separate media-only service; it supplies no catalog metadata, artwork or tracking authority.
+
+Transfer restrictions currently prevent non-video filenames from being selected, read or exported
+through the Rust engine, including direct callers and restored selections. They do not establish
+that a renamed payload is valid video. Content validation, malicious-content fixtures and packaged
+playback/network isolation acceptance remain outstanding. Torrent piece boundaries can include
+adjacent unselected bytes in private engine storage; only selected eligible files may be exported.
+Do not describe this as a guarantee that every received torrent byte is video or that arbitrary
+media is 100% safe.
 
 ## Backup, migration and recovery requirements
 

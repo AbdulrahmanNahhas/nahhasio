@@ -1,6 +1,71 @@
 use super::*;
 
 #[test]
+fn non_video_payload_cannot_be_selected_read_or_exported() {
+    for path in [
+        "movie.mkv.exe",
+        "movie.desktop",
+        "playlist.m3u8",
+        "movie.zip",
+        "readme.txt",
+        "movie.url",
+        "../movie.mp4",
+        "movie\n.mp4",
+    ] {
+        assert!(!is_video(path), "{path}");
+    }
+    assert!(is_video("فيلم/حلقة.MKV"));
+    let state = tempfile::tempdir().unwrap();
+    let payload = tempfile::tempdir().unwrap();
+    let fixture = tempfile::tempdir().unwrap();
+    let input = fixture.path().join("fixture");
+    std::fs::create_dir(&input).unwrap();
+    std::fs::write(input.join("movie.mp4"), [7_u8; 32768]).unwrap();
+    std::fs::write(input.join("readme.txt"), [0_u8; 32]).unwrap();
+    let engine =
+        Engine::open_with_network(state.path(), payload.path(), NetworkPolicy::LoopbackOnly)
+            .unwrap();
+    let id = engine
+        .import_torrent(ffi::fixture(fixture.path().to_str().unwrap(), 1).unwrap())
+        .unwrap();
+    let file = engine
+        .files(&id)
+        .unwrap()
+        .into_iter()
+        .find(|file| file.path.ends_with(".txt"))
+        .unwrap();
+    assert!(engine.select_download(&id, vec![file.index]).is_err());
+    assert!(engine.keep_file(&id, file.index).is_err());
+    assert!(engine.playback_lease(&id, vec![file.index]).is_err());
+    assert!(
+        engine
+            .keep_export(&id, file.index, payload.path(), "fixture")
+            .is_err()
+    );
+    assert!(
+        engine
+            .read_range(
+                &id,
+                file.index,
+                0,
+                1,
+                Duration::from_millis(1),
+                &Cancellation::default()
+            )
+            .is_err()
+    );
+    assert!(engine.jobs().unwrap()[0].selected.is_empty());
+    drop(engine);
+    let db = Connection::open(state.path().join("jobs.sqlite3")).unwrap();
+    assert_eq!(
+        db.query_row("select count(*) from exports", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
 fn paths_and_ranges() {
     for path in ["../a", "/a", "a/../b", "a\\b", "C:a", "a//b", "a/./b"] {
         assert!(validate_path(path).is_err());
@@ -183,9 +248,25 @@ fn controlled_loopback_formats_selection_promotion_and_restart() {
         std::fs::create_dir_all(&storage).unwrap();
         std::fs::copy(fixture_dir.join("movie.mp4"), storage.join("movie.mp4")).unwrap();
         std::fs::copy(fixture_dir.join("readme.txt"), storage.join("readme.txt")).unwrap();
+        // Storage hashing must start after fixture bytes are staged. Importing first and
+        // copying into a live checking handle races the initial asynchronous recheck.
+        drop(seed);
+        let seed = Engine::open_with_network(
+            seed_state.path(),
+            seed_media.path(),
+            NetworkPolicy::LoopbackOnly,
+        )
+        .unwrap();
         let seed_files = seed.files(&id).unwrap();
-        seed.select_download(&id, seed_files.iter().map(|f| f.index).collect())
-            .unwrap();
+        seed.select_download(
+            &id,
+            seed_files
+                .iter()
+                .filter(|file| is_video(&file.path))
+                .map(|f| f.index)
+                .collect(),
+        )
+        .unwrap();
         seed.start(&id).unwrap();
         wait_complete(&seed, &id);
         let target_state = tempfile::tempdir().unwrap();

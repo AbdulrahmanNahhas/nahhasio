@@ -29,9 +29,10 @@ current planning; verify the host before deployment.
 - English audio is the normal preference; Arabic subtitles are preferred. Arabic audio is used
   when available and Spanish audio may also be selected. Language choices belong to playback
   preferences and actual tracks; they do not require separate catalog entries for every language.
-- Aqua delegates the update approach: start with explicit guided upgrades for Alpha; use stable
-  update notifications/confirmation once release tooling is ready. Scheduled automatic upgrades
-  can follow after recovery/migrations are dependable.
+- Aqua wants automatic updates for the installed server and Linux AppImage. Deliver verified
+  artifacts, compatibility checks, recovery and persistent-state preservation before enabling
+  unattended installation. Schema changes still use an explicit coordinated migration operation;
+  process startup never migrates. PostgreSQL/Jellyfin version upgrades have separate ownership.
 - Torrent streaming is the main online playback source. Existing/server files are also first-class,
   including deliberately non-torrent works. A catalog record can have no available video.
 - Keep Save work (local metadata/artwork), Download to server and Download to this device
@@ -133,8 +134,10 @@ The existing website and legacy API/provider code remain transitional consumers 
 replacement/retirement is complete. They are not shipped-product requirements.
 
 The complete work editor temporarily reuses a **private Node/tsx worker** behind the Rust API.
-Before packaging it, explicitly support/package that dependency or replace it with Rust.
-It is not a website process, but the current editor is not a Rust-only runtime.
+Aqua chose a **Rust-only installed Nahhasio runtime** on 2026-10-19: replace this worker before
+deployment, share application/database behavior with a compiled Rust operator CLI, and require
+no Node/pnpm/source checkout on the installed server. Node remains development/build tooling for
+the React UI. The current editor is not yet a Rust-only runtime.
 
 ## Confirmed library, catalog and tracking decisions — 2026-10-18
 
@@ -142,7 +145,17 @@ Nahhasio owns all catalog/editorial data, images and tracking. Jellyfin is the s
 backend only; play its media inside Nahhasio's native player. Link existing folders without
 moving originals. Do not synchronize Jellyfin watched/progress state or use its metadata as
 catalog authority. Select a device file, then a server file, then a permitted client torrent.
+Jellyfin must not import or overwrite Nahhasio metadata/artwork: its integration is media
+playback/streaming and the minimum media identity/track information needed for that purpose.
 Whole-work files-only policy suppresses torrent actions regardless of peer/search availability.
+
+Provider API keys are server-owned. Manage them through authenticated administration in the
+Linux client; return configured/masked status, not saved secret values. Private server storage,
+permissions and secret-safe backup/rotation remain part of the runtime implementation.
+Torrent payload eligibility belongs in the transfer engine as well as the UI. Executables,
+archives, playlists and sidecars must not become selected playback/download/export targets.
+An extension allowlist alone does not prove valid video content or eliminate decoder risks;
+content validation and packaged-player acceptance remain required before stronger safety claims.
 
 Dub metadata is whole-work: recorded dub languages/notes and existing organization contributions
 with a dubbing-studio role and credit languages. No edition/version system or alternate episode

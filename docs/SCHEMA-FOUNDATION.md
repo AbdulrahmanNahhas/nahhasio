@@ -78,6 +78,14 @@ the migration history; do not introduce a second SQLx migration ledger.
 - [x] Keep authentication secrets and private operations out of raw client table views.
 - [ ] Consolidate regression/native acceptance after integration; do not claim full parity from layout.
 
+Rust runtime migration started 2026-10-19: a compiled operator CLI and shared Rust pool/schema/
+redaction/migration services are implemented. Planets definition and membership operations now
+use shared Rust behind the existing authenticated editor API, including transactional session
+revalidation, stale-revision checks, dependency guards and audit/revision records. The isolated
+acceptance script exercises these with the Node worker unavailable and checks Drizzle/Rust ledger
+continuation in both directions. Whole-work reconciliation, People/Studios, artwork/providers and
+full operator CLI parity remain; the worker-removal checkbox is intentionally still open.
+
 ### Phase 2 integration checkpoint — 2026-10-19
 
 Aqua authorized the Phase 1 commit and the existing-screen integration. No new route/page was added.

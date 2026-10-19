@@ -30,8 +30,8 @@ Permission already given for the current step covers its necessary implementatio
 Do not create commits without Aqua's explicit confirmation for that checkpoint. Include the actual
 command in command-approval requests so Aqua can see what will run.
 
-Current implementation: image-library checkpoint committed as `d787dd9`; JSON/selection polish
-committed as `83f94b0`. Current approved checkpoint: People Drawer/credits/selection/JSON/deletion,
+Earlier checkpoints: image-library checkpoint committed as `d787dd9`; JSON/selection polish
+committed as `83f94b0`. People Drawer/credits/selection/JSON/deletion,
 then the shared Studios editor, with most-works sort and contribution/reference UX improvements.
 Aqua authorized code-quality cleanup and committed People/Studios as `7363237`.
 Planet membership movement/assignment was committed as `e439b66`; planet definitions were
@@ -50,6 +50,29 @@ Aqua explicitly chose a local backup under this persistent project's data/backup
 schema checkpoint. Independent recovery remains required before production deployment.
 Podman foundation and then admin overview follow these phases.
 Preserve Aqua's current design.
+
+Current Rust runtime checkpoint (2026-10-19): `crates/catalog-core` shares bounded read-only
+pool setup, schema discovery, redaction, guarded operator operations and explicit migrations;
+`crates/cli` builds the compiled `nahhasio` binary. All six Planets editor operations now use
+shared Rust through the existing authenticated API, with transactional session revalidation,
+revision/dependency checks and atomic audit/revision writes. CLI/database and API fixtures passed
+on disposable PostgreSQL, including continuation of all 31 migrations with Drizzle in both
+directions and Planets operations with the Node worker unavailable. The transfer engine now
+enforces the desktop video-filename policy for selection, reads and export; valid video content
+and decoder/network safety still need separate validation. No live catalog mutation occurred.
+Aqua approved committing this checkpoint and updating these instructions/skills. This does not
+authorize publishing/pushing releases or claim Fedora/AppImage installation acceptance.
+
+The installed Nahhasio runtime must be Rust-only: replace remaining Node whole-work,
+People/Studios, artwork/provider services and remaining operator CLI commands before deployment.
+Keep the current working services until isolated parity is verified; preserve API/client design.
+Node/pnpm may remain on development/build machines for React. Jellyfin is playback/streaming
+only, with the minimum media identity/track information needed for delivery; never import its
+metadata/artwork as catalog authority or synchronize tracking. Provider keys stay server-owned,
+managed through authenticated desktop administration with write-only updates and masked status.
+Automatic server and AppImage updates are the approved target; implement verified artifacts,
+compatibility, recovery and state preservation before enabling them. Schema maintenance remains
+explicit, never application startup; PostgreSQL/Jellyfin upgrades have separate ownership.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
 server and device video downloads remain separate. Torrent streaming is the main online source;
 linked files support completed downloads and deliberately non-torrent works. Torrent streaming
@@ -86,6 +109,8 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 - Removed website/deployment references remain recoverable at `d77096f:reference/` in Git.
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
+- `crates/catalog-core`: shared Rust catalog/database services and Drizzle-compatible explicit migration runner.
+- `crates/cli`: compiled Rust operator CLI; whole-work/media and advanced reports still need parity.
 - `apps/api`: previous Hono API, kept until Rust endpoints pass behavior/data checks.
 - `packages/database`: existing PostgreSQL schema and the single migration history.
 - Other `packages/*`: existing contracts, domain rules, vocabulary, and database CLI.
@@ -175,15 +200,25 @@ Before a live cutover, secure a verified independent backup of both PostgreSQL a
 `data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tools require an explicit
 `ARCADIA_V1_DB_PATH`. Backups and recovery artwork are private and never committed.
 
-The public CLI is `./bin/nahhasio` and talks directly to PostgreSQL. Use the `nahhasio-db` skill
+The complete catalog CLI remains `./bin/nahhasio` (Node/tsx); do not silently replace it with
+the partial Rust binary. Build the latter with `devenv shell -- cargo build --locked --release -p nahhasio-cli`,
+then invoke `./target/release/nahhasio` directly for quiet JSON output with an explicit
+`DATABASE_URL`. It supports generic database operations and migration manifest/status/apply;
+writes require `--write` or `--dry-run`, multi-row commits require `--yes`, and result-producing
+SQL mutations require RETURNING. It does not yet replace work apply/export, media commands,
+advanced statistics or legacy CLI discovery. Use the `nahhasio-db` skill
 for live catalog reads/writes and the `nahhasio-cataloging` skill for editorial classification.
 Preserve the current Better Auth identity/password ownership during Rust migration; verify
 hash compatibility with fixtures before cutover. Do not weaken existing production auth guards.
 The legacy test bypass requires both `NODE_ENV=test` and `ARCADIA_MOCK_AUTH=true`.
 Do not log secrets, database connection strings, password hashes, or session tokens.
 
-Rust database sessions default to read-only. Explicitly authorized local development catalog
-operations require the private server token; writes opt into transactional read-write mode.
+Rust database sessions default to read-only; authorized writes explicitly opt into read-write
+transactions. Dedicated client editors use admin sessions, revalidated/locked within mutations.
+The debug-only local HTTP administration surface requires the private server token. The Rust
+CLI is a trusted local PostgreSQL operator and uses database credentials, not that HTTP token.
+Test it with `devenv shell -- bash bin/test-rust-catalog`; this owns a disposable socket-only
+cluster and never uses family data. Its fixtures do not prove live cutover or desktop acceptance.
 Production setup/auth and device, sync, and job authorization remain future work.
 Keep user identity, viewing profile, device, and library policy as distinct concepts.
 

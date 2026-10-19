@@ -6,7 +6,8 @@ description: Read and edit every part of the Nahhasio PostgreSQL catalog from th
 # Nahhasio database CLI
 
 `./bin/nahhasio` talks straight to PostgreSQL. It needs no API server and no `devenv shell` —
-run it from the repository root.
+run it from the repository root. This launcher still uses Node/tsx and remains the complete
+catalog tool during the Rust migration.
 
 ```bash
 ./bin/nahhasio health
@@ -16,7 +17,42 @@ If that fails with `ECONNREFUSED`, PostgreSQL is not running: start it with `dev
 the user first — it is a long-running foreground process).
 
 **Do not use `devenv shell -- pnpm nahhasio`.** The devenv banner writes to stdout and corrupts
-`--json` output. Always use `./bin/nahhasio`.
+`--json` output. Invoke the selected CLI directly after building it.
+
+## Rust CLI transition
+
+`crates/cli` also provides a compiled `nahhasio` binary. Build it with
+`devenv shell -- cargo build --locked --release -p nahhasio-cli`, then invoke
+`./target/release/nahhasio` directly. It requires an explicit `DATABASE_URL`, needs no Node
+runtime and does not silently fall back to the legacy CLI. Do not print credentials when
+selecting the database.
+
+Use `./bin/nahhasio` for the complete catalog workflow and all examples below unless explicitly
+choosing the Rust tool. Rust currently supports health, schema/enums, generic CRUD, references,
+filters/pagination, row-count statistics, single result-producing SQL statements, and migration
+manifest/status/apply. It does **not** yet support whole-work apply/export/template/schema,
+media ingest/assignment/purge, advanced statistics or `help --json` discovery.
+
+For Rust commands, generic writes need `--write` or `--dry-run`; a multi-row commit also needs
+`--yes`. Dry runs execute constraints/audits and roll back. SQL mutations need RETURNING, and
+results/pages are capped at 500 rows. Generic writes refuse authentication/audit tables, secret
+fields and primary-key changes; this trusted operator tool is not a remote authorization API.
+
+```bash
+./target/release/nahhasio schema titles --json
+./target/release/nahhasio title list --search Arcane --json
+./target/release/nahhasio title update Arcane --set workflow_status=published --dry-run --json
+./target/release/nahhasio migrate manifest --json  # no database connection
+./target/release/nahhasio migrate status --json
+```
+
+Migration apply is a separately authorized operator operation, never a prerequisite for catalog
+editing or application startup. It embeds the sole `packages/database/drizzle/` history, uses
+the existing Drizzle ledger/maintenance lock, and refuses inconsistent hashes/history rather
+than guessing a baseline. Rehearse and back up before a live apply; no second SQLx history.
+`devenv shell -- bash bin/test-rust-catalog` owns private disposable PostgreSQL fixtures for
+CLI/migration and authenticated Rust Planets acceptance. It is not a live-catalog mutation test.
+The six Planets API operations are Rust-backed; that does not imply whole-editor/CLI parity.
 
 ## The one thing to know first
 
@@ -25,7 +61,7 @@ Anywhere the CLI wants an id, you may write a name, slug, or alias instead:
 ```bash
 ./bin/nahhasio title get Arcane
 ./bin/nahhasio title update "Attack on Titan" --set theology_risk=medium
-./bin/nahhasio title create --set planet_id=emerald --set canonical_title=…
+./bin/nahhasio title create --set canonical_title=…
 ```
 
 Resolution tries exact match, then prefix, then substring, and also searches `title_aliases` /
@@ -98,7 +134,7 @@ Rules the CLI enforces:
 - Deleting more than one row requires `--yes`.
 - `--dry-run` on any write reports what would change without committing.
 - `--set` values are validated against the real column type; bad enum values list the legal ones.
-- Foreign-key `--set` values accept references (`--set planet_id=emerald`).
+- Foreign-key `--set` values accept references (discover the actual column with `schema`).
 - `--json-set col='{"a":1}'` writes raw JSON to a `jsonb` column.
 - Every write records an `audit_logs` row. Set `NAHHASIO_CLI_ACTOR=<account slug>` to attribute it.
 
@@ -247,3 +283,7 @@ Rust serves authenticated admin reads at `/api/v1/admin/database/schema` and
 transactional editors. Never use raw table responses or SQL output to dump authentication
 secrets, tokens, private Jellyfin credentials or hashes into logs or committed fixtures.
 Startup performs no migration, seeding or cleanup. Use the existing Drizzle history only.
+Provider keys stay on the server and are managed through authenticated desktop administration;
+that settings workflow remains to be implemented. Never infer credential-management support
+from a raw-table view. Jellyfin integration is media-only: no metadata/artwork import or tracking
+synchronization. Video-filename restrictions are not proof of valid video content or safe playback.

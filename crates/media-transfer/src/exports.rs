@@ -50,6 +50,11 @@ impl Engine {
             .into_iter()
             .find(|entry| entry.index == file)
             .ok_or_else(|| Error::Invalid("file".into()))?;
+        if !is_video(&entry.path) || entry.size == 0 {
+            return Err(Error::Invalid(
+                "only supported video files may be exported".into(),
+            ));
+        }
         let filename = Path::new(&entry.path)
             .file_name()
             .ok_or_else(|| Error::Invalid("filename".into()))?;
@@ -144,6 +149,11 @@ impl Engine {
                 .into_iter()
                 .find(|entry| entry.index == file)
                 .ok_or_else(|| Error::Invalid("file".into()))?;
+            if !is_video(&entry.path) || entry.size == 0 {
+                return Err(Error::Invalid(
+                    "only supported video files may be exported".into(),
+                ));
+            }
             Ok(Some((
                 owner
                     .job_root(&reader_id)?

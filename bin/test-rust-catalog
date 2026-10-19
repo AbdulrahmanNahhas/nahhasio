@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Disposable, socket-only PostgreSQL; never reads DATABASE_URL or touches the family catalog.
+set -euo pipefail
+fixture_root="$(mktemp -d /tmp/nahhasio-catalog.XXXXXXXX)"
+chmod 700 "$fixture_root"
+cleanup() {
+  if pg_ctl -D "$fixture_root/database" status >/dev/null 2>&1; then
+    pg_ctl -D "$fixture_root/database" -m immediate -w stop >/dev/null
+  fi
+  rm -rf -- "$fixture_root"
+}
+trap cleanup EXIT
+node_migrate() {
+  if ! PGHOST="$fixture_root" PGPORT=25483 PGUSER=nahhasio_fixture DATABASE_URL="postgresql:///$1" pnpm --filter @arcadia/database db:migrate >"$fixture_root/node-migrations.log" 2>&1; then
+    python3 - "$fixture_root/node-migrations.log" <<'PY'
+import pathlib
+import re
+import sys
+text = pathlib.Path(sys.argv[1]).read_text()
+print(re.sub(r"postgres(?:ql)?://\S+", "[fixture connection]", text[-3000:]), file=sys.stderr)
+PY
+    return 1
+  fi
+}
+initdb -D "$fixture_root/database" -U nahhasio_fixture --auth=trust --no-instructions >"$fixture_root/init.log"
+pg_ctl -D "$fixture_root/database" -l "$fixture_root/postgres.log" -o "-k $fixture_root -h '' -p 25483" -w start >/dev/null
+createdb -h "$fixture_root" -p 25483 -U nahhasio_fixture nahhasio_test_catalog
+export NAHHASIO_TEST_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_catalog?host=$fixture_root"
+cargo test --locked -p nahhasio-catalog --test postgres -- --ignored --nocapture
+
+# Exercise the built binary, including its stdout, error status and rollback boundary.
+cargo build --locked -p nahhasio-cli
+export DATABASE_URL="$NAHHASIO_TEST_DATABASE_URL"
+target/debug/nahhasio health --json >"$fixture_root/health.json"
+target/debug/nahhasio stats person --json >"$fixture_root/scoped-stats.json"
+mkdir "$fixture_root/tool"
+cp target/debug/nahhasio "$fixture_root/tool/nahhasio"
+(
+  cd "$fixture_root/tool"
+  env -u NAHHASIO_EDITOR_ROOT PATH=/nonexistent ./nahhasio schema titles --json >"$fixture_root/standalone.json"
+)
+target/debug/nahhasio title update 'Edited Fixture' --set canonical_title='CLI Fixture' --dry-run --json >"$fixture_root/dry-run.json"
+target/debug/nahhasio title get 'Edited Fixture' --json >"$fixture_root/record.json"
+target/debug/nahhasio title update 'Edited Fixture' --set canonical_title='CLI Fixture' --write --json >"$fixture_root/write.json"
+target/debug/nahhasio title get 'CLI Fixture' --json >"$fixture_root/saved.json"
+if target/debug/nahhasio title update 'CLI Fixture' --set canonical_title=Denied --json >"$fixture_root/denied.json" 2>"$fixture_root/error.json"; then
+  echo 'CLI accepted a write without --write' >&2
+  exit 1
+fi
+python3 - "$fixture_root" <<'PY'
+import json
+import pathlib
+import sys
+root = pathlib.Path(sys.argv[1])
+read = lambda name: json.loads((root / name).read_text())
+assert read("health.json")["ok"] is True
+assert read("scoped-stats.json")[0]["count"] == 1
+assert read("standalone.json")["name"] == "titles"
+assert read("dry-run.json")["rolledBack"] is True
+assert read("record.json")["canonical_title"] == "Edited Fixture"
+assert read("saved.json")["canonical_title"] == "CLI Fixture"
+assert read("saved.json")["id"] == read("record.json")["id"]
+assert read("write.json")["affected"] == 1
+assert "--write" in read("error.json")["error"]["message"]
+print("Rust CLI acceptance passed: isolated PostgreSQL, mutations, audit, rollback, output.")
+PY
+
+# Prove both migration runners can continue the same history without replaying it.
+for fixture_database in nahhasio_test_rust_migrations nahhasio_test_node_migrations; do
+  createdb -h "$fixture_root" -p 25483 -U nahhasio_fixture "$fixture_database"
+done
+export DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_rust_migrations?host=$fixture_root"
+target/debug/nahhasio migrate apply --write --json >"$fixture_root/rust-migrations.json"
+target/debug/nahhasio schema --json >"$fixture_root/full-schema.json"
+node_migrate nahhasio_test_rust_migrations
+target/debug/nahhasio migrate status --json >"$fixture_root/rust-status.json"
+export DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_node_migrations?host=$fixture_root"
+node_migrate nahhasio_test_node_migrations
+target/debug/nahhasio migrate apply --write --json >"$fixture_root/rust-after-node.json"
+python3 - "$fixture_root" <<'PY'
+import json
+import pathlib
+import sys
+root = pathlib.Path(sys.argv[1])
+statuses = [json.loads((root / name).read_text()) for name in
+            ["rust-migrations.json", "rust-status.json", "rust-after-node.json"]]
+assert all(status["pending"] == [] for status in statuses)
+assert all(status["applied"] == statuses[0]["applied"] for status in statuses)
+assert len(json.loads((root / "full-schema.json").read_text())) >= 70
+print(f"Drizzle/Rust migration compatibility passed in both directions: {statuses[0]['applied']} migrations.")
+PY
+
+export NAHHASIO_TEST_EDITOR_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_rust_migrations?host=$fixture_root"
+NAHHASIO_EDITOR_ROOT=/nonexistent-rust-editor-fixture cargo test --locked -p nahhasio-server --test editor_postgres -- --ignored --nocapture
