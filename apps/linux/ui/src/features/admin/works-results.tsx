@@ -29,8 +29,8 @@ function updatedDate(value: string) {
 }
 export type WorksView = "table" | "posters";
 const views = [
-  { value: "table", label: "جدول", icon: List },
   { value: "posters", label: "ملصقات مصغّرة", icon: LayoutGrid },
+  { value: "table", label: "جدول", icon: List },
 ] as const;
 
 export function WorksResults({

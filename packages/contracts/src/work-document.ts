@@ -1,5 +1,18 @@
 import { z } from "zod";
 const scoreValue = z.number().min(0).max(10).nullable();
+export const languageCode = z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
+export const languageCodes = z
+  .array(languageCode)
+  .max(30)
+  .refine((values) => new Set(values).size === values.length, "Language codes must be unique");
+export const trailerDocument = z.object({
+  id: z.string().uuid().optional(),
+  youtubeVideoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
+  title: z.string().max(300).optional(),
+  language: languageCode.nullable().optional(),
+  isPrimary: z.boolean().optional(),
+  position: z.number().int().nonnegative().optional(),
+});
 
 export const episodeDocument = z.object({
   id: z.string().uuid().optional(),
@@ -13,6 +26,7 @@ export const episodeDocument = z.object({
     .nullable()
     .optional(),
   runtimeMinutes: z.number().int().min(0).nullable().optional(),
+  media: z.partialRecord(z.enum(["still", "poster", "banner"]), z.string().nullable()).optional(),
 });
 
 export const installmentDocument = z.object({
@@ -62,6 +76,7 @@ export const creditDocument = z.object({
   role: z.string().min(1),
   isPrimary: z.boolean().optional(),
   position: z.number().int().min(0).optional(),
+  languages: languageCodes.optional(),
 });
 
 export const awardDocument = z.object({
@@ -94,6 +109,10 @@ export const workDocument = z.object({
   format: z.enum(["animated", "live-action"]).optional(),
   isPrivate: z.boolean().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
+  playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  dubLanguages: languageCodes.optional(),
+  dubbingNotes: z.string().max(20000).optional(),
+  trailers: z.array(trailerDocument).max(30).optional(),
   qualityScore: z.number().int().min(0).optional(),
   audience: z.enum(["general", "teen", "young-adult", "adult"]).optional(),
   age: z.enum(["all", "7+", "10+", "13+", "16+", "18+"]).optional(),
@@ -119,7 +138,7 @@ export const workDocument = z.object({
   tones: z.array(z.string().min(1)).optional(),
   tags: z.array(z.string().min(1)).optional(),
   countries: z.array(z.string().min(1)).optional(),
-  planets: z.array(z.string().min(1)).optional(),
+  planets: z.array(z.string().min(1)).max(1).optional(),
   credits: z.array(creditDocument).optional(),
   externalIds: z
     .array(

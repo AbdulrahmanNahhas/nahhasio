@@ -1,6 +1,8 @@
 import type { Contribution, WorkDetail } from "@nahhasio/api-contract";
 import { ArrowUpLeft } from "lucide-react";
 
+import { languageName } from "@/lib/languages";
+
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
 import { Badge } from "../../components/ui/badge";
@@ -34,6 +36,11 @@ function Credit({ credit }: { credit: Contribution }) {
               <span className="text-sm text-primary" dir="auto">
                 {credit.roleLabelAr || credit.roleLabelEn || credit.role}
               </span>
+              {credit.languages?.map((language) => (
+                <Badge variant="outline" key={language}>
+                  {languageName(language)}
+                </Badge>
+              ))}
               {credit.isPrimary && <Badge variant="secondary">دور رئيسي</Badge>}
             </div>
           </div>

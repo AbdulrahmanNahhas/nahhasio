@@ -17,6 +17,8 @@ use tokio::sync::{RwLock as AsyncRwLock, Semaphore};
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerInfo {
+    #[serde(default)]
+    pub server_id: Option<String>,
     pub product: String,
     pub name: String,
     pub version: String,
@@ -308,7 +310,10 @@ impl Services {
             return self.offline.change(work, &request.payload, true).await;
         }
         if matches!(request.command.as_str(), "login" | "session") {
-            session.probe().await?;
+            let info = session.probe().await?;
+            if let Some(id) = info.server_id {
+                self.offline.identify(session.address(), &id).await?;
+            }
         }
         let identity = matches!(request.command.as_str(), "login" | "session");
         let login = request.command == "login";

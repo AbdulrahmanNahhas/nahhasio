@@ -280,6 +280,7 @@ function EpisodeCard({
   const number = episodeNumberLabel(episode.number);
   const state = tracking.unitByEpisode.get(episode.id);
   const image =
+    episode.still ??
     pickArtwork(episode.artwork, "still") ??
     pickArtwork(episode.artwork, "banner") ??
     episode.artwork[0] ??

@@ -42,6 +42,12 @@ export function filterCount(filters: BrowseFilters) {
 }
 
 const labels = new Map<string, string>([
+  ["ar", "العربية"],
+  ["en", "الإنجليزية"],
+  ["es", "الإسبانية"],
+  ["files-only", "ملفات فقط"],
+  ["torrents-allowed", "التورنت متاح"],
+  ["dubbing_studio", "استوديو الدبلجة"],
   ["animated-series", "مسلسل رسوم متحركة"],
   ["animated-movie", "فيلم رسوم متحركة"],
   ["live-action-series", "مسلسل واقعي"],

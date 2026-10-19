@@ -2,6 +2,8 @@ import { cn } from "cn";
 import { ArrowLeft, Building2, Search, Users, X } from "lucide-react";
 import { useState } from "react";
 
+import { languageName } from "@/lib/languages";
+
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
 import { Choice } from "../../components/choice";
@@ -37,6 +39,10 @@ export function EntityDirectoryPage({
   const size =
     params.get("size") === "large" ? "large" : params.get("size") === "medium" ? "medium" : "small";
   const square = people ? params.get("shape") === "square" : params.get("shape") !== "banner";
+  const language = params.get("language") ?? "";
+  const languages = [
+    ...new Set(result.entities.flatMap((entity) => entity.languages ?? [])),
+  ].toSorted();
   const role = params.get("role") || (people ? "all" : "animation_studio");
   const image = ["all", "with", "without"].includes(params.get("image") ?? "")
     ? params.get("image")!
@@ -48,7 +54,10 @@ export function EntityDirectoryPage({
       ),
     ).values(),
   ).toSorted((a, b) => a.label.localeCompare(b.label, "ar"));
-  const changeFilter = (key: "role" | "image" | "size" | "shape" | "privacy", value: string) => {
+  const changeFilter = (
+    key: "role" | "image" | "size" | "shape" | "privacy" | "language",
+    value: string,
+  ) => {
     const next = new URLSearchParams(params);
     const defaults = {
       role: people ? "all" : "animation_studio",
@@ -56,6 +65,7 @@ export function EntityDirectoryPage({
       size: "small",
       cardAspect: people ? "portrait" : "square",
       privacy: "public",
+      language: "",
     };
     const defaultValue = key === "shape" ? defaults.cardAspect : defaults[key];
     if (value === defaultValue) next.delete(key);
@@ -63,11 +73,12 @@ export function EntityDirectoryPage({
     setLimit(24);
     replaceParams(`/${path}`, next);
   };
-  const filtered = Boolean(search.trim()) || role !== "all" || image !== "all";
+  const filtered = Boolean(search.trim()) || role !== "all" || image !== "all" || Boolean(language);
   const clearFilters = () => {
     setSearch("");
     setLimit(24);
     const next = new URLSearchParams(params);
+    next.delete("language");
     next.set("role", "all");
     next.set("image", "all");
     replaceParams(`/${path}`, next);
@@ -76,7 +87,11 @@ export function EntityDirectoryPage({
     .filter(
       (entity) =>
         entity.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
-        (role === "all" || entity.roles?.some((item) => item.value === role)) &&
+        (role === "all"
+          ? !language || entity.languages?.includes(language)
+          : entity.roles?.some(
+              (item) => item.value === role && (!language || item.languages?.includes(language)),
+            )) &&
         (image === "all" || (image === "with" ? Boolean(entity.artworkId) : !entity.artworkId)),
     )
     .toSorted((a, b) =>
@@ -143,6 +158,23 @@ export function EntityDirectoryPage({
               onChange={(value) => changeFilter("role", value)}
             />
           </Field>
+          {languages.length > 0 && (
+            <Field>
+              <FieldLabel htmlFor="entity-credit-language" className="sr-only">
+                لغة المساهمة
+              </FieldLabel>
+              <Choice
+                id="entity-credit-language"
+                label="لغة المساهمة"
+                value={language}
+                options={[
+                  { value: "", label: "جميع لغات المساهمة" },
+                  ...languages.map((value) => ({ value, label: languageName(value) })),
+                ]}
+                onChange={(value) => changeFilter("language", value)}
+              />
+            </Field>
+          )}
           <Field>
             <FieldLabel htmlFor="studio-image" className="sr-only">
               {people ? "الصورة" : "الشعار"}

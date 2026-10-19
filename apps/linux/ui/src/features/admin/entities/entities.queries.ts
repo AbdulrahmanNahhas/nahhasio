@@ -20,6 +20,8 @@ export const entitySearchSchema = z.object({
     .default("1"),
   image: z.enum(["all", "with", "without"]).catch("all").default("all"),
   usage: z.enum(["all", "linked", "unlinked", "one"]).catch("all").default("all"),
+  role: z.string().max(80).catch("").default(""),
+  language: z.string().max(35).catch("").default(""),
   sort: z.enum(["name", "works", "updated"]).catch("works").default("works"),
   view: z.enum(["grid", "table"]).catch("grid").default("grid"),
 });
@@ -33,6 +35,8 @@ export function entityListOptions(kind: EntityKind, search: EntitySearch) {
     image: search.image,
     usage: search.usage,
     sort: search.sort,
+    role: search.role,
+    language: search.language,
   };
   return queryOptions({
     queryKey: [...entityKeys.all, "list", data],

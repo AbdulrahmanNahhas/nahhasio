@@ -68,6 +68,7 @@ async function humanRecord(tx: TransactionSql, value: EntitySnapshot): Promise<H
       role: credit.roleName,
       position: credit.position,
       isPrimary: credit.isPrimary,
+      languages: credit.languages ?? [],
     })),
   };
 }
@@ -112,6 +113,7 @@ async function resolveDraft(tx: TransactionSql, record: HumanEntity, kind: strin
       roleLabel: role.label,
       position: credit.position,
       isPrimary: credit.isPrimary,
+      languages: credit.languages ?? [],
     });
   }
   let profileAssetId: string | null = null;

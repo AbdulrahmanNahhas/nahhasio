@@ -16,6 +16,7 @@ export const offlineStatusSchema = z.object({
   offline: z.boolean(),
   name: z.string().nullable(),
   pending: z.number().int().nonnegative(),
+  conflicts: z.array(z.object({ id: z.string().uuid(), title: z.string() })).default([]),
   job: jobSchema.nullable(),
 });
 export const savedWorksSchema = z

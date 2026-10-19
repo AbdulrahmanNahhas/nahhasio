@@ -1,5 +1,6 @@
 //! Database-backed viewer/admin authentication using the existing identity and session tables.
 //! Passwords match Better Auth 1.6.29 / @better-auth/utils 0.5.0 exactly.
+mod device;
 mod profile;
 
 use std::{
@@ -37,6 +38,7 @@ pub fn routes(pool: PgPool) -> Router {
         .route("/api/v1/auth/login", post(login))
         .route("/api/v1/auth/session", get(session))
         .route("/api/v1/auth/logout", post(logout))
+        .route("/api/v1/me/device", post(device::register))
         .route("/api/v1/me", get(profile::get).patch(profile::update))
         .route("/api/v1/me/password", post(profile::password))
         .route("/api/v1/auth/avatars/{key}", get(profile::avatar))
@@ -260,7 +262,7 @@ async fn login(
 
 async fn lookup(pool: &PgPool, headers: &HeaderMap) -> Result<SessionResponse, AuthError> {
     let key = bearer(headers)?;
-    let row = sqlx::query("SELECT u.id, a.display_name AS name, u.email, u.role, a.id::text AS account_id, a.kind::text AS kind, a.avatar_key, a.bio, (u.role IN ('owner','admin') AND a.kind='admin') AS is_admin, to_char(a.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at, ((u.role IN ('owner','admin') AND a.kind='admin') OR EXISTS(SELECT 1 FROM account_content_policies p WHERE p.account_id=a.id AND p.audience='adult' AND p.age='18+' AND p.sexuality_risk='high' AND p.behavioral_risk='high' AND p.theology_risk='high' AND p.inclusion_filter IS NULL)) AS unrestricted, to_char(s.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS expires_at FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id JOIN accounts a ON a.auth_user_id=u.id WHERE s.token=$1 AND s.expires_at > now() AND u.role IN ('owner','admin','member') AND a.status='active' AND (NOT u.banned OR u.ban_expires <= now())")
+    let row = sqlx::query("SELECT u.id, a.display_name AS name, u.email, u.role, a.id::text AS account_id, a.kind::text AS kind, a.avatar_key, a.bio, (u.role IN ('owner','admin') AND a.kind='admin') AS is_admin, to_char(a.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at, ((u.role IN ('owner','admin') AND a.kind='admin') OR EXISTS(SELECT 1 FROM account_content_policies p WHERE p.account_id=a.id AND p.audience='adult' AND p.age='18+' AND p.sexuality_risk='high' AND p.behavioral_risk='high' AND p.theology_risk='high' AND p.inclusion_filter IS NULL)) AS unrestricted, to_char(s.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS expires_at FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id JOIN accounts a ON a.auth_user_id=u.id WHERE s.token=$1 AND s.expires_at > now() AND NOT EXISTS(SELECT 1 FROM devices d WHERE d.id=s.device_id AND d.revoked_at IS NOT NULL) AND u.role IN ('owner','admin','member') AND a.status='active' AND (NOT u.banned OR u.ban_expires <= now())")
         .bind(key).fetch_optional(pool).await.map_err(unavailable)?.ok_or_else(unauthorized)?;
     Ok(SessionResponse {
         user: user(&row),
@@ -322,19 +324,20 @@ pub async fn require_viewer(
         }
         let parts: Vec<_> = request.uri().path().split('/').collect();
         if parts.len() >= 5 && parts[3] == "works" {
-            let private: bool =
-                sqlx::query_scalar("SELECT is_private FROM titles WHERE id::text=$1")
-                    .bind(parts[4])
-                    .fetch_optional(&pool)
-                    .await
-                    .map_err(unavailable)?
-                    .unwrap_or(false);
+            let private: bool = sqlx::query_scalar(
+                "SELECT (is_private OR workflow_status<>'published') FROM titles WHERE id::text=$1",
+            )
+            .bind(parts[4])
+            .fetch_optional(&pool)
+            .await
+            .map_err(unavailable)?
+            .unwrap_or(false);
             if private {
                 return Err(AuthError(StatusCode::NOT_FOUND, "Work not found"));
             }
         }
         if parts.len() == 5 && parts[3] == "artwork" {
-            let private: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_asset_assignments m LEFT JOIN installments i ON i.id=m.installment_id LEFT JOIN episodes e ON e.id=m.episode_id LEFT JOIN installments ei ON ei.id=e.installment_id JOIN titles t ON t.id=coalesce(m.title_id,i.title_id,ei.title_id) WHERE m.asset_id::text=$1 AND t.is_private)").bind(parts[4]).fetch_one(&pool).await.map_err(unavailable)?;
+            let private: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM media_asset_assignments m LEFT JOIN installments i ON i.id=m.installment_id LEFT JOIN episodes e ON e.id=m.episode_id LEFT JOIN installments ei ON ei.id=e.installment_id LEFT JOIN titles t ON t.id=coalesce(m.title_id,i.title_id,ei.title_id) WHERE m.asset_id::text=$1 AND ((NOT t.is_private AND t.workflow_status='published') OR EXISTS(SELECT 1 FROM contributions c JOIN titles visible ON visible.id=c.title_id WHERE c.entity_id=m.entity_id AND NOT visible.is_private AND visible.workflow_status='published')))").bind(parts[4]).fetch_one(&pool).await.map_err(unavailable)?;
             if private {
                 return Err(AuthError(StatusCode::NOT_FOUND, "Artwork not found"));
             }

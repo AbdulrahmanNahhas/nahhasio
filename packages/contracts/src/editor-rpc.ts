@@ -45,7 +45,7 @@ export const reviewSchema = z.object({
 });
 export const originalSchema = z.object({ id: z.string().uuid(), revision: z.string().length(64) });
 
-export const imageRoleSchema = z.enum(["poster", "banner", "logo", "profile"]);
+export const imageRoleSchema = z.enum(["poster", "banner", "logo", "profile", "still"]);
 export const imageOwnerKindSchema = z.enum(["title", "installment", "episode", "entity"]);
 export const imageSchema = z.object({
   id: z.string().uuid(),
@@ -102,7 +102,7 @@ export const rpcInputs = {
     pageSize: z.number().int().min(1).max(48).default(24),
     usage: z.enum(["all", "assigned", "unassigned"]).default("all"),
     health: z.enum(["all", "problems", "missing", "healthy"]).default("all"),
-    role: z.enum(["all", "poster", "banner", "logo", "profile"]).default("all"),
+    role: z.enum(["all", "poster", "banner", "logo", "profile", "still"]).default("all"),
     sort: z.enum(["newest", "oldest", "name", "size"]).default("newest"),
   }),
   assetDelete: z.strictObject({ id: z.string().uuid(), expectedSha256: z.string().length(64) }),
@@ -152,13 +152,13 @@ export const rpcInputs = {
   }),
   ingest: z.strictObject({
     url: z.string().url(),
-    role: z.enum(["poster", "banner", "logo"]),
+    role: z.enum(["poster", "banner", "logo", "still"]),
     ownerName: z.string().min(1).max(200),
   }),
   upload: z.strictObject({
     dataUrl: z.string().max(14000000),
     fileName: z.string().min(1).max(250),
-    role: z.enum(["poster", "banner", "logo", "profile"]),
+    role: z.enum(["poster", "banner", "logo", "profile", "still"]),
     ownerName: z.string().min(1).max(200),
   }),
   preview: z.strictObject({ url: z.string().url() }),
@@ -215,7 +215,18 @@ export const rpcResults = {
   ),
   media: z.object({ id: z.string().uuid() }),
   search: z.object({ candidates: z.array(artworkCandidateSchema), warnings: z.array(z.string()) }),
-  season: z.json(),
+  season: z
+    .array(
+      z.object({
+        number: z.number(),
+        title: z.string().nullable(),
+        summary: z.string(),
+        releaseDate: z.string().nullable(),
+        runtimeMinutes: z.number().nullable(),
+        stillUrl: z.string().url().nullable(),
+      }),
+    )
+    .nullable(),
   ingest: z.object({ id: z.string().uuid(), path: z.string() }),
   upload: z.object({ id: z.string().uuid(), path: z.string() }),
   preview: z.object({ dataUrl: z.string() }),

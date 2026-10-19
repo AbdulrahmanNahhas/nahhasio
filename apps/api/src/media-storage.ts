@@ -3,7 +3,7 @@ import { access, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const mediaKinds = ["poster", "banner", "logo", "profile"] as const;
+export const mediaKinds = ["poster", "banner", "logo", "profile", "still"] as const;
 export type MediaKind = (typeof mediaKinds)[number];
 
 /**

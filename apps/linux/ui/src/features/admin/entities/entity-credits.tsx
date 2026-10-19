@@ -27,6 +27,7 @@ import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
+import { LanguagesField } from "@/features/editor/fields/languages-field";
 import { useEditorRows } from "@/features/editor/structure/use-editor-rows";
 
 import {
@@ -210,6 +211,22 @@ export function EntityCredits({
             className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3"
           >
             <div className="min-w-0 flex-1">
+              <details className="mb-3">
+                <summary className="cursor-pointer text-xs text-muted-foreground">
+                  لغات المساهمة{credit.languages?.length ? ` · ${credit.languages.join("، ")}` : ""}
+                </summary>
+                <div className="pt-3">
+                  <LanguagesField
+                    label={`اللغات في ${credit.workTitle}`}
+                    values={credit.languages ?? []}
+                    onChange={(languages) =>
+                      onChange(
+                        credits.map((item, i) => (i === index ? { ...item, languages } : item)),
+                      )
+                    }
+                  />
+                </div>
+              </details>
               <a
                 href={`#/admin/works/${credit.workId}?section=indexing`}
                 className="font-medium underline-offset-4 hover:underline"

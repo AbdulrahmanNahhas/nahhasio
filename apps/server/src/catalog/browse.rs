@@ -172,6 +172,13 @@ fn facets() -> Vec<(&'static str, &'static str, String)> {
         ("watchStates","حالة المشاهدة","array[watch_state]".into()),
         ("favoriteStates","المفضلة","array[case when exists(select 1 from account_title_states ats join accounts a on a.id=ats.account_id where ats.title_id=t.id and a.auth_user_id=$1 and ats.is_favorite) then 'favorite' else 'other' end]".into()),
     ];
+    list.push(("dubLanguages", "لغات الدبلجة", "t.dub_languages".into()));
+    list.push((
+        "playbackPolicies",
+        "مصادر التشغيل",
+        "array[t.playback_policy]".into(),
+    ));
+    list.push(("contributionRoles","أدوار المساهمة","array(select distinct r.slug from contributions c join roles r on r.id=c.role_id where c.title_id=t.id)".into()));
     list.push(("releaseStates", "توفر إصدارات", format!("array[case when exists(select 1 from installments x where x.title_id=t.id and (i.id is null or x.id=i.id) and {RELEASED_INSTALLMENT}) then 'released' else 'unreleased' end]")));
     for (key, label, table) in [
         ("genres", "الأنواع الفنية", "genres"),
@@ -222,7 +229,7 @@ cross join lateral (select {counts} from ({units}) units
 left join account_playback_states ps on ps.account_id=(select a.id from accounts a where a.auth_user_id=$1 and a.status='active')
 and ps.installment_id=units.installment_id and ps.episode_id is not distinct from units.episode_id) tracking
 cross join lateral (select {watch_state} watch_state) watch
-where ($2='works' or i.id is not null) and ($3='all' or t.is_private=($3='private'))"#,
+where ($2='works' or i.id is not null) and ($3='all' or t.is_private=($3='private')) and ($3<>'public' or t.workflow_status='published')"#,
         art = queries::ARTWORK,
         score = queries::SCORE_VALUE,
         units = tracking::units("t.id", "i.id"),
@@ -322,7 +329,7 @@ fn grouping(group: &str) -> (&'static str, &'static str) {
 }
 fn entity_artwork() -> &'static str {
     // Organization images in the existing catalog may use profile instead of logo.
-    "case when key in ('contributors','studios') then (select m.asset_id from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.entity_id::text=value and m.role in ('profile','logo') and a.mime_type in ('image/png','image/jpeg','image/webp','image/gif') order by case when key='contributors' and m.role='profile' or key='studios' and m.role='logo' then 0 else 1 end,m.is_primary desc,m.id limit 1) else null end"
+    "case when key in ('contributors','studios') then (select m.asset_id from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.entity_id::text=value and m.role in ('profile','logo') and a.mime_type in ('image/png','image/jpeg','image/webp','image/gif','image/avif') order by case when key='contributors' and m.role='profile' or key='studios' and m.role='logo' then 0 else 1 end,m.is_primary desc,m.id limit 1) else null end"
 }
 
 pub(super) async fn options(
@@ -332,10 +339,10 @@ pub(super) async fn options(
 ) -> ApiResult<Json<Value>> {
     let (_, _, view, privacy, _, _) = input.validated()?;
     let groups=facets().iter().map(|(key,label,_)|format!("select '{key}' key,'{label}' label,value,count(*)::bigint count from base cross join lateral jsonb_array_elements_text(facts->'{key}') v(value) group by value")).collect::<Vec<_>>().join(" union all ");
-    let labels = r#"case when key in('genres','tones','tags','countries') then coalesce((select coalesce(label_ar,label_en) from (select 'genres' vocab,slug,label_ar,label_en from genres union all select 'tones',slug,label_ar,label_en from tones union all select 'tags',slug,label_ar,label_en from tags union all select 'countries',slug,label_ar,label_en from countries) vocabulary where vocab=key and slug=value limit 1),value) when key in('contributors','studios') then coalesce((select name from entities where id::text=value),value) when key='planets' then coalesce((select icon||' '||name_ar from planets where slug=value),value) else value end"#;
+    let labels = r#"case when key in('genres','tones','tags','countries') then coalesce((select coalesce(label_ar,label_en) from (select 'genres' vocab,slug,label_ar,label_en from genres union all select 'tones',slug,label_ar,label_en from tones union all select 'tags',slug,label_ar,label_en from tags union all select 'countries',slug,label_ar,label_en from countries) vocabulary where vocab=key and slug=value limit 1),value) when key in('contributors','studios') then coalesce((select name from entities where id::text=value),value) when key='contributionRoles' then coalesce((select coalesce(nullif(label_ar,''),label_en) from roles where slug=value limit 1),value) when key='planets' then coalesce((select icon||' '||name_ar from planets where slug=value),value) else value end"#;
     let artwork = entity_artwork();
     let query = format!(
-        "with base as ({base}), options as ({groups}), labelled as (select *,{labels} display from options), grouped as(select key,label,jsonb_agg(jsonb_build_object('value',value,'label',display,'count',count,'artworkId',({artwork})) || case when key in ('studios','contributors') then jsonb_build_object('roles',coalesce((select jsonb_agg(jsonb_build_object('value',role_slug,'label',role_label) order by role_label,role_slug) from (select distinct r.slug role_slug,coalesce(r.label_ar,r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id)) entity_roles),'[]'::jsonb)) else '{{}}'::jsonb end order by count desc,value) options from labelled group by key,label) select jsonb_build_object('groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'label',label,'options',options) order by key) from grouped),'[]'::jsonb),'yearMin',(select min(catalog_year) from base),'yearMax',(select max(catalog_year) from base))",
+        "with base as ({base}), options as ({groups}), labelled as (select *,{labels} display from options), grouped as(select key,label,jsonb_agg(jsonb_build_object('value',value,'label',display,'count',count,'artworkId',({artwork})) || case when key in ('studios','contributors') then jsonb_build_object('languages',coalesce((select jsonb_agg(distinct language order by language) from contributions c cross join lateral unnest(c.languages) language where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id)),'[]'::jsonb),'roles',coalesce((select jsonb_agg(jsonb_build_object('value',role_slug,'label',role_label,'languages',languages) order by role_label,role_slug) from (select r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label,coalesce((select jsonb_agg(distinct language order by language) from contributions x cross join lateral unnest(x.languages) language where x.entity_id=c.entity_id and x.role_id=c.role_id and exists(select 1 from base b where b.id=x.title_id)),'[]'::jsonb) languages from contributions c join roles r on r.id=c.role_id where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id) group by r.slug,r.label_ar,r.label_en,c.entity_id,c.role_id) entity_roles),'[]'::jsonb)) else '{{}}'::jsonb end order by count desc,value) options from labelled group by key,label) select jsonb_build_object('groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'label',label,'options',options) order by key) from grouped),'[]'::jsonb),'yearMin',(select min(catalog_year) from base),'yearMax',(select max(catalog_year) from base))",
         base = base()
     );
     let value = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(query))

@@ -37,6 +37,7 @@ import {
 import { workflowLabels } from "@/features/catalog/works/works-model";
 import { WorkImages } from "@/features/editor/artwork/work-images";
 import { AwardsEditor } from "@/features/editor/fields/awards-editor";
+import { PlaybackFields } from "@/features/editor/fields/playback-fields";
 import { SelectField, StringListField, TextField } from "@/features/editor/fields/work-fields";
 import { ChangeReview } from "@/features/editor/json/document/change-review";
 import {
@@ -302,12 +303,14 @@ export function WorkWorkspace({
                     </Card>
                   </div>
                 </div>
+                <PlaybackFields draft={draft} update={update} />
                 <WorkScoreDetails installments={draft.installments ?? []} />
               </TabsContent>
               <TabsContent value="structure">
                 <Suspense fallback={<Skeleton className="h-96" />}>
                   <StructureEditor
                     workId={snapshot.document.id ?? ""}
+                    tmdbId={draft.tmdbId}
                     installments={draft.installments ?? []}
                     onChange={(value) => update("installments", value)}
                   />

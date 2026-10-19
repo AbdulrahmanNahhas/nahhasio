@@ -58,7 +58,14 @@ pub(super) async fn serve(
     .fetch_optional(&pool)
     .await?
     .ok_or(ApiError(StatusCode::NOT_FOUND, "Artwork not found"))?;
-    if !["image/jpeg", "image/png", "image/webp", "image/gif"].contains(&mime.as_str())
+    if ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "image/avif",
+    ]
+    .contains(&mime.as_str())
         || !(1..=MAX_ARTWORK_BYTES as i32).contains(&size)
     {
         return Err(ApiError(StatusCode::NOT_FOUND, "Artwork unavailable"));

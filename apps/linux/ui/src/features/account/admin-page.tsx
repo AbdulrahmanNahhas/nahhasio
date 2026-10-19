@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 
+import { DatabaseInspector, inspectionSections } from "../admin/database-inspector";
 import { adminSection, adminGroups, isAdminSectionAvailable } from "../admin/navigation";
 
 export function AdminPage() {
@@ -92,6 +93,8 @@ export function AdminSectionPage({ section = "" }: { section?: string }) {
     );
   const item = adminSection(section);
   const title = section ? (item?.title ?? "صفحة غير موجودة") : "نظرة عامة";
+  if (item && section in inspectionSections)
+    return <DatabaseInspector key={section} section={section} title={title} />;
   const Icon = item?.icon ?? ShieldCheck;
   return (
     <div className="grid flex-1 place-items-center p-6">

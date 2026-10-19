@@ -19,7 +19,7 @@ type EntityRevisionInput = { draft: Draft; images: EntityImage[]; updatedAt: str
 function fingerprint(value: EntityRevisionInput) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
-const entityWhere = `e.kind::text=$1 and ($2='' or strpos(lower(concat_ws(' ',e.name,e.sort_name)),lower($2))>0 or exists(select 1 from entity_aliases a where a.entity_id=e.id and strpos(lower(a.alias),lower($2))>0)) and ($3='all' or ($3='with')=exists(select 1 from media_asset_assignments a where a.entity_id=e.id)) and ($4='all' or ($4='linked' and exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='unlinked' and not exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='one' and (select count(distinct c.title_id) from contributions c where c.entity_id=e.id)=1))`;
+const entityWhere = `e.kind::text=$1 and ($2='' or strpos(lower(concat_ws(' ',e.name,e.sort_name)),lower($2))>0 or exists(select 1 from entity_aliases a where a.entity_id=e.id and strpos(lower(a.alias),lower($2))>0)) and ($3='all' or ($3='with')=exists(select 1 from media_asset_assignments a where a.entity_id=e.id)) and ($4='all' or ($4='linked' and exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='unlinked' and not exists(select 1 from contributions c where c.entity_id=e.id)) or ($4='one' and (select count(distinct c.title_id) from contributions c where c.entity_id=e.id)=1)) and (($5='' and $6='') or exists(select 1 from contributions c join roles r on r.id=c.role_id where c.entity_id=e.id and ($5='' or r.slug=$5) and ($6='' or $6=any(c.languages))))`;
 export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.entityList>) {
   const order = {
     name: "e.sort_name,e.name,e.id",
@@ -29,9 +29,9 @@ export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.ent
   }[input.sort];
 
   return sql.begin("isolation level repeatable read read only", async (tx) => {
-    const params = [input.kind, input.q, input.image, input.usage];
+    const params = [input.kind, input.q, input.image, input.usage, input.role, input.language];
     const rows = await tx.unsafe<{ value: unknown }[]>(
-      `select ${summary} as value from entities e where ${entityWhere} order by ${order} limit 24 offset $5`,
+      `select ${summary} as value from entities e where ${entityWhere} order by ${order} limit 24 offset $7`,
       [...params, (input.page - 1) * 24],
     );
     const [total] = await tx.unsafe<{ count: string }[]>(
@@ -48,7 +48,7 @@ export async function listEntities(sql: Sql, input: z.infer<typeof rpcInputs.ent
 export async function selectEntities(sql: Sql, input: z.infer<typeof rpcInputs.entitySelection>) {
   const rows = await sql.unsafe<{ id: string; name: string }[]>(
     `select e.id,e.name from entities e where ${entityWhere} order by e.id`,
-    [input.kind, input.q, input.image, input.usage],
+    [input.kind, input.q, input.image, input.usage, input.role, input.language],
   );
   return rpcResults.entitySelection.parse(rows);
 }
@@ -89,7 +89,7 @@ export async function snapshot(tx: TransactionSql, id: string, kind: string) {
   >`select id,asset_id,role::text,is_primary from media_asset_assignments where entity_id=${id} order by id`;
   const credits = await tx<
     { value: unknown }[]
-  >`select jsonb_build_object('workId',c.title_id,'workTitle',t.canonical_title,'roleId',c.role_id,'roleName',r.label_en,'roleLabel',coalesce(nullif(r.label_ar,''),r.label_en),'position',c.position,'isPrimary',c.is_primary) as value from contributions c join titles t on t.id=c.title_id join roles r on r.id=c.role_id where c.entity_id=${id} order by c.position,t.sort_title,c.title_id,c.role_id`;
+  >`select jsonb_build_object('workId',c.title_id,'workTitle',t.canonical_title,'roleId',c.role_id,'roleName',r.label_en,'roleLabel',coalesce(nullif(r.label_ar,''),r.label_en),'position',c.position,'isPrimary',c.is_primary,'languages',c.languages) as value from contributions c join titles t on t.id=c.title_id join roles r on r.id=c.role_id where c.entity_id=${id} order by c.position,t.sort_title,c.title_id,c.role_id`;
   const draft: Draft = {
     name: entity.name,
     sortName: entity.sortName,
@@ -216,7 +216,7 @@ export async function applyEntity(
     )
       await tx`delete from contributions where entity_id=${id} and title_id=${credit.workId} and role_id=${credit.roleId}`;
   for (const credit of input.draft.credits)
-    await tx`insert into contributions(title_id,entity_id,role_id,position,is_primary) values(${credit.workId},${id},${credit.roleId},${credit.position},${credit.isPrimary}) on conflict(title_id,entity_id,role_id) do update set position=excluded.position,is_primary=excluded.is_primary`;
+    await tx`insert into contributions(title_id,entity_id,role_id,position,is_primary,languages) values(${credit.workId},${id},${credit.roleId},${credit.position},${credit.isPrimary},${credit.languages ?? []}::text[]) on conflict(title_id,entity_id,role_id) do update set position=excluded.position,is_primary=excluded.is_primary,languages=case when ${credit.languages !== undefined} then excluded.languages else contributions.languages end`;
   const role = input.kind === "person" ? "profile" : "logo";
   await tx`update media_asset_assignments set is_primary=false,updated_at=now() where entity_id=${id} and role::text=${role} and is_primary`;
   if (input.draft.profileAssetId) {

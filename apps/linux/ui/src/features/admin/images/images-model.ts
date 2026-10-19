@@ -14,7 +14,7 @@ export const imageSearchSchema = z.object({
   q: z.string().max(300).catch("").default(""),
   health: z.enum(["all", "problems", "missing", "healthy"]).catch("all").default("all"),
   usage: z.enum(["all", "assigned", "unassigned"]).catch("all").default("all"),
-  role: z.enum(["all", "poster", "banner", "logo", "profile"]).catch("all").default("all"),
+  role: z.enum(["all", "poster", "banner", "logo", "profile", "still"]).catch("all").default("all"),
   sort: z.enum(["newest", "oldest", "name", "size"]).catch("newest").default("newest"),
   page: z
     .string()
@@ -31,6 +31,7 @@ export const imageRoles = [
   { value: "banner", label: "خلفية" },
   { value: "logo", label: "شعار" },
   { value: "profile", label: "صورة شخصية" },
+  { value: "still", label: "صورة حلقة" },
 ] as const;
 export const ownerKinds = [
   { value: "title", label: "عمل" },

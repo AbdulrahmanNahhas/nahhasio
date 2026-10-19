@@ -37,6 +37,7 @@ export const artworkRoleLabels = new Map([
   ["banner", "خلفية"],
   ["logo", "شعار"],
   ["profile", "صورة شخصية"],
+  ["still", "صورة حلقة"],
 ]);
 export const externalIdLabels = new Map([
   ["tmdbId", "TMDB"],

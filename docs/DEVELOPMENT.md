@@ -460,3 +460,54 @@ motion is respected. Presets live inside the Browse toolbar, show view summaries
 updating an existing name and show pending/error/success feedback. Saved Works adds a clear
 search action, result count and compact card placeholders. Hands-on GTK refresh remains a
 separate acceptance check after relaunching the freshly built native process.
+
+## Schema integration checkpoint — 2026-10-19
+
+Phase 1 is committed as `990b704`; see SCHEMA-FOUNDATION.md for the Phase 2 checklist and limits.
+The canonical contract includes policy/dubs/trailers, episode stills, contribution languages, playback
+revisions, stable server identity and native installation registration. Regenerate editor-operation
+schemas with `pnpm --filter @arcadia/cli exec tsx src/editor/generate-api.ts`, then `pnpm client:generate`.
+Never edit the generated client directly.
+
+Production administrator sessions may read `/api/v1/admin/database/schema` and bounded
+`/api/v1/admin/database/{table}` pages. This replaces a client-side need for the private development
+SQL token. Protected columns are projected as `[protected]`; secret-shaped nested payload keys and
+connection parameters are scrubbed. Existing admin routes host the inspector; specialized editors
+retain transactional/reviewed writes. No arbitrary SQL/write operation is exposed through this view.
+
+`POST /api/v1/me/device` registers a private installation UUID and associates the current session.
+`installation.json` and `server-identities.json` live under the existing private native state root.
+Address aliases of the same verified server retain the original catalog/download/preferences scope;
+URL-scoped session credentials are not copied between addresses. Replaced identities or two
+independent cache roots require review instead of an automatic merge. Preserve the entire existing
+`XDG_STATE_HOME/nahhasio` directory, not individual new files.
+
+Unsaved-work playback uses a bounded tracking-only pack. It is excluded from the Saved Works list,
+and it contains no proactively fetched artwork. Its progress queue/conflicts use the same owner
+and revision rules as saved works. Manual flags win over automatic completion at 90 percent.
+Episode stills are ordinary server media assets with episode assignments and source evidence.
+YouTube links open the system browser after explicit activation; external pages never load in the
+privileged WebView.
+
+After native/API changes, restart only the managed server and fully quit/relaunch the desktop.
+UI hot reload cannot install new bridge commands. Existing AppImages are unchanged by a local
+source build and must be rebuilt separately. Physical GTK input, external-browser launch, real TMDB
+credentials, cross-address/restart acceptance and Jellyfin/file playback remain distinct checks.
+
+### Focused verification result
+
+The disposable restored-catalog API run passed 276 assertions, including all 75 table reads and
+member tracking. Browser fixture captures at 1440×1000 and 520×900 were inspected. The fresh native
+executable and packaged bundle passed nine focused checks at 1440×793 CSS pixels, DPR 2, including
+login/new admin controls/logout, with no JS/CSP errors or unexpected mock routes. The private
+artifact manifest and captures are under `data/previews/work-review/phase2-complete-episodes-1440`
+and `phase2-manifest.json`; browser captures are under `data/previews/phase2-schema`. They are
+ignored and have no production credentials. The old broad driver used stale screen assumptions;
+its failed runs do not replace this final focused result.
+
+The UI deduplicates Zod and initializes its interpreter before importing the application. Official
+overlays receive the existing document style nonce. ScoreComparison passes labels to ChartConfig
+and uses its existing theme colors directly; it no longer requests redundant inline styles from
+the vendored chart. These fixes preserve CSP and reviewed presentation. The native environment
+still reported an unavailable accessibility bus and a Vulkan surface warning; no physical-input,
+compositor smoothness, real-provider import, cross-address/restart or playback claim follows.

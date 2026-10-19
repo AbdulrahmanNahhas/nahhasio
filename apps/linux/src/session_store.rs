@@ -20,6 +20,34 @@ impl SessionStore {
             root: root.to_path_buf(),
         }
     }
+    pub fn installation_id(&self) -> Result<String, Error> {
+        let existing: Option<String> = private_state::read(&self.root, "installation.json")?;
+        if let Some(id) = existing {
+            if crate::bridge::valid_id(&id) {
+                return Ok(id);
+            }
+            return Err(Error::new(
+                "device_storage",
+                "Invalid installation identity",
+            ));
+        }
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes)
+            .map_err(|_| Error::new("device_storage", "Cannot create installation identity"))?;
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        let hex = hex::encode(bytes);
+        let id = format!(
+            "{}-{}-{}-{}-{}",
+            &hex[..8],
+            &hex[8..12],
+            &hex[12..16],
+            &hex[16..20],
+            &hex[20..]
+        );
+        private_state::write(&self.root, "installation.json", &id)?;
+        Ok(id)
+    }
     fn name(server: &str) -> String {
         format!(
             "session-{}.json",

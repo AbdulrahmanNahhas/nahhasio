@@ -54,12 +54,12 @@ const ENTRIES: &str = r#"with entries as (
 select i.id,t.id work_id,t.sort_title,i.id installment_id,i.position installment_position,
 -1 episode_position,i.title,i.release_date,i.runtime_minutes,i.status::text status,'installment'::text kind,
 null::text episode_number
-from installments i join titles t on t.id=i.title_id where not t.is_private
+from installments i join titles t on t.id=i.title_id where (not t.is_private and t.workflow_status='published')
 union all
 select e.id,t.id,t.sort_title,i.id,i.position,e.position,e.title,e.release_date,e.runtime_minutes,
 i.status::text,'episode'::text,e.number::text
 from episodes e join installments i on i.id=e.installment_id join titles t on t.id=i.title_id
-where not t.is_private
+where (not t.is_private and t.workflow_status='published')
 ), filtered as (
 select * from entries where ($1='all' or ($1='installments' and kind='installment') or ($1='episodes' and kind='episode'))
 and case $2
@@ -248,7 +248,11 @@ mod tests {
     fn query_uses_actual_dates_public_rows_and_bounded_stable_order() {
         let sql = query();
         assert!(sql.contains("e.title,e.release_date,e.runtime_minutes"));
-        assert_eq!(sql.matches("where not t.is_private").count(), 2);
+        assert_eq!(
+            sql.matches("where (not t.is_private and t.workflow_status='published')")
+                .count(),
+            2
+        );
         assert!(!sql.contains("release_year"));
         assert!(sql.contains("limit $6::bigint offset"));
         assert!(sql.contains(

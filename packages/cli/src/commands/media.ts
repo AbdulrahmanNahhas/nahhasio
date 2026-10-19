@@ -20,7 +20,7 @@ import { CliError } from "../output";
 import { resolveRef } from "../resolve";
 import type { CommandResult, RowDraft } from "../types";
 
-export const mediaRoles = ["poster", "banner", "logo", "profile"] as const;
+export const mediaRoles = ["poster", "banner", "logo", "profile", "still"] as const;
 export type MediaRole = (typeof mediaRoles)[number];
 
 const maximumBytes = 10 * 1024 * 1024;

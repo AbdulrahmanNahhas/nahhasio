@@ -24,6 +24,8 @@ struct Entry {
     poster_id: Option<String>,
     saved_at: String,
     images: usize,
+    #[serde(default = "saved_default")]
+    saved: bool,
     #[serde(default)]
     pending: usize,
     #[serde(default)]
@@ -44,6 +46,8 @@ struct Change {
     installment_id: String,
     episode_id: Option<String>,
     expected_updated_at: Value,
+    #[serde(default)]
+    expected_revision: Option<i64>,
     is_played: Option<bool>,
     position_seconds: Option<u64>,
     duration_seconds: Option<u64>,
@@ -79,6 +83,9 @@ fn bad() -> Error {
         "تعذّر قراءة بيانات المكتبة المحفوظة. أعد حفظ العمل بعد الاتصال.",
     )
 }
+fn saved_default() -> bool {
+    true
+}
 fn hash(value: &str) -> String {
     hex::encode(Sha256::digest(value.as_bytes()))
 }
@@ -106,6 +113,53 @@ impl Store {
     }
     fn server_root(&self, server: &str) -> PathBuf {
         self.root.join("saved").join(hash(server))
+    }
+    fn canonical_server(&self, server: &str) -> Result<String, Error> {
+        let aliases: Vec<(String, String, String)> =
+            private_state::read(&self.root, "server-identities.json")?.unwrap_or_default();
+        if aliases.len() > 256 {
+            return Err(bad());
+        }
+        Ok(aliases
+            .into_iter()
+            .find(|(url, _, _)| url == server)
+            .map(|(_, _, canonical)| canonical)
+            .unwrap_or_else(|| server.into()))
+    }
+    /// Keep the original storage namespace so previously downloaded videos and preferences remain valid.
+    /// New addresses of the same verified instance share it; credentials remain address-scoped.
+    pub async fn identify(&self, server: &str, instance: &str) -> Result<(), Error> {
+        if !valid_id(instance) {
+            return Err(bad());
+        }
+        let _guard = self.serial.lock().await;
+        let mut aliases: Vec<(String, String, String)> =
+            private_state::read(&self.root, "server-identities.json")?.unwrap_or_default();
+        if let Some((_, previous, _)) = aliases.iter().find(|(url, _, _)| url == server) {
+            if previous != instance {
+                return Err(Error::new(
+                    "server_identity",
+                    "تغيّرت هوية الخادم في هذا العنوان. بيانات المكتبة السابقة محفوظة؛ راجع إعداد الاتصال.",
+                ));
+            }
+            return Ok(());
+        }
+        if aliases.len() >= 256 {
+            return Err(bad());
+        }
+        let canonical = aliases
+            .iter()
+            .find(|(_, id, _)| id == instance)
+            .map(|(_, _, canonical)| canonical.clone())
+            .unwrap_or_else(|| server.into());
+        if canonical != server && self.server_root(server).exists() {
+            return Err(Error::new(
+                "server_identity",
+                "لهذا العنوان بيانات محلية مستقلة. احتفظ بها وراجع الاتصال قبل دمج المكتبتين.",
+            ));
+        }
+        aliases.push((server.into(), instance.into(), canonical));
+        private_state::write(&self.root, "server-identities.json", &aliases)
     }
     fn directory(&self, owner: &Owner) -> PathBuf {
         self.server_root(&owner.server).join(hash(&owner.account))
@@ -144,6 +198,8 @@ impl Store {
         self.owner.lock().await.as_ref().is_some_and(|o| o.offline)
     }
     pub async fn remember(&self, server: &str, session: &Value) -> Result<(), Error> {
+        let canonical = self.canonical_server(server)?;
+        let server = canonical.as_str();
         let user = &session["user"];
         let account = id(user, "accountId")?;
         let name = user["name"]
@@ -247,6 +303,8 @@ impl Store {
         transport: ServerSession,
         request: Request,
     ) -> Result<Value, Error> {
+        let canonical = self.canonical_server(server)?;
+        let server = canonical.as_str();
         match request.command.as_str() {
             "offline.profiles" => {
                 let profiles: Vec<Profile> =
@@ -280,7 +338,12 @@ impl Store {
             "offline.status" => self.status().await,
             "offline.list" => {
                 let owner = self.owner().await?;
-                Ok(json!(self.entries(&owner)?))
+                Ok(json!(
+                    self.entries(&owner)?
+                        .into_iter()
+                        .filter(|entry| entry.saved)
+                        .collect::<Vec<_>>()
+                ))
             }
             "offline.save" => {
                 let owner = self.owner().await?;
@@ -390,6 +453,7 @@ impl Store {
                     for change in &mut pack.pending {
                         let unit = find_unit(&fresh, change)?;
                         change.expected_updated_at = unit["updatedAt"].clone();
+                        change.expected_revision = unit["revision"].as_i64();
                     }
                 }
                 self.put(&owner, &work, &pack)?;
@@ -397,11 +461,18 @@ impl Store {
             }
             "offline.progress" => {
                 let work = id(&request.payload, "workId")?;
+                if request.payload["scope"].as_str() != Some(self.scope().await?.as_str()) {
+                    return Err(Error::new("offline_owner", "تغيّر حساب المشاهدة."));
+                }
+                self.track(&work, &transport).await?;
                 self.change(&work, &request.payload, false).await
             }
             "offline.position" => {
                 let owner = self.owner().await?;
                 let work = id(&request.payload, "workId")?;
+                if !owner.offline {
+                    self.track(&work, &transport).await?;
+                }
                 let pack = self.pack(&owner, &work)?;
                 let installment = id(&request.payload, "installmentId")?;
                 let episode = request
@@ -424,7 +495,7 @@ impl Store {
         let owner = self.owner.lock().await.clone();
         let Some(owner) = owner else {
             return Ok(
-                json!({"active":false,"name":null,"pending":0,"job":null,"offline":false,"scope":null}),
+                json!({"active":false,"name":null,"pending":0,"job":null,"offline":false,"scope":null,"conflicts":[]}),
             );
         };
         let entries = self.entries(&owner)?;
@@ -436,7 +507,7 @@ impl Store {
             .clone()
             .filter(|job| job.account == owner.account && job.server == owner.server);
         Ok(
-            json!({"active":true,"offline":owner.offline,"name":owner.name,"pending":pending,"job":job,"scope":format!("{}-{}",hash(&owner.server),hash(&owner.account))}),
+            json!({"active":true,"offline":owner.offline,"name":owner.name,"pending":pending,"job":job,"conflicts":entries.iter().filter(|entry|entry.conflict).map(|entry|json!({"id":entry.id,"title":entry.title})).collect::<Vec<_>>(),"scope":format!("{}-{}",hash(&owner.server),hash(&owner.account))}),
         )
     }
     async fn save(
@@ -529,6 +600,7 @@ impl Store {
             poster_id: pack.work["poster"]["id"].as_str().map(str::to_owned),
             saved_at: now(),
             images: ids.len(),
+            saved: true,
             pending: pack.pending.len(),
             conflict: pack.conflict,
         };
@@ -579,6 +651,57 @@ impl Store {
             "workState" => Ok(pack.state),
             _ => Err(bad()),
         }
+    }
+    /// Tracking is durable even when metadata/artwork was not explicitly saved for browsing.
+    async fn track(&self, work: &str, transport: &ServerSession) -> Result<(), Error> {
+        let owner = self.owner().await?;
+        if self.entries(&owner)?.iter().any(|entry| entry.id == work) {
+            return Ok(());
+        }
+        if owner.offline {
+            return Err(Error::new(
+                "not_saved",
+                "بيانات هذا العمل غير متاحة دون اتصال.",
+            ));
+        }
+        let data = call(transport, "work", json!({"id":work})).await?;
+        let state = call(transport, "workState", json!({"id":work})).await?;
+        let _guard = self.serial.lock().await;
+        let mut entries = self.entries(&owner)?;
+        if entries.iter().any(|entry| entry.id == work) {
+            return Ok(());
+        }
+        if entries.len() >= 1000 {
+            return Err(Error::new(
+                "device_storage",
+                "وصل سجل الجهاز إلى الحد الحالي؛ زامن المكتبة ونظّف التخزين.",
+            ));
+        }
+        let entry = Entry {
+            id: work.into(),
+            title: data["titleAr"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .or_else(|| data["canonicalTitle"].as_str())
+                .unwrap_or("عمل")
+                .into(),
+            poster_id: None,
+            saved_at: now(),
+            images: 0,
+            saved: false,
+            pending: 0,
+            conflict: false,
+        };
+        let pack = Pack {
+            version: 1,
+            work: data,
+            state,
+            pending: vec![],
+            conflict: false,
+        };
+        self.put(&owner, work, &pack)?;
+        entries.push(entry);
+        private_state::write_limit(&self.directory(&owner), "index.json", &entries, 256 * 1024)
     }
     pub async fn change(&self, work: &str, input: &Value, watched: bool) -> Result<Value, Error> {
         let owner = self.owner().await?;
@@ -660,6 +783,7 @@ impl Store {
                     installment_id: installment,
                     episode_id: episode,
                     expected_updated_at: unit["updatedAt"].clone(),
+                    expected_revision: unit["revision"].as_i64(),
                     is_played: played,
                     position_seconds: position,
                     duration_seconds: duration,
@@ -774,6 +898,16 @@ fn apply_pending(pack: &mut Pack) -> Result<(), Error> {
         if let Some(position) = change.position_seconds {
             unit["positionSeconds"] = json!(position);
             unit["durationSeconds"] = json!(change.duration_seconds);
+            if unit["playedManually"] != true
+                && change.duration_seconds.is_some_and(|duration| {
+                    duration > 0 && position.saturating_mul(10) >= duration.saturating_mul(9)
+                })
+            {
+                unit["isPlayed"] = json!(true);
+                if unit["playedAt"].is_null() {
+                    unit["playedAt"] = json!(now());
+                }
+            }
         }
     }
     let units = array(&pack.state["units"])?;
@@ -796,7 +930,10 @@ fn apply_pending(pack: &mut Pack) -> Result<(), Error> {
 }
 fn summary(units: &[Value]) -> Value {
     let released = units.iter().filter(|u| u["isReleased"] == true).count();
-    let played = units.iter().filter(|u| u["isPlayed"] == true).count();
-    let full = !units.is_empty() && played == units.len();
+    let played = units
+        .iter()
+        .filter(|u| u["isReleased"] == true && u["isPlayed"] == true)
+        .count();
+    let full = released > 0 && played == released;
     json!({"catalogUnits":units.len(),"releasedUnits":released,"watchedReleasedUnits":units.iter().filter(|u|u["isReleased"]==true && u["isPlayed"]==true).count(),"isFullyWatched":full,"watchState":if full{"watched"}else if units.iter().any(|u|u["isPlayed"]==true || u["positionSeconds"].as_u64().unwrap_or(0)>0){"in-progress"}else{"unwatched"}})
 }

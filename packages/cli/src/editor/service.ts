@@ -100,6 +100,11 @@ function guardKeys(raw: JsonValue, parsed: JsonValue, path = "") {
 }
 function prepareStructure(patch: WorkDocument, current: WorkDocument) {
   const removed: string[] = [];
+  for (const trailer of patch.trailers ?? []) {
+    if (trailer.id && !current.trailers?.some((item) => item.id === trailer.id))
+      throw new Error("معرّف إعلان لا ينتمي إلى العمل.");
+    trailer.id ??= randomUUID();
+  }
   if (!patch.installments) return removed;
   const ids = new Set<string>();
   for (const item of patch.installments) {

@@ -63,6 +63,7 @@ import { useCatalogSelection, CatalogSelectionActions } from "../catalog-selecti
 import { useMatchingSelection } from "../use-matching-selection";
 import {
   entityListOptions,
+  entityOptionsQuery,
   entityDetailOptions,
   type EntitySearch,
   type EntityKind,
@@ -95,6 +96,7 @@ export function EntitiesPage({
     ...entityListOptions(kind, search),
     placeholderData: keepPreviousData,
   });
+  const options = useQuery(entityOptionsQuery(kind));
   const client = useQueryClient();
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const pages = Math.max(1, Math.ceil((result.data?.total ?? 0) / 24));
@@ -102,7 +104,14 @@ export function EntitiesPage({
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id));
   const preload = (id: string) => void client.prefetchQuery(entityDetailOptions(kind, id));
   const open = (id: string) => onChange({ person: id }, false);
-  const matchingQuery = { kind, q: search.q, image: search.image, usage: search.usage };
+  const matchingQuery = {
+    kind,
+    q: search.q,
+    image: search.image,
+    usage: search.usage,
+    role: search.role,
+    language: search.language,
+  };
   const selectAll = useMatchingSelection({
     key: ["admin", "entities", "selection", session.data?.user.id ?? "signed-out", matchingQuery],
     load: async () =>
@@ -117,7 +126,9 @@ export function EntitiesPage({
   const activeFilters =
     Number(search.image !== "all") +
     Number(search.usage !== "all") +
-    Number(search.sort !== "works");
+    Number(search.sort !== "works") +
+    Number(!!search.role) +
+    Number(!!search.language);
   function select(id: string, checked: boolean) {
     const record = items.find((item) => item.id === id);
     if (record) selection.change([{ id, name: record.name }], checked);
@@ -169,6 +180,38 @@ export function EntitiesPage({
               <PopoverDescription>تُطبّق اختياراتك مباشرة على النتائج.</PopoverDescription>
             </PopoverHeader>
             <FieldGroup className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel htmlFor="entity-role">الدور</FieldLabel>
+                <Choice
+                  id="entity-role"
+                  label="الدور"
+                  value={search.role}
+                  options={[
+                    { value: "", label: "جميع الأدوار" },
+                    ...(options.data?.roles ?? []).map((role) => ({
+                      value: role.slug,
+                      label: role.label,
+                    })),
+                  ]}
+                  onChange={(role) => onChange({ role })}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="entity-language">لغة المساهمة</FieldLabel>
+                <Choice
+                  id="entity-language"
+                  label="لغة المساهمة"
+                  value={search.language}
+                  options={[
+                    { value: "", label: "جميع اللغات" },
+                    { value: "ar", label: "العربية" },
+                    { value: "en", label: "الإنجليزية" },
+                    { value: "es", label: "الإسبانية" },
+                    { value: "ja", label: "اليابانية" },
+                  ]}
+                  onChange={(language) => onChange({ language })}
+                />
+              </Field>
               <Field>
                 <FieldLabel htmlFor="entity-filter-image">توفر الصورة</FieldLabel>
                 <Choice
@@ -228,7 +271,9 @@ export function EntitiesPage({
               variant="ghost"
               size="sm"
               disabled={!activeFilters}
-              onClick={() => onChange({ image: "all", usage: "all", sort: "works" })}
+              onClick={() =>
+                onChange({ image: "all", usage: "all", sort: "works", role: "", language: "" })
+              }
             >
               <X data-icon="inline-start" /> إعادة ضبط المرشحات
             </Button>

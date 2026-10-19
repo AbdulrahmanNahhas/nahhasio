@@ -23,10 +23,7 @@ export function ScoreComparison({
   if (!item) return null;
   const rating = installmentRating(item.score ?? {});
   const config: ChartConfig = Object.fromEntries(
-    installments.map((part, index) => [
-      `part${index}`,
-      { label: part.title, color: index === selected ? "var(--chart-1)" : "var(--chart-2)" },
-    ]),
+    installments.map((part, index) => [`part${index}`, { label: part.title }]),
   );
   const data = scoreCriteria.map((criterion) => ({
     criterion: criterion.label,

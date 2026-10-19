@@ -82,6 +82,8 @@ export function adminSection(slug: string) {
   return adminGroups.flatMap((group) => [...group.items]).find((item) => item.slug === slug);
 }
 
+import { inspectionSections } from "./inspection-sections";
+
 // Keep every navigation surface honest: editor subpages live under Works, not separate links.
 const implementedAdminSections: ReadonlySet<string> = new Set([
   "works",
@@ -92,5 +94,5 @@ const implementedAdminSections: ReadonlySet<string> = new Set([
   "planets",
 ]);
 export function isAdminSectionAvailable(slug: string) {
-  return implementedAdminSections.has(slug);
+  return implementedAdminSections.has(slug) || slug in inspectionSections;
 }

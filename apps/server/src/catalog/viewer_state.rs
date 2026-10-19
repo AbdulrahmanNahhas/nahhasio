@@ -8,7 +8,7 @@ use axum::{
         DefaultBodyLimit, Path, Query, State,
         rejection::{JsonRejection, QueryRejection},
     },
-    http::{HeaderValue, StatusCode, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     middleware::{self, Next},
     response::Response,
     routing::get,
@@ -104,7 +104,7 @@ async fn account(
     // Locking the account serializes overlapping bulk/single writes for this owner. Recheck
     // account/identity status inside the write transaction, not only in middleware.
     let query = format!(
-        "SELECT a.id::text FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE u.id=$1 AND a.status='active' AND u.role='owner' AND (NOT u.banned OR u.ban_expires<=now()){}",
+        "SELECT a.id::text FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE u.id=$1 AND a.status='active' AND u.role IN ('owner','admin','member') AND (NOT u.banned OR u.ban_expires<=now()){}",
         if write { " FOR UPDATE OF a,u" } else { "" }
     );
     sqlx::query_scalar(AssertSqlSafe(query))
@@ -112,6 +112,20 @@ async fn account(
         .fetch_optional(&mut **tx)
         .await?
         .ok_or(ApiError(StatusCode::UNAUTHORIZED, "Account is unavailable"))
+}
+async fn session_device(
+    tx: &mut Transaction<'_, Postgres>,
+    headers: &HeaderMap,
+) -> ApiResult<Option<String>> {
+    let key = crate::auth::bearer(headers)
+        .map_err(|_| ApiError(StatusCode::UNAUTHORIZED, "Authentication required"))?;
+    Ok(sqlx::query_scalar::<_, Option<String>>(
+        "select device_id::text from auth_sessions where token=$1 and expires_at>now()",
+    )
+    .bind(key)
+    .fetch_optional(&mut **tx)
+    .await?
+    .flatten())
 }
 async fn ensure_work(tx: &mut Transaction<'_, Postgres>, id: &str, write: bool) -> ApiResult<()> {
     let query = if write {
@@ -132,14 +146,14 @@ fn state_query() -> String {
         r#"with units as ({units}), states as (
 select units.*,ps.id state_id,coalesce(ps.position_seconds,0) position_seconds,ps.duration_seconds,
 coalesce(ps.is_played,false) is_played,coalesce(ps.played_manually,false) played_manually,
-ps.played_at,ps.subtitle_offset_ms,ps.updated_at
+ps.played_at,ps.subtitle_offset_ms,ps.updated_at,ps.revision
 from units left join account_playback_states ps on ps.account_id=$2::uuid
 and ps.installment_id=units.installment_id and ps.episode_id is not distinct from units.episode_id)
 select jsonb_build_object('workId',$1::uuid,
 'isFavorite',coalesce((select is_favorite from account_title_states where account_id=$2::uuid and title_id=$1::uuid),false),
 'units',coalesce((select jsonb_agg(jsonb_build_object('stateId',state_id,'installmentId',installment_id,'episodeId',episode_id,
 'isReleased',coalesce(is_released,false),'positionSeconds',position_seconds,'durationSeconds',duration_seconds,
-'isPlayed',is_played,'playedManually',played_manually,'playedAt',played_at,'subtitleOffsetMs',subtitle_offset_ms,'updatedAt',updated_at)
+'isPlayed',is_played,'playedManually',played_manually,'playedAt',played_at,'subtitleOffsetMs',subtitle_offset_ms,'updatedAt',updated_at,'revision',coalesce(revision,0))
 order by installment_position,installment_id,episode_position,episode_id) from states),'[]'::jsonb),
 'summary',(select {summary} from (select {counts} from states) tracking),
 'installments',coalesce((select jsonb_agg(jsonb_build_object('installmentId',x.id,'summary',{summary}) order by x.position,x.id)
@@ -228,12 +242,12 @@ async fn validate_target(
 }
 fn watched_query() -> String {
     format!(
-        r#"insert into account_playback_states(account_id,installment_id,episode_id,is_played,played_manually,played_at)
-select $2::uuid,installment_id,episode_id,$5,true,case when $5 then now() else null end
+        r#"insert into account_playback_states(account_id,installment_id,episode_id,is_played,played_manually,played_at,last_device_id)
+select $2::uuid,installment_id,episode_id,$5,true,case when $5 then now() else null end,$6::uuid
 from ({units}) targets where ($4::uuid is null or episode_id=$4::uuid)
 order by installment_id,episode_id
 on conflict on constraint account_playback_owner_uq do update set
-is_played=excluded.is_played,played_manually=true,
+is_played=excluded.is_played,played_manually=true,last_device_id=excluded.last_device_id,
 played_at=case when excluded.is_played then coalesce(account_playback_states.played_at,excluded.played_at) else null end,
 updated_at=now()"#,
         units = tracking::units("$1::uuid", "$3::uuid")
@@ -241,6 +255,7 @@ updated_at=now()"#,
 }
 async fn watched(
     State(pool): State<PgPool>,
+    headers: HeaderMap,
     Extension(user): Extension<User>,
     Path(id): Path<String>,
     input: Result<Json<WatchedInput>, JsonRejection>,
@@ -253,12 +268,14 @@ async fn watched(
     ensure_work(&mut tx, &id, true).await?;
     validate_target(&mut tx, &id, &input).await?;
     // No release filter: an explicit manual work/season choice includes future catalog units.
+    let device = session_device(&mut tx, &headers).await?;
     sqlx::query(AssertSqlSafe(watched_query()))
         .bind(&id)
         .bind(&account)
         .bind(input.installment_id)
         .bind(input.episode_id)
         .bind(input.is_played)
+        .bind(device)
         .execute(&mut *tx)
         .await?;
     let result = snapshot(&mut tx, &id, &account).await?;
@@ -272,6 +289,7 @@ struct TrackingInput {
     installment_id: String,
     episode_id: Option<String>,
     expected_updated_at: Option<String>,
+    expected_revision: Option<i64>,
     is_played: Option<bool>,
     position_seconds: Option<i32>,
     duration_seconds: Option<i32>,
@@ -279,6 +297,7 @@ struct TrackingInput {
 /// Absolute, owner-scoped replay. Identical retries are safe; concurrent edits require review.
 async fn sync_tracking(
     State(pool): State<PgPool>,
+    headers: HeaderMap,
     Extension(user): Extension<User>,
     Path(id): Path<String>,
     input: Result<Json<TrackingInput>, JsonRejection>,
@@ -289,10 +308,11 @@ async fn sync_tracking(
     if let Some(episode) = &input.episode_id {
         validate_id(episode)?;
     }
-    if input
-        .expected_updated_at
-        .as_ref()
-        .is_some_and(|date| date.len() > 64)
+    if input.expected_revision.is_some_and(|revision| revision < 0)
+        || input
+            .expected_updated_at
+            .as_ref()
+            .is_some_and(|date| date.len() > 64)
         || input
             .position_seconds
             .is_some_and(|n| !(0..=31_536_000).contains(&n))
@@ -327,9 +347,18 @@ async fn sync_tracking(
             })
         })
         .ok_or_else(not_found)?;
-    let identical = input
-        .is_played
-        .is_none_or(|played| unit["isPlayed"] == played && unit["playedManually"] == true)
+    let auto_played = unit["playedManually"] != true
+        && input
+            .position_seconds
+            .zip(input.duration_seconds)
+            .is_some_and(|(position, duration)| {
+                duration > 0 && i64::from(position) * 10 >= i64::from(duration) * 9
+            });
+    let resolved_played = input.is_played.or(auto_played.then_some(true));
+    let identical = (!auto_played || unit["isPlayed"] == true)
+        && input
+            .is_played
+            .is_none_or(|played| unit["isPlayed"] == played && unit["playedManually"] == true)
         && input.position_seconds.is_none_or(|position| {
             unit["positionSeconds"] == position
                 && unit["durationSeconds"] == serde_json::json!(input.duration_seconds)
@@ -338,14 +367,18 @@ async fn sync_tracking(
         tx.commit().await?;
         return Ok(Json(state));
     }
-    if unit["updatedAt"] != serde_json::json!(input.expected_updated_at) {
+    if input.expected_revision.map_or_else(
+        || unit["updatedAt"] != serde_json::json!(input.expected_updated_at),
+        |expected| unit["revision"].as_i64() != Some(expected),
+    ) {
         return Err(ApiError(
             StatusCode::CONFLICT,
             "Viewing state changed; review the device and server versions",
         ));
     }
-    sqlx::query("insert into account_playback_states(account_id,installment_id,episode_id,position_seconds,duration_seconds,is_played,played_manually,played_at) values($1::uuid,$2::uuid,$3::uuid,coalesce($4,0),$5,coalesce($6,false),$6 is not null,case when $6 then now() else null end) on conflict on constraint account_playback_owner_uq do update set position_seconds=coalesce($4,account_playback_states.position_seconds),duration_seconds=coalesce($5,account_playback_states.duration_seconds),is_played=coalesce($6,account_playback_states.is_played),played_manually=case when $6 is null then account_playback_states.played_manually else true end,played_at=case when $6 is null then account_playback_states.played_at when $6 then coalesce(account_playback_states.played_at,now()) else null end,updated_at=now()")
-        .bind(&account).bind(&input.installment_id).bind(&input.episode_id).bind(input.position_seconds).bind(input.duration_seconds).bind(input.is_played).execute(&mut *tx).await?;
+    let device = session_device(&mut tx, &headers).await?;
+    sqlx::query("insert into account_playback_states(account_id,installment_id,episode_id,position_seconds,duration_seconds,is_played,played_manually,played_at,last_device_id) values($1::uuid,$2::uuid,$3::uuid,coalesce($4,0),$5,coalesce($6,false),$7,case when $6 then now() else null end,$8::uuid) on conflict on constraint account_playback_owner_uq do update set position_seconds=coalesce($4,account_playback_states.position_seconds),duration_seconds=coalesce($5,account_playback_states.duration_seconds),last_device_id=$8::uuid,is_played=coalesce($6,account_playback_states.is_played),played_manually=case when $7 then true else account_playback_states.played_manually end,played_at=case when $6 is null then account_playback_states.played_at when $6 then coalesce(account_playback_states.played_at,now()) else null end,updated_at=now()")
+        .bind(&account).bind(&input.installment_id).bind(&input.episode_id).bind(input.position_seconds).bind(input.duration_seconds).bind(resolved_played).bind(input.is_played.is_some()).bind(device).execute(&mut *tx).await?;
     let result = snapshot(&mut tx, &id, &account).await?;
     tx.commit().await?;
     Ok(Json(result))

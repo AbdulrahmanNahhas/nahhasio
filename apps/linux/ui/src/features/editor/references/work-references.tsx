@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { hasSeries, seriesIdentityKeys } from "@/features/editor/artwork/artwork-model";
 import { IdentityFields } from "@/features/editor/fields/identity-fields";
+import { LanguagesField } from "@/features/editor/fields/languages-field";
 import { SelectField, TextField } from "@/features/editor/fields/work-fields";
 import { findReferences, ReferenceField } from "@/features/editor/references/reference-field";
 import { RegisteredImage } from "@/features/editor/registered-image";
@@ -281,7 +282,13 @@ function CreditRow({
   });
   const kind =
     role.data?.[0]?.entityKind ??
-    (["animation_studio", "production_company", "distributor", "publisher"].includes(item.role)
+    ([
+      "animation_studio",
+      "production_company",
+      "distributor",
+      "publisher",
+      "dubbing_studio",
+    ].includes(item.role)
       ? "organization"
       : "person");
   const entity = useQuery({
@@ -363,6 +370,18 @@ function CreditRow({
               onChange={(value) => onChange({ role: value })}
             />
           </FieldGroup>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              لغات المساهمة{item.languages?.length ? ` · ${item.languages.join("، ")}` : ""}
+            </summary>
+            <div className="pt-3">
+              <LanguagesField
+                label="لغات المساهمة"
+                values={item.languages ?? []}
+                onChange={(languages) => onChange({ languages })}
+              />
+            </div>
+          </details>
         </div>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2">

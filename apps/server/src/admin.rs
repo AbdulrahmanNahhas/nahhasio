@@ -1,6 +1,7 @@
 //! Session-authorized administration. The legacy local database token is not a client credential.
 mod editor;
 mod full_editor;
+mod inspection;
 use axum::{
     Json, Router,
     extract::{Query, State, rejection::QueryRejection},
@@ -24,7 +25,8 @@ pub fn routes(pool: PgPool) -> Router {
         .layer(middleware::from_fn(no_store))
         .with_state(pool.clone())
         .merge(editor::routes(pool.clone()))
-        .merge(full_editor::routes(pool))
+        .merge(full_editor::routes(pool.clone()))
+        .merge(inspection::routes(pool))
 }
 async fn no_store(request: axum::extract::Request, next: middleware::Next) -> Response {
     let mut response = next.run(request).await;

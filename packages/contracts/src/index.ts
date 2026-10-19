@@ -283,7 +283,7 @@ export const adminPlanetSchema = z.object({
   workCount: z.number().int().min(0),
 });
 
-export const mediaAssetRoleSchema = z.enum(["poster", "banner", "logo", "profile"]);
+export const mediaAssetRoleSchema = z.enum(["poster", "banner", "logo", "profile", "still"]);
 export const mediaOwnerSchema = z
   .object({
     titleId: z.string().uuid().optional(),

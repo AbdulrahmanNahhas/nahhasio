@@ -1,4 +1,6 @@
 import {
+  DatabaseSchemaSchema,
+  DatabasePageSchema,
   CatalogEditorCallSchema,
   CatalogEditorReplySchema,
   WorkDocumentSchema,
@@ -183,6 +185,10 @@ export const gateway = {
     AdminWorksPageSchema.parse(await call("adminWorks", query, signal)),
   adminWorksSelection: async (query: AdminWorksQuery, signal?: AbortSignal) =>
     AdminWorkSelectionSchema.parse(await call("adminWorksSelection", query, signal)),
+  databaseSchema: async (signal?: AbortSignal) =>
+    DatabaseSchemaSchema.parse(await call("databaseSchema", {}, signal)),
+  databaseRows: async (table: string, page: number, q: string, signal?: AbortSignal) =>
+    DatabasePageSchema.parse(await call("databaseRows", { table, page, pageSize: 25, q }, signal)),
   adminAccess: async (signal?: AbortSignal) =>
     UserSchema.parse(await call("adminAccess", {}, signal)),
   updateProfile: async (input: z.input<typeof ProfileUpdateSchema>) =>

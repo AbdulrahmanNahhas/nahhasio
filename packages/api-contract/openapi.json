@@ -19,7 +19,7 @@
     "/api/v1/releases": {
       "get": {
         "operationId": "getReleases",
-        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1–31) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
+        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1\u201331) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
         "parameters": [
           {
             "name": "season",
@@ -2107,6 +2107,102 @@
           }
         }
       }
+    },
+    "/api/v1/admin/database/schema": {
+      "get": {
+        "operationId": "getAdminDatabaseSchema",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authorized database projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/database/{table}": {
+      "get": {
+        "operationId": "getAdminDatabaseTable",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized database projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabasePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/device": {
+      "post": {
+        "operationId": "registerDevice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegistration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current session bound to an active installation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRegistered"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Revoked device"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2239,6 +2335,10 @@
           "updatedAt": {
             "type": "string",
             "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -2741,7 +2841,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["poster", "banner", "logo", "profile"]
+            "enum": ["poster", "banner", "logo", "profile", "still"]
           },
           "isPrimary": {
             "type": "boolean"
@@ -2933,6 +3033,14 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "still": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Artwork"
+              }
+            ],
+            "nullable": true
           }
         }
       },
@@ -3136,6 +3244,23 @@
               }
             ],
             "nullable": true
+          },
+          "playbackPolicy": {
+            "type": "string",
+            "enum": ["torrents-allowed", "files-only"]
+          },
+          "dubLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dubbingNotes": {
+            "type": "string"
+          },
+          "workflowStatus": {
+            "type": "string",
+            "enum": ["draft", "in_review", "approved", "published", "archived"]
           }
         }
       },
@@ -3233,6 +3358,12 @@
           },
           "roleDescriptionAr": {
             "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3501,6 +3632,29 @@
               }
             ],
             "nullable": true
+          },
+          "playbackPolicy": {
+            "type": "string",
+            "enum": ["torrents-allowed", "files-only"]
+          },
+          "dubLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dubbingNotes": {
+            "type": "string"
+          },
+          "workflowStatus": {
+            "type": "string",
+            "enum": ["draft", "in_review", "approved", "published", "archived"]
+          },
+          "trailers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Trailer"
+            }
           }
         }
       },
@@ -3733,7 +3887,8 @@
             "enum": ["video", "audio", "subtitle"]
           },
           "streamIndex": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true
           },
           "language": {
             "type": "string",
@@ -3751,6 +3906,13 @@
             "type": "boolean"
           },
           "isForced": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["embedded", "external"]
+          },
+          "isHearingImpaired": {
             "type": "boolean"
           }
         }
@@ -4404,8 +4566,20 @@
                 },
                 "label": {
                   "type": "string"
+                },
+                "languages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -5047,6 +5221,64 @@
                 "type": "string",
                 "enum": ["draft", "in_review", "approved", "published", "archived"]
               },
+              "playbackPolicy": {
+                "type": "string",
+                "enum": ["torrents-allowed", "files-only"]
+              },
+              "dubLanguages": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                }
+              },
+              "dubbingNotes": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "trailers": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "youtubeVideoId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{11}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "language": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "isPrimary": {
+                      "type": "boolean"
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": ["youtubeVideoId"]
+                }
+              },
               "qualityScore": {
                 "type": "integer",
                 "minimum": 0,
@@ -5162,6 +5394,7 @@
                 }
               },
               "planets": {
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -5188,6 +5421,14 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "languages": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                      }
                     }
                   },
                   "required": ["entity", "role"]
@@ -5562,6 +5803,23 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "media": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "enum": ["still", "poster", "banner"]
+                            },
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
                           }
                         },
                         "required": ["number"]
@@ -6076,7 +6334,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["poster", "banner", "logo"]
+            "enum": ["poster", "banner", "logo", "still"]
           },
           "ownerName": {
             "type": "string",
@@ -6114,7 +6372,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["poster", "banner", "logo", "profile"]
+            "enum": ["poster", "banner", "logo", "profile", "still"]
           },
           "ownerName": {
             "type": "string",
@@ -6241,6 +6499,64 @@
                   "type": "string",
                   "enum": ["draft", "in_review", "approved", "published", "archived"]
                 },
+                "playbackPolicy": {
+                  "type": "string",
+                  "enum": ["torrents-allowed", "files-only"]
+                },
+                "dubLanguages": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                  }
+                },
+                "dubbingNotes": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "trailers": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "youtubeVideoId": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{11}$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "language": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "isPrimary": {
+                        "type": "boolean"
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": ["youtubeVideoId"]
+                  }
+                },
                 "qualityScore": {
                   "type": "integer",
                   "minimum": 0,
@@ -6356,6 +6672,7 @@
                   }
                 },
                 "planets": {
+                  "maxItems": 1,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -6382,6 +6699,14 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
+                      },
+                      "languages": {
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                        }
                       }
                     },
                     "required": ["entity", "role"]
@@ -6756,6 +7081,23 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "media": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "enum": ["still", "poster", "banner"]
+                              },
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
                             }
                           },
                           "required": ["number"]
@@ -7083,6 +7425,64 @@
             "type": "string",
             "enum": ["draft", "in_review", "approved", "published", "archived"]
           },
+          "playbackPolicy": {
+            "type": "string",
+            "enum": ["torrents-allowed", "files-only"]
+          },
+          "dubLanguages": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+            }
+          },
+          "dubbingNotes": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "trailers": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "youtubeVideoId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{11}$"
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "language": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["youtubeVideoId"]
+            }
+          },
           "qualityScore": {
             "type": "integer",
             "minimum": 0,
@@ -7198,6 +7598,7 @@
             }
           },
           "planets": {
+            "maxItems": 1,
             "type": "array",
             "items": {
               "type": "string",
@@ -7224,6 +7625,14 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991
+                },
+                "languages": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                  }
                 }
               },
               "required": ["entity", "role"]
@@ -7598,6 +8007,23 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "media": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "enum": ["still", "poster", "banner"]
+                        },
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
                       }
                     },
                     "required": ["number"]
@@ -7938,31 +8364,70 @@
       "CatalogSeasonResult": {
         "anyOf": [
           {
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "number"
+                },
+                "title": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "releaseDate": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "runtimeMinutes": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "stillUrl": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "number",
+                "title",
+                "summary",
+                "releaseDate",
+                "runtimeMinutes",
+                "stillUrl"
+              ]
+            }
           },
           {
             "type": "null"
-          },
-          {
-            "type": "array",
-            "items": {
-              "x-zod-json": true
-            }
-          },
-          {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {
-              "x-zod-json": true
-            }
           }
         ]
       },
@@ -8169,7 +8634,7 @@
           "role": {
             "default": "all",
             "type": "string",
-            "enum": ["all", "poster", "banner", "logo", "profile"]
+            "enum": ["all", "poster", "banner", "logo", "profile", "still"]
           },
           "sort": {
             "default": "newest",
@@ -8226,7 +8691,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["poster", "banner", "logo", "profile"]
+            "enum": ["poster", "banner", "logo", "profile", "still"]
           },
           "q": {
             "type": "string",
@@ -8268,7 +8733,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["poster", "banner", "logo", "profile"]
+            "enum": ["poster", "banner", "logo", "profile", "still"]
           },
           "expectedPrimaryId": {
             "anyOf": [
@@ -8399,7 +8864,7 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["poster", "banner", "logo", "profile"]
+                    "enum": ["poster", "banner", "logo", "profile", "still"]
                   }
                 }
               },
@@ -8477,7 +8942,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["poster", "banner", "logo", "profile"]
+                  "enum": ["poster", "banner", "logo", "profile", "still"]
                 }
               }
             },
@@ -8546,7 +9011,7 @@
                 },
                 "role": {
                   "type": "string",
-                  "enum": ["poster", "banner", "logo", "profile"]
+                  "enum": ["poster", "banner", "logo", "profile", "still"]
                 },
                 "isPrimary": {
                   "type": "boolean"
@@ -8845,6 +9310,16 @@
             "type": "string",
             "enum": ["all", "linked", "unlinked", "one"]
           },
+          "role": {
+            "default": "",
+            "type": "string",
+            "maxLength": 80
+          },
+          "language": {
+            "default": "",
+            "type": "string",
+            "maxLength": 35
+          },
           "sort": {
             "default": "works",
             "type": "string",
@@ -9027,6 +9502,14 @@
                     },
                     "isPrimary": {
                       "type": "boolean"
+                    },
+                    "languages": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                      }
                     }
                   },
                   "required": [
@@ -9293,6 +9776,14 @@
                     },
                     "isPrimary": {
                       "type": "boolean"
+                    },
+                    "languages": {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                      }
                     }
                   },
                   "required": [
@@ -9887,6 +10378,14 @@
                       },
                       "isPrimary": {
                         "type": "boolean"
+                      },
+                      "languages": {
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                        }
                       }
                     },
                     "required": [
@@ -10063,6 +10562,14 @@
                           },
                           "isPrimary": {
                             "type": "boolean"
+                          },
+                          "languages": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                            }
                           }
                         },
                         "required": ["work", "role", "position", "isPrimary"],
@@ -10777,6 +11284,10 @@
           "apiVersion": {
             "type": "integer",
             "minimum": 1
+          },
+          "serverId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -10821,6 +11332,11 @@
             "minimum": 0,
             "maximum": 31536000,
             "nullable": true
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
           }
         }
       },
@@ -10862,6 +11378,16 @@
             "default": "all",
             "type": "string",
             "enum": ["all", "linked", "unlinked", "one"]
+          },
+          "role": {
+            "default": "",
+            "type": "string",
+            "maxLength": 80
+          },
+          "language": {
+            "default": "",
+            "type": "string",
+            "maxLength": 35
           }
         },
         "required": ["kind"],
@@ -10895,6 +11421,163 @@
             }
           },
           "required": ["id", "name"]
+        }
+      },
+      "Trailer": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "youtubeVideoId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": ["id", "youtubeVideoId", "title", "language", "isPrimary", "position"]
+      },
+      "DatabaseColumn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "dataType": {
+            "type": "string"
+          },
+          "nullable": {
+            "type": "boolean"
+          },
+          "primary": {
+            "type": "boolean"
+          },
+          "generated": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "enumValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protected": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "dataType",
+          "nullable",
+          "primary",
+          "generated",
+          "defaultValue",
+          "enumValues",
+          "protected"
+        ]
+      },
+      "DatabaseTable": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseColumn"
+            }
+          }
+        },
+        "required": ["name", "columns"]
+      },
+      "DatabaseSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseTable"
+            }
+          }
+        },
+        "required": ["tables"]
+      },
+      "DatabasePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "table": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "x-zod-json": true
+              }
+            }
+          }
+        },
+        "required": ["table", "page", "pageSize", "total", "rows"]
+      },
+      "DeviceRegistration": {
+        "type": "object",
+        "required": ["installationId", "name", "platform"],
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["linux", "windows", "macos", "android"]
+          }
+        }
+      },
+      "DeviceRegistered": {
+        "type": "object",
+        "required": ["deviceId"],
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       }
     }

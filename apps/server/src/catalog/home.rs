@@ -25,7 +25,7 @@ select id,account_id,title_id,body,contains_spoilers,rating,created_at,'review':
 union all
 select id,account_id,title_id,body,contains_spoilers,null::integer rating,created_at,'comment'::text kind from title_comments where moderation_status='published'
 ) activity join accounts a on a.id=activity.account_id join titles t on t.id=activity.title_id
-where a.status='active' and a.is_discoverable and not t.is_private
+where a.status='active' and a.is_discoverable and (not t.is_private and t.workflow_status='published')
 order by activity.created_at desc,activity.kind,activity.id limit 6) entries"#,
         summary = queries::summary()
     );
@@ -42,7 +42,7 @@ select i.release_date,t.sort_title work_title,i.position,i.id,jsonb_build_object
 'poster',coalesce((select jsonb_build_object('id',a.id,'url','/api/v1/artwork/'||a.id,'mimeType',a.mime_type,'width',a.width,'height',a.height,'byteSize',a.byte_size,'sha256',a.sha256,'originalFilename',a.original_filename,'focalX',a.focal_x,'focalY',a.focal_y) from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' order by m.is_primary desc,m.id limit 1),({summary})->'poster'),
 'score',jsonb_build_object('rating',floor(({score})*10+0.5)/10,'scored',case when ({score}) is null then 0 else 1 end,'total',1)) item
 from installments i join titles t on t.id=i.title_id left join installment_scores s on s.installment_id=i.id
-where not t.is_private and ((i.status='announced' and (i.release_date is null or i.release_date>=current_date)) or (i.status='unknown' and i.release_date>current_date))
+where (not t.is_private and t.workflow_status='published') and ((i.status='announced' and (i.release_date is null or i.release_date>=current_date)) or (i.status='unknown' and i.release_date>current_date))
 order by i.release_date asc nulls last,t.sort_title,i.position,i.id limit 10) entries"#,
         summary = queries::SUMMARY,
         score = queries::SCORE_VALUE
@@ -57,7 +57,7 @@ order by i.release_date asc nulls last,t.sort_title,i.position,i.id limit 10) en
 select e.id,e.release_date,e.created_at,{viewing_item} item from episodes e
 join installments i on i.id=e.installment_id join titles t on t.id=i.title_id
 left join account_playback_states ps on ps.account_id=(select id from accounts where auth_user_id=$1 and status='active') and ps.installment_id=i.id and ps.episode_id=e.id
-where not t.is_private and e.release_date<=current_date
+where (not t.is_private and t.workflow_status='published') and e.release_date<=current_date
 order by e.release_date desc nulls last,e.created_at desc,e.id limit 12) episodes"#
     );
     let recent = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(recent_sql))
@@ -70,7 +70,7 @@ order by e.release_date desc nulls last,e.created_at desc,e.id limit 12) episode
 select ps.id,ps.updated_at,{viewing_item} item from account_playback_states ps
 join accounts account on account.id=ps.account_id join installments i on i.id=ps.installment_id
 join titles t on t.id=i.title_id left join episodes e on e.id=ps.episode_id and e.installment_id=i.id
-where account.auth_user_id=$1 and account.status='active' and not t.is_private and not ps.is_played and ps.position_seconds>0
+where account.auth_user_id=$1 and account.status='active' and (not t.is_private and t.workflow_status='published') and not ps.is_played and ps.position_seconds>0
 and ((e.id is not null and (e.release_date<=current_date or (e.release_date is null and i.status='completed')))
 or (ps.episode_id is null and i.kind in ('movie','special') and (i.release_date<=current_date or (i.release_date is null and i.status='completed'))))
 order by ps.updated_at desc,ps.id limit 12) resumed"#
@@ -83,7 +83,7 @@ order by ps.updated_at desc,ps.id limit 12) resumed"#
     let featured_sql = format!(
         r#"select coalesce(jsonb_agg(item order by release_date desc nulls last,sort_title,id),'[]'::jsonb) from (
 select t.id,t.sort_title,coalesce((select max(x.release_date) from installments x where x.title_id=t.id),make_date(t.release_year,1,1)) release_date,({summary}) item
-from titles t where not t.is_private and exists(select 1 from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner')
+from titles t where (not t.is_private and t.workflow_status='published') and exists(select 1 from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner')
 order by release_date desc nulls last,t.sort_title,t.id limit 10) featured"#,
         summary = queries::summary()
     );
@@ -109,8 +109,8 @@ pub(super) fn viewing_item(poster_installments: bool) -> String {
 'releaseDate',case when e.id is null then i.release_date else e.release_date end,'positionSeconds',coalesce(ps.position_seconds,0),
 'durationSeconds',ps.duration_seconds,'isPlayed',coalesce(ps.is_played,false),
 'artwork',coalesce((select {artwork} from media_asset_assignments m join media_assets a on a.id=m.asset_id
-where (m.episode_id=e.id and m.role='banner') or (m.installment_id=i.id and m.role=({installment_role})::media_asset_role)
-order by case when m.episode_id=e.id then 0 else 1 end,m.is_primary desc,m.id limit 1),nullif(({summary})->({installment_role}),'null'::jsonb),nullif(({summary})->'poster','null'::jsonb)))"#,
+where (m.episode_id=e.id and m.is_primary and m.role in ('still','poster','banner')) or (m.installment_id=i.id and m.role=({installment_role})::media_asset_role)
+order by case when m.episode_id=e.id then 0 else 1 end,case m.role when 'still' then 0 else 1 end,m.is_primary desc,m.id limit 1),nullif(({summary})->({installment_role}),'null'::jsonb),nullif(({summary})->'poster','null'::jsonb)))"#,
         summary = queries::summary(),
         artwork = queries::ARTWORK,
     )

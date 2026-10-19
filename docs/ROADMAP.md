@@ -42,7 +42,9 @@ checkpoints; detailed implementation order stays subject to review.
 
 The review decisions and execution checklist are in [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md):
 schema/preservation → API and whole client → Nahhasio agent tools/skills. Each phase returns for
-review. No runtime feature is complete merely because its table or basic read view exists.
+review. Phase 1 is committed as `990b704`; the 2026-10-19 existing-screen integration and remaining
+Phase 2 runtime items are recorded there. No runtime feature is complete merely because its table
+or basic read view exists.
 
 ## Required review before Podman deployment
 
@@ -87,14 +89,14 @@ native account/server-scoped work snapshots and referenced artwork, explicit loc
 from login/account menu, saved work browsing/search, existing work-page reuse, client torrent
 resolution from saved identities, device-file playback, position/resume and a persistent
 progress/watched queue. Reconnect uses owner-scoped compare-and-write with a reviewed conflict
-choice. No database migration, server acquisition job, Jellyfin adapter or automatic completion
-policy is added. See DEVELOPMENT.md for ownership, limits and recovery boundaries.
+choice. This original checkpoint did not add a schema migration, server acquisition job, Jellyfin
+adapter or automatic completion policy; the approved three-phase schema transition supersedes that limit. See DEVELOPMENT.md for ownership, limits and recovery boundaries.
 
 Implementation/static checks and consolidated runtime acceptance are separate: restart/offline,
 interrupted writes, cross-account switching, real peer resolution and concurrent sync need the
-agreed acceptance pass. Whole-work torrent/files-only policy remains a database/projection gap;
+agreed acceptance pass. Whole-work torrent/files-only policy is now stored/projected and enforced before client torrent lookup;
 legacy unscoped videos remain explicitly playable rather than silently claimed. The detailed
-schema/logic/trusted-update review follows Aqua's review of this checkpoint, before Podman.
+the approved schema/API transition and trusted-update/recovery review precede Podman.
 
 ## Future work: promote selectively
 
@@ -282,7 +284,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-09-03** Complete revision history with actor, time and before/after changes.
 - [ ] **NH-09-04** Define restoration for full work documents versus raw record revisions.
 - [ ] **NH-09-05** Provide guarded deletion/recycle/recovery workflows where needed.
-- [ ] **NH-09-06** Complete safe schema/table browsing and scoped record inspection.
+- [x] **NH-09-06** Complete safe schema/table browsing and scoped record inspection.
 - [ ] **NH-09-07** Apply explicit table/column/operation permissions to data tools.
 - [ ] **NH-09-08** Prevent generic table tools from bypassing business or ownership invariants.
 - [ ] **NH-09-09** Provide documented import/export boundaries and input-size limits.

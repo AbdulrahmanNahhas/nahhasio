@@ -173,7 +173,7 @@ async function assignMedia(
   media: Record<string, string | null>,
 ): Promise<void> {
   for (const [role, path] of Object.entries(media)) {
-    if (!["poster", "banner", "logo", "profile"].includes(role)) {
+    if (!["poster", "banner", "logo", "profile", "still"].includes(role)) {
       throw new CliError(
         `Unknown media role "${role}"`,
         "Roles are poster, banner, logo, and profile.",
@@ -228,6 +228,9 @@ const titleScalarColumns: Array<[keyof WorkDocument, string]> = [
   ["format", "format"],
   ["isPrivate", "is_private"],
   ["workflowStatus", "workflow_status"],
+  ["playbackPolicy", "playback_policy"],
+  ["dubbingNotes", "dubbing_notes"],
+  ["dubLanguages", "dub_languages"],
   ["qualityScore", "quality_score"],
   ["audience", "audience"],
   ["age", "age"],
@@ -431,6 +434,8 @@ async function syncEpisodes(
       values.set("runtime_minutes", document.runtimeMinutes);
 
     if (match) {
+      if (document.media)
+        await assignMedia(transaction, { column: "episode_id", id: match.id }, document.media);
       const names = [...values.keys()];
       await transaction.unsafe(
         `update episodes set ${names
@@ -450,7 +455,11 @@ async function syncEpisodes(
       parameters([...values.values()]),
     );
     const row = rows[0];
-    if (row) seen.add(row.id);
+    if (row) {
+      seen.add(row.id);
+      if (document.media)
+        await assignMedia(transaction, { column: "episode_id", id: row.id }, document.media);
+    }
   }
 
   if (mode === "replace") {
@@ -482,7 +491,7 @@ async function syncCredits(
     if (!role) {
       throw new CliError(
         `Unknown credit role "${document.role}"`,
-        'List valid roles with "arcadia role list" — the set is fixed by a CHECK constraint.',
+        'List valid roles with "arcadia role list" or create a compatible role in the People/Studios editor.',
       );
     }
     const entityId = await resolveEntity(
@@ -492,11 +501,19 @@ async function syncCredits(
       createMissing,
     );
     await transaction.unsafe(
-      `insert into contributions (title_id, entity_id, role_id, position, is_primary)
-       values ($1, $2, $3, $4, $5)
+      `insert into contributions (title_id, entity_id, role_id, position, is_primary, languages)
+       values ($1, $2, $3, $4, $5, $6::text[])
        on conflict (title_id, entity_id, role_id)
-       do update set position = excluded.position, is_primary = excluded.is_primary`,
-      [titleId, entityId, role.id, document.position ?? index, document.isPrimary ?? false],
+       do update set position = excluded.position, is_primary = excluded.is_primary,languages=case when $7::boolean then excluded.languages else contributions.languages end`,
+      [
+        titleId,
+        entityId,
+        role.id,
+        document.position ?? index,
+        document.isPrimary ?? false,
+        document.languages ?? [],
+        document.languages !== undefined,
+      ],
     );
     pairs.push({ entityId, roleId: role.id });
   }
@@ -860,6 +877,35 @@ export async function workApply(
       }
     }
 
+    if (document.trailers) {
+      const current = await transaction<
+        { id: string; youtube_video_id: string }[]
+      >`select id,youtube_video_id from title_trailers where title_id=${titleId} for update`;
+      const ids: string[] = [];
+      if (document.trailers.filter((trailer) => trailer.isPrimary).length > 1)
+        throw new CliError("Choose one primary trailer.");
+      await transaction`update title_trailers set is_primary=false where title_id=${titleId} and is_primary`;
+      for (const [position, trailer] of document.trailers.entries()) {
+        if (trailer.id && !current.some((row) => row.id === trailer.id)) {
+          const [foreign] = await transaction`select id from title_trailers where id=${trailer.id}`;
+          if (foreign) throw new CliError("Trailer belongs to another work.");
+        }
+        const existing = trailer.id
+          ? current.find((item) => item.id === trailer.id)
+          : current.find((item) => item.youtube_video_id === trailer.youtubeVideoId);
+        if (existing) {
+          await transaction`update title_trailers set youtube_video_id=${trailer.youtubeVideoId},title=${trailer.title ?? ""},language=${trailer.language ?? null},is_primary=${trailer.isPrimary ?? false},position=${trailer.position ?? position},updated_at=now() where id=${existing.id}`;
+          ids.push(existing.id);
+          continue;
+        }
+        const [row] = await transaction<
+          { id: string }[]
+        >`insert into title_trailers(id,title_id,youtube_video_id,title,language,is_primary,position) values(coalesce(${trailer.id ?? null}::uuid,gen_random_uuid()),${titleId},${trailer.youtubeVideoId},${trailer.title ?? ""},${trailer.language ?? null},${trailer.isPrimary ?? false},${trailer.position ?? position}) on conflict(title_id,youtube_video_id) do update set title=excluded.title,language=excluded.language,is_primary=excluded.is_primary,position=excluded.position,updated_at=now() returning id`;
+        if (row) ids.push(row.id);
+      }
+      if (listMode("trailers") === "replace")
+        await transaction`delete from title_trailers where title_id=${titleId} and not(id=any(${ids}::uuid[]))`;
+    }
     if (document.media) {
       await assignMedia(transaction, { column: "title_id", id: titleId }, document.media);
     }
@@ -976,8 +1022,16 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
     sql<
       Array<{ slug: string }>
     >`select p.slug from title_planets j join planets p on p.id = j.planet_id where j.title_id = ${titleId} order by p.slug`,
-    sql<Array<{ entity: string; role: string; is_primary: boolean; position: number }>>`
-        select e.name as entity, r.slug as role, c.is_primary, c.position
+    sql<
+      Array<{
+        entity: string;
+        role: string;
+        is_primary: boolean;
+        position: number;
+        languages: string[];
+      }>
+    >`
+        select e.name as entity, r.slug as role, c.is_primary, c.position,c.languages
         from contributions c join entities e on e.id = c.entity_id join roles r on r.id = c.role_id
         where c.title_id = ${titleId} order by c.position, c.entity_id, c.role_id`,
     sql<Array<{ provider: string; external_id: string; url: string | null }>>`
@@ -998,6 +1052,15 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
         from award_recognitions where title_id = ${titleId} order by position, id`,
   ]);
 
+  const episodeMedia = new Map<string, Record<string, string>>();
+  const episodeArtwork = await sql<
+    { episode_id: string; role: string; path: string }[]
+  >`select m.episode_id,m.role,a.path from media_asset_assignments m join media_assets a on a.id=m.asset_id join episodes e on e.id=m.episode_id join installments i on i.id=e.installment_id where i.title_id=${titleId} and m.is_primary order by m.id`;
+  for (const image of episodeArtwork)
+    episodeMedia.set(image.episode_id, {
+      ...episodeMedia.get(image.episode_id),
+      [image.role]: image.path,
+    });
   const episodesByInstallment = new Map<string, Row[]>();
   const mediaByInstallment = new Map<string, Record<string, string>>();
   if (installments.length > 0) {
@@ -1041,6 +1104,29 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
     format: title.format as "animated" | "live-action",
     isPrivate: Boolean(title.is_private),
     workflowStatus: title.workflow_status as WorkDocument["workflowStatus"],
+    playbackPolicy: z.enum(["torrents-allowed", "files-only"]).parse(title.playback_policy),
+    dubLanguages: z.array(z.string()).parse(title.dub_languages),
+    dubbingNotes: String(title.dubbing_notes ?? ""),
+    trailers: await sql<
+      {
+        id: string;
+        youtube_video_id: string;
+        title: string;
+        language: string | null;
+        is_primary: boolean;
+        position: number;
+      }[]
+    >`select id,youtube_video_id,title,language,is_primary,position from title_trailers where title_id=${titleId} order by position,id`.then(
+      (rows) =>
+        rows.map((row) => ({
+          id: row.id,
+          youtubeVideoId: row.youtube_video_id,
+          title: row.title,
+          language: row.language,
+          isPrimary: row.is_primary,
+          position: row.position,
+        })),
+    ),
     qualityScore: Number(title.quality_score ?? 0),
     audience: title.audience as WorkDocument["audience"],
     age: title.age as WorkDocument["age"],
@@ -1061,6 +1147,7 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
     credits: credits.map((row) => ({
       entity: row.entity,
       role: row.role,
+      languages: z.array(z.string()).parse(row.languages),
       isPrimary: row.is_primary,
       position: row.position,
     })),
@@ -1110,6 +1197,7 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
         summary: String(episode.summary ?? ""),
         releaseDate: (episode.release_date as string | null) ?? null,
         runtimeMinutes: number(episode.runtime_minutes),
+        media: episodeMedia.get(String(episode.id)) ?? {},
       })),
     })),
     awards: awards.map((row) => ({

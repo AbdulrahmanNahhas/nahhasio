@@ -49,14 +49,15 @@ pub fn router_with_admin(pool: PgPool, token: Option<String>) -> Router {
         .merge(admin)
 }
 
-async fn server_info() -> Json<serde_json::Value> {
-    let name = std::env::var("NAHHASIO_SERVER_NAME")
-        .ok()
-        .filter(|name| !name.trim().is_empty() && name.chars().count() <= 80)
-        .unwrap_or_else(|| "مكتبة العائلة".into());
-    Json(
-        serde_json::json!({"product":"nahhasio","name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1}),
-    )
+async fn server_info(State(pool): State<PgPool>) -> Result<Json<serde_json::Value>, StatusCode> {
+    let (id, name): (String, String) =
+        sqlx::query_as("select id::text,name from server_instance where singleton")
+            .fetch_one(&pool)
+            .await
+            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    Ok(Json(
+        serde_json::json!({"product":"nahhasio","serverId":id,"name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1}),
+    ))
 }
 
 #[derive(Serialize)]

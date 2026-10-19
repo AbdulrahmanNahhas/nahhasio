@@ -10,11 +10,7 @@ import type { PlayerEpisode } from "../features/player/episode-panel";
 import { OfflineLibrary } from "../features/player/offline-library";
 import { openWatch } from "../features/player/playback";
 import { savedDownloadOptions } from "../features/player/saved-downloads";
-import {
-  offlineStatusOptions,
-  savedWorksOptions,
-  syncSavedWorks,
-} from "../features/player/saved-works-data";
+import { offlineStatusOptions, syncSavedWorks } from "../features/player/saved-works-data";
 import {
   WatchTargetSchema,
   watchRequestEvent,
@@ -32,7 +28,6 @@ export function App() {
   const [download, setDownload] = useState<{ target: WatchTarget; sessionId: string } | null>(null);
   const playing = Boolean(player.snapshot?.active);
   const offline = useQuery(offlineStatusOptions());
-  const packs = useQuery({ ...savedWorksOptions(), enabled: Boolean(offline.data?.active) });
   const latest = useRef(player.snapshot);
   const lastRecorded = useRef<string | null>(null);
   const syncing = useRef(false);
@@ -83,8 +78,7 @@ export function App() {
         !snapshot?.workId ||
         !snapshot.installmentId ||
         !snapshot.sourceKind ||
-        snapshot.duration <= 0 ||
-        !packs.data?.some((work) => work.id === snapshot.workId)
+        snapshot.duration <= 0
       )
         return;
       const key = `${snapshot.sessionId}:${Math.floor(snapshot.position)}`;
@@ -110,7 +104,7 @@ export function App() {
       window.removeEventListener("pagehide", record);
       record();
     };
-  }, [client, packs.data, offline.data?.scope]);
+  }, [client, offline.data?.scope]);
   useEffect(() => {
     if (!offline.data?.active || offline.data.offline) return;
     const sync = () => {
@@ -232,6 +226,7 @@ export function App() {
               title: episode.title || `الحلقة ${number}`,
               detail: `الحلقة ${number}`,
               image:
+                episode.still ??
                 pickArtwork(episode.artwork, "still") ??
                 pickArtwork(episode.artwork, "banner") ??
                 pickArtwork(selectedInstallment.artwork, "banner") ??

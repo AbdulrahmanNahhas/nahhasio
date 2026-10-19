@@ -719,6 +719,13 @@ fn resolve_target(work: &Value, target: &Target) -> Result<ResolvedTarget, Error
     resolve_target_for(work, target, false)
 }
 fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<ResolvedTarget, Error> {
+    if !local && work["playbackPolicy"].as_str() == Some("files-only") {
+        return Err(Error::new(
+            "files_only",
+            "هذا العمل يُشغّل من الملفات فقط. لا تتوفر له مصادر تورنت.",
+        ));
+    }
+
     let installments = work["installments"].as_array().ok_or_else(transfer_error)?;
     let installment = match &target.installment_id {
         Some(id) => installments

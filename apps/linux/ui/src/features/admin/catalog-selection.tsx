@@ -44,15 +44,15 @@ export function useCatalogSelection(userId: string, target: SelectionTarget = "w
   ] as const;
   const state = useQuery({
     queryKey: key,
-    queryFn: (): CatalogSelectionState => ({ selected: [], view: "table" }),
-    initialData: (): CatalogSelectionState => ({ selected: [], view: "table" }),
+    queryFn: (): CatalogSelectionState => ({ selected: [], view: "posters" }),
+    initialData: (): CatalogSelectionState => ({ selected: [], view: "posters" }),
     enabled: false,
     staleTime: Infinity,
     gcTime: Infinity,
   });
   const update = (change: (previous: CatalogSelectionState) => CatalogSelectionState) =>
     client.setQueryData<CatalogSelectionState>(key, (previous) =>
-      change(previous ?? { selected: [], view: "table" }),
+      change(previous ?? { selected: [], view: "posters" }),
     );
   return {
     selected: state.data.selected,

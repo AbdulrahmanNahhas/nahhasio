@@ -216,12 +216,44 @@ fn build_window(
             webkit6::PolicyDecisionType::NavigationAction
                 | webkit6::PolicyDecisionType::NewWindowAction
         ) {
-            let allowed = decision
+            let action = decision
                 .downcast_ref::<webkit6::NavigationPolicyDecision>()
-                .and_then(|nav| nav.navigation_action())
-                .and_then(|mut action| action.request())
-                .and_then(|request| request.uri())
-                .is_some_and(|uri| policy_config.permits(uri.as_str()));
+                .and_then(|nav| nav.navigation_action());
+            let (uri, gesture) = action
+                .map(|mut action| {
+                    let gesture = action.is_user_gesture();
+                    (
+                        action
+                            .request()
+                            .and_then(|request| request.uri())
+                            .map(|uri| uri.to_string()),
+                        gesture,
+                    )
+                })
+                .unwrap_or_default();
+            let allowed = uri.as_ref().is_some_and(|uri| policy_config.permits(uri));
+            if !allowed
+                && gesture
+                && let Some(uri) = uri.as_deref()
+                && let Ok(url) = url::Url::parse(uri)
+                && url.scheme() == "https"
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.port_or_known_default() == Some(443)
+            {
+                // Explicit link activation leaves the privileged WebView; remote pages never receive the bridge.
+                gio::AppInfo::launch_default_for_uri_async(
+                    uri,
+                    None::<&gio::AppLaunchContext>,
+                    None::<&gio::Cancellable>,
+                    |result| {
+                        if result.is_err() {
+                            eprintln!("Could not open link in the system browser");
+                        }
+                    },
+                );
+            }
             if !allowed || kind == webkit6::PolicyDecisionType::NewWindowAction {
                 decision.ignore();
                 return true;

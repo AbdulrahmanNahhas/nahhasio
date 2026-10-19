@@ -239,7 +239,9 @@ fn sanitize_release_posters(value: &mut Value) {
                 if let Some(id) = id
                     && matches!(
                         mime,
-                        Some("image/jpeg" | "image/png" | "image/webp" | "image/avif")
+                        Some(
+                            "image/jpeg" | "image/png" | "image/webp" | "image/avif" | "image/gif"
+                        )
                     )
                     && let Some(fields) = poster.as_object_mut()
                 {
@@ -303,6 +305,14 @@ impl ServerSession {
         service.token = Arc::new(Mutex::new(store.load(service.base.as_str())?));
         service.session_store = Some(Arc::new(store));
         Ok(service)
+    }
+    async fn register_device(&self) -> Result<(), Error> {
+        let Some(store) = &self.session_store else {
+            return Ok(());
+        };
+        let response=self.authorized(Method::POST,"api/v1/me/device").await?.json(&json!({"installationId":store.installation_id()?,"name":"Nahhasio Desktop","platform":"linux"})).send().await.map_err(network)?;
+        self.json(response).await?;
+        Ok(())
     }
     fn forget_stored_session(&self) -> Result<(), Error> {
         if let Some(store) = &self.session_store {
@@ -535,6 +545,8 @@ impl ServerSession {
                     store.save(self.base.as_str(), &login.token, &login.expires_at)?;
                 }
                 *token = Some(login.token);
+                drop(token);
+                self.register_device().await?;
                 Ok(json!({"user":login.user,"expiresAt":login.expires_at}))
             }
             "logout" => {
@@ -575,7 +587,9 @@ impl ServerSession {
                     self.forget_stored_session()?;
                     return Ok(Value::Null);
                 }
-                self.json(response).await
+                let value = self.json(response).await?;
+                self.register_device().await?;
+                Ok(value)
             }
             "editorCall" => {
                 let response = self
@@ -646,6 +660,51 @@ impl ServerSession {
                     )
                     .await?
                     .query(&input)
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json_limit(response, 16 * 1024 * 1024).await
+            }
+            "databaseSchema" | "databaseRows" => {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase", deny_unknown_fields)]
+                struct Inspection {
+                    table: Option<String>,
+                    page: Option<u32>,
+                    page_size: Option<u32>,
+                    q: Option<String>,
+                }
+                let input: Inspection = parse(request.payload)?;
+                let path = if request.command == "databaseSchema" {
+                    "api/v1/admin/database/schema".to_owned()
+                } else {
+                    let table = input
+                        .table
+                        .as_deref()
+                        .filter(|s| {
+                            !s.is_empty()
+                                && s.len() <= 63
+                                && s.bytes().all(|b| {
+                                    b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'
+                                })
+                        })
+                        .ok_or_else(|| Error::new("bad_request", "Invalid table"))?;
+                    format!("api/v1/admin/database/{table}")
+                };
+                if input.page.is_some_and(|v| v == 0 || v > 100000)
+                    || input.page_size.is_some_and(|v| v == 0 || v > 50)
+                    || input.q.as_ref().is_some_and(|q| q.chars().count() > 200)
+                {
+                    return Err(Error::new("bad_request", "Invalid table query"));
+                }
+                let response = self
+                    .authorized(Method::GET, &path)
+                    .await?
+                    .query(&[
+                        ("page", input.page.unwrap_or(1).to_string()),
+                        ("pageSize", input.page_size.unwrap_or(25).to_string()),
+                        ("q", input.q.unwrap_or_default()),
+                    ])
                     .send()
                     .await
                     .map_err(network)?;
@@ -945,7 +1004,7 @@ impl ServerSession {
                     .to_owned();
                 if !matches!(
                     mime.as_str(),
-                    "image/jpeg" | "image/png" | "image/webp" | "image/avif"
+                    "image/jpeg" | "image/png" | "image/webp" | "image/avif" | "image/gif"
                 ) {
                     return Err(Error::new("response", "Unsupported artwork format"));
                 }

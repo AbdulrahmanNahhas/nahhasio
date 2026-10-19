@@ -194,31 +194,29 @@ export function SavedWorks() {
           )}
         </Alert>
       )}
-      {works.data
-        ?.filter((work) => work.conflict)
-        .map((work) => (
-          <Card key={work.id} size="sm">
-            <CardHeader>
-              <CardTitle>{work.title}</CardTitle>
-              <CardDescription>تغيّرت المشاهدة على الخادم منذ حفظ النسخة.</CardDescription>
-            </CardHeader>
-            <CardFooter className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                disabled={status.data?.offline}
-                onClick={() => setResolution({ id: work.id, choice: "server" })}
-              >
-                الاحتفاظ بتغييرات الخادم
-              </Button>
-              <Button
-                disabled={status.data?.offline}
-                onClick={() => setResolution({ id: work.id, choice: "device" })}
-              >
-                اعتماد تغييرات الجهاز
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+      {status.data?.conflicts.map((work) => (
+        <Card key={work.id} size="sm">
+          <CardHeader>
+            <CardTitle>{work.title}</CardTitle>
+            <CardDescription>تغيّرت المشاهدة على الخادم منذ حفظ النسخة.</CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={status.data?.offline}
+              onClick={() => setResolution({ id: work.id, choice: "server" })}
+            >
+              الاحتفاظ بتغييرات الخادم
+            </Button>
+            <Button
+              disabled={status.data?.offline}
+              onClick={() => setResolution({ id: work.id, choice: "device" })}
+            >
+              اعتماد تغييرات الجهاز
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
       {(works.error || action.error || sync.error) && (
         <Alert variant="destructive">
           <AlertDescription>

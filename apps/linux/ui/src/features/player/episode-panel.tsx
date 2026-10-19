@@ -1,4 +1,4 @@
-import type { ArtworkAssignment } from "@nahhasio/api-contract";
+import type { Artwork as ArtworkData } from "@nahhasio/api-contract";
 import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
@@ -14,7 +14,7 @@ export type PlayerEpisode = {
   detail?: string;
   current?: boolean;
   number?: string;
-  image?: ArtworkAssignment | null;
+  image?: ArtworkData | null;
   summary?: string | null;
   runtimeMinutes?: number | null;
   downloaded?: boolean;

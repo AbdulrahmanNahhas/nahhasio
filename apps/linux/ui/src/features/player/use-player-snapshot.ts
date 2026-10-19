@@ -63,15 +63,13 @@ export function usePlayerSnapshot() {
         }
         if (request.command === "player.close") {
           const snapshot = client.getQueryData<PlayerSnapshot>(playerSnapshotKey);
-          const saved = client.getQueryData<readonly { id: string }[]>(["offline", "works"]);
           const scope = client.getQueryData<{ scope: string | null }>(["offline", "status"])?.scope;
           if (
             scope &&
             snapshot?.workId &&
             snapshot.installmentId &&
             snapshot.sourceKind &&
-            snapshot.duration > 0 &&
-            saved?.some((work) => work.id === snapshot.workId)
+            snapshot.duration > 0
           ) {
             try {
               await nativeCall(

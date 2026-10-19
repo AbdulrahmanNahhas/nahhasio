@@ -31,7 +31,7 @@ export function ReferencePicker({
   title: string;
   onPick: (value: string) => void;
   images?: boolean;
-  imageRole?: "poster" | "banner" | "logo" | "profile";
+  imageRole?: "poster" | "banner" | "logo" | "profile" | "still";
   triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,7 +72,7 @@ function PickerResults({
   table: string;
   onPick: (value: string) => void;
   images: boolean;
-  imageRole?: "poster" | "banner" | "logo" | "profile";
+  imageRole?: "poster" | "banner" | "logo" | "profile" | "still";
 }) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);

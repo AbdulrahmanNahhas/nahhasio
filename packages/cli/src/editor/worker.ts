@@ -108,7 +108,11 @@ function imageUrl(value: string) {
     throw new Error("مصدر الصورة غير مسموح.");
   return url;
 }
-async function register(stored: Awaited<ReturnType<typeof storeMedia>>, context: EditorContext) {
+async function register(
+  stored: Awaited<ReturnType<typeof storeMedia>>,
+  context: EditorContext,
+  sourceUrl?: string,
+) {
   return sql.begin(async (tx) => {
     const active =
       await tx`select a.id from accounts a join auth_users u on u.id=a.auth_user_id join auth_sessions s on s.user_id=u.id where a.id=${context.accountId} and s.token=${context.sessionKey} and s.expires_at>now() and a.status='active' and a.kind='admin' and u.role in ('owner','admin') and (not u.banned or u.ban_expires<=now()) for update of a,u,s`;
@@ -119,6 +123,8 @@ async function register(stored: Awaited<ReturnType<typeof storeMedia>>, context:
     const row = rows[0];
     if (!row) throw new Error("تعذّر تسجيل الصورة.");
     await tx`insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(${context.accountId},'admin.artwork.ingest','media_assets',${row.id},'Desktop artwork registration',${tx.json({ path: row.path })})`;
+    if (sourceUrl)
+      await tx`insert into source_evidence(entity_type,entity_id,field_path,source_note,source_url,verification_status,checked_by_account_id,checked_at) values('media_assets',${row.id},'image','Imported image; assignment remains in the work draft',${sourceUrl},'verified',${context.accountId},now())`;
     return row;
   });
 }
@@ -214,6 +220,7 @@ async function execute(input: z.infer<typeof envelope>) {
       return register(
         await storeMediaFromUrl({ url: p.url, assetType: p.role, ownerName: p.ownerName }),
         input.context,
+        p.url,
       );
     }
     case "upload": {

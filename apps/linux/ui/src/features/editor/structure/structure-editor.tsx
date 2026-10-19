@@ -1,5 +1,5 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
-import { ImageIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { FieldGroup } from "@/components/ui/field";
+import { EpisodeArtwork } from "@/features/editor/artwork/episode-artwork";
 import { SelectField, TextField } from "@/features/editor/fields/work-fields";
 import { EpisodeDelete } from "@/features/editor/structure/episode-delete";
 import { ScoreComparison, scoreCriteria } from "@/features/scoring/score-comparison";
@@ -16,9 +17,11 @@ export function StructureEditor({
   installments,
   onChange,
   workId,
+  tmdbId,
 }: {
   installments: Installment[];
   workId: string;
+  tmdbId?: number | null;
   onChange: (value: Installment[]) => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -209,19 +212,17 @@ export function StructureEditor({
                         </div>
                         <div className="flex flex-col items-start gap-4 sm:flex-row">
                           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-36">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled
-                              className="aspect-video h-auto w-full flex-col gap-2"
-                              aria-label={`صورة الحلقة ${value.number}، ستتاح لاحقًا`}
-                            >
-                              <ImageIcon className="size-6" />
-                              <span className="text-xs">صورة الحلقة</span>
-                            </Button>
-                            <span className="text-center text-xs text-muted-foreground">
-                              إضافة الصورة قريبًا
-                            </span>
+                            <EpisodeArtwork
+                              episode={value}
+                              ownerName={`${item.title} · ${value.number}`}
+                              tmdbId={tmdbId}
+                              season={
+                                installments
+                                  .filter((part) => part.kind === "season")
+                                  .findIndex((part) => part === item) + 1
+                              }
+                              onChange={(next) => episode(position, next)}
+                            />
                           </div>
                           <FieldGroup className="min-w-0 flex-1">
                             <FieldGroup className="grid sm:grid-cols-2 xl:grid-cols-4">

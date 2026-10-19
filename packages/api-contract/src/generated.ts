@@ -34,6 +34,7 @@ export const ViewerUnitStateSchema = z.strictObject({
   playedAt: z.string().nullable(),
   subtitleOffsetMs: z.number().int().nullable(),
   updatedAt: z.string().nullable(),
+  revision: z.number().int().min(0).optional(),
 });
 export type ViewerUnitState = z.infer<typeof ViewerUnitStateSchema>;
 
@@ -156,6 +157,10 @@ export const WorkSummarySchema = z.strictObject({
   score: ScoreSummarySchema,
   banner: ArtworkSchema.nullable(),
   logo: ArtworkSchema.nullable(),
+  playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  dubLanguages: z.array(z.string()).optional(),
+  dubbingNotes: z.string().optional(),
+  workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
 });
 export type WorkSummary = z.infer<typeof WorkSummarySchema>;
 
@@ -234,7 +239,7 @@ export const ArtworkAssignmentSchema = z.strictObject({
   mimeType: z.string(),
   width: z.number().int(),
   height: z.number().int(),
-  role: z.enum(["poster", "banner", "logo", "profile"]),
+  role: z.enum(["poster", "banner", "logo", "profile", "still"]),
   isPrimary: z.boolean(),
   byteSize: z.number().int(),
   sha256: z.string(),
@@ -285,12 +290,14 @@ export type Classification = z.infer<typeof ClassificationSchema>;
 export const MediaTrackSchema = z.strictObject({
   id: z.string().uuid(),
   kind: z.enum(["video", "audio", "subtitle"]),
-  streamIndex: z.number().int(),
+  streamIndex: z.number().int().nullable(),
   language: z.string().nullable(),
   codec: z.string().nullable(),
   title: z.string().nullable(),
   isDefault: z.boolean(),
   isForced: z.boolean(),
+  source: z.enum(["embedded", "external"]).optional(),
+  isHearingImpaired: z.boolean().optional(),
 });
 export type MediaTrack = z.infer<typeof MediaTrackSchema>;
 
@@ -317,6 +324,7 @@ export const EpisodeSchema = z.strictObject({
   mediaFiles: z.array(MediaFileSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
+  still: ArtworkSchema.nullable().optional(),
 });
 export type Episode = z.infer<typeof EpisodeSchema>;
 
@@ -391,6 +399,7 @@ export const ContributionSchema = z.strictObject({
   roleId: z.string().uuid(),
   roleDescriptionEn: z.string(),
   roleDescriptionAr: z.string(),
+  languages: z.array(z.string()).optional(),
 });
 export type Contribution = z.infer<typeof ContributionSchema>;
 
@@ -465,6 +474,16 @@ export const AwardRecognitionSchema = z.strictObject({
 });
 export type AwardRecognition = z.infer<typeof AwardRecognitionSchema>;
 
+export const TrailerSchema = z.strictObject({
+  id: z.string().uuid(),
+  youtubeVideoId: z.string(),
+  title: z.string(),
+  language: z.string().nullable(),
+  isPrimary: z.boolean(),
+  position: z.number().int(),
+});
+export type Trailer = z.infer<typeof TrailerSchema>;
+
 export const WorkDetailSchema = z.strictObject({
   id: z.string().uuid(),
   canonicalTitle: z.string(),
@@ -506,6 +525,11 @@ export const WorkDetailSchema = z.strictObject({
   score: ScoreSummarySchema,
   banner: ArtworkSchema.nullable(),
   logo: ArtworkSchema.nullable(),
+  playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  dubLanguages: z.array(z.string()).optional(),
+  dubbingNotes: z.string().optional(),
+  workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
+  trailers: z.array(TrailerSchema).optional(),
 });
 export type WorkDetail = z.infer<typeof WorkDetailSchema>;
 
@@ -631,9 +655,11 @@ export const FacetOptionSchema = z.strictObject({
       z.strictObject({
         value: z.string(),
         label: z.string(),
+        languages: z.array(z.string()).optional(),
       }),
     )
     .optional(),
+  languages: z.array(z.string()).optional(),
 });
 export type FacetOption = z.infer<typeof FacetOptionSchema>;
 
@@ -839,6 +865,21 @@ export const CatalogSnapshotSchema = z.strictObject({
     format: z.enum(["animated", "live-action"]).optional(),
     isPrivate: z.boolean().optional(),
     workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
+    playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+    dubLanguages: z.array(z.string()).optional(),
+    dubbingNotes: z.string().max(20000).optional(),
+    trailers: z
+      .array(
+        z.strictObject({
+          id: z.string().uuid().optional(),
+          youtubeVideoId: z.string(),
+          title: z.string().max(300).optional(),
+          language: z.union([z.string(), z.null()]).optional(),
+          isPrimary: z.boolean().optional(),
+          position: z.number().int().min(0).max(9007199254740991).optional(),
+        }),
+      )
+      .optional(),
     qualityScore: z.number().int().min(0).max(9007199254740991).optional(),
     audience: z.enum(["general", "teen", "young-adult", "adult"]).optional(),
     age: z.enum(["all", "7+", "10+", "13+", "16+", "18+"]).optional(),
@@ -863,6 +904,7 @@ export const CatalogSnapshotSchema = z.strictObject({
           role: z.string().min(1),
           isPrimary: z.boolean().optional(),
           position: z.number().int().min(0).max(9007199254740991).optional(),
+          languages: z.array(z.string()).optional(),
         }),
       )
       .optional(),
@@ -938,6 +980,7 @@ export const CatalogSnapshotSchema = z.strictObject({
                 runtimeMinutes: z
                   .union([z.number().int().min(0).max(9007199254740991), z.null()])
                   .optional(),
+                media: z.record(z.string(), z.union([z.string(), z.null()])).optional(),
               }),
             )
             .optional(),
@@ -1136,7 +1179,7 @@ export type CatalogSeasonCall = z.infer<typeof CatalogSeasonCallSchema>;
 
 export const CatalogIngestInputSchema = z.strictObject({
   url: z.string(),
-  role: z.enum(["poster", "banner", "logo"]),
+  role: z.enum(["poster", "banner", "logo", "still"]),
   ownerName: z.string().min(1).max(200),
 });
 export type CatalogIngestInput = z.infer<typeof CatalogIngestInputSchema>;
@@ -1150,7 +1193,7 @@ export type CatalogIngestCall = z.infer<typeof CatalogIngestCallSchema>;
 export const CatalogUploadInputSchema = z.strictObject({
   dataUrl: z.string().max(14000000),
   fileName: z.string().min(1).max(250),
-  role: z.enum(["poster", "banner", "logo", "profile"]),
+  role: z.enum(["poster", "banner", "logo", "profile", "still"]),
   ownerName: z.string().min(1).max(200),
 });
 export type CatalogUploadInput = z.infer<typeof CatalogUploadInputSchema>;
@@ -1189,6 +1232,21 @@ export const CatalogReadResultSchema = z.array(
       workflowStatus: z
         .enum(["draft", "in_review", "approved", "published", "archived"])
         .optional(),
+      playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+      dubLanguages: z.array(z.string()).optional(),
+      dubbingNotes: z.string().max(20000).optional(),
+      trailers: z
+        .array(
+          z.strictObject({
+            id: z.string().uuid().optional(),
+            youtubeVideoId: z.string(),
+            title: z.string().max(300).optional(),
+            language: z.union([z.string(), z.null()]).optional(),
+            isPrimary: z.boolean().optional(),
+            position: z.number().int().min(0).max(9007199254740991).optional(),
+          }),
+        )
+        .optional(),
       qualityScore: z.number().int().min(0).max(9007199254740991).optional(),
       audience: z.enum(["general", "teen", "young-adult", "adult"]).optional(),
       age: z.enum(["all", "7+", "10+", "13+", "16+", "18+"]).optional(),
@@ -1213,6 +1271,7 @@ export const CatalogReadResultSchema = z.array(
             role: z.string().min(1),
             isPrimary: z.boolean().optional(),
             position: z.number().int().min(0).max(9007199254740991).optional(),
+            languages: z.array(z.string()).optional(),
           }),
         )
         .optional(),
@@ -1288,6 +1347,7 @@ export const CatalogReadResultSchema = z.array(
                   runtimeMinutes: z
                     .union([z.number().int().min(0).max(9007199254740991), z.null()])
                     .optional(),
+                  media: z.record(z.string(), z.union([z.string(), z.null()])).optional(),
                 }),
               )
               .optional(),
@@ -1382,6 +1442,21 @@ export const CatalogParseResultSchema = z.strictObject({
   format: z.enum(["animated", "live-action"]).optional(),
   isPrivate: z.boolean().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
+  playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  dubLanguages: z.array(z.string()).optional(),
+  dubbingNotes: z.string().max(20000).optional(),
+  trailers: z
+    .array(
+      z.strictObject({
+        id: z.string().uuid().optional(),
+        youtubeVideoId: z.string(),
+        title: z.string().max(300).optional(),
+        language: z.union([z.string(), z.null()]).optional(),
+        isPrimary: z.boolean().optional(),
+        position: z.number().int().min(0).max(9007199254740991).optional(),
+      }),
+    )
+    .optional(),
   qualityScore: z.number().int().min(0).max(9007199254740991).optional(),
   audience: z.enum(["general", "teen", "young-adult", "adult"]).optional(),
   age: z.enum(["all", "7+", "10+", "13+", "16+", "18+"]).optional(),
@@ -1406,6 +1481,7 @@ export const CatalogParseResultSchema = z.strictObject({
         role: z.string().min(1),
         isPrimary: z.boolean().optional(),
         position: z.number().int().min(0).max(9007199254740991).optional(),
+        languages: z.array(z.string()).optional(),
       }),
     )
     .optional(),
@@ -1481,6 +1557,7 @@ export const CatalogParseResultSchema = z.strictObject({
               runtimeMinutes: z
                 .union([z.number().int().min(0).max(9007199254740991), z.null()])
                 .optional(),
+              media: z.record(z.string(), z.union([z.string(), z.null()])).optional(),
             }),
           )
           .optional(),
@@ -1583,12 +1660,17 @@ export const CatalogSearchResultSchema = z.strictObject({
 export type CatalogSearchResult = z.infer<typeof CatalogSearchResultSchema>;
 
 export const CatalogSeasonResultSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
+  z.array(
+    z.strictObject({
+      number: z.number(),
+      title: z.union([z.string(), z.null()]),
+      summary: z.string(),
+      releaseDate: z.union([z.string(), z.null()]),
+      runtimeMinutes: z.union([z.number(), z.null()]),
+      stillUrl: z.union([z.string(), z.null()]),
+    }),
+  ),
   z.null(),
-  z.array(z.json()),
-  z.record(z.string(), z.json()),
 ]);
 export type CatalogSeasonResult = z.infer<typeof CatalogSeasonResultSchema>;
 
@@ -1796,6 +1878,8 @@ export const CatalogEntitySelectionInputSchema = z.strictObject({
   q: z.string().max(300).optional(),
   image: z.enum(["all", "with", "without"]).optional(),
   usage: z.enum(["all", "linked", "unlinked", "one"]).optional(),
+  role: z.string().max(80).optional(),
+  language: z.string().max(35).optional(),
 });
 export type CatalogEntitySelectionInput = z.infer<typeof CatalogEntitySelectionInputSchema>;
 
@@ -1811,6 +1895,8 @@ export const CatalogEntityListInputSchema = z.strictObject({
   page: z.number().int().min(1).max(100000).optional(),
   image: z.enum(["all", "with", "without"]).optional(),
   usage: z.enum(["all", "linked", "unlinked", "one"]).optional(),
+  role: z.string().max(80).optional(),
+  language: z.string().max(35).optional(),
   sort: z.enum(["name", "works", "updated"]).optional(),
 });
 export type CatalogEntityListInput = z.infer<typeof CatalogEntityListInputSchema>;
@@ -1858,6 +1944,7 @@ export const CatalogEntitySaveInputSchema = z.strictObject({
         roleLabel: z.string(),
         position: z.number().int().min(0).max(1000000),
         isPrimary: z.boolean(),
+        languages: z.array(z.string()).optional(),
       }),
     ),
   }),
@@ -1905,7 +1992,7 @@ export const CatalogAssetsInputSchema = z.strictObject({
   pageSize: z.number().int().min(1).max(48).optional(),
   usage: z.enum(["all", "assigned", "unassigned"]).optional(),
   health: z.enum(["all", "problems", "missing", "healthy"]).optional(),
-  role: z.enum(["all", "poster", "banner", "logo", "profile"]).optional(),
+  role: z.enum(["all", "poster", "banner", "logo", "profile", "still"]).optional(),
   sort: z.enum(["newest", "oldest", "name", "size"]).optional(),
 });
 export type CatalogAssetsInput = z.infer<typeof CatalogAssetsInputSchema>;
@@ -1941,7 +2028,7 @@ export type CatalogAssetDetailCall = z.infer<typeof CatalogAssetDetailCallSchema
 
 export const CatalogAssetOwnersInputSchema = z.strictObject({
   kind: z.enum(["title", "installment", "episode", "entity"]),
-  role: z.enum(["poster", "banner", "logo", "profile"]),
+  role: z.enum(["poster", "banner", "logo", "profile", "still"]),
   q: z.string().max(300),
 });
 export type CatalogAssetOwnersInput = z.infer<typeof CatalogAssetOwnersInputSchema>;
@@ -1956,7 +2043,7 @@ export const CatalogAssetAssignInputSchema = z.strictObject({
   assetId: z.string().uuid(),
   ownerKind: z.enum(["title", "installment", "episode", "entity"]),
   ownerId: z.string().uuid(),
-  role: z.enum(["poster", "banner", "logo", "profile"]),
+  role: z.enum(["poster", "banner", "logo", "profile", "still"]),
   expectedPrimaryId: z.union([z.string().uuid(), z.null()]),
   expectedPrimaryAssetId: z.union([z.string().uuid(), z.null()]),
 });
@@ -2044,7 +2131,7 @@ export const CatalogAssetsResultSchema = z.strictObject({
       createdAt: z.string(),
       health: z.enum(["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]),
       assignmentCount: z.number(),
-      roles: z.array(z.enum(["poster", "banner", "logo", "profile"])),
+      roles: z.array(z.enum(["poster", "banner", "logo", "profile", "still"])),
     }),
   ),
   total: z.number(),
@@ -2066,7 +2153,7 @@ export const CatalogAssetDetailResultSchema = z.strictObject({
     createdAt: z.string(),
     health: z.enum(["healthy", "missing", "unreadable", "size-mismatch", "deletion-error"]),
     assignmentCount: z.number(),
-    roles: z.array(z.enum(["poster", "banner", "logo", "profile"])),
+    roles: z.array(z.enum(["poster", "banner", "logo", "profile", "still"])),
   }),
   assignments: z.array(
     z.strictObject({
@@ -2077,7 +2164,7 @@ export const CatalogAssetDetailResultSchema = z.strictObject({
       ownerContext: z.string(),
       workId: z.union([z.string().uuid(), z.null()]),
       entityKind: z.union([z.enum(["person", "organization"]), z.null()]),
-      role: z.enum(["poster", "banner", "logo", "profile"]),
+      role: z.enum(["poster", "banner", "logo", "profile", "still"]),
       isPrimary: z.boolean(),
     }),
   ),
@@ -2181,6 +2268,7 @@ export const CatalogEntityDetailResultSchema = z.strictObject({
         roleLabel: z.string(),
         position: z.number().int().min(0).max(1000000),
         isPrimary: z.boolean(),
+        languages: z.array(z.string()).optional(),
       }),
     ),
   }),
@@ -2279,6 +2367,7 @@ export const CatalogEntityDeletePreviewResultSchema = z.array(
           roleLabel: z.string(),
           position: z.number().int().min(0).max(1000000),
           isPrimary: z.boolean(),
+          languages: z.array(z.string()).optional(),
         }),
       ),
     }),
@@ -2326,6 +2415,7 @@ export const CatalogEntityJsonReadResultSchema = z.strictObject({
             role: z.string().min(1).max(300),
             position: z.number().int().min(0).max(1000000),
             isPrimary: z.boolean(),
+            languages: z.array(z.string()).optional(),
           }),
         ),
       }),
@@ -2442,6 +2532,7 @@ export const ServerInfoSchema = z.strictObject({
   name: z.string().min(1).max(80),
   version: z.string().max(64),
   apiVersion: z.number().int().min(1),
+  serverId: z.string().uuid().optional(),
 });
 export type ServerInfo = z.infer<typeof ServerInfoSchema>;
 
@@ -2452,6 +2543,7 @@ export const TrackingChangeSchema = z.strictObject({
   isPlayed: z.boolean().nullable(),
   positionSeconds: z.number().int().min(0).max(31536000).nullable(),
   durationSeconds: z.number().int().min(0).max(31536000).nullable(),
+  expectedRevision: z.number().int().min(0).nullable().optional(),
 });
 export type TrackingChange = z.infer<typeof TrackingChangeSchema>;
 
@@ -2471,6 +2563,50 @@ export const CatalogEntitySelectionResultSchema = z.array(
 );
 export type CatalogEntitySelectionResult = z.infer<typeof CatalogEntitySelectionResultSchema>;
 
+export const DatabaseColumnSchema = z.strictObject({
+  name: z.string(),
+  dataType: z.string(),
+  nullable: z.boolean(),
+  primary: z.boolean(),
+  generated: z.boolean(),
+  defaultValue: z.string().nullable(),
+  enumValues: z.array(z.string()),
+  protected: z.boolean(),
+});
+export type DatabaseColumn = z.infer<typeof DatabaseColumnSchema>;
+
+export const DatabaseTableSchema = z.strictObject({
+  name: z.string(),
+  columns: z.array(DatabaseColumnSchema),
+});
+export type DatabaseTable = z.infer<typeof DatabaseTableSchema>;
+
+export const DatabaseSchemaSchema = z.strictObject({
+  tables: z.array(DatabaseTableSchema),
+});
+export type DatabaseSchema = z.infer<typeof DatabaseSchemaSchema>;
+
+export const DatabasePageSchema = z.strictObject({
+  table: z.string(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  total: z.number().int(),
+  rows: z.array(z.record(z.string(), z.json())),
+});
+export type DatabasePage = z.infer<typeof DatabasePageSchema>;
+
+export const DeviceRegistrationSchema = z.strictObject({
+  installationId: z.string().uuid(),
+  name: z.string().min(1).max(80),
+  platform: z.enum(["linux", "windows", "macos", "android"]),
+});
+export type DeviceRegistration = z.infer<typeof DeviceRegistrationSchema>;
+
+export const DeviceRegisteredSchema = z.strictObject({
+  deviceId: z.string().uuid(),
+});
+export type DeviceRegistered = z.infer<typeof DeviceRegisteredSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2483,6 +2619,7 @@ export class ApiClient {
     method: string,
     body?:
       | CatalogEditorCall
+      | DeviceRegistration
       | FavoriteRequest
       | LoginRequest
       | PasswordUpdate
@@ -2837,5 +2974,29 @@ export class ApiClient {
       signal,
     );
     return AdminWorkSelectionSchema.parse(await response.json());
+  }
+  async getAdminDatabaseSchema(signal?: AbortSignal): Promise<DatabaseSchema> {
+    const response = await this.request("/api/v1/admin/database/schema", "GET", undefined, signal);
+    return DatabaseSchemaSchema.parse(await response.json());
+  }
+  async getAdminDatabaseTable(
+    table: string,
+    query: { page?: number; pageSize?: number; q?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<DatabasePage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      `/api/v1/admin/database/${encodeURIComponent(table)}` + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return DatabasePageSchema.parse(await response.json());
+  }
+  async registerDevice(body: DeviceRegistration, signal?: AbortSignal): Promise<DeviceRegistered> {
+    const response = await this.request("/api/v1/me/device", "POST", body, signal);
+    return DeviceRegisteredSchema.parse(await response.json());
   }
 }

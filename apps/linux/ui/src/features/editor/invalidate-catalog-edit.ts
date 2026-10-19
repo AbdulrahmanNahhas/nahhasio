@@ -6,6 +6,7 @@ export async function invalidateCatalogEdit(client: QueryClient) {
   await Promise.all(
     [
       ["admin", "entities"],
+      ["admin", "database"],
       ["admin", "planets"],
       ["admin", "editor"],
       ["admin", "images"],

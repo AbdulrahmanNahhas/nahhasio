@@ -14,6 +14,10 @@ export const entityCredit = z.strictObject({
   roleLabel: z.string(),
   position: z.number().int().min(0).max(1000000),
   isPrimary: z.boolean(),
+  languages: z
+    .array(z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/))
+    .max(30)
+    .optional(),
 });
 export const entityDraft = z.strictObject({
   name: z.string().trim().min(1).max(300),
@@ -58,6 +62,10 @@ export const humanEntity = z.strictObject({
         role: z.string().min(1).max(300),
         position: z.number().int().min(0).max(1000000),
         isPrimary: z.boolean(),
+        languages: z
+          .array(z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/))
+          .max(30)
+          .optional(),
       }),
     )
     .max(500),
@@ -112,6 +120,8 @@ export const entityInputs = {
     q: z.string().max(300).default(""),
     image: z.enum(["all", "with", "without"]).default("all"),
     usage: z.enum(["all", "linked", "unlinked", "one"]).default("all"),
+    role: z.string().max(80).default(""),
+    language: z.string().max(35).default(""),
   }),
   entityList: z.strictObject({
     kind: entityKind,
@@ -119,6 +129,8 @@ export const entityInputs = {
     page: z.number().int().min(1).max(100000).default(1),
     image: z.enum(["all", "with", "without"]).default("all"),
     usage: z.enum(["all", "linked", "unlinked", "one"]).default("all"),
+    role: z.string().max(80).default(""),
+    language: z.string().max(35).default(""),
     sort: z.enum(["name", "works", "updated"]).default("works"),
   }),
   entityDetail: z.strictObject({ id: z.string().uuid(), kind: entityKind }),
