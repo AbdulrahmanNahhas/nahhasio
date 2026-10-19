@@ -13,10 +13,12 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/skeleton";
 import { rowSchema } from "@/features/database/data/database-model";
 import {
   findReferences,
   referenceValueFilter,
+  vocabularyOptions,
   type ReferenceOption as Option,
   type ReferenceTable,
 } from "@/features/editor/references/reference.functions";
@@ -82,7 +84,7 @@ export function ReferenceField({
       ? {
           id: value,
           value,
-          label: value,
+          label: resolved.isPending ? "جارٍ تحميل الاسم…" : value,
           organizationId: null,
           year: null,
           entityKind: null,
@@ -117,7 +119,11 @@ export function ReferenceField({
       >
         <ComboboxInput
           id={id}
-          placeholder={chosen?.label || value || "اكتب للبحث واختر من النتائج…"}
+          placeholder={
+            chosen?.label ||
+            (value && resolved.isPending ? "جارٍ تحميل الاسم…" : value) ||
+            "اكتب للبحث واختر من النتائج…"
+          }
           aria-label={label}
         />
         <ComboboxContent>
@@ -164,6 +170,8 @@ export function ReferenceListField({
   values: string[];
   onChange: (values: string[]) => void;
 }) {
+  const vocabulary = useQuery(vocabularyOptions());
+  const labels = vocabulary.data?.find((item) => item.table === table)?.options;
   return (
     <Field>
       <ReferenceField
@@ -180,6 +188,8 @@ export function ReferenceListField({
               key={value}
               table={table}
               value={value}
+              resolvedLabel={labels?.find((item) => item.value === value)?.label}
+              loading={vocabulary.isPending}
               onRemove={() => onChange(values.filter((item) => item !== value))}
             />
           ))}
@@ -193,10 +203,14 @@ function ReferenceChip({
   table,
   value,
   onRemove,
+  resolvedLabel,
+  loading,
 }: {
   table: ReferenceTable;
   value: string;
   onRemove: () => void;
+  resolvedLabel?: string;
+  loading: boolean;
 }) {
   const query = useQuery({
     queryKey: ["database", "reference-value", table, value, emptyFilters],
@@ -205,10 +219,15 @@ function ReferenceChip({
         data: { table, search: "", filters: referenceValueFilter(table, value) },
         signal,
       }),
+    enabled: !loading && !resolvedLabel,
     staleTime: 60000,
   });
+  if (loading || (!resolvedLabel && query.isPending))
+    return <Skeleton className="h-8 w-24 rounded-xl" />;
   const label =
-    query.data?.find((item) => item.value === value || item.id === value)?.label ?? value;
+    resolvedLabel ??
+    query.data?.find((item) => item.value === value || item.id === value)?.label ??
+    value;
   return (
     <Button
       type="button"

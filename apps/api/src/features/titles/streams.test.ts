@@ -123,18 +123,18 @@ afterAll(async () => {
   await sql.end();
 });
 
-// A developer's own `.env` may legitimately set a real ARCADIA_STREAM_ADDON_URL — cleared before
+// A developer's own `.env` may legitimately set a real NAHHASIO_STREAM_ADDON_URL — cleared before
 // every test too, not just after, so "no source configured" stays deterministic regardless of
 // what's loaded into the process outside this suite's control.
 beforeEach(() => {
   clearStreamCache();
-  delete process.env.ARCADIA_STREAM_ADDON_URL;
-  delete process.env.ARCADIA_STREAM_ALLOW_TMDB_IDS;
+  delete process.env.NAHHASIO_STREAM_ADDON_URL;
+  delete process.env.NAHHASIO_STREAM_ALLOW_TMDB_IDS;
 });
 afterEach(() => {
   clearStreamCache();
-  delete process.env.ARCADIA_STREAM_ADDON_URL;
-  delete process.env.ARCADIA_STREAM_ALLOW_TMDB_IDS;
+  delete process.env.NAHHASIO_STREAM_ADDON_URL;
+  delete process.env.NAHHASIO_STREAM_ALLOW_TMDB_IDS;
 });
 
 async function getStreams(installmentId: string, episodeId?: string) {
@@ -145,7 +145,7 @@ async function getStreams(installmentId: string, episodeId?: string) {
 
 describe("installment stream discovery", () => {
   it("returns ranked candidates for an installment carrying its own IMDb id", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       const { status, body } = await getStreams(installments["own-id:0"] ?? "");
@@ -160,7 +160,7 @@ describe("installment stream discovery", () => {
   });
 
   it("falls back to the title's id only when the title holds exactly one film", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       const single = await getStreams(installments["title-id:0"] ?? "");
@@ -178,14 +178,14 @@ describe("installment stream discovery", () => {
   });
 
   it("keeps tmdb: ids behind the flag until the addon is known to accept them", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       const gated = await getStreams(installments["tmdb-only:0"] ?? "");
       expect(gated.status).toBe(409);
       expect(gated.body.code).toBe("no_identifier");
 
-      process.env.ARCADIA_STREAM_ALLOW_TMDB_IDS = "true";
+      process.env.NAHHASIO_STREAM_ALLOW_TMDB_IDS = "true";
       const allowed = await getStreams(installments["tmdb-only:0"] ?? "");
       expect(allowed.status).toBe(200);
       expect(allowed.body.streamId).toBe("tmdb:603");
@@ -196,14 +196,14 @@ describe("installment stream discovery", () => {
   });
 
   it("refuses a season with no episode selected", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const { status, body } = await getStreams(installments["season:0"] ?? "");
     expect(status).toBe(400);
     expect(body.code).toBe("unsupported_kind");
   });
 
   it("resolves an episode through the title's IMDb id, season number, and episode number", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       const { status, body } = await getStreams(installments["series:0"] ?? "", episodes.whole);
@@ -219,14 +219,14 @@ describe("installment stream discovery", () => {
   });
 
   it("refuses a fractional episode number — Stremio series ids need a plain integer", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const { status, body } = await getStreams(installments["series:0"] ?? "", episodes.half);
     expect(status).toBe(409);
     expect(body.code).toBe("no_identifier");
   });
 
   it("numbers a season by its rank among season-kind siblings, not its raw position", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       // Movie, season, movie, season: the second season sits at position 3, but is only the 2nd
@@ -243,14 +243,14 @@ describe("installment stream discovery", () => {
   });
 
   it("404s an episode id that does not belong to the installment", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const { status, body } = await getStreams(installments["series:0"] ?? "", randomUUID());
     expect(status).toBe(404);
     expect(body.code).toBe("not_found");
   });
 
   it("says the title has no identifier yet when a season's title carries none", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     await makeTitle({ key: "series-no-id", films: [{ kind: "season" }] });
     const sql = database().client;
     const [episode] = await sql`
@@ -272,7 +272,7 @@ describe("installment stream discovery", () => {
   });
 
   it("reports an unreachable addon as a source failure, not as an empty result", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise (a single URL argument),
     // which is all the code under test calls.
@@ -289,7 +289,7 @@ describe("installment stream discovery", () => {
   });
 
   it("distinguishes an addon with nothing to offer from an addon that failed", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon(JSON.stringify({ streams: [] }));
     try {
       const { status, body } = await getStreams(installments["own-id:0"] ?? "");
@@ -301,7 +301,7 @@ describe("installment stream discovery", () => {
   });
 
   it("does not resolve a stream for a private title", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const restore = stubAddon();
     try {
       const { status, body } = await getStreams(installments["private:0"] ?? "");
@@ -313,7 +313,7 @@ describe("installment stream discovery", () => {
   });
 
   it("404s an installment that does not exist", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const { status, body } = await getStreams(randomUUID());
     expect(status).toBe(404);
     expect(body.code).toBe("not_found");

@@ -185,7 +185,7 @@ adminMaintenanceRoutes.get("/api/v1/admin/health", async (context) => {
   const integrations = {
     tmdb: Boolean(process.env.TMDB_API_READ_ACCESS_KEY),
     fanart: Boolean(process.env.FANART_API_KEY),
-    streamAddon: Boolean(process.env.ARCADIA_STREAM_ADDON_URL),
+    streamAddon: Boolean(process.env.NAHHASIO_STREAM_ADDON_URL),
     openSubtitles: Boolean(process.env.OPENSUBTITLES_API_KEY),
   };
   return context.json({
@@ -196,7 +196,7 @@ adminMaintenanceRoutes.get("/api/v1/admin/health", async (context) => {
       environment: process.env.NODE_ENV ?? "development",
       mediaRoot:
         process.env.NAHHASIO_MEDIA_ROOT ??
-        process.env.ARCADIA_MEDIA_ROOT ??
+        process.env.NAHHASIO_MEDIA_ROOT ??
         "data/media/uploads (default)",
     },
     database: {

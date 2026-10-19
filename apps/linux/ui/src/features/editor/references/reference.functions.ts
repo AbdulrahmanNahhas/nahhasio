@@ -1,4 +1,5 @@
 import { rpcInputs, rpcResults } from "@arcadia/contracts/editor-rpc";
+import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { gateway } from "@/lib/bridge";
@@ -44,6 +45,7 @@ export async function findReferences({
         row.name_ar ??
         row.label ??
         row.name ??
+        row.title_ar ??
         row.canonical_title ??
         row.slug ??
         row.year ??
@@ -76,4 +78,21 @@ export function referenceValueFilter(table: ReferenceTable, value: string) {
         ? "canonical_title"
         : "slug";
   return { [key]: value };
+}
+
+export function vocabularyOptions() {
+  return queryOptions({
+    queryKey: ["admin", "editor", "vocabulary"],
+    queryFn: async ({ signal }) =>
+      rpcResults.vocabulary.parse(
+        await gateway.editorCall(
+          {
+            operation: "vocabulary",
+            data: { tables: ["genres", "tags", "tones", "countries", "planets", "roles"] },
+          },
+          signal,
+        ),
+      ),
+    staleTime: 300000,
+  });
 }

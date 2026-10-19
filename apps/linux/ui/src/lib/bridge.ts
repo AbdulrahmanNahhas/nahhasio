@@ -20,6 +20,7 @@ import {
   CatalogPageSchema,
   FacetCatalogSchema,
   HomeFeedSchema,
+  RecommendationPageSchema,
   EpisodesPageSchema,
   ReleasesPageSchema,
   SessionSchema,
@@ -213,6 +214,8 @@ export const gateway = {
     ReleasesPageSchema.parse(await call("releases", query, signal)),
   episodes: async (query: EpisodesQuery, signal?: AbortSignal) =>
     EpisodesPageSchema.parse(await call("episodes", query, signal)),
+  recommendations: async (id: string, signal?: AbortSignal) =>
+    RecommendationPageSchema.parse(await call("recommendations", { id }, signal)),
   home: async (signal?: AbortSignal) => HomeFeedSchema.parse(await call("home", {}, signal)),
   filters: async (signal?: AbortSignal) =>
     CatalogFiltersSchema.parse(await call("filters", {}, signal)),

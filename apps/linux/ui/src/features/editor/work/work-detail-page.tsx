@@ -48,7 +48,8 @@ import {
 } from "@/features/editor/json/document/document-model";
 import { workSnapshotsOptions } from "@/features/editor/json/document/document.queries";
 import { useDocumentReview } from "@/features/editor/json/document/use-document-review";
-import { ReferenceListField } from "@/features/editor/references/reference-field";
+import { ReferenceField, ReferenceListField } from "@/features/editor/references/reference-field";
+import { vocabularyOptions } from "@/features/editor/references/reference.functions";
 import { WorkReferences } from "@/features/editor/references/work-references";
 import { RegisteredImage } from "@/features/editor/registered-image";
 import { WorkDraftJson } from "@/features/editor/work/work-draft-json";
@@ -84,6 +85,7 @@ export function WorkWorkspace({
   snapshot: WorkSnapshot;
   create?: boolean;
 }) {
+  useQuery(vocabularyOptions());
   const [draft, setDraft] = useState(snapshot.document);
   const state = useSearch({ strict: false });
   const navigate = useNavigate();
@@ -104,9 +106,9 @@ export function WorkWorkspace({
       {flow.leaveDialog}
       <header className="flex flex-wrap items-start justify-between gap-5 rounded-2xl bg-card p-5 sm:p-6">
         <div className="flex min-w-0 items-start gap-4">
-          {snapshot.document.media?.poster?.startsWith("/media/") && (
+          {draft.media?.poster?.startsWith("/media/") && (
             <RegisteredImage
-              src={snapshot.document.media.poster}
+              src={draft.media.poster}
               alt=""
               className="aspect-2/3 w-16 shrink-0 rounded-xl sm:w-20"
               fit="cover"
@@ -331,7 +333,6 @@ export function WorkWorkspace({
                             { key: "tags", label: "الوسوم" },
                             { key: "tones", label: "الطابع" },
                             { key: "countries", label: "الدول" },
-                            { key: "planets", label: "الكواكب" },
                           ] as const
                         ).map((field) => (
                           <ReferenceListField
@@ -342,6 +343,24 @@ export function WorkWorkspace({
                             onChange={(value) => update(field.key, value)}
                           />
                         ))}
+                      </FieldGroup>
+                      <FieldGroup>
+                        <ReferenceField
+                          label="الكوكب"
+                          table="planets"
+                          value={draft.planets?.[0] ?? ""}
+                          onChange={(value) => update("planets", [value])}
+                        />
+                        {!!draft.planets?.length && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-fit"
+                            onClick={() => update("planets", [])}
+                          >
+                            إزالة الكوكب
+                          </Button>
+                        )}
                       </FieldGroup>
                       <WorkReferences draft={draft} update={update} creditsOnly />
                     </FieldGroup>
@@ -419,7 +438,11 @@ export function WorkWorkspace({
                       ).map((field) => (
                         <TextField
                           key={field.key}
-                          label={field.label}
+                          label={
+                            field.key === "curatorNotes"
+                              ? "ملاحظة المحرر (تظهر للمشاهدين في صفحة العمل)"
+                              : field.label
+                          }
                           multiline
                           value={draft[field.key]}
                           onChange={(value) => update(field.key, value)}

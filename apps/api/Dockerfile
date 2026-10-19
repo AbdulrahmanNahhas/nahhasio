@@ -31,8 +31,8 @@ COPY --from=build /repo/apps/api/package.json ./package.json
 # step — `podman run --rm ... node dist/migrate.js`, or the arcadia-migrate Quadlet unit) works
 # from the image alone.
 COPY --from=build /repo/packages/database/drizzle ./drizzle
-# Uploaded artwork lives on a mounted volume, never in the image (ARCADIA_MEDIA_ROOT points here).
+# Uploaded artwork lives on a mounted volume, never in the image (NAHHASIO_MEDIA_ROOT points here).
 RUN mkdir -p /data/media/uploads
-ENV ARCADIA_MEDIA_ROOT=/data/media/uploads
+ENV NAHHASIO_MEDIA_ROOT=/data/media/uploads
 EXPOSE 23101
 CMD ["node", "dist/server.js"]

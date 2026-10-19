@@ -79,7 +79,7 @@ actual audio/subtitle track selection and manual external SRT/ASS/SSA/VTT subtit
 provider retrieval and a completed server-file library workflow are pending.
 
 Existing Torrentio source configuration uses `NAHHASIO_TORRENTIO_URL`/`NAHHASIO_TORRENTIO_CONFIG`,
-falling back to `ARCADIA_STREAM_ADDON_URL`/`ARCADIA_STREAM_ADDON_CONFIG`. Keep private configuration
+falling back to `NAHHASIO_STREAM_ADDON_URL`/`NAHHASIO_STREAM_ADDON_CONFIG`. Keep private configuration
 in ignored server/native environment, never UI/argv/logs. Source selection is explicit; download
 must not attach mpv or call play/preview as a side effect. Source availability is not guaranteed.
 

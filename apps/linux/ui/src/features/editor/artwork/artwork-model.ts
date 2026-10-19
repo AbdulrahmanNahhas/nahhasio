@@ -13,6 +13,16 @@ export function installmentIdentityKeys(work: WorkDocument, part: Installment) {
   if (part.kind === "movie") return work.format === "animated" ? identityKeys : seriesIdentityKeys;
   return work.format === "animated" ? animeIdentityKeys : [];
 }
+export function suggestedTmdbSeason(installments: Installment[], installment: Installment) {
+  if (installment.kind === "special") return 0;
+  const seasons = installments
+    .filter((part) => part.kind === "season")
+    .toSorted((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const index = seasons.findIndex(
+    (part) => part === installment || Boolean(part.id && part.id === installment.id),
+  );
+  return index < 0 ? undefined : index + 1;
+}
 export function artworkContext(work: WorkDocument, installment?: Installment) {
   const seasons =
     work.installments
@@ -23,10 +33,6 @@ export function artworkContext(work: WorkDocument, installment?: Installment) {
     : work.installments
         ?.filter((part) => part.kind === "movie")
         .toSorted((left, right) => (left.position ?? 0) - (right.position ?? 0))[0];
-  const seasonIndex =
-    installment?.kind === "season"
-      ? seasons.findIndex((part) => part === installment || (part.id && part.id === installment.id))
-      : -1;
   const series = installment ? installment.kind !== "movie" && hasSeries(work) : hasSeries(work);
   const animated = work.format !== "live-action";
   const kind: z.infer<typeof artworkSearchQuerySchema>["kind"] = animated
@@ -76,7 +82,7 @@ export function artworkContext(work: WorkDocument, installment?: Installment) {
     kind,
     tmdbId: ids.find((value) => value.key === "tmdbId")?.value,
     anilistId: ids.find((value) => value.key === "anilistId")?.value,
-    season: seasonIndex >= 0 ? seasonIndex + 1 : undefined,
+    season: installment ? suggestedTmdbSeason(work.installments ?? [], installment) : undefined,
     sources: ids,
   };
 }

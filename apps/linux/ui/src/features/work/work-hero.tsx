@@ -140,15 +140,17 @@ export function WorkHero({
             </Button>
             <Button
               {...navigation}
-              size="lg"
+              size="icon-lg"
+              className="size-12"
+              aria-label="تنزيل الفيديو"
+              title="تنزيل الفيديو"
               variant="outline"
               disabled={!work.installments.some((item) => item.status !== "announced")}
               onClick={() =>
                 requestDownload({ workId: work.id, title: work.titleAr || work.canonicalTitle })
               }
             >
-              <Download data-icon="inline-start" />
-              تنزيل
+              <Download />
             </Button>
             {work.installments.length > 0 && (
               <Button
@@ -175,7 +177,7 @@ export function WorkHero({
               <Heart data-icon="inline-start" />
             </Button>
             <WatchedControl tracking={tracking} label="العمل" compact large />
-            <SaveWorkControl id={work.id} />
+            <SaveWorkControl id={work.id} compact />
           </div>
         </div>
         <div className="hidden lg:block">
@@ -199,7 +201,7 @@ function HeroFacts({ work, status }: { work: WorkDetail; status: string }) {
     ["الجمهور", audienceLabels.get(work.audience)],
   ];
   return (
-    <dl className="rounded-2xl border border-border/60 bg-background/80 p-4">
+    <dl className="rounded-2xl border border-border bg-background/20 backdrop-blur-lg p-4">
       {rows
         .filter(([, value]) => value !== null && value !== undefined)
         .map(([label, value]) => (

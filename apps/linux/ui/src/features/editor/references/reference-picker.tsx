@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { SearchIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,11 @@ import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { databaseRecordsOptions } from "@/features/database/data/database.queries";
+import { SelectField } from "@/features/editor/fields/work-fields";
 import { isJsonString } from "@/features/editor/json/document/document-model";
 import { RegisteredImage } from "@/features/editor/registered-image";
+
+import { ReferenceField } from "./reference-field";
 
 export function ReferencePicker({
   table,
@@ -63,6 +66,8 @@ export function ReferencePicker({
     </>
   );
 }
+type ArtworkFilters = { related_work?: string; image_role?: string };
+
 function PickerResults({
   table,
   onPick,
@@ -76,7 +81,21 @@ function PickerResults({
 }) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
-  const query = useQuery(databaseRecordsOptions(table, offset, search));
+  const [settled, setSettled] = useState("");
+  const [sort, setSort] = useState<"default" | "newest" | "oldest">("newest");
+  const [work, setWork] = useState("");
+  const [role, setRole] = useState(imageRole ?? "all");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSettled(search);
+      setOffset(0);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const filters: ArtworkFilters = {};
+  if (images && work) filters.related_work = work;
+  if (images && role !== "all") filters.image_role = role;
+  const query = useQuery(databaseRecordsOptions(table, offset, settled, filters, sort));
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <InputGroup>
@@ -90,9 +109,70 @@ function PickerResults({
             setSearch(event.target.value);
             setOffset(0);
           }}
-          placeholder="ابحث…"
+          placeholder={images ? "ابحث باسم الصورة أو عنوان العمل بالعربية أو الإنجليزية…" : "ابحث…"}
         />
       </InputGroup>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SelectField
+          label="الترتيب"
+          value={sort}
+          onChange={(value) => {
+            setSort(value);
+            setOffset(0);
+          }}
+          items={[
+            { value: "newest", label: "الأحدث أولاً" },
+            { value: "oldest", label: "الأقدم أولاً" },
+            { value: "default", label: "الترتيب الافتراضي" },
+          ]}
+        />
+        {images && (
+          <SelectField
+            label="نوع الصورة"
+            value={role}
+            onChange={(value) => {
+              setRole(value);
+              setOffset(0);
+            }}
+            items={[
+              { value: "all", label: "كل الصور" },
+              { value: "poster", label: "ملصق" },
+              { value: "banner", label: "خلفية" },
+              { value: "logo", label: "شعار" },
+              { value: "profile", label: "صورة شخصية" },
+              { value: "still", label: "صورة حلقة" },
+            ]}
+          />
+        )}
+      </div>
+      {images && (
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <ReferenceField
+              table="titles"
+              label="صور مرتبطة بعمل (اختياري)"
+              value={work}
+              useIdValue
+              onChange={(value) => {
+                setWork(value);
+                setOffset(0);
+              }}
+            />
+          </div>
+          {work && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setWork("");
+                setOffset(0);
+              }}
+            >
+              مسح العمل
+            </Button>
+          )}
+        </div>
+      )}
       {query.isError && (
         <Alert variant="destructive" className="border-border">
           <AlertTitle>تعذّر تحميل السجلات</AlertTitle>
@@ -112,7 +192,9 @@ function PickerResults({
       <div className="grid max-h-96 gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
         {query.data?.rows.map((row) => {
           const label = String(
-            row.label_ar ??
+            row.owner_label ??
+              row.title_ar ??
+              row.label_ar ??
               row.name_ar ??
               row.name ??
               row.canonical_title ??
@@ -137,9 +219,9 @@ function PickerResults({
                   alt=""
                   className={cn(
                     "w-full object-contain",
-                    imageRole === "poster" && "aspect-2/3",
-                    (!imageRole || imageRole === "banner") && "aspect-video",
-                    (imageRole === "logo" || imageRole === "profile") && "aspect-square",
+                    role === "poster" && "aspect-2/3",
+                    (role === "all" || role === "banner" || role === "still") && "aspect-video",
+                    (role === "logo" || role === "profile") && "aspect-square",
                   )}
                   loading="lazy"
                 />

@@ -1,5 +1,5 @@
 import type { artworkCandidateSchema } from "@arcadia/contracts";
-import type { z } from "zod";
+import { z } from "zod";
 
 type ArtworkCandidate = z.infer<typeof artworkCandidateSchema>;
 
@@ -132,6 +132,9 @@ export type TmdbSeasonEpisode = {
   runtimeMinutes: number | null;
   /** Full `https://image.tmdb.org/...` URL of the episode still, or `null`. */
   stillUrl: string | null;
+  sourceSeason?: number;
+  sourceEpisode?: number;
+  sourceLabel?: string;
 };
 
 /**
@@ -143,21 +146,149 @@ export async function fetchTmdbSeason(input: {
   tmdbId: number;
   season: number;
   language?: string;
+  groupId?: string;
 }): Promise<TmdbSeasonEpisode[] | null> {
+  if (input.groupId) return fetchTmdbGroupedSeason(input);
   const response = await tmdbFetch<SeasonResponse>(`/tv/${input.tmdbId}/season/${input.season}`, {
     language: input.language ?? "en-US",
   });
-  if (!response) return null;
+  if (!response) return fetchTmdbGroupedSeason(input);
   return response.episodes.map((episode) => ({
     number: episode.episode_number,
     title: episode.name?.trim() || null,
     summary: episode.overview?.trim() ?? "",
     releaseDate: episode.air_date || null,
     runtimeMinutes: episode.runtime ?? null,
-    stillUrl: episode.still_path ? `${imageBase}/w780${episode.still_path}` : null,
+    stillUrl: episode.still_path ? `${imageBase}/original${episode.still_path}` : null,
+    sourceSeason: input.season,
+    sourceEpisode: episode.episode_number,
+    sourceLabel: `TMDB · الموسم ${input.season}`,
   }));
 }
 
 export function tmdbConfigured() {
   return readAccessToken() !== null;
+}
+
+/** Episode gallery, without a language filter: stills commonly have no language. */
+export async function fetchTmdbEpisodeImages(input: {
+  tmdbId: number;
+  season: number;
+  episode: number;
+}): Promise<{ url: string; previewUrl: string; width: number; height: number }[]> {
+  const response = await tmdbFetch<unknown>(
+    `/tv/${input.tmdbId}/season/${input.season}/episode/${input.episode}/images`,
+    {},
+  );
+  if (response === null) {
+    const mapped = (await fetchTmdbSeason({ tmdbId: input.tmdbId, season: input.season }))?.find(
+      (episode) => episode.number === input.episode,
+    );
+    if (
+      mapped?.sourceSeason !== undefined &&
+      mapped.sourceEpisode !== undefined &&
+      (mapped.sourceSeason !== input.season || mapped.sourceEpisode !== input.episode)
+    )
+      return fetchTmdbEpisodeImages({
+        tmdbId: input.tmdbId,
+        season: mapped.sourceSeason,
+        episode: mapped.sourceEpisode,
+      });
+    return [];
+  }
+  const result = z
+    .object({
+      stills: z.array(
+        z.object({
+          file_path: z.string().regex(/^\/[A-Za-z0-9_.-]+$/),
+          width: z.number().int().positive(),
+          height: z.number().int().positive(),
+          vote_average: z.number().optional().default(0),
+          vote_count: z.number().int().optional().default(0),
+        }),
+      ),
+    })
+    .parse(response);
+  return result.stills
+    .toSorted((a, b) => b.vote_count - a.vote_count || b.width * b.height - a.width * a.height)
+    .slice(0, 60)
+    .map((image) => ({
+      url: `${imageBase}/original${image.file_path}`,
+      previewUrl: `${imageBase}/w300${image.file_path}`,
+      width: image.width,
+      height: image.height,
+    }));
+}
+
+const groupedEpisode = z.object({
+  episode_number: z.number().int().nonnegative(),
+  season_number: z.number().int().nonnegative(),
+  order: z.number().int().nonnegative(),
+  name: z.string().nullable().optional(),
+  overview: z.string().nullable().optional(),
+  air_date: z.string().nullable().optional(),
+  runtime: z.number().nullable().optional(),
+  still_path: z
+    .string()
+    .regex(/^\/[A-Za-z0-9_.-]+$/)
+    .nullable()
+    .optional(),
+});
+async function fetchTmdbGroupedSeason(input: {
+  tmdbId: number;
+  season: number;
+  groupId?: string;
+}): Promise<TmdbSeasonEpisode[] | null> {
+  const listing = await tmdbFetch<unknown>(`/tv/${input.tmdbId}/episode_groups`, {});
+  if (!listing) return null;
+  const groups = z
+    .object({ results: z.array(z.object({ id: z.string(), name: z.string(), type: z.number() })) })
+    .parse(listing).results;
+  const named = groups.filter((group) => /seasons|مواسم/i.test(group.name));
+  const candidates = named.length ? named : groups.filter((group) => [6, 7].includes(group.type));
+  const selected = input.groupId
+    ? groups.find((group) => group.id === input.groupId)
+    : candidates.length === 1
+      ? candidates[0]
+      : null;
+  if (!selected) {
+    if (input.groupId) throw new Error("مجموعة الحلقات لا تنتمي إلى مسلسل TMDB المحدّد.");
+    if (candidates.length > 1)
+      throw new Error("توجد مجموعات حلقات متعددة. الصق رابط مجموعة TMDB المطلوبة لتأكيد المطابقة.");
+    return null;
+  }
+  const response = await tmdbFetch<unknown>(
+    `/tv/episode_group/${encodeURIComponent(selected.id)}`,
+    {},
+  );
+  if (!response) return null;
+  const data = z
+    .object({
+      groups: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          order: z.number().int(),
+          episodes: z.array(groupedEpisode),
+        }),
+      ),
+    })
+    .parse(response);
+  const matches = data.groups.filter((group) => group.order === input.season);
+  if (matches.length !== 1) return null;
+  const group = matches[0];
+  if (!group) return null;
+  return group.episodes
+    .toSorted((a, b) => a.order - b.order)
+    .map((episode) => ({
+      number: episode.order + 1,
+      title: episode.name ?? null,
+      summary: episode.overview ?? "",
+      releaseDate: episode.air_date || null,
+      runtimeMinutes: episode.runtime ?? null,
+      stillUrl: episode.still_path ? `${imageBase}/original${episode.still_path}` : null,
+      sourceSeason: episode.season_number,
+      sourceEpisode: episode.episode_number,
+      sourceLabel: `${selected.name} · ${group.name}`,
+    }));
 }

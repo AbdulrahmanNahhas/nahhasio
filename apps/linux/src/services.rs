@@ -946,6 +946,20 @@ impl ServerSession {
                     .map_err(network)?;
                 self.json(response).await
             }
+            "recommendations" => {
+                let resource: Resource = parse(request.payload)?;
+                if !valid_id(&resource.id) {
+                    return Err(Error::new("bad_request", "Invalid catalog identifier"));
+                }
+                let response = self
+                    .authorized(Method::GET, "api/v1/catalog/recommendations")
+                    .await?
+                    .query(&[("workId", resource.id)])
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
             "filters" | "home" => {
                 let response = self
                     .authorized(

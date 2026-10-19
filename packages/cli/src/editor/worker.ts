@@ -1,6 +1,6 @@
 import { searchArtworkDetailed } from "@arcadia/api/artwork";
 import { storeMedia, storeMediaFromUrl } from "@arcadia/api/media-storage";
-import { fetchTmdbSeason, tmdbConfigured } from "@arcadia/api/tmdb";
+import { fetchTmdbSeason, fetchTmdbEpisodeImages, tmdbConfigured } from "@arcadia/api/tmdb";
 import { rpcInputs, editorTables, jsonRow } from "@arcadia/contracts/editor-rpc";
 /** Private bounded subprocess owned by the Rust API. No listener, arbitrary SQL or shell input. */
 import { z } from "zod";
@@ -85,6 +85,7 @@ const envelope = z.strictObject({
     "media",
     "search",
     "season",
+    "episodeImages",
     "ingest",
     "upload",
     "preview",
@@ -214,6 +215,10 @@ async function execute(input: z.infer<typeof envelope>) {
       if (!tmdbConfigured()) throw new Error("مفتاح TMDB غير مفعّل.");
       return fetchTmdbSeason({ ...p, language: "ar-SA" });
     }
+    case "episodeImages": {
+      if (!tmdbConfigured()) throw new Error("مفتاح TMDB غير مفعّل.");
+      return fetchTmdbEpisodeImages(rpcInputs.episodeImages.parse(input.data));
+    }
     case "ingest": {
       const p = rpcInputs.ingest.parse(input.data);
       imageUrl(p.url);
@@ -250,7 +255,34 @@ async function execute(input: z.infer<typeof envelope>) {
       const p = rpcInputs.refs.parse(input.data);
       const params: (string | number)[] = [p.search, 50, p.offset];
       let where = "($1='' or strpos(lower(to_jsonb(t)::text),lower($1))>0)";
+      const owners = `media_asset_assignments m
+        left join installments i on i.id=m.installment_id
+        left join episodes e on e.id=m.episode_id
+        left join installments ei on ei.id=e.installment_id
+        left join titles w on w.id=coalesce(m.title_id,i.title_id,ei.title_id)
+        left join entities n on n.id=m.entity_id`;
+      if (p.table === "media_assets")
+        where = `($1='' or strpos(lower(to_jsonb(t)::text),lower($1))>0 or exists(select 1 from ${owners} where m.asset_id=t.id and (strpos(lower(concat_ws(' ',w.canonical_title,w.title_ar,n.name,i.title,e.title)),lower($1))>0 or exists(select 1 from title_aliases a where a.title_id=w.id and strpos(lower(a.title),lower($1))>0))))`;
       for (const [key, value] of Object.entries(p.filters)) {
+        if (p.table === "media_assets" && key === "related_work") {
+          const id = z.string().uuid().parse(value);
+          params.push(id);
+          where += ` and exists(select 1 from ${owners} where m.asset_id=t.id and w.id=$${params.length}::uuid)`;
+          continue;
+        }
+        if (p.table === "media_assets" && key === "image_role") {
+          const role = z.enum(["poster", "banner", "logo", "profile", "still"]).parse(value);
+          const folders = {
+            poster: "posters",
+            banner: "banners",
+            logo: "logos",
+            profile: "profiles",
+            still: "stills",
+          };
+          params.push(role, `/media/uploads/${folders[role]}/%`);
+          where += ` and (exists(select 1 from media_asset_assignments m where m.asset_id=t.id and (m.role::text=$${params.length - 1} or ($${params.length - 1}='still' and m.episode_id is not null))) or t.path like $${params.length})`;
+          continue;
+        }
         if (
           ![
             "kind",
@@ -269,8 +301,18 @@ async function execute(input: z.infer<typeof envelope>) {
       }
       // The table and columns are constrained by fixed enums/allowlists above.
       return sql.begin("isolation level repeatable read read only", async (tx) => {
+        const table = (await loadSchema(tx)).tables.get(p.table);
+        const dated = table?.columns.some((column) => column.name === "created_at");
+        const order =
+          p.sort !== "default" && dated
+            ? `t.created_at ${p.sort === "newest" ? "desc" : "asc"},t.id`
+            : "t.id";
+        const projection =
+          p.table === "media_assets"
+            ? `to_jsonb(t)||jsonb_build_object('owner_label',(select string_agg(distinct coalesce(nullif(w.title_ar,''),w.canonical_title,n.name),' · ') from ${owners} where m.asset_id=t.id))`
+            : "to_jsonb(t)";
         const rows = await tx.unsafe<{ row: z.infer<typeof jsonRow> }[]>(
-          `select to_jsonb(t) as row from public.${p.table} t where ${where} order by id limit $2 offset $3`,
+          `select ${projection} as row from public.${p.table} t where ${where} order by ${order} limit $2 offset $3`,
           params,
         );
         const counts = await tx.unsafe<{ total: string }[]>(

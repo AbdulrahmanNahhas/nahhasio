@@ -11,7 +11,7 @@ export type MediaKind = (typeof mediaKinds)[number];
  * by `.gitignore`'s existing `data/media/*` entry — rather than shipping inside the web build.
  * Uploaded artwork is real family-curated content (and, for TMDB/Fanart-sourced posters, someone
  * else's copyrighted art); it does not belong in git history, and a Docker deployment wants this
- * on its own mountable volume anyway. `ARCADIA_MEDIA_ROOT` overrides it, matching how a real
+ * on its own mountable volume anyway. `NAHHASIO_MEDIA_ROOT` overrides it, matching how a real
  * deployment (or a NAS-mounted directory, Jellyfin-style) would point it elsewhere.
  */
 export function getMediaDirectory() {
@@ -258,7 +258,7 @@ export async function storeMediaFromUrl(input: {
  */
 export async function removeStoredMedia(relativePath: string | null | undefined) {
   if (!relativePath) return;
-  // `/media/uploads/…` maps to ARCADIA_MEDIA_ROOT itself (which need not be *named* uploads);
+  // `/media/uploads/…` maps to NAHHASIO_MEDIA_ROOT itself (which need not be *named* uploads);
   // every other `/media/…` path is a plain file under the public media root.
   if (relativePath.startsWith("/media/uploads/")) {
     const mediaDirectory = getMediaDirectory();

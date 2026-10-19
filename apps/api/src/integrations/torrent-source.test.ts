@@ -34,16 +34,16 @@ function byId(candidates: ReturnType<typeof parseStreams>, prefix: string) {
   return match;
 }
 
-// A developer's own `.env` may legitimately set a real ARCADIA_STREAM_ADDON_URL — cleared before
+// A developer's own `.env` may legitimately set a real NAHHASIO_STREAM_ADDON_URL — cleared before
 // every test too, not just after, so "no addon configured" stays deterministic regardless of
 // what's loaded into the process outside this suite's control.
 function resetStreamEnv() {
   clearStreamCache();
   for (const key of [
-    "ARCADIA_STREAM_ADDON_URL",
-    "ARCADIA_STREAM_ADDON_CONFIG",
-    "ARCADIA_STREAM_PREFERRED_HEIGHT",
-    "ARCADIA_STREAM_ALLOW_TMDB_IDS",
+    "NAHHASIO_STREAM_ADDON_URL",
+    "NAHHASIO_STREAM_ADDON_CONFIG",
+    "NAHHASIO_STREAM_PREFERRED_HEIGHT",
+    "NAHHASIO_STREAM_ALLOW_TMDB_IDS",
   ]) {
     delete process.env[key];
   }
@@ -53,28 +53,28 @@ afterEach(resetStreamEnv);
 
 describe("environment handling", () => {
   it("strips the quotes devenv's dotenv leaves on a quoted .env value", () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = '"https://addon.test"';
-    expect(readEnvValue("ARCADIA_STREAM_ADDON_URL")).toBe("https://addon.test");
-    process.env.ARCADIA_STREAM_ADDON_URL = "'https://addon.test'";
-    expect(readEnvValue("ARCADIA_STREAM_ADDON_URL")).toBe("https://addon.test");
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
-    expect(readEnvValue("ARCADIA_STREAM_ADDON_URL")).toBe("https://addon.test");
+    process.env.NAHHASIO_STREAM_ADDON_URL = '"https://addon.test"';
+    expect(readEnvValue("NAHHASIO_STREAM_ADDON_URL")).toBe("https://addon.test");
+    process.env.NAHHASIO_STREAM_ADDON_URL = "'https://addon.test'";
+    expect(readEnvValue("NAHHASIO_STREAM_ADDON_URL")).toBe("https://addon.test");
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
+    expect(readEnvValue("NAHHASIO_STREAM_ADDON_URL")).toBe("https://addon.test");
   });
 
   it("accepts a quoted addon URL as configured rather than treating it as malformed", () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = '"https://addon.test"';
+    process.env.NAHHASIO_STREAM_ADDON_URL = '"https://addon.test"';
     expect(streamSourceConfigured()).toBe(true);
   });
 
   it("reads the tmdb flag through the same quote handling", () => {
-    process.env.ARCADIA_STREAM_ALLOW_TMDB_IDS = '"true"';
+    process.env.NAHHASIO_STREAM_ALLOW_TMDB_IDS = '"true"';
     expect(tmdbStreamIdsAllowed()).toBe(true);
-    process.env.ARCADIA_STREAM_ALLOW_TMDB_IDS = '"false"';
+    process.env.NAHHASIO_STREAM_ALLOW_TMDB_IDS = '"false"';
     expect(tmdbStreamIdsAllowed()).toBe(false);
   });
 
   it("treats a malformed addon URL as not configured instead of throwing", () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "not-a-url";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "not-a-url";
     expect(streamSourceConfigured()).toBe(false);
   });
 });
@@ -263,8 +263,8 @@ describe("ranking", () => {
     expect(order).toEqual(["dire", "aaaa", "1111", "ffff", "cccc", "bbbb", "dddd", "eeee"]);
   });
 
-  it("follows ARCADIA_STREAM_PREFERRED_HEIGHT when the family wants 4K first", () => {
-    process.env.ARCADIA_STREAM_PREFERRED_HEIGHT = "2160";
+  it("follows NAHHASIO_STREAM_PREFERRED_HEIGHT when the family wants 4K first", () => {
+    process.env.NAHHASIO_STREAM_PREFERRED_HEIGHT = "2160";
     const forFourK = rankCandidates(parseStreams(fixture.streams)).map((candidate) =>
       candidate.id.slice(0, 4),
     );
@@ -298,8 +298,8 @@ describe("fetching", () => {
   });
 
   it("builds a usable request from a quoted addon URL", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = '"https://addon.test"';
-    process.env.ARCADIA_STREAM_ADDON_CONFIG = '"qualityfilter=cam,480p"';
+    process.env.NAHHASIO_STREAM_ADDON_URL = '"https://addon.test"';
+    process.env.NAHHASIO_STREAM_ADDON_CONFIG = '"qualityfilter=cam,480p"';
     const requested: string[] = [];
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise (a single URL argument
@@ -319,8 +319,8 @@ describe("fetching", () => {
   });
 
   it("serves a second request for the same id from cache", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
-    process.env.ARCADIA_STREAM_ADDON_CONFIG = "qualityfilter=cam,480p";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_CONFIG = "qualityfilter=cam,480p";
     const requested: string[] = [];
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise (a single URL argument
@@ -347,7 +347,7 @@ describe("fetching", () => {
   });
 
   it("returns null — not an empty list — when the addon errors", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise.
     globalThis.fetch = (async () =>
@@ -360,7 +360,7 @@ describe("fetching", () => {
   });
 
   it("returns null when the addon is unreachable", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise (a single URL argument),
     // which is all the code under test calls.
@@ -375,7 +375,7 @@ describe("fetching", () => {
   });
 
   it("returns an empty list when the addon answers with no streams", async () => {
-    process.env.ARCADIA_STREAM_ADDON_URL = "https://addon.test";
+    process.env.NAHHASIO_STREAM_ADDON_URL = "https://addon.test";
     const original = globalThis.fetch;
     // SAFETY: the stub implements the one overload these tests exercise.
     globalThis.fetch = (async () =>

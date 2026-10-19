@@ -5,6 +5,7 @@ import {
 } from "@nahhasio/api-contract";
 import type {
   Classification,
+  RecommendationPage,
   Episode,
   Installment,
   Session,
@@ -18,6 +19,9 @@ import type {
 } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import type { z } from "zod";
+
+import { offlineStatusSchema } from "../src/features/player/saved-works-data";
 
 const id = (number: number) => `10000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
 const workId = id(1);
@@ -361,7 +365,15 @@ async function installBridge(page: Page) {
               // SAFETY: only the application's typed gateway sends messages to this isolated fixture.
               const request = JSON.parse(message) as BridgeRequest;
               fixture.requests.push(request);
-              const success = (result: Session | WorkDetail | WorkViewerState | WorkActivityPage) =>
+              const success = (
+                result:
+                  | Session
+                  | WorkDetail
+                  | WorkViewerState
+                  | WorkActivityPage
+                  | RecommendationPage
+                  | z.infer<typeof offlineStatusSchema>,
+              ) =>
                 queueMicrotask(() =>
                   window["__nahhasioReply"]?.({
                     id: request.id,
@@ -395,6 +407,55 @@ async function installBridge(page: Page) {
                     expiresAt: "2099-10-09T00:00:00Z",
                   });
                   return;
+                case "offline.status":
+                  success({
+                    scope: null,
+                    active: false,
+                    offline: false,
+                    name: null,
+                    pending: 0,
+                    conflicts: [],
+                    job: null,
+                  });
+                  return;
+                case "recommendations": {
+                  const items = Array.from({ length: 10 }, (_, index) => ({
+                    id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+                    canonicalTitle: `Recommendation ${index + 1}`,
+                    titleAr: `اقتراح ${index + 1}`,
+                    summary: "",
+                    isPrivate: false,
+                    score: fixtureWork.score,
+                    releaseYear: 2026,
+                    format: fixtureWork.format,
+                    audience: fixtureWork.audience,
+                    age: fixtureWork.age,
+                    poster: null,
+                    banner: null,
+                    logo: null,
+                    installmentCount: 1,
+                    episodeCount: 12,
+                  }));
+                  success({
+                    items,
+                    basis: "related",
+                    algorithm: "work-affinity-v1",
+                    matches: items.map((item) => ({
+                      workId: item.id,
+                      percentage: 80,
+                      reasons: [
+                        {
+                          key: "genres",
+                          label: "الأنواع الفنية",
+                          weight: 22,
+                          similarity: 80,
+                          shared: ["مغامرة"],
+                        },
+                      ],
+                    })),
+                  });
+                  return;
+                }
                 case "work":
                   success(fixtureWork);
                   return;
@@ -1308,3 +1369,38 @@ test("arrows reach work actions, watched controls, panel links and disclosures w
   await expect(explanation).toHaveAttribute("open", "");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+for (const width of [520, 1440]) {
+  test(`work recommendations ${width}: explanations, equal hero controls and reachable cards`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await openWork(page);
+    const hero = page.locator("article > header");
+    const download = hero.getByRole("button", { name: "تنزيل الفيديو", exact: true });
+    const save = hero.getByRole("button", { name: "حفظ بيانات العمل وصوره للجهاز", exact: true });
+    await expect(download).toBeVisible();
+    await expect(save).toBeVisible();
+    expect((await download.boundingBox())?.height).toBe(48);
+    expect((await save.boundingBox())?.height).toBe(48);
+    await expect(download).toHaveText("");
+    const section = page.getByRole("region", { name: "أعمال قد تعجبك" });
+    await section.scrollIntoViewIfNeeded();
+    await expect(section.getByText("80% تشابه").first()).toBeVisible();
+    await section.getByRole("button", { name: "لماذا اقتُرح هذا العمل؟" }).first().click();
+    await expect(page.getByRole("dialog", { name: "لماذا هذا الاقتراح؟" })).toContainText("مغامرة");
+    await page.keyboard.press("Escape");
+    const cards = section.getByRole("listitem");
+    await expect(cards).toHaveCount(10);
+    const tops = await cards.evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().top)),
+    );
+    expect(new Set(tops).size).toBe(width === 1440 ? 2 : 5);
+    await expect(section.getByText("اقتراح 10", { exact: true })).toBeAttached();
+    await expectNoOverflow(page);
+    await page.screenshot({
+      path: `/tmp/nahhasio-work-recommendations-${width}.png`,
+      fullPage: true,
+    });
+  });
+}

@@ -283,7 +283,13 @@ function RelatedWork({ relation }: { relation: WorkDetail["relations"][number] }
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <Badge variant="outline">{relationLabels.get(relation.kind) ?? "عمل مرتبط"}</Badge>
+        <Badge variant="outline">
+          {relationLabels.get(
+            relation.kind === "sequel" && relation.direction === "incoming"
+              ? "prequel"
+              : relation.kind,
+          ) ?? "عمل مرتبط"}
+        </Badge>
         {relation.notes && <p className="text-base leading-relaxed">{relation.notes}</p>}
         {related.data ? (
           <MediaCard work={related.data} layout="banner" />

@@ -13,9 +13,6 @@ export function AdminNavigation() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-3" aria-label="أقسام الإدارة">
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain scrollbar-thin">
-        <p className="px-2 text-xs text-muted-foreground max-[800px]:hidden">
-          الأقسام الباهتة غير متاحة بعد
-        </p>
         <a
           href="#/admin"
           className={linkClass}

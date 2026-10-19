@@ -74,6 +74,14 @@ impl Config {
     }
 }
 fn main() -> glib::ExitCode {
+    // WebKitGTK 2.54 GPU painting corrupts poster tiles on the target desktop.
+    // CPU rasterization was verified with the affected catalog. Keep an explicit
+    // WEBKIT_SKIA_ENABLE_CPU_RENDERING=0 override for renderer diagnostics.
+    // Renderer environment must be set before GTK or worker threads start.
+    if glib::setenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1", false).is_err() {
+        eprintln!("Could not configure desktop image painting");
+        return glib::ExitCode::FAILURE;
+    }
     // WebKit 2.52's Skia software backing store blends transparent updates over
     // old pixels. Keep the launcher's no-DMA-BUF default, but use the shared-memory
     // compositor instead. Set this before GTK or workers create any threads.

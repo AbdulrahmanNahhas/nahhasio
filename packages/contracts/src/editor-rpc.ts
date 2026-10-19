@@ -139,6 +139,7 @@ export const rpcInputs = {
     search: z.string().max(300),
     offset: z.number().int().min(0).max(1000000).default(0),
     filters: jsonRow.default({}),
+    sort: z.enum(["default", "newest", "oldest"]).default("default"),
   }),
   schema: z.strictObject({}),
   vocabulary: z.strictObject({
@@ -149,6 +150,15 @@ export const rpcInputs = {
   season: z.strictObject({
     tmdbId: z.number().int().positive(),
     season: z.number().int().nonnegative(),
+    groupId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,100}$/)
+      .optional(),
+  }),
+  episodeImages: z.strictObject({
+    tmdbId: z.number().int().positive(),
+    season: z.number().int().nonnegative(),
+    episode: z.number().int().positive(),
   }),
   ingest: z.strictObject({
     url: z.string().url(),
@@ -224,9 +234,22 @@ export const rpcResults = {
         releaseDate: z.string().nullable(),
         runtimeMinutes: z.number().nullable(),
         stillUrl: z.string().url().nullable(),
+        sourceSeason: z.number().int().nonnegative().optional(),
+        sourceEpisode: z.number().int().nonnegative().optional(),
+        sourceLabel: z.string().optional(),
       }),
     )
     .nullable(),
+  episodeImages: z
+    .array(
+      z.object({
+        url: z.url(),
+        previewUrl: z.url(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      }),
+    )
+    .max(60),
   ingest: z.object({ id: z.string().uuid(), path: z.string() }),
   upload: z.object({ id: z.string().uuid(), path: z.string() }),
   preview: z.object({ dataUrl: z.string() }),

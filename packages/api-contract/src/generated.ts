@@ -698,9 +698,27 @@ export const BrowseFiltersSchema = z.strictObject({
 });
 export type BrowseFilters = z.infer<typeof BrowseFiltersSchema>;
 
+export const RecommendationReasonSchema = z.strictObject({
+  key: z.string(),
+  label: z.string(),
+  weight: z.number().min(0),
+  similarity: z.number().min(0).max(100),
+  shared: z.array(z.string()),
+});
+export type RecommendationReason = z.infer<typeof RecommendationReasonSchema>;
+
+export const WorkMatchSchema = z.strictObject({
+  workId: z.string().uuid(),
+  percentage: z.number().int().min(0).max(100),
+  reasons: z.array(RecommendationReasonSchema),
+});
+export type WorkMatch = z.infer<typeof WorkMatchSchema>;
+
 export const RecommendationPageSchema = z.strictObject({
   items: z.array(WorkSummarySchema),
   basis: z.enum(["related", "personal", "editorial"]),
+  algorithm: z.string().optional(),
+  matches: z.array(WorkMatchSchema).optional(),
 });
 export type RecommendationPage = z.infer<typeof RecommendationPageSchema>;
 
@@ -1105,6 +1123,7 @@ export const CatalogRefsInputSchema = z.strictObject({
   search: z.string().max(300),
   offset: z.number().int().min(0).max(1000000).optional(),
   filters: z.record(z.string(), z.json()).optional(),
+  sort: z.enum(["default", "newest", "oldest"]).optional(),
 });
 export type CatalogRefsInput = z.infer<typeof CatalogRefsInputSchema>;
 
@@ -1168,6 +1187,7 @@ export type CatalogSearchCall = z.infer<typeof CatalogSearchCallSchema>;
 export const CatalogSeasonInputSchema = z.strictObject({
   tmdbId: z.number().int().max(9007199254740991),
   season: z.number().int().min(0).max(9007199254740991),
+  groupId: z.string().optional(),
 });
 export type CatalogSeasonInput = z.infer<typeof CatalogSeasonInputSchema>;
 
@@ -1668,6 +1688,9 @@ export const CatalogSeasonResultSchema = z.union([
       releaseDate: z.union([z.string(), z.null()]),
       runtimeMinutes: z.union([z.number(), z.null()]),
       stillUrl: z.union([z.string(), z.null()]),
+      sourceSeason: z.number().int().min(0).max(9007199254740991).optional(),
+      sourceEpisode: z.number().int().min(0).max(9007199254740991).optional(),
+      sourceLabel: z.string().optional(),
     }),
   ),
   z.null(),
@@ -2089,6 +2112,19 @@ export const CatalogAssetUnlinkCallSchema = z.strictObject({
 });
 export type CatalogAssetUnlinkCall = z.infer<typeof CatalogAssetUnlinkCallSchema>;
 
+export const CatalogEpisodeImagesInputSchema = z.strictObject({
+  tmdbId: z.number().int().max(9007199254740991),
+  season: z.number().int().min(0).max(9007199254740991),
+  episode: z.number().int().max(9007199254740991),
+});
+export type CatalogEpisodeImagesInput = z.infer<typeof CatalogEpisodeImagesInputSchema>;
+
+export const CatalogEpisodeImagesCallSchema = z.strictObject({
+  operation: z.enum(["episodeImages"]),
+  data: CatalogEpisodeImagesInputSchema,
+});
+export type CatalogEpisodeImagesCall = z.infer<typeof CatalogEpisodeImagesCallSchema>;
+
 export const CatalogEditorCallSchema = z.union([
   CatalogPlanetDetailCallSchema,
   CatalogPlanetSaveCallSchema,
@@ -2127,6 +2163,7 @@ export const CatalogEditorCallSchema = z.union([
   CatalogMediaCallSchema,
   CatalogSearchCallSchema,
   CatalogSeasonCallSchema,
+  CatalogEpisodeImagesCallSchema,
   CatalogIngestCallSchema,
   CatalogUploadCallSchema,
   CatalogPreviewCallSchema,
@@ -2694,6 +2731,16 @@ export const DeviceRegisteredSchema = z.strictObject({
   deviceId: z.string().uuid(),
 });
 export type DeviceRegistered = z.infer<typeof DeviceRegisteredSchema>;
+
+export const CatalogEpisodeImagesResultSchema = z.array(
+  z.strictObject({
+    url: z.string(),
+    previewUrl: z.string(),
+    width: z.number().int().max(9007199254740991),
+    height: z.number().int().max(9007199254740991),
+  }),
+);
+export type CatalogEpisodeImagesResult = z.infer<typeof CatalogEpisodeImagesResultSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;

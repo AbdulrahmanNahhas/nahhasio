@@ -1,4 +1,3 @@
-import { rpcResults } from "@arcadia/contracts/editor-rpc";
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { useMutation } from "@tanstack/react-query";
 import { ImagePlus, Upload, X, Download } from "lucide-react";
@@ -20,7 +19,8 @@ import { ingestArtwork, uploadArtwork } from "@/features/artwork/library/artwork
 import { TextField } from "@/features/editor/fields/work-fields";
 import { ReferencePicker } from "@/features/editor/references/reference-picker";
 import { RegisteredImage } from "@/features/editor/registered-image";
-import { gateway } from "@/lib/bridge";
+
+import { EpisodeImageChoices } from "./episode-image-choices";
 type Episode = NonNullable<NonNullable<WorkDocument["installments"]>[number]["episodes"]>[number];
 export function EpisodeArtwork({
   episode,
@@ -36,9 +36,11 @@ export function EpisodeArtwork({
   season?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [gallery, setGallery] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const id = useId();
-  const value = episode.media?.still ?? episode.media?.poster ?? episode.media?.banner;
+  const imageRole = episode.media?.still ? "still" : episode.media?.poster ? "poster" : "banner";
+  const value = episode.media?.[imageRole];
   function pick(path: string | null) {
     onChange({ ...episode, media: { ...episode.media, still: path } });
     setOpen(false);
@@ -64,29 +66,23 @@ export function EpisodeArtwork({
         reader.readAsDataURL(selectedFile);
       });
       return uploadArtwork({
-        data: { dataUrl, fileName: selectedFile.name, role: "still", ownerName },
+        data: {
+          dataUrl,
+          fileName: selectedFile.name,
+          role: "still",
+          ownerName: ownerName.slice(0, 200),
+        },
       });
     },
     onSuccess: (result) => pick(result.path),
   });
-  const source = useMutation({
-    mutationFn: async () => {
-      if (!tmdbId || season === undefined)
-        throw new Error("أضف معرّف TMDB للمسلسل ورقم الموسم أولاً.");
-      const episodes = rpcResults.season.parse(
-        await gateway.editorCall({ operation: "season", data: { tmdbId, season } }),
-      );
-      const match = episodes?.find((item) => item.number === episode.number);
-      if (!match?.stillUrl) throw new Error("لا توجد صورة لهذه الحلقة في TMDB.");
-      return match.stillUrl;
-    },
-  });
   const ingest = useMutation({
-    mutationFn: (url: string) => ingestArtwork({ data: { url, role: "still", ownerName } }),
+    mutationFn: (url: string) =>
+      ingestArtwork({ data: { url, role: "still", ownerName: ownerName.slice(0, 200) } }),
     onSuccess: (result) => pick(result.path),
   });
-  const error = upload.error ?? source.error ?? ingest.error;
-  const busy = upload.isPending || source.isPending || ingest.isPending;
+  const error = upload.error ?? ingest.error;
+  const busy = upload.isPending || ingest.isPending;
   return (
     <div className="flex flex-col gap-2">
       {value?.startsWith("/media/") && (
@@ -108,16 +104,22 @@ export function EpisodeArtwork({
             variant="ghost"
             size="icon-sm"
             aria-label="إزالة صورة الحلقة"
-            onClick={() =>
-              onChange({ ...episode, media: { still: null, poster: null, banner: null } })
-            }
+            onClick={() => onChange({ ...episode, media: { ...episode.media, [imageRole]: null } })}
           >
             <X />
           </Button>
         )}
       </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-xl">
+      <Dialog
+        open={open}
+        onOpenChange={(isOpen) => {
+          if (!busy) {
+            setOpen(isOpen);
+            setGallery(false);
+          }
+        }}
+      >
+        <DialogContent className="max-h-11/12 overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>صورة الحلقة {episode.number}</DialogTitle>
             <DialogDescription>
@@ -146,23 +148,20 @@ export function EpisodeArtwork({
                 disabled={
                   !tmdbId || season === undefined || !Number.isInteger(episode.number) || busy
                 }
-                onClick={() => source.mutate()}
+                onClick={() => setGallery(true)}
               >
                 <Download data-icon="inline-start" />
-                {source.isPending ? "جارٍ البحث…" : "صورة من TMDB"}
+                خيارات TMDB
               </Button>
             </div>
-            {source.data && (
-              <div className="flex flex-col gap-3">
-                <RegisteredImage
-                  src={source.data}
-                  alt="معاينة الصورة من TMDB"
-                  className="aspect-video w-full rounded-xl object-contain"
-                />
-                <Button type="button" disabled={busy} onClick={() => ingest.mutate(source.data)}>
-                  {ingest.isPending ? "جارٍ الاستيراد…" : "استيراد واختيار هذه الصورة"}
-                </Button>
-              </div>
+            {gallery && tmdbId && season !== undefined && Number.isInteger(episode.number) && (
+              <EpisodeImageChoices
+                tmdbId={tmdbId}
+                season={season}
+                episode={episode.number}
+                disabled={busy}
+                onPick={(url) => ingest.mutate(url)}
+              />
             )}
             <Field>
               <FieldLabel htmlFor={id}>رفع صورة</FieldLabel>

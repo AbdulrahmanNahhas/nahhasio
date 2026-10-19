@@ -26,6 +26,7 @@ import { FieldList } from "./field-list";
 import { audienceLabels, statusLabels } from "./format";
 import { InstallmentsPanel } from "./installments-panel";
 import { OverviewPanel } from "./overview-panel";
+import { RecommendationsPanel } from "./recommendations-panel";
 import { ScoresPanel } from "./scores-panel";
 import { useWorkTracking } from "./use-work-tracking";
 import { releaseStatus, WorkHero } from "./work-hero";
@@ -195,6 +196,7 @@ export function WorkPage({ id, installmentId }: { id: string; installmentId?: st
                 </aside>
               </div>
             </TabsPrimitive.Root>
+            <RecommendationsPanel id={work.id} />
           </div>
         </>
       )}

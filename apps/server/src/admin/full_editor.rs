@@ -94,6 +94,7 @@ async fn call(
         "media",
         "search",
         "season",
+        "episodeImages",
         "ingest",
         "upload",
         "preview",

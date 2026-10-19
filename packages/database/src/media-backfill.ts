@@ -37,7 +37,7 @@ function dimensions(bytes: Buffer, mimeType: string) {
  * or startup. On a v1-shaped database it records every referenced image
  * into `media_asset_backfill` for the media migration to consume; on a v2 database it re-hashes
  * every `media_assets` row from disk (fixing dimensions/sha, merging exact duplicates). Media
- * files are read from `ARCADIA_MEDIA_ROOT`, the same directory the API serves.
+ * files are read from `NAHHASIO_MEDIA_ROOT`, the same directory the API serves.
  */
 export async function prepareMediaBackfill(databaseUrl = process.env.DATABASE_URL) {
   if (!databaseUrl) throw new Error("DATABASE_URL is required");

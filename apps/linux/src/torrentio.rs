@@ -86,7 +86,7 @@ struct Envelope {
 
 pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
     let identifier = input.identifier()?;
-    let base = setting("NAHHASIO_TORRENTIO_URL", "ARCADIA_STREAM_ADDON_URL")
+    let base = setting("NAHHASIO_TORRENTIO_URL", "NAHHASIO_STREAM_ADDON_URL")
         .unwrap_or_else(|| "https://torrentio.strem.fun".into());
     let mut url = url::Url::parse(&base).map_err(|_| configuration_error())?;
     if url.scheme() != "https" && !(url.scheme() == "http" && url.host_str() == Some("127.0.0.1")) {
@@ -99,7 +99,7 @@ pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
     {
         return Err(configuration_error());
     }
-    let config = setting("NAHHASIO_TORRENTIO_CONFIG", "ARCADIA_STREAM_ADDON_CONFIG");
+    let config = setting("NAHHASIO_TORRENTIO_CONFIG", "NAHHASIO_STREAM_ADDON_CONFIG");
     let kind = match input.kind {
         Kind::Movie => "movie",
         Kind::Series => "series",

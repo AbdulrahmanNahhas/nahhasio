@@ -235,8 +235,6 @@ function InstallmentDetails({ item }: { item: Installment }) {
             ["تاريخ الإصدار", dateLabel(item.releaseDate)],
             ["حالة الإصدار", statusLabels.get(item.status)],
             ["الحلقات", item.episodes.length],
-            ["أضيف في", dateLabel(item.createdAt)],
-            ["آخر تحديث", dateLabel(item.updatedAt)],
           ]}
         />
         <RiskRows classification={item.classification} overrides={item.classificationOverrides} />
@@ -450,8 +448,6 @@ function EpisodeDetails({
           ["حالة الإصدار", statusLabels.get(episode.releaseState)],
           ["المشاهدة", state ? (state.isPlayed ? "تمّت المشاهدة" : "لم تُشاهَد") : null],
           ["علامة يدوية", state ? (state.playedManually ? "نعم" : "لا") : null],
-          ["أضيف في", dateLabel(episode.createdAt)],
-          ["آخر تحديث", dateLabel(episode.updatedAt)],
         ]}
       />
       {state?.positionSeconds ? (

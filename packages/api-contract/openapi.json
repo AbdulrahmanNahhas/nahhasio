@@ -4695,6 +4695,15 @@
           "basis": {
             "type": "string",
             "enum": ["related", "personal", "editorial"]
+          },
+          "algorithm": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkMatch"
+            }
           }
         }
       },
@@ -6149,6 +6158,11 @@
             "additionalProperties": {
               "x-zod-json": true
             }
+          },
+          "sort": {
+            "default": "default",
+            "type": "string",
+            "enum": ["default", "newest", "oldest"]
           }
         },
         "required": ["table", "search"],
@@ -6307,6 +6321,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "groupId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
           }
         },
         "required": ["tmdbId", "season"],
@@ -8414,6 +8432,19 @@
                       "type": "null"
                     }
                   ]
+                },
+                "sourceSeason": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "sourceEpisode": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "sourceLabel": {
+                  "type": "string"
                 }
               },
               "required": [
@@ -8580,6 +8611,9 @@
           },
           {
             "$ref": "#/components/schemas/CatalogSeasonCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogEpisodeImagesCall"
           },
           {
             "$ref": "#/components/schemas/CatalogIngestCall"
@@ -11963,6 +11997,117 @@
           "deviceId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "CatalogEpisodeImagesInput": {
+        "type": "object",
+        "properties": {
+          "tmdbId": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "season": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "episode": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["tmdbId", "season", "episode"],
+        "additionalProperties": false
+      },
+      "CatalogEpisodeImagesCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["episodeImages"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogEpisodeImagesInput"
+          }
+        }
+      },
+      "CatalogEpisodeImagesResult": {
+        "maxItems": 60,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "previewUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "width": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "height": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": ["url", "previewUrl", "width", "height"]
+        }
+      },
+      "RecommendationReason": {
+        "type": "object",
+        "required": ["key", "label", "weight", "similarity", "shared"],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "shared": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WorkMatch": {
+        "type": "object",
+        "required": ["workId", "percentage", "reasons"],
+        "properties": {
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "percentage": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationReason"
+            }
           }
         }
       }

@@ -1,10 +1,12 @@
 import { installmentRating, scoreWeights } from "@arcadia/domain";
 import type { WorkDetail } from "@nahhasio/api-contract";
 
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+
 import { Badge } from "../../components/ui/badge";
 import { criteria } from "../catalog/filter-model";
 import { Disclosure, FieldList, Section } from "./field-list";
-import { dateLabel, episodeNumberLabel } from "./format";
+import { episodeNumberLabel } from "./format";
 import { CriterionTrend, ScoreFingerprint } from "./score-charts";
 import { scoreProfile, scoreValue, weightedValue } from "./score-model";
 
@@ -13,7 +15,15 @@ export function ScoresPanel({ work }: { work: WorkDetail }) {
   const ratedCriteria = criteria.filter((criterion) =>
     work.installments.some((unit) => scoreValue(unit.scores?.[criterion.key]) !== null),
   );
-  if (!ratedCriteria.length) return null;
+  if (!ratedCriteria.length)
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>لم يُقيّم هذا العمل بعد</EmptyTitle>
+          <EmptyDescription>تظهر الدرجات بعد تقييم معايير أحد الأجزاء.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   return (
     <div className="min-w-0">
       {profile.summary.scored > 0 && (
@@ -166,7 +176,6 @@ export function ScoresPanel({ work }: { work: WorkDetail }) {
                       raw === null ? "غير مكتمل · مستبعد من متوسط العمل" : raw.toFixed(4),
                     ],
                     ["التقييم بعد التقريب", rating?.toFixed(1)],
-                    ["آخر تحديث للتقييم", dateLabel(unit.scores?.updatedAt)],
                   ]}
                 />
               </Disclosure>

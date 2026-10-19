@@ -26,13 +26,17 @@ export const databaseRecordsOptions = (
   offset = 0,
   search = "",
   filters: DatabaseRow = {},
+  sort: "default" | "newest" | "oldest" = "default",
 ) =>
   queryOptions({
-    queryKey: [...databaseKeys.records(table), { offset, search, filters }],
+    queryKey: [...databaseKeys.records(table), { offset, search, filters, sort }],
     queryFn: async ({ signal }) =>
       rpcResults.refs.parse(
         await gateway.editorCall(
-          { operation: "refs", data: rpcInputs.refs.parse({ table, offset, search, filters }) },
+          {
+            operation: "refs",
+            data: rpcInputs.refs.parse({ table, offset, search, filters, sort }),
+          },
           signal,
         ),
       ),

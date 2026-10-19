@@ -1,0 +1,32 @@
+-- Work affinity v1. All candidates are ranked in SQL; only ten summaries cross the API.
+with features as materialized (
+ select t.*, array(select x.value_id from title_genres x where x.title_id=t.id) genres,
+ array(select x.value_id from title_tags x where x.title_id=t.id) tags,
+ array(select x.value_id from title_tones x where x.title_id=t.id) tones,
+ array(select x.planet_id from title_planets x where x.title_id=t.id) planets,
+ array(select x.value_id from title_countries x where x.title_id=t.id) countries,
+ array(select distinct c.entity_id from contributions c join entities e on e.id=c.entity_id where c.title_id=t.id and e.kind='organization') studios,
+ array(select distinct c.entity_id from contributions c join entities e on e.id=c.entity_id where c.title_id=t.id and e.kind='person') people,
+ array[(select avg(s.story)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id),(select avg(s.characters)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id),(select avg(s.depth)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id),(select avg(s.world_building)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id),(select avg(s.originality)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id),(select avg(s.craft)::double precision from installment_scores s join installments i on i.id=s.installment_id where i.title_id=t.id)] scores,
+ array[case t.sexuality_risk when 'none' then 0 when 'low' then 1 when 'medium' then 2 else 3 end,case t.behavioral_risk when 'none' then 0 when 'low' then 1 when 'medium' then 2 else 3 end,case t.theology_risk when 'none' then 0 when 'low' then 1 when 'medium' then 2 else 3 end] risks
+ from titles t where not t.is_private and t.workflow_status='published'
+), seed as (select * from features where id=$1::uuid), ranked as (
+ select c.id,c.sort_title,round((100*sum(v.weight*v.similarity) filter(where v.active)/nullif(sum(v.weight) filter(where v.active),0))::numeric)::int percentage,
+ jsonb_agg(jsonb_build_object('key',v.key,'label',v.label,'weight',v.weight,'similarity',round((v.similarity*100)::numeric,1),'shared',to_jsonb(v.shared)) order by v.weight*v.similarity desc,v.key) filter(where v.active) reasons
+ from features c cross join seed s cross join lateral (values
+ ('genres','الأنواع الفنية',22,cardinality(s.genres)>0,(select count(*)::double precision from (select unnest(s.genres) intersect select unnest(c.genres)) common)/greatest(1,(select count(*) from (select unnest(s.genres) union select unnest(c.genres)) all_values)),array(select coalesce(nullif(v.label_ar,''),v.slug) from genres v where v.id=any(s.genres) and v.id=any(c.genres) order by v.slug)),
+ ('tags','الوسوم',16,cardinality(s.tags)>0,(select count(*)::double precision from (select unnest(s.tags) intersect select unnest(c.tags)) common)/greatest(1,(select count(*) from (select unnest(s.tags) union select unnest(c.tags)) all_values)),array(select coalesce(nullif(v.label_ar,''),v.slug) from tags v where v.id=any(s.tags) and v.id=any(c.tags) order by v.slug)),
+ ('tones','الطابع',10,cardinality(s.tones)>0,(select count(*)::double precision from (select unnest(s.tones) intersect select unnest(c.tones)) common)/greatest(1,(select count(*) from (select unnest(s.tones) union select unnest(c.tones)) all_values)),array(select coalesce(nullif(v.label_ar,''),v.slug) from tones v where v.id=any(s.tones) and v.id=any(c.tones) order by v.slug)),
+ ('planets','الكوكب',12,cardinality(s.planets)>0,(select count(*)::double precision from (select unnest(s.planets) intersect select unnest(c.planets)) common)/greatest(1,(select count(*) from (select unnest(s.planets) union select unnest(c.planets)) all_values)),array(select coalesce(nullif(v.name_ar,''),v.slug) from planets v where v.id=any(s.planets) and v.id=any(c.planets) order by v.slug)),
+ ('countries','الدول',3,cardinality(s.countries)>0,(select count(*)::double precision from (select unnest(s.countries) intersect select unnest(c.countries)) common)/greatest(1,(select count(*) from (select unnest(s.countries) union select unnest(c.countries)) all_values)),array(select coalesce(nullif(v.label_ar,''),v.slug) from countries v where v.id=any(s.countries) and v.id=any(c.countries) order by v.slug)),
+ ('studios','الاستوديوهات والجهات',12,cardinality(s.studios)>0,(select count(*)::double precision from (select unnest(s.studios) intersect select unnest(c.studios)) common)/greatest(1,(select count(*) from (select unnest(s.studios) union select unnest(c.studios)) all_values)),array(select e.name from entities e where e.id=any(s.studios) and e.id=any(c.studios) order by e.sort_name,e.id)),
+ ('people','المساهمون',4,cardinality(s.people)>0,(select count(*)::double precision from (select unnest(s.people) intersect select unnest(c.people)) common)/greatest(1,(select count(*) from (select unnest(s.people) union select unnest(c.people)) all_values)),array(select e.name from entities e where e.id=any(s.people) and e.id=any(c.people) order by e.sort_name,e.id)),
+ ('scores','بصمة التقييم',10,exists(select 1 from unnest(s.scores) v where v is not null),coalesce((select sum(case when a is not null and b is not null then 1-abs(a-b)/10 else 0 end)/greatest(1,count(a)) from unnest(s.scores,c.scores) x(a,b)),0),array[]::text[]),
+ ('audience','الجمهور والعمر',4,true,((s.audience=c.audience)::int+(s.age=c.age)::int)/2.0,array[]::text[]),
+ ('format','صيغة العمل',3,true,(s.format=c.format)::int::double precision,array[]::text[]),
+ ('family','التصنيف العائلي',4,true,(select avg(1-abs(a-b)/3.0)::double precision from unnest(s.risks,c.risks) x(a,b)),array[]::text[])
+ ) v(key,label,weight,active,similarity,shared)
+ where c.id<>s.id group by c.id,c.sort_title
+), page as(select * from ranked order by percentage desc,sort_title,id limit 10)
+select jsonb_build_object('items',coalesce(jsonb_agg(({summary}) order by p.percentage desc,p.sort_title,p.id),'[]'::jsonb),'matches',coalesce(jsonb_agg(jsonb_build_object('workId',p.id,'percentage',p.percentage,'reasons',p.reasons) order by p.percentage desc,p.sort_title,p.id),'[]'::jsonb),'basis','related','algorithm','work-affinity-v1')
+from page p join titles t on t.id=p.id

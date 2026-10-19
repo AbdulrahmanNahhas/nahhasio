@@ -49,7 +49,7 @@ export function readEnvValue(name: string) {
 let warnedAboutBaseUrl = false;
 
 function readConfig() {
-  const baseUrl = readEnvValue("ARCADIA_STREAM_ADDON_URL").replace(/\/+$/, "");
+  const baseUrl = readEnvValue("NAHHASIO_STREAM_ADDON_URL").replace(/\/+$/, "");
   if (!baseUrl) return null;
 
   let host: string;
@@ -61,7 +61,7 @@ function readConfig() {
     if (!warnedAboutBaseUrl) {
       warnedAboutBaseUrl = true;
       console.error(
-        `ARCADIA_STREAM_ADDON_URL is not a valid URL (${JSON.stringify(baseUrl)}); playback is disabled`,
+        `NAHHASIO_STREAM_ADDON_URL is not a valid URL (${JSON.stringify(baseUrl)}); playback is disabled`,
       );
     }
     return null;
@@ -70,9 +70,9 @@ function readConfig() {
   return {
     baseUrl,
     host,
-    configSegment: encodeConfigSegment(readEnvValue("ARCADIA_STREAM_ADDON_CONFIG")),
-    timeoutMs: positiveIntEnv("ARCADIA_STREAM_TIMEOUT_MS", defaultTimeoutMs),
-    cacheTtlMs: positiveIntEnv("ARCADIA_STREAM_CACHE_TTL_MS", defaultCacheTtlMs),
+    configSegment: encodeConfigSegment(readEnvValue("NAHHASIO_STREAM_ADDON_CONFIG")),
+    timeoutMs: positiveIntEnv("NAHHASIO_STREAM_TIMEOUT_MS", defaultTimeoutMs),
+    cacheTtlMs: positiveIntEnv("NAHHASIO_STREAM_CACHE_TTL_MS", defaultCacheTtlMs),
   };
 }
 
@@ -87,7 +87,7 @@ export function streamSourceConfigured() {
 
 /** Whether `tmdb:`-prefixed ids may be sent at all — see the roadmap's open question about it. */
 export function tmdbStreamIdsAllowed() {
-  return readEnvValue("ARCADIA_STREAM_ALLOW_TMDB_IDS") === "true";
+  return readEnvValue("NAHHASIO_STREAM_ALLOW_TMDB_IDS") === "true";
 }
 
 /**
@@ -468,7 +468,7 @@ export function looksEnglish(text: string): boolean {
 }
 
 function preferredHeight() {
-  return positiveIntEnv("ARCADIA_STREAM_PREFERRED_HEIGHT", defaultPreferredHeight);
+  return positiveIntEnv("NAHHASIO_STREAM_PREFERRED_HEIGHT", defaultPreferredHeight);
 }
 
 /**

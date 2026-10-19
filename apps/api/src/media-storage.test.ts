@@ -2,13 +2,15 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   normalizeStoredMediaPath,
   removeStoredMedia,
   storedMediaExists,
   storeMedia,
+  getMediaDirectory,
+  getPublicMediaDirectory,
 } from "./media-storage";
 
 const tinyPng = Buffer.from([
@@ -16,11 +18,32 @@ const tinyPng = Buffer.from([
 ]);
 
 afterEach(() => {
-  delete process.env.ARCADIA_MEDIA_ROOT;
+  vi.unstubAllEnvs();
+  delete process.env.NAHHASIO_MEDIA_ROOT;
   delete process.env.ARCADIA_PUBLIC_MEDIA_ROOT;
 });
 
 describe("media storage", () => {
+  it("keeps existing artwork accessible with the legacy server environment", async () => {
+    const root = await mkdtemp(join(tmpdir(), "nahhasio-legacy-media-"));
+    vi.stubEnv("NAHHASIO_MEDIA_ROOT", undefined);
+    vi.stubEnv("NAHHASIO_PUBLIC_MEDIA_ROOT", undefined);
+    vi.stubEnv("ARCADIA_MEDIA_ROOT", join(root, "uploads"));
+    vi.stubEnv("ARCADIA_PUBLIC_MEDIA_ROOT", undefined);
+    await mkdir(join(root, "uploads", "posters"), { recursive: true });
+    await writeFile(join(root, "uploads", "posters", "existing.png"), tinyPng);
+
+    expect(getMediaDirectory()).toBe(join(root, "uploads"));
+    expect(getPublicMediaDirectory()).toBe(root);
+    expect(await storedMediaExists("/media/uploads/posters/existing.png")).toBe(true);
+
+    vi.stubEnv("NAHHASIO_MEDIA_ROOT", join(root, "new", "uploads"));
+    expect(getMediaDirectory()).toBe(join(root, "new", "uploads"));
+    expect(getPublicMediaDirectory()).toBe(join(root, "new"));
+    vi.stubEnv("NAHHASIO_PUBLIC_MEDIA_ROOT", join(root, "public"));
+    expect(getPublicMediaDirectory()).toBe(join(root, "public"));
+  });
+
   it("normalizes an API-qualified display URL to its stored media path", () => {
     expect(
       normalizeStoredMediaPath(
@@ -37,7 +60,7 @@ describe("media storage", () => {
 
   it("stores an image in its media folder with a safe, descriptive name", async () => {
     const root = await mkdtemp(join(tmpdir(), "arcadia-media-"));
-    process.env.ARCADIA_MEDIA_ROOT = root;
+    process.env.NAHHASIO_MEDIA_ROOT = root;
 
     const stored = await storeMedia({
       dataUrl: `data:image/png;base64,${tinyPng.toString("base64")}`,
@@ -58,7 +81,7 @@ describe("media storage", () => {
   });
 
   it("rejects an image whose declared type does not match its bytes", async () => {
-    process.env.ARCADIA_MEDIA_ROOT = await mkdtemp(join(tmpdir(), "arcadia-media-"));
+    process.env.NAHHASIO_MEDIA_ROOT = await mkdtemp(join(tmpdir(), "arcadia-media-"));
     await expect(
       storeMedia({
         dataUrl: `data:image/jpeg;base64,${tinyPng.toString("base64")}`,
@@ -70,7 +93,7 @@ describe("media storage", () => {
   });
 
   it("reads dimensions from common lossy WebP images", async () => {
-    process.env.ARCADIA_MEDIA_ROOT = await mkdtemp(join(tmpdir(), "arcadia-media-"));
+    process.env.NAHHASIO_MEDIA_ROOT = await mkdtemp(join(tmpdir(), "arcadia-media-"));
     const webp = Buffer.alloc(30);
     webp.write("RIFF", 0, "ascii");
     webp.write("WEBP", 8, "ascii");

@@ -114,3 +114,19 @@ cover particular artifacts only. Historical transfer fixtures encountered a peer
 public torrent-transfer success is not established. Report current facts instead of repeating old
 pass/fail statements as current results. AppImage/cross-machine deployment and server-file playback
 need dedicated acceptance once implemented.
+
+## Desktop renderer compatibility
+
+The native entry point defaults `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1` before GTK or
+worker threads start. On Shadow with WebKitGTK 2.54.1, Aqua confirmed that CPU
+rasterization resolves posters turning partly/completely black during hover and scrolling.
+This controls WebKit UI painting; libmpv playback configuration is unchanged.
+The existing shared-memory presentation workaround remains in place.
+
+Ordinary `devenv shell -- nahhasio-client` launches need no extra renderer variable.
+For a deliberate GPU-painting comparison, fully quit the client first, then run
+`WEBKIT_SKIA_ENABLE_CPU_RENDERING=0 devenv shell -- nahhasio-client`.
+The entry point respects explicit renderer overrides. A running single instance cannot
+adopt a new renderer setting through interface reload; quit/relaunch for comparisons.
+CPU/GPU performance has not been benchmarked; the compatibility default is based on
+confirmed visual correctness with the affected works.

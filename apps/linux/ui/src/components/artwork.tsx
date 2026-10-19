@@ -90,7 +90,8 @@ export function Artwork({
   const color = sampled ? background.color : null;
   const imageClass = cn(
     className,
-    "duration-100 transition-all",
+    studioLogo &&
+      "duration-100 transition-[padding,background-color] motion-reduce:transition-none",
     studioLogo && "bg-(--studio-logo-background) object-contain object-center",
     studioLogo && (sampled && !color ? "p-7.5 max-[720px]:p-4" : "p-0"),
   );
@@ -103,7 +104,8 @@ export function Artwork({
       style={imageStyle}
       src={query.data}
       alt={alt}
-      loading={priority ? "eager" : "lazy"}
+      // The visibility observer already defers offscreen artwork before fetching its bytes.
+      loading="eager"
       decoding="async"
       onLoad={
         studioLogo

@@ -131,6 +131,18 @@ for (const width of [520, 1440]) {
     await expect(movie.locator("button > span").filter({ hasText: /^فيلم 1$/ })).toHaveCount(0);
     await expect(movie.locator("img")).toHaveCount(2);
     await expect(movie.locator("img.object-contain")).toBeVisible();
+    const poster = movie.locator("img.object-contain");
+    await expect
+      .poll(() =>
+        poster.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+      )
+      .toBe(true);
+    const paintedPoster = await poster.screenshot();
+    await poster.hover();
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await poster.scrollIntoViewIfNeeded();
+    expect(await poster.screenshot()).toEqual(paintedPoster);
     expect(
       await movie.locator("img.blur-xl").evaluate((element) => getComputedStyle(element).filter),
     ).toContain("blur");

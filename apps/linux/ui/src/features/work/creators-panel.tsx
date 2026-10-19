@@ -1,6 +1,7 @@
 import type { Contribution, WorkDetail } from "@nahhasio/api-contract";
 import { ArrowUpLeft } from "lucide-react";
 
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { languageName } from "@/lib/languages";
 
 import { Artwork } from "../../components/artwork";
@@ -23,9 +24,17 @@ function Credit({ credit }: { credit: Contribution }) {
         className="group flex min-w-0 flex-1 items-start gap-4 rounded-xl p-2 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Artwork
-          id={pickArtwork(credit.artwork, "profile")?.id ?? credit.artwork[0]?.id}
+          id={
+            pickArtwork(credit.artwork, organization ? "logo" : "profile")?.id ??
+            credit.artwork[0]?.id
+          }
+          studioLogo={organization}
           alt=""
-          className="size-20 shrink-0 rounded-xl object-cover"
+          className={
+            organization
+              ? "h-24 w-32 shrink-0 rounded-xl"
+              : "size-20 shrink-0 rounded-xl object-cover"
+          }
         />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -68,6 +77,15 @@ function Credit({ credit }: { credit: Contribution }) {
 }
 
 export function CreatorsPanel({ work }: { work: WorkDetail }) {
+  if (!work.contributions.length)
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>لا يوجد مساهمون مسجّلون</EmptyTitle>
+          <EmptyDescription>ستظهر أسماء الصنّاع والاستوديوهات هنا عند إضافتها.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   const groups = [
     {
       title: "الأشخاص",

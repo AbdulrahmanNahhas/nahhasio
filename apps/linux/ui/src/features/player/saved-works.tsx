@@ -39,7 +39,7 @@ import { nativeCall } from "@/lib/bridge";
 
 import { offlineStatusOptions, savedWorksOptions, syncSavedWorks } from "./saved-works-data";
 
-export function SaveWorkControl({ id }: { id: string }) {
+export function SaveWorkControl({ id, compact = false }: { id: string; compact?: boolean }) {
   const client = useQueryClient();
   const status = useQuery(offlineStatusOptions());
   const works = useQuery({ ...savedWorksOptions(), enabled: Boolean(status.data?.active) });
@@ -54,7 +54,12 @@ export function SaveWorkControl({ id }: { id: string }) {
       await client.invalidateQueries({ queryKey: ["offline"] });
     },
   });
-  if (status.data?.offline)
+  const label = job?.running
+    ? `جارٍ الحفظ · ${job.completed} / ${job.total}`
+    : saved
+      ? "تحديث النسخة المحفوظة"
+      : "حفظ بيانات العمل وصوره للجهاز";
+  if (status.data?.offline && !compact)
     return (
       <Badge variant="secondary">
         <Check /> محفوظ على الجهاز
@@ -64,8 +69,11 @@ export function SaveWorkControl({ id }: { id: string }) {
     <div className="flex flex-col gap-2">
       <Button
         variant="outline"
-        size="lg"
-        disabled={save.isPending || running || !status.data?.active}
+        size={compact ? "icon-lg" : "lg"}
+        className={compact ? "size-12" : undefined}
+        aria-label={label}
+        title={label}
+        disabled={save.isPending || running || !status.data?.active || status.data?.offline}
         onClick={() => save.mutate()}
       >
         {save.isPending || job?.running ? (
@@ -73,11 +81,7 @@ export function SaveWorkControl({ id }: { id: string }) {
         ) : (
           <Bookmark data-icon="inline-start" />
         )}
-        {job?.running
-          ? `جارٍ الحفظ · ${job.completed} / ${job.total}`
-          : saved
-            ? "تحديث النسخة المحفوظة"
-            : "حفظ العمل للجهاز"}
+        {!compact && label}
       </Button>
       {save.error && (
         <p role="alert" className="text-sm text-destructive">
