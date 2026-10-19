@@ -9,8 +9,10 @@ export function LanguagesField({
   label,
   values,
   onChange,
+  description = "اللغات المسجّلة في بيانات العمل؛ تُحدّد مسارات الصوت أثناء التشغيل.",
 }: {
   label: string;
+  description?: string;
   values: readonly string[];
   onChange: (values: string[]) => void;
 }) {
@@ -81,9 +83,7 @@ export function LanguagesField({
           <Plus />
         </Button>
       </div>
-      <FieldDescription>
-        اللغات المسجّلة في بيانات العمل؛ تُحدّد مسارات الصوت أثناء التشغيل.
-      </FieldDescription>
+      <FieldDescription>{description}</FieldDescription>
     </Field>
   );
 }

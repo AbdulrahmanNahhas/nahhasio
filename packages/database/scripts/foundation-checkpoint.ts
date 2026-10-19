@@ -172,15 +172,18 @@ try {
     )
       throw new Error("Backup checksum mismatch.");
     const journal = await readFile(`${migrations}/meta/_journal.json`);
-    const migrationFile = await readFile(`${migrations}/0029_nahhasio_foundation.sql`);
+    const entries = z
+      .object({ entries: z.array(z.object({ tag: z.string().regex(/^[0-9]{4}_[a-z0-9_]+$/) })) })
+      .parse(JSON.parse(journal.toString())).entries;
+    const migrationFiles = await Promise.all(
+      entries.map((entry) => readFile(`${migrations}/${entry.tag}.sql`)),
+    );
     const acceptance = await readFile(
       fileURLToPath(new URL("./verify-foundation.ts", import.meta.url)),
     );
-    const migrationHash = createHash("sha256")
-      .update(journal)
-      .update(migrationFile)
-      .update(acceptance)
-      .digest("hex");
+    const hash = createHash("sha256").update(journal);
+    for (const migration of migrationFiles) hash.update(migration);
+    const migrationHash = hash.update(acceptance).digest("hex");
     if (mode === "rehearse") {
       const name = `nahhasio_schema_rehearsal_${Date.now()}`;
       await sql.unsafe(`create database ${quote(name)}`);

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { useState } from "react";
 
+import { Artwork } from "@/components/artwork";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,13 +24,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupInput, InputGroupAddon } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
-import { LanguagesField } from "@/features/editor/fields/languages-field";
 import { useEditorRows } from "@/features/editor/structure/use-editor-rows";
 
+import { ContributionLanguages } from "./contribution-languages";
 import {
   entityOptionsQuery,
   entityKeys,
@@ -37,8 +40,10 @@ import {
   type EntityKind,
   type EntityDraft,
 } from "./entities.queries";
+import { EntityCreditsSort } from "./entity-credits-sort";
+import { EntityWorkPicker, matchesWork } from "./entity-work-picker";
 
-type NamedOption = { id: string; label: string };
+type NamedOption = { id: string; label: string; searchText?: string };
 export function NamedReferencePicker({
   items,
   value,
@@ -55,11 +60,14 @@ export function NamedReferencePicker({
   const [search, setSearch] = useState("");
   const selected = items.find((item) => item.id === value) ?? null;
   const visible = items
-    .filter((item) => item.label.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 60);
+    .filter((item) =>
+      `${item.label} ${item.searchText ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+    )
+    .slice(0, 10);
   return (
     <Combobox
       items={visible}
+      filter={null}
       value={selected}
       itemToStringValue={(item) => item.label}
       onInputValueChange={setSearch}
@@ -98,6 +106,11 @@ export function EntityCredits({
   const options = useQuery(entityOptionsQuery(kind));
   const rows = useEditorRows(credits);
   const [limit, setLimit] = useState(20);
+  const [search, setSearch] = useState("");
+  const worksById = new Map(options.data?.works.map((work) => [work.id, work]));
+  const matchingRows = rows
+    .map((row, index) => ({ ...row, index }))
+    .filter(({ value }) => matchesWork(worksById.get(value.workId), value.workTitle, search));
   const [workId, setWorkId] = useState<string | null>(null);
   const [roleId, setRoleId] = useState<string | null>(null);
   const [creatingRole, setCreatingRole] = useState(false);
@@ -136,21 +149,29 @@ export function EntityCredits({
         <h2 className="text-lg font-semibold">
           الأعمال والأدوار <Badge variant="secondary">{credits.length}</Badge>
         </h2>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setCreatingRole(true)}
-        >
-          <Plus data-icon="inline-start" />
-          دور جديد
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <EntityCreditsSort
+            credits={credits}
+            works={options.data?.works ?? []}
+            disabled={disabled || !options.data}
+            onChange={onChange}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => setCreatingRole(true)}
+          >
+            <Plus data-icon="inline-start" />
+            دور جديد
+          </Button>{" "}
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
-        اختر العمل بعنوانه الإنجليزي، وحدد الدور. جميع التغييرات تبقى في المسودة حتى الحفظ.
+        ابحث بعنوان العمل بالعربية أو الإنجليزية، ثم حدّد الدور. تبقى التغييرات في المسودة حتى الحفظ.
       </p>
       <p className="text-xs text-muted-foreground">
-        الأسهم ترتّب بطاقات المساهمات وتحدّث أرقام الترتيب. يُستخدم الرقم أيضاً لترتيب الصنّاع داخل العمل.
+        استخدم الأسهم بجانب كل بطاقة لتغيير ترتيب المساهمات.
       </p>
       {options.isPending ? (
         <Skeleton className="h-12" />
@@ -163,15 +184,11 @@ export function EntityCredits({
         <FieldGroup className="grid items-end gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>إضافة عمل</FieldLabel>
-            <NamedReferencePicker
-              items={options.data.works.map((work) => ({
-                id: work.id,
-                label: `${work.title}${work.year ? ` · ${work.year}` : ""}`,
-              }))}
+            <EntityWorkPicker
+              works={options.data.works}
               value={workId}
-              label="ابحث عن عمل بالإنجليزية…"
-              disabled={disabled}
               onPick={setWorkId}
+              disabled={disabled}
             />
           </Field>
           <Field>
@@ -180,7 +197,7 @@ export function EntityCredits({
               <NamedReferencePicker
                 items={options.data.roles
                   .filter((role) => role.active)
-                  .map((role) => ({ id: role.id, label: `${role.label} · ${role.name}` }))}
+                  .map((role) => ({ id: role.id, label: role.label, searchText: role.name }))}
                 value={roleId}
                 label="اختر الدور…"
                 disabled={disabled}
@@ -199,26 +216,110 @@ export function EntityCredits({
           </Field>
         </FieldGroup>
       )}
-      {!credits.length && (
-        <p className="rounded-xl border border-border p-4 text-sm text-muted-foreground">
-          لا توجد مساهمات. أضف العمل والدور من الأعلى.
-        </p>
+      {credits.length > 0 && (
+        <InputGroup>
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
+            aria-label="البحث في المساهمات"
+            placeholder="ابحث في الأعمال المرتبطة بالعربية أو الإنجليزية…"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setLimit(20);
+            }}
+          />
+          <InputGroupAddon align="inline-end">
+            <Badge variant="secondary">
+              {matchingRows.length} / {credits.length}
+            </Badge>
+          </InputGroupAddon>
+        </InputGroup>
+      )}
+      {!matchingRows.length && (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{credits.length ? "لا توجد أعمال مطابقة" : "لا توجد مساهمات بعد"}</EmptyTitle>
+            <EmptyDescription>
+              {credits.length
+                ? "جرّب عنواناً عربياً أو إنجليزياً آخر."
+                : "اختر عملاً ودوراً من الأعلى لإضافتهما إلى المسودة."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       <div className="flex flex-col gap-3">
-        {rows.slice(0, limit).map(({ key, value: credit }, index) => (
-          <div
-            key={key}
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3"
-          >
-            <div className="min-w-0 flex-1">
-              <details className="mb-3">
-                <summary className="cursor-pointer text-xs text-muted-foreground">
-                  لغات المساهمة{credit.languages?.length ? ` · ${credit.languages.join("، ")}` : ""}
-                </summary>
-                <div className="pt-3">
-                  <LanguagesField
-                    label={`اللغات في ${credit.workTitle}`}
+        {matchingRows.slice(0, limit).map(({ key, value: credit, index }) => {
+          const work = worksById.get(credit.workId);
+          const title = work?.titleAr || credit.workTitle;
+          return (
+            <div key={key} className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <div
+                className="flex shrink-0 flex-col items-center gap-1"
+                role="group"
+                aria-label={`ترتيب ${title}`}
+              >
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`رفع ${title}`}
+                  disabled={disabled || index === 0}
+                  onClick={() => move(index, -1)}
+                >
+                  <ArrowUp data-icon="inline-start" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`خفض ${title}`}
+                  disabled={disabled || index === credits.length - 1}
+                  onClick={() => move(index, 1)}
+                >
+                  <ArrowDown data-icon="inline-start" />
+                </Button>
+              </div>
+              <article
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-nowrap"
+                aria-label={`مساهمة ${title}`}
+              >
+                <a
+                  href={`#/admin/works/${credit.workId}?section=indexing`}
+                  aria-label={`تحرير ${title}`}
+                  className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  <Artwork
+                    id={work?.posterId}
+                    alt={title}
+                    className="h-24 w-16 rounded-lg object-cover"
+                  />
+                </a>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <a
+                        href={`#/admin/works/${credit.workId}?section=indexing`}
+                        className="text-base font-semibold leading-relaxed underline-offset-4 hover:underline"
+                        dir="auto"
+                      >
+                        {title}
+                      </a>
+                      {work?.titleAr && (
+                        <p className="mt-1 text-xs text-muted-foreground" dir="auto">
+                          {credit.workTitle}
+                        </p>
+                      )}
+                      {work?.year && (
+                        <Badge variant="outline" className="mt-2">
+                          {work.year}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <ContributionLanguages
+                    title={title}
                     values={credit.languages ?? []}
+                    disabled={disabled}
                     onChange={(languages) =>
                       onChange(
                         credits.map((item, i) => (i === index ? { ...item, languages } : item)),
@@ -226,133 +327,89 @@ export function EntityCredits({
                     }
                   />
                 </div>
-              </details>
-              <a
-                href={`#/admin/works/${credit.workId}?section=indexing`}
-                className="font-medium underline-offset-4 hover:underline"
-                dir="ltr"
-              >
-                {credit.workTitle}
-              </a>
-              <div className="mt-2">
-                {options.data ? (
-                  <NamedReferencePicker
-                    items={options.data.roles
-                      .filter((role) => role.active || role.id === credit.roleId)
-                      .map((role) => ({ id: role.id, label: `${role.label} · ${role.name}` }))}
-                    value={credit.roleId}
-                    label={`الدور في ${credit.workTitle}`}
-                    disabled={disabled}
-                    onPick={(id) => {
-                      const role = options.data.roles.find((value) => value.id === id);
-                      if (!role) return;
-                      if (
-                        credits.some(
-                          (other, position) =>
-                            position !== index &&
-                            other.workId === credit.workId &&
-                            other.roleId === id,
-                        )
-                      ) {
-                        toast.add({ type: "info", title: "هذا العمل والدور موجودان بالفعل" });
-                        return;
-                      }
-                      onChange(
-                        credits.map((value, position) =>
-                          position === index
-                            ? {
-                                ...value,
-                                roleId: role.id,
-                                roleName: role.name,
-                                roleLabel: role.label,
-                              }
-                            : value,
-                        ),
-                      );
-                    }}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {credit.roleLabel} · {credit.roleName}
-                  </p>
-                )}
-              </div>
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-52">
+                  <div>
+                    {options.data ? (
+                      <NamedReferencePicker
+                        items={options.data.roles
+                          .filter((role) => role.active || role.id === credit.roleId)
+                          .map((role) => ({
+                            id: role.id,
+                            label: role.label,
+                            searchText: role.name,
+                          }))}
+                        value={credit.roleId}
+                        label={`الدور في ${credit.workTitle}`}
+                        disabled={disabled}
+                        onPick={(id) => {
+                          const role = options.data.roles.find((value) => value.id === id);
+                          if (!role) return;
+                          if (
+                            credits.some(
+                              (other, position) =>
+                                position !== index &&
+                                other.workId === credit.workId &&
+                                other.roleId === id,
+                            )
+                          ) {
+                            toast.add({ type: "info", title: "هذا العمل والدور موجودان بالفعل" });
+                            return;
+                          }
+                          onChange(
+                            credits.map((value, position) =>
+                              position === index
+                                ? {
+                                    ...value,
+                                    roleId: role.id,
+                                    roleName: role.name,
+                                    roleLabel: role.label,
+                                  }
+                                : value,
+                            ),
+                          );
+                        }}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {credit.roleLabel} · {credit.roleName}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <Field orientation="horizontal" className="w-auto">
+                      <Checkbox
+                        id={`credit-primary-${index}`}
+                        disabled={disabled}
+                        checked={credit.isPrimary}
+                        onCheckedChange={(checked) =>
+                          onChange(
+                            credits.map((item, position) =>
+                              position === index ? { ...item, isPrimary: checked === true } : item,
+                            ),
+                          )
+                        }
+                      />
+                      <FieldLabel htmlFor={`credit-primary-${index}`}>أساسي</FieldLabel>
+                    </Field>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`إزالة ${credit.roleName} من ${credit.workTitle}`}
+                      disabled={disabled}
+                      onClick={() => onChange(credits.filter((_, position) => position !== index))}
+                    >
+                      <Trash2 data-icon="inline-start" />
+                    </Button>
+                  </div>
+                </div>
+              </article>
             </div>
-            <Field className="w-20">
-              <FieldLabel className="text-xs">الترتيب</FieldLabel>
-              <Input
-                type="number"
-                aria-label={`ترتيب ${credit.workTitle} ${credit.roleName}`}
-                min={0}
-                max={1000000}
-                disabled={disabled}
-                value={credit.position}
-                onChange={(event) =>
-                  onChange(
-                    credits
-                      .map((item, position) =>
-                        position === index
-                          ? {
-                              ...item,
-                              position: Math.max(0, Math.min(1000000, Number(event.target.value))),
-                            }
-                          : item,
-                      )
-                      .toSorted((a, b) => a.position - b.position),
-                  )
-                }
-              />
-            </Field>
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`رفع ${credit.workTitle}`}
-                disabled={disabled || index === 0}
-                onClick={() => move(index, -1)}
-              >
-                <ArrowUp data-icon="inline-start" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`خفض ${credit.workTitle}`}
-                disabled={disabled || index === credits.length - 1}
-                onClick={() => move(index, 1)}
-              >
-                <ArrowDown data-icon="inline-start" />
-              </Button>
-            </div>
-            <Field orientation="horizontal" className="w-auto">
-              <Checkbox
-                id={`credit-primary-${index}`}
-                disabled={disabled}
-                checked={credit.isPrimary}
-                onCheckedChange={(checked) =>
-                  onChange(
-                    credits.map((item, position) =>
-                      position === index ? { ...item, isPrimary: checked === true } : item,
-                    ),
-                  )
-                }
-              />
-              <FieldLabel htmlFor={`credit-primary-${index}`}>أساسي</FieldLabel>
-            </Field>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`إزالة ${credit.roleName} من ${credit.workTitle}`}
-              disabled={disabled}
-              onClick={() => onChange(credits.filter((_, position) => position !== index))}
-            >
-              <X data-icon="inline-start" />
-            </Button>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {credits.length > limit && (
+      {matchingRows.length > limit && (
         <Button variant="outline" onClick={() => setLimit(limit + 20)}>
-          عرض المزيد من المساهمات ({limit} / {credits.length})
+          عرض المزيد من المساهمات ({limit} / {matchingRows.length})
         </Button>
       )}
       <RoleCreator

@@ -1924,6 +1924,27 @@ export const CatalogEntitySaveInputSchema = z.strictObject({
   kind: z.enum(["person", "organization"]),
   revision: z.union([z.string().min(64).max(64), z.null()]),
   draft: z.strictObject({
+    urls: z
+      .array(
+        z.strictObject({
+          label: z.string().min(1).max(100),
+          url: z.string().max(2000),
+        }),
+      )
+      .optional(),
+    relations: z
+      .array(
+        z.strictObject({
+          id: z.union([z.string().uuid(), z.null()]),
+          entityId: z.string().uuid(),
+          entityName: z.string().min(1).max(300),
+          direction: z.enum(["outgoing", "incoming"]),
+          relationType: z.string().min(1).max(100),
+          occurredOn: z.union([z.iso.date(), z.null()]),
+          description: z.string().max(20000),
+        }),
+      )
+      .optional(),
     name: z.string().min(1).max(300),
     sortName: z.string().min(1).max(300),
     description: z.string().max(20000),
@@ -2248,6 +2269,27 @@ export const CatalogEntityDetailResultSchema = z.strictObject({
     updatedAt: z.string(),
   }),
   draft: z.strictObject({
+    urls: z
+      .array(
+        z.strictObject({
+          label: z.string().min(1).max(100),
+          url: z.string().max(2000),
+        }),
+      )
+      .optional(),
+    relations: z
+      .array(
+        z.strictObject({
+          id: z.union([z.string().uuid(), z.null()]),
+          entityId: z.string().uuid(),
+          entityName: z.string().min(1).max(300),
+          direction: z.enum(["outgoing", "incoming"]),
+          relationType: z.string().min(1).max(100),
+          occurredOn: z.union([z.iso.date(), z.null()]),
+          description: z.string().max(20000),
+        }),
+      )
+      .optional(),
     name: z.string().min(1).max(300),
     sortName: z.string().min(1).max(300),
     description: z.string().max(20000),
@@ -2314,6 +2356,10 @@ export const CatalogEntityOptionsResultSchema = z.strictObject({
       id: z.string().uuid(),
       title: z.string(),
       year: z.union([z.number(), z.null()]),
+      titleAr: z.union([z.string(), z.null()]).optional(),
+      posterId: z.union([z.string().uuid(), z.null()]).optional(),
+      aliases: z.array(z.string()).optional(),
+      score: z.union([z.number(), z.null()]).optional(),
     }),
   ),
   roles: z.array(
@@ -2347,6 +2393,27 @@ export const CatalogEntityDeletePreviewResultSchema = z.array(
       updatedAt: z.string(),
     }),
     draft: z.strictObject({
+      urls: z
+        .array(
+          z.strictObject({
+            label: z.string().min(1).max(100),
+            url: z.string().max(2000),
+          }),
+        )
+        .optional(),
+      relations: z
+        .array(
+          z.strictObject({
+            id: z.union([z.string().uuid(), z.null()]),
+            entityId: z.string().uuid(),
+            entityName: z.string().min(1).max(300),
+            direction: z.enum(["outgoing", "incoming"]),
+            relationType: z.string().min(1).max(100),
+            occurredOn: z.union([z.iso.date(), z.null()]),
+            description: z.string().max(20000),
+          }),
+        )
+        .optional(),
       name: z.string().min(1).max(300),
       sortName: z.string().min(1).max(300),
       description: z.string().max(20000),
@@ -2397,6 +2464,27 @@ export const CatalogEntityJsonReadResultSchema = z.strictObject({
     target: z.enum(["people", "studios"]),
     records: z.array(
       z.strictObject({
+        urls: z
+          .array(
+            z.strictObject({
+              label: z.string().min(1).max(100),
+              url: z.string().max(2000),
+            }),
+          )
+          .optional(),
+        relations: z
+          .array(
+            z.strictObject({
+              id: z.union([z.string().uuid(), z.null()]),
+              entityId: z.string().uuid(),
+              entityName: z.string().min(1).max(300),
+              direction: z.enum(["outgoing", "incoming"]),
+              relationType: z.string().min(1).max(100),
+              occurredOn: z.union([z.iso.date(), z.null()]),
+              description: z.string().max(20000),
+            }),
+          )
+          .optional(),
         id: z.string().uuid(),
         name: z.string().min(1).max(300),
         sortName: z.string().min(1).max(300),

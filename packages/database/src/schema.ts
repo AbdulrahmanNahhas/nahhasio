@@ -571,6 +571,7 @@ export const entities = pgTable(
     name: text("name").notNull(),
     sortName: text("sort_name").notNull(),
     description: text("description").notNull().default(""),
+    urls: jsonb("urls").$type<{ label: string; url: string }[]>().notNull().default([]),
     ...timestamps,
   },
   (t) => [uniqueIndex("entities_kind_sort_uq").on(t.kind, t.sortName)],

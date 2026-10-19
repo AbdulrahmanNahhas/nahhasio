@@ -211,6 +211,13 @@
       "when": 1792348655769,
       "tag": "0029_nahhasio_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792402631677,
+      "tag": "0030_regular_paper_doll",
+      "breakpoints": true
     }
   ]
 }

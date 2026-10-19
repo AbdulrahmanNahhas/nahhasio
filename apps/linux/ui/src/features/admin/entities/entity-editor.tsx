@@ -46,6 +46,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { TextField } from "@/features/editor/fields/work-fields";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
@@ -63,6 +64,7 @@ import {
 } from "./entities.queries";
 import { EntityCredits } from "./entity-credits";
 import { EntityDelete } from "./entity-delete";
+import { EntityLinks, EntityRelations } from "./entity-references";
 
 const emptyDraft: EntityDraft = {
   name: "",
@@ -71,7 +73,24 @@ const emptyDraft: EntityDraft = {
   aliases: [],
   profileAssetId: null,
   credits: [],
+  urls: [],
+  relations: [],
 };
+function describeRelations(relations: EntityDraft["relations"]) {
+  return (relations ?? [])
+    .map((relation) =>
+      [
+        relation.direction === "outgoing" ? "إلى" : "من",
+        relation.entityName,
+        relation.relationType,
+        relation.occurredOn,
+        relation.description,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    )
+    .join("\n");
+}
 type CloseRegistrar = (handler: (() => void) | null) => void;
 export function EntityDrawer({
   kind,
@@ -107,23 +126,27 @@ export function EntityDrawer({
       }}
     >
       <DrawerContent className="h-176">
-        <DrawerHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <DrawerTitle>
-                {displayId === "new"
-                  ? kind === "person"
-                    ? "إضافة شخص"
-                    : "إضافة استوديو"
-                  : (detail.data?.entity.name ?? "تحرير السجل")}
-              </DrawerTitle>
-              <DrawerDescription>الهوية والصورة والأعمال والأدوار في مسودة واحدة.</DrawerDescription>
+        {displayId === "new" && (
+          <DrawerHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <DrawerTitle>
+                  {displayId === "new"
+                    ? kind === "person"
+                      ? "إضافة شخص"
+                      : "إضافة استوديو"
+                    : (detail.data?.entity.name ?? "تحرير السجل")}
+                </DrawerTitle>
+                <DrawerDescription>
+                  الهوية والروابط والصورة والمساهمات في مسودة واحدة.
+                </DrawerDescription>
+              </div>
+              <Button variant="ghost" size="icon-sm" aria-label="إغلاق المحرر" onClick={close}>
+                <X data-icon="inline-start" />
+              </Button>
             </div>
-            <Button variant="ghost" size="icon-sm" aria-label="إغلاق المحرر" onClick={close}>
-              <X data-icon="inline-start" />
-            </Button>
-          </div>
-        </DrawerHeader>
+          </DrawerHeader>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {displayId === "new" ? (
             <EntityForm
@@ -251,7 +274,18 @@ function EntityForm({
   function prepare() {
     const parsed = adminEntityDraftSchema.safeParse(draft);
     if (!parsed.success) {
-      setValidation("أكمل الاسم واسم الترتيب والأسماء البديلة والمساهمات قبل المراجعة.");
+      const fields = {
+        name: "الاسم",
+        sortName: "اسم الترتيب",
+        description: "الوصف",
+        aliases: "الأسماء البديلة",
+        credits: "المساهمات",
+        urls: "الروابط: أدخل اسماً ورابط HTTP أو HTTPS صالحاً دون بيانات دخول",
+        relations: "العلاقات: أكمل نوع العلاقة وتحقق من التاريخ والجهة",
+      };
+      const field = String(parsed.error.issues[0]?.path[0] ?? "");
+      const label = Object.entries(fields).find(([key]) => key === field)?.[1] ?? "بيانات المسودة";
+      setValidation(`راجع ${label}.`);
       return;
     }
     setReview(parsed.data);
@@ -261,6 +295,16 @@ function EntityForm({
         { label: "الاسم", before: before.name, after: review.name },
         { label: "اسم الترتيب", before: before.sortName, after: review.sortName },
         { label: "الوصف", before: before.description, after: review.description },
+        {
+          label: "الروابط",
+          before: (before.urls ?? []).map((link) => `${link.label}: ${link.url}`).join("\n"),
+          after: (review.urls ?? []).map((link) => `${link.label}: ${link.url}`).join("\n"),
+        },
+        {
+          label: "علاقات الجهات",
+          before: describeRelations(before.relations),
+          after: describeRelations(review.relations),
+        },
         {
           label: "الأسماء البديلة",
           before: before.aliases
@@ -297,149 +341,196 @@ function EntityForm({
       )}
       <div className="grid min-w-0 items-start gap-5 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex items-start gap-4">
-            <Artwork
-              id={
-                draft.profileAssetId ??
-                (before.profileAssetId ? null : (detail?.entity.artworkId ?? null))
-              }
-              alt={kind === "person" ? "الصورة الشخصية" : "شعار الاستوديو"}
-              studioLogo={kind === "organization"}
-              className="h-40 w-32 shrink-0 rounded-xl border border-border object-cover"
-            />
-            <div className="flex flex-col gap-2">
-              <Badge variant="outline">
-                {new Set(draft.credits.map((credit) => credit.workId)).size} عمل
-              </Badge>
-              <ReferencePicker
-                table="media_assets"
-                title="اختيار صورة"
-                images
-                imageRole={kind === "person" ? "profile" : "logo"}
-                onPick={(path) => void pick(path)}
-              />
-              <ImageUpload
-                defaultRole={kind === "person" ? "profile" : "logo"}
-                onUploaded={async (id) => {
-                  update({ profileAssetId: id });
-                  await client.invalidateQueries({ queryKey: ["admin", "images"] });
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!draft.profileAssetId || busy}
-                onClick={() => update({ profileAssetId: null })}
-              >
-                إلغاء الأساسية
-              </Button>
-            </div>
-          </div>
           <Card size="sm">
             <CardHeader>
-              <CardTitle>الهوية</CardTitle>
-              <CardDescription>الأسماء والوصف.</CardDescription>
+              <CardTitle>{kind === "person" ? "الصورة الشخصية" : "شعار الجهة"}</CardTitle>
+              <CardDescription>
+                ارفع صورة أو اختر من المكتبة، ثم راجع المسودة لحفظ الربط.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <fieldset disabled={busy}>
-                <FieldGroup>
-                  <TextField
-                    label="الاسم"
-                    value={draft.name}
-                    onChange={(name) =>
-                      update({
-                        name,
-                        sortName: draft.sortName === draft.name ? name : draft.sortName,
-                      })
-                    }
+              <div className="flex flex-col gap-4">
+                <Artwork
+                  id={
+                    draft.profileAssetId ??
+                    (before.profileAssetId ? null : (detail?.entity.artworkId ?? null))
+                  }
+                  alt={kind === "person" ? "الصورة الشخصية" : "شعار الاستوديو"}
+                  studioLogo={kind === "organization"}
+                  className="h-56 w-full rounded-xl border border-border object-contain"
+                />
+                <fieldset disabled={busy} className="flex flex-col gap-2">
+                  <Badge variant="outline">
+                    {new Set(draft.credits.map((credit) => credit.workId)).size} عمل
+                  </Badge>
+                  <ReferencePicker
+                    table="media_assets"
+                    title="اختيار صورة"
+                    triggerLabel="اختيار من المكتبة"
+                    images
+                    imageRole={kind === "person" ? "profile" : "logo"}
+                    onPick={(path) => void pick(path)}
                   />
-                  <TextField
-                    label="اسم الترتيب"
-                    value={draft.sortName}
-                    onChange={(sortName) => update({ sortName })}
+                  <ImageUpload
+                    defaultRole={kind === "person" ? "profile" : "logo"}
+                    onUploaded={async (id) => {
+                      update({ profileAssetId: id });
+                      await client.invalidateQueries({ queryKey: ["admin", "images"] });
+                    }}
                   />
-                  <TextField
-                    label="الوصف"
-                    multiline
-                    value={draft.description}
-                    onChange={(description) => update({ description })}
-                  />
-                  <Field>
-                    <FieldLabel>الأسماء البديلة</FieldLabel>
-                    <div className="flex flex-col gap-2">
-                      {aliasRows.map(({ key, value: alias }, index) => (
-                        <div key={key} className="flex gap-2">
-                          <Input
-                            aria-label={`الاسم البديل ${index + 1}`}
-                            dir="auto"
-                            value={alias.alias}
-                            onChange={(event) =>
-                              update({
-                                aliases: draft.aliases.map((item, position) =>
-                                  position === index
-                                    ? { ...item, alias: event.target.value }
-                                    : item,
-                                ),
-                              })
-                            }
-                          />
-                          <Input
-                            className="w-20"
-                            dir="ltr"
-                            placeholder="ar / en"
-                            aria-label={`لغة الاسم البديل ${index + 1}`}
-                            value={alias.language ?? ""}
-                            onChange={(event) =>
-                              update({
-                                aliases: draft.aliases.map((item, position) =>
-                                  position === index
-                                    ? { ...item, language: event.target.value || null }
-                                    : item,
-                                ),
-                              })
-                            }
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="إزالة الاسم البديل"
-                            onClick={() =>
-                              update({
-                                aliases: draft.aliases.filter((_, position) => position !== index),
-                              })
-                            }
-                          >
-                            <X data-icon="inline-start" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={draft.aliases.length >= 50}
-                        onClick={() =>
-                          update({
-                            aliases: [...draft.aliases, { id: null, alias: "", language: null }],
-                          })
-                        }
-                      >
-                        <Plus data-icon="inline-start" />
-                        اسم بديل
-                      </Button>
-                    </div>
-                  </Field>
-                </FieldGroup>
-              </fieldset>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!draft.profileAssetId || busy}
+                    onClick={() => update({ profileAssetId: null })}
+                  >
+                    إزالة الصورة الأساسية
+                  </Button>
+                </fieldset>
+              </div>
             </CardContent>
           </Card>
         </div>
         <div className="min-w-0 lg:col-span-2">
-          <EntityCredits
-            kind={kind}
-            credits={draft.credits}
-            onChange={(credits) => update({ credits })}
-            disabled={busy}
-          />
+          <Tabs defaultValue="identity" className="gap-4">
+            <div className="overflow-x-auto">
+              <TabsList variant="line">
+                <TabsTrigger value="identity">الهوية</TabsTrigger>
+                <TabsTrigger value="links">الروابط</TabsTrigger>
+                <TabsTrigger value="credits">الأعمال والمساهمات</TabsTrigger>
+                {kind === "organization" && (
+                  <TabsTrigger value="relations">علاقات الجهات</TabsTrigger>
+                )}
+              </TabsList>
+            </div>
+            <TabsContent value="identity">
+              {" "}
+              <Card size="sm">
+                <CardHeader>
+                  <CardTitle>الهوية</CardTitle>
+                  <CardDescription>الأسماء والوصف.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <fieldset disabled={busy}>
+                    <FieldGroup>
+                      <TextField
+                        label="الاسم"
+                        value={draft.name}
+                        onChange={(name) =>
+                          update({
+                            name,
+                            sortName: draft.sortName === draft.name ? name : draft.sortName,
+                          })
+                        }
+                      />
+                      <TextField
+                        label="اسم الترتيب"
+                        value={draft.sortName}
+                        onChange={(sortName) => update({ sortName })}
+                      />
+                      <TextField
+                        label="الوصف"
+                        multiline
+                        value={draft.description}
+                        onChange={(description) => update({ description })}
+                      />
+                      <Field>
+                        <FieldLabel>الأسماء البديلة</FieldLabel>
+                        <div className="flex flex-col gap-2">
+                          {aliasRows.map(({ key, value: alias }, index) => (
+                            <div key={key} className="flex gap-2">
+                              <Input
+                                aria-label={`الاسم البديل ${index + 1}`}
+                                dir="auto"
+                                value={alias.alias}
+                                onChange={(event) =>
+                                  update({
+                                    aliases: draft.aliases.map((item, position) =>
+                                      position === index
+                                        ? { ...item, alias: event.target.value }
+                                        : item,
+                                    ),
+                                  })
+                                }
+                              />
+                              <Input
+                                className="w-20"
+                                dir="ltr"
+                                placeholder="ar / en"
+                                aria-label={`لغة الاسم البديل ${index + 1}`}
+                                value={alias.language ?? ""}
+                                onChange={(event) =>
+                                  update({
+                                    aliases: draft.aliases.map((item, position) =>
+                                      position === index
+                                        ? { ...item, language: event.target.value || null }
+                                        : item,
+                                    ),
+                                  })
+                                }
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="إزالة الاسم البديل"
+                                onClick={() =>
+                                  update({
+                                    aliases: draft.aliases.filter(
+                                      (_, position) => position !== index,
+                                    ),
+                                  })
+                                }
+                              >
+                                <X data-icon="inline-start" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={draft.aliases.length >= 50}
+                            onClick={() =>
+                              update({
+                                aliases: [
+                                  ...draft.aliases,
+                                  { id: null, alias: "", language: null },
+                                ],
+                              })
+                            }
+                          >
+                            <Plus data-icon="inline-start" />
+                            اسم بديل
+                          </Button>
+                        </div>
+                      </Field>
+                    </FieldGroup>
+                  </fieldset>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="links">
+              <EntityLinks draft={draft} update={update} disabled={busy} />
+            </TabsContent>
+            <TabsContent value="credits">
+              {" "}
+              <EntityCredits
+                kind={kind}
+                credits={draft.credits}
+                onChange={(credits) => update({ credits })}
+                disabled={busy}
+              />
+            </TabsContent>
+            {kind === "organization" && (
+              <TabsContent value="relations">
+                <EntityRelations
+                  id={detail?.entity.id ?? null}
+                  draft={draft}
+                  update={update}
+                  disabled={busy}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
         </div>
       </div>
       <footer className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-popover p-3 shadow-lg">

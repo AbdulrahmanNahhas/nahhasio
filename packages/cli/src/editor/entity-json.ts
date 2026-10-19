@@ -61,6 +61,8 @@ async function humanRecord(tx: TransactionSql, value: EntitySnapshot): Promise<H
     name: value.draft.name,
     sortName: value.draft.sortName,
     description: value.draft.description,
+    urls: value.draft.urls,
+    relations: value.draft.relations,
     aliases: value.draft.aliases,
     profileImage: image,
     credits: value.draft.credits.map((credit) => ({
@@ -128,6 +130,8 @@ async function resolveDraft(tx: TransactionSql, record: HumanEntity, kind: strin
     name: record.name,
     sortName: record.sortName,
     description: record.description,
+    urls: record.urls,
+    relations: record.relations,
     aliases: record.aliases,
     credits,
     profileAssetId,
@@ -196,10 +200,15 @@ export async function reviewEntityJson(
         "sortName",
         "description",
         "aliases",
+        "urls",
+        "relations",
         "profileImage",
         "credits",
       ] as const)
-        if (JSON.stringify(baseline[key]) !== JSON.stringify(record[key]))
+        if (
+          record[key] !== undefined &&
+          JSON.stringify(baseline[key]) !== JSON.stringify(record[key])
+        )
           changes.push({
             path: key,
             before: z.json().parse(baseline[key]),

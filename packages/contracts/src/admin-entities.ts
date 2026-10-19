@@ -19,7 +19,32 @@ export const entityCredit = z.strictObject({
     .max(30)
     .optional(),
 });
+export const entityLink = z.strictObject({
+  label: z.string().trim().min(1).max(100),
+  url: z
+    .url()
+    .max(2000)
+    .refine((value) => {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+    }, "استخدم رابط HTTP أو HTTPS دون بيانات دخول."),
+});
+export const entityRelation = z.strictObject({
+  id: z.string().uuid().nullable(),
+  entityId: z.string().uuid(),
+  entityName: z.string().min(1).max(300),
+  direction: z.enum(["outgoing", "incoming"]),
+  relationType: z.string().trim().min(1).max(100),
+  occurredOn: z.iso.date().nullable(),
+  description: z.string().max(20000),
+});
+// Omission preserves existing values for older clients and JSON documents.
+const entityReferences = {
+  urls: z.array(entityLink).max(30).optional(),
+  relations: z.array(entityRelation).max(200).optional(),
+};
 export const entityDraft = z.strictObject({
+  ...entityReferences,
   name: z.string().trim().min(1).max(300),
   sortName: z.string().trim().min(1).max(300),
   description: z.string().max(20000),
@@ -49,6 +74,7 @@ const selectedEntities = z
   .array(z.object({ id: z.string().uuid(), revision: z.string().length(64) }))
   .min(1);
 export const humanEntity = z.strictObject({
+  ...entityReferences,
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(300),
   sortName: z.string().trim().min(1).max(300),
@@ -77,7 +103,15 @@ export const entityJsonDocument = z.strictObject({
 });
 export const entityOptions = z.object({
   works: z.array(
-    z.object({ id: z.string().uuid(), title: z.string(), year: z.number().nullable() }),
+    z.object({
+      id: z.string().uuid(),
+      title: z.string(),
+      year: z.number().nullable(),
+      titleAr: z.string().nullable().optional(),
+      posterId: z.string().uuid().nullable().optional(),
+      aliases: z.array(z.string()).optional(),
+      score: z.number().nullable().optional(),
+    }),
   ),
   roles: z.array(
     z.object({

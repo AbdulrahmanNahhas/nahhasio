@@ -6,10 +6,12 @@ import {
   adminEntitySummarySchema,
   adminEntityCreditSchema,
 } from "@arcadia/contracts/editor-rpc";
+import { scoreWeights } from "@arcadia/domain";
 import { z } from "zod";
 
 import { assertIdentifier, type Sql, type TransactionSql } from "../db";
 import { loadSchema } from "../introspect";
+import { readEntityReferences, applyEntityReferences } from "./entity-references";
 import { authorizeWrite, type EditorContext } from "./service";
 
 type Draft = z.infer<typeof rpcInputs.entitySave>["draft"];
@@ -90,7 +92,9 @@ export async function snapshot(tx: TransactionSql, id: string, kind: string) {
   const credits = await tx<
     { value: unknown }[]
   >`select jsonb_build_object('workId',c.title_id,'workTitle',t.canonical_title,'roleId',c.role_id,'roleName',r.label_en,'roleLabel',coalesce(nullif(r.label_ar,''),r.label_en),'position',c.position,'isPrimary',c.is_primary,'languages',c.languages) as value from contributions c join titles t on t.id=c.title_id join roles r on r.id=c.role_id where c.entity_id=${id} order by c.position,t.sort_title,c.title_id,c.role_id`;
+  const references = await readEntityReferences(tx, id);
   const draft: Draft = {
+    ...references,
     name: entity.name,
     sortName: entity.sortName,
     description: entity.description,
@@ -228,6 +232,7 @@ export async function applyEntity(
     else
       await tx`insert into media_asset_assignments(entity_id,asset_id,role,is_primary) values(${id},${input.draft.profileAssetId},${role},true)`;
   }
+  await applyEntityReferences(tx, id, input.kind, input.draft, before?.draft ?? null);
   const after = await snapshot(tx, id, input.kind);
   await recordRevision(tx, context, id, before ? "update" : "create", before, after);
   return { id, created: !before };
@@ -306,8 +311,21 @@ export async function entityOptions(
 ) {
   return sql.begin("isolation level repeatable read read only", async (tx) => {
     const works = await tx<
-      { id: string; title: string; year: number | null }[]
-    >`select id,canonical_title as title,release_year as year from titles order by sort_title,id limit 5001`;
+      {
+        id: string;
+        title: string;
+        year: number | null;
+        titleAr: string | null;
+        posterId: string | null;
+        aliases: string[];
+        score: number | null;
+      }[]
+    >`select t.id,t.canonical_title as title,t.title_ar as "titleAr",t.release_year as year,
+      (select (floor(avg(s.story * ${scoreWeights.story} + s.characters * ${scoreWeights.characters} + s.depth * ${scoreWeights.depth} + s.world_building * ${scoreWeights.worldBuilding} + s.originality * ${scoreWeights.originality} + s.craft * ${scoreWeights.craft}) * 10 + 0.5) / 10)::double precision
+        from installments i join installment_scores s on s.installment_id=i.id where i.title_id=t.id) as score,
+      (select a.asset_id from media_asset_assignments a where a.title_id=t.id and a.role='poster' order by a.is_primary desc,a.id limit 1) as "posterId",
+      coalesce((select array_agg(a.title order by a.id) from title_aliases a where a.title_id=t.id),ARRAY[]::text[]) as aliases
+      from titles t order by coalesce(nullif(t.title_ar,''),t.sort_title),t.id limit 5001`;
     if (works.length > 5000)
       throw new Error("قائمة الأسماء تتجاوز الحد الحالي؛ تحتاج خدمة بحث مراجع مقسمة.");
     const roles = await tx<
