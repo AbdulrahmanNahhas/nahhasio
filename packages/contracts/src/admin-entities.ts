@@ -127,7 +127,7 @@ export const entityInputs = {
   entityOptions: z.strictObject({ kind: entityKind }),
   entityRoleCreate: z.strictObject({
     kind: entityKind,
-    slug: z.string().regex(/^[a-z][a-z0-9_-]{0,79}$/),
+    slug: z.string().regex(/^[a-z][a-z0-9_]{0,79}$/),
     name: z.string().trim().min(1).max(300),
     label: z.string().trim().max(300),
   }),

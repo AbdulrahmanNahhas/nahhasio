@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "pnpm --filter @nahhasio/web dev",
     "build": "pnpm -r build && cargo build --workspace --locked",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @arcadia/cli check:rust-editor && pnpm -r typecheck",
     "test": "pnpm -r test && cargo test --workspace --locked",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm check:rust",
     "format": "oxfmt --write .",

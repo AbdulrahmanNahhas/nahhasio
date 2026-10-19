@@ -847,7 +847,9 @@ export async function workApply(
         await transaction.unsafe(
           `insert into external_identities (title_id, installment_id, provider, external_id, url)
            values ($1, null, $2, $3, $4)
-           on conflict (title_id, installment_id, lower(btrim(provider)), external_id)
+           on conflict (coalesce(title_id, '00000000-0000-0000-0000-000000000000'::uuid),
+                        coalesce(installment_id, '00000000-0000-0000-0000-000000000000'::uuid),
+                        lower(btrim(provider)), external_id)
            do update set url = excluded.url`,
           [titleId, identity.provider, identity.externalId, identity.url ?? null],
         );

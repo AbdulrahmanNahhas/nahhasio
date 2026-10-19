@@ -12,6 +12,13 @@ sqlx.workspace = true
 sha2.workspace = true
 hex.workspace = true
 thiserror = "2"
+jsonschema = { version = "0.56", default-features = false }
+hmac = "0.13"
+libc = "0.2"
+base64 = "0.22"
+tokio.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query"] }
+unicode-normalization.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

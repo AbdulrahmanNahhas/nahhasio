@@ -80,7 +80,16 @@ async fn setup(pool: &PgPool) {
         sqlx::query("insert into auth_sessions(id,token,user_id,expires_at) values($1,$2,$3,now()+interval '1 day')").bind(format!("rust-editor-{user}")).bind(key).bind(user).execute(&mut *tx).await.unwrap();
     }
     for id in [WORK_ONE, WORK_TWO] {
-        sqlx::query("insert into titles(id,canonical_title,sort_title) values($1::uuid,'Rust planet fixture','Rust planet fixture')").bind(id).execute(&mut *tx).await.unwrap();
+        sqlx::query("insert into titles(id,canonical_title,sort_title) values($1::uuid,$2,$2)")
+            .bind(id)
+            .bind(if id == WORK_ONE {
+                "Rust planet fixture"
+            } else {
+                "Rust planet fixture two"
+            })
+            .execute(&mut *tx)
+            .await
+            .unwrap();
     }
     sqlx::query("insert into account_title_states(account_id,title_id,notes) values($1::uuid,$2::uuid,'ملاحظة محفوظة')").bind(ACTOR).bind(WORK_ONE).execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
@@ -122,6 +131,9 @@ async fn rust_planet_api_preserves_authorization_revisions_and_atomicity() {
     let pool = database_pool(&url).unwrap();
     setup(&pool).await;
     let api = router(pool.clone());
+    entity_acceptance(&api, &pool).await;
+    work_acceptance(&api, &pool).await;
+    artwork_acceptance(&api).await;
     let schema = inspection(&api, "/api/v1/admin/database/schema").await;
     let sessions = schema["tables"]
         .as_array()
@@ -328,13 +340,13 @@ async fn rust_planet_api_preserves_authorization_revisions_and_atomicity() {
     .unwrap();
     assert_eq!(notes, "ملاحظة محفوظة");
     let audits: i64 =
-        sqlx::query_scalar("select count(*) from audit_logs where actor_account_id=$1::uuid")
+        sqlx::query_scalar("select count(*) from audit_logs where actor_account_id=$1::uuid and action like 'admin.planet.%'")
             .bind(ACTOR)
             .fetch_one(&pool)
             .await
             .unwrap();
     let revisions: i64 = sqlx::query_scalar(
-        "select count(*) from editorial_revisions where actor_account_id=$1::uuid",
+        "select count(*) from editorial_revisions where actor_account_id=$1::uuid and summary='Planet editor'",
     )
     .bind(ACTOR)
     .fetch_one(&pool)
@@ -364,4 +376,288 @@ async fn rust_planet_api_preserves_authorization_revisions_and_atomicity() {
         StatusCode::FORBIDDEN
     );
     pool.close().await;
+}
+
+async fn entity_acceptance(api: &Router, pool: &PgPool) {
+    assert_eq!(
+        call(api, "entityList", json!({"kind":"person"}), None)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(api, "entityList", json!({"kind":"person"}), Some(false))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let role=ok(api,"entityRoleCreate",json!({"kind":"person","slug":"rust_fixture_credit","name":"Rust fixture credit","label":"دور اختباري"})).await;
+    let draft = json!({"name":"Rust fixture person","sortName":"Rust fixture person","description":"محفوظ","aliases":[],"credits":[{"workId":WORK_ONE,"workTitle":"Rust planet fixture","roleId":role["id"],"roleName":"Rust fixture credit","roleLabel":"دور اختباري","position":0,"isPrimary":true,"languages":["ar"]}],"profileAssetId":null,"urls":[{"label":"Reference","url":"https://example.invalid/reference"}],"relations":[]});
+    let created = ok(
+        api,
+        "entitySave",
+        json!({"id":null,"revision":null,"kind":"person","draft":draft}),
+    )
+    .await;
+    let id = created["id"].clone();
+    let before = ok(api, "entityDetail", json!({"id":id,"kind":"person"})).await;
+    assert_eq!(before["draft"]["credits"][0]["languages"], json!(["ar"]));
+    let exported = ok(api, "entityJsonRead", json!({"ids":[id],"kind":"person"})).await;
+    let mut document = exported["document"].clone();
+    document["records"][0]["description"] = json!("Updated fixture");
+    let review = ok(
+        api,
+        "entityJsonReview",
+        json!({"json":document.to_string(),"originals":exported["originals"]}),
+    )
+    .await;
+    assert_eq!(review["records"][0]["changes"][0]["path"], "description");
+    let unchanged = ok(api, "entityDetail", json!({"id":id,"kind":"person"})).await;
+    assert_eq!(unchanged["revision"], before["revision"]);
+    let mut bad = review["ticket"].as_str().unwrap().to_owned();
+    bad.push('x');
+    assert_eq!(
+        call(api, "entityJsonSave", json!({"ticket":bad}), Some(true))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        ok(api, "entityJsonSave", json!({"ticket":review["ticket"]})).await["saved"],
+        1
+    );
+    assert_eq!(
+        call(
+            api,
+            "entityJsonSave",
+            json!({"ticket":review["ticket"]}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let after = ok(api, "entityDetail", json!({"id":id,"kind":"person"})).await;
+    assert_eq!(after["draft"]["description"], "Updated fixture");
+    let originals = json!([{"id":id,"revision":after["revision"]}]);
+    assert_eq!(
+        call(
+            api,
+            "entityBulkDelete",
+            json!({"kind":"person","records":originals,"removeCredits":false}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let deleted = ok(
+        api,
+        "entityBulkDelete",
+        json!({"kind":"person","records":originals,"removeCredits":true}),
+    )
+    .await;
+    assert_eq!(deleted, json!({"deleted":1,"removedCredits":1}));
+    let count: i64 = sqlx::query_scalar("select count(*) from titles where id=$1::uuid")
+        .bind(WORK_ONE)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    let org=ok(api,"entitySave",json!({"id":null,"revision":null,"kind":"organization","draft":{"name":"Rust fixture studio","sortName":"Rust fixture studio","description":"","aliases":[],"credits":[],"profileAssetId":null}})).await;
+    let detail = ok(
+        api,
+        "entityDetail",
+        json!({"id":org["id"],"kind":"organization"}),
+    )
+    .await;
+    assert_eq!(detail["draft"]["name"], "Rust fixture studio");
+}
+
+async fn work_acceptance(api: &Router, pool: &PgPool) {
+    ok(api,"entityRoleCreate",json!({"kind":"organization","slug":"rust_fixture_production","name":"Rust fixture production","label":"دور استوديو اختباري"})).await;
+    let mut setup = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *setup)
+        .await
+        .unwrap();
+    sqlx::query("insert into genres(slug,label_en,label_ar) values('rust_fixture_genre','Rust fixture genre','تصنيف اختباري')").execute(&mut *setup).await.unwrap();
+    sqlx::query("insert into award_organizations(slug,name_ar) values('rust_fixture_award','جائزة اختبارية')").execute(&mut *setup).await.unwrap();
+    sqlx::query("insert into award_categories(organization_id,slug,name_ar) select id,'rust_fixture_category','فئة اختبارية' from award_organizations where slug='rust_fixture_award'").execute(&mut *setup).await.unwrap();
+    setup.commit().await.unwrap();
+
+    let source = json!({"canonicalTitle":"Rust whole-work fixture","titleAr":"عمل اختباري","summary":"قبل","genres":["rust_fixture_genre"],"credits":[{"entity":"Rust fixture studio","role":"rust_fixture_production","languages":["ar"]}],"relations":[{"target":"Rust planet fixture two","kind":"related","notes":"علاقة اختبارية"}],"awards":[{"organization":"rust_fixture_award","category":"فئة اختبارية","year":2026,"result":"winner","installment":1}],"trailers":[{"youtubeVideoId":"abcdefghijk","title":"إعلان اختباري","isPrimary":true}],"aliases":["Fixture alias"],"trivia":["Fact one","Fact two"],"playbackPolicy":"files-only","dubLanguages":["ar"],"installments":[{"kind":"season","position":1,"title":"الجزء الأول","score":{"story":8,"characters":7},"episodes":[{"number":1,"title":"الأولى"},{"number":2,"title":"الثانية"}]}],"externalIds":[{"provider":"fixture","externalId":"fixture-work","url":null}]});
+    let review = ok(api, "create", json!({"json":source.to_string()})).await;
+    let count: i64 = sqlx::query_scalar(
+        "select count(*) from titles where canonical_title='Rust whole-work fixture'",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 0, "review must roll back");
+    let saved = ok(api, "save", json!({"ticket":review["ticket"]})).await;
+    let id = saved["createdId"].clone();
+    assert!(id.is_string());
+    let snapshot = ok(api, "read", json!({"ids":[id]})).await[0].clone();
+    assert_eq!(snapshot["document"]["dubLanguages"], json!(["ar"]));
+    assert_eq!(
+        snapshot["document"]["installments"][0]["score"]["story"].as_f64(),
+        Some(8.0)
+    );
+    let mut parts = snapshot["document"]["installments"].clone();
+    let episode_ids = parts[0]["episodes"].clone();
+    parts[0]["episodes"][0]["number"] = json!(2);
+    parts[0]["episodes"][1]["number"] = json!(1);
+    let projected = json!({"schemaVersion":1,"fields":["summary","installments","externalIds"],"records":[{"id":id,"summary":"بعد","installments":parts,"externalIds":[{"provider":"fixture","externalId":"fixture-work","url":"https://example.invalid/new"}]}]});
+    let originals = json!([{"id":id,"revision":snapshot["revision"]}]);
+    let review = ok(
+        api,
+        "review",
+        json!({"json":projected.to_string(),"originals":originals}),
+    )
+    .await;
+    let unchanged = ok(api, "read", json!({"ids":[id]})).await;
+    assert_eq!(unchanged[0]["revision"], snapshot["revision"]);
+    assert_eq!(
+        ok(api, "save", json!({"ticket":review["ticket"]})).await["saved"],
+        1
+    );
+    assert_eq!(
+        call(api, "save", json!({"ticket":review["ticket"]}), Some(true))
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    let after = ok(api, "read", json!({"ids":[id]})).await[0].clone();
+    assert_eq!(after["document"]["summary"], "بعد");
+    assert_eq!(after["document"]["trivia"], source["trivia"]);
+    assert_eq!(
+        after["document"]["installments"][0]["episodes"][0]["id"],
+        episode_ids[0]["id"]
+    );
+    let mut removed = after["document"]["installments"].clone();
+    removed.as_array_mut().unwrap().clear();
+    let invalid = json!({"schemaVersion":1,"fields":["installments"],"records":[{"id":id,"installments":removed}]});
+    assert_eq!(call(api,"review",json!({"json":invalid.to_string(),"originals":[{"id":id,"revision":after["revision"]}]}),Some(true)).await.0,StatusCode::BAD_REQUEST);
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("create table rust_editor_episode_links(episode_id uuid not null,installment_id uuid not null,foreign key(episode_id,installment_id) references episodes(id,installment_id) on delete cascade)").execute(&mut *tx).await.unwrap();
+    sqlx::query("insert into rust_editor_episode_links(episode_id,installment_id) values($1::uuid,$2::uuid)").bind(after["document"]["installments"][0]["episodes"][0]["id"].as_str().unwrap()).bind(after["document"]["installments"][0]["id"].as_str().unwrap()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let linked = ok(
+        api,
+        "links",
+        json!({"workId":id,"episodeId":after["document"]["installments"][0]["episodes"][0]["id"]}),
+    )
+    .await;
+    assert!(
+        linked
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["table"] == "rust_editor_episode_links" && r["count"] == 1)
+    );
+    let mut removed = after["document"]["installments"].clone();
+    removed[0]["episodes"].as_array_mut().unwrap().remove(0);
+    let invalid = json!({"schemaVersion":1,"fields":["installments"],"records":[{"id":id,"installments":removed}]});
+    assert_eq!(call(api,"review",json!({"json":invalid.to_string(),"originals":[{"id":id,"revision":after["revision"]}]}),Some(true)).await.0,StatusCode::BAD_REQUEST);
+    let count: i64 = sqlx::query_scalar("select count(*) from rust_editor_episode_links")
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    let refs = ok(
+        api,
+        "refs",
+        json!({"table":"titles","search":"Rust whole-work"}),
+    )
+    .await;
+    assert_eq!(refs["total"], 1);
+}
+
+async fn artwork_acceptance(api: &Router) {
+    let root = std::env::var("NAHHASIO_MEDIA_ROOT").unwrap();
+    assert!(root.starts_with("/tmp/nahhasio-catalog."));
+    let input = json!({"dataUrl":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==","fileName":"fixture.png","role":"poster","ownerName":"Rust image fixture"});
+    let uploaded = ok(api, "upload", input.clone()).await;
+    let id = uploaded["id"].clone();
+    let old = uploaded["path"].as_str().unwrap();
+    assert_eq!(
+        ok(api, "upload", input).await["id"],
+        id,
+        "same hash must reuse identity"
+    );
+    let detail = ok(api, "assetDetail", json!({"id":id})).await;
+    assert_eq!(detail["asset"]["health"], "healthy");
+    assert_eq!(detail["asset"]["width"], 1);
+    let assigned=ok(api,"assetAssign",json!({"assetId":id,"ownerKind":"title","ownerId":WORK_ONE,"role":"poster","expectedPrimaryId":null,"expectedPrimaryAssetId":null})).await;
+    assert_eq!(call(api,"assetAssign",json!({"assetId":id,"ownerKind":"title","ownerId":WORK_ONE,"role":"poster","expectedPrimaryId":null,"expectedPrimaryAssetId":null}),Some(true)).await.0,StatusCode::CONFLICT);
+    assert_eq!(
+        call(
+            api,
+            "assetDelete",
+            json!({"id":id,"expectedSha256":detail["asset"]["sha256"]}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let proposals = ok(api, "assetRenamePreview", json!({"ids":[id]})).await;
+    let mut proposal = proposals[0].clone();
+    proposal.as_object_mut().unwrap().remove("oldFileName");
+    proposal.as_object_mut().unwrap().remove("reason");
+    assert_eq!(
+        ok(api, "assetRename", json!({"items":[proposal]})).await["renamed"],
+        1
+    );
+    assert_eq!(
+        ok(api, "media", json!({"path":old})).await["id"],
+        id,
+        "old paths remain resolvable"
+    );
+    let retained = std::path::Path::new(&root).join(old.strip_prefix("/media/uploads/").unwrap());
+    assert!(retained.is_file());
+    assert_eq!(
+        ok(
+            api,
+            "assetUnlink",
+            json!({"assetId":id,"assignmentId":assigned["assignmentId"],"expectedPrimary":true})
+        )
+        .await["removed"],
+        true
+    );
+    let deleted = ok(
+        api,
+        "assetDelete",
+        json!({"id":id,"expectedSha256":detail["asset"]["sha256"]}),
+    )
+    .await;
+    assert_eq!(deleted["fileRetained"], true);
+    assert!(retained.is_file());
+    assert_eq!(
+        call(
+            api,
+            "preview",
+            json!({"url":"http://127.0.0.1/private"}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        call(
+            api,
+            "preview",
+            json!({"url":"https://example.invalid/file.png"}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
 }

@@ -90,5 +90,38 @@ assert len(json.loads((root / "full-schema.json").read_text())) >= 70
 print(f"Drizzle/Rust migration compatibility passed in both directions: {statuses[0]['applied']} migrations.")
 PY
 
+export NAHHASIO_MEDIA_ROOT="$fixture_root/media/uploads"
+export NAHHASIO_PUBLIC_MEDIA_ROOT="$fixture_root/media"
 export NAHHASIO_TEST_EDITOR_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_rust_migrations?host=$fixture_root"
 NAHHASIO_EDITOR_ROOT=/nonexistent-rust-editor-fixture cargo test --locked -p nahhasio-server --test editor_postgres -- --ignored --nocapture
+
+# Compare the same persisted work through both exporters, then exercise native imports.
+export DATABASE_URL="$NAHHASIO_TEST_EDITOR_DATABASE_URL"
+target/debug/nahhasio work export 'Rust whole-work fixture' --json >"$fixture_root/rust-export.json"
+PGHOST="$fixture_root" PGPORT=25483 PGUSER=nahhasio_fixture DATABASE_URL=postgresql:///nahhasio_test_rust_migrations pnpm --filter @arcadia/cli exec tsx src/editor/parity-fixture.ts "$fixture_root/node-export.json"
+python3 - "$fixture_root" <<'PY'
+import json
+import pathlib
+import sys
+root = pathlib.Path(sys.argv[1])
+rust = json.loads((root / "rust-export.json").read_text())
+node = json.loads((root / "node-export.json").read_text())
+assert rust == node, f"Exporter mismatch: {[key for key in rust if rust[key] != node.get(key)]}"
+(root / "import.json").write_text(json.dumps({"id": rust["id"], "canonicalTitle": rust["canonicalTitle"], "aliases": ["Native merge alias"]}))
+print("Rust/Node whole-work export parity passed on the same persisted fixture.")
+PY
+target/debug/nahhasio work apply --file "$fixture_root/import.json" --dry-run --json >"$fixture_root/work-dry-run.json"
+target/debug/nahhasio work apply --file "$fixture_root/import.json" --write --json >"$fixture_root/work-import.json"
+target/debug/nahhasio work export 'Rust whole-work fixture' --json >"$fixture_root/merged-export.json"
+python3 - "$fixture_root" <<'PY'
+import json
+import pathlib
+import sys
+root = pathlib.Path(sys.argv[1])
+read = lambda name: json.loads((root / name).read_text())
+assert read("work-dry-run.json")["rolledBack"] is True
+assert read("merged-export.json")["aliases"] == ["Fixture alias", "Native merge alias"]
+assert read("work-import.json")["created"] is False
+assert read("merged-export.json")["installments"] == read("rust-export.json")["installments"]
+print("Native whole-work merge import, preserved structure and dry-run passed.")
+PY

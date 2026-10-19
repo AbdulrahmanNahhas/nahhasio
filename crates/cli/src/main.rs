@@ -1,4 +1,5 @@
 //! Trusted local operator binary. Database credentials are environment-owned, never argv.
+mod editor;
 mod output;
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use nahhasio_catalog::{
@@ -16,10 +17,12 @@ use std::{
 fn command() -> Command {
     Command::new("nahhasio").version(env!("CARGO_PKG_VERSION"))
         .about("Nahhasio local PostgreSQL operator tool (Rust)")
-        .after_help("Examples:\n  nahhasio schema titles --json\n  nahhasio title list --search Arcane\n  nahhasio title update Arcane --set summary=... --dry-run\n  nahhasio title update Arcane --set summary=... --write\n  nahhasio sql 'select count(*) from titles' --json\n  nahhasio migrate status\n  nahhasio migrate apply --dry-run\n\nDATABASE_URL must be set explicitly. This is a trusted local operator tool, not a remote user API.\nThe legacy CLI remains available for whole-work reconciliation and media operations until Rust parity is verified.")
+        .after_help("Examples:\n  nahhasio schema titles --json\n  nahhasio title list --search Arcane\n  nahhasio title update Arcane --set summary=... --dry-run\n  nahhasio title update Arcane --set summary=... --write\n  nahhasio sql 'select count(*) from titles' --json\n  nahhasio migrate status\n  nahhasio migrate apply --dry-run\n\nDATABASE_URL must be set explicitly. This is a trusted local operator tool, not a remote user API.\nWhole-work: work export <reference>; work apply --file document.json --dry-run or --write.\nShared services: editor <operation> --file input.json (NAHHASIO_CLI_ACTOR required).\nAdvanced legacy reports and older CLI option compatibility remain development tools.")
         .arg(Arg::new("resource").help("health, schema, stats, sql, migrate, or a catalog resource/table"))
         .arg(Arg::new("action").help("list/get/create/update/delete; SQL text; table name; migration action"))
         .arg(Arg::new("reference").help("Record id, slug, name or alias"))
+        .arg(Arg::new("mode").long("mode").value_parser(["merge","replace"]).default_value("merge"))
+        .arg(Arg::new("create-only").long("create-only").action(ArgAction::SetTrue))
         .arg(Arg::new("where").long("where").action(ArgAction::Append).help("AND filter: column=value, !=, >, <, >=, <=, ~, :in=, :nin="))
         .arg(Arg::new("set").long("set").action(ArgAction::Append).help("Typed column=value; UUID foreign keys also accept names"))
         .arg(Arg::new("json-set").long("json-set").action(ArgAction::Append).help("column=<JSON>, preserving literal strings and nulls"))
@@ -28,7 +31,7 @@ fn command() -> Command {
         .arg(Arg::new("order").long("order").help("column [asc|desc] [nulls first|last], ..."))
         .arg(Arg::new("limit").long("limit").value_parser(value_parser!(u32).range(1..=500)).default_value("50"))
         .arg(Arg::new("offset").long("offset").value_parser(value_parser!(u32)).default_value("0"))
-        .arg(Arg::new("file").long("file").help("Read a single SQL statement from a UTF-8 file"))
+        .arg(Arg::new("file").long("file").help("Read a single SQL statement or editor/work JSON document from a UTF-8 file"))
         .args(["write","dry-run","yes","count","enums","all-columns","wide"].map(|name|Arg::new(name).long(name).action(ArgAction::SetTrue)))
         .arg(Arg::new("json").long("json").action(ArgAction::SetTrue).conflicts_with_all(["ndjson","csv"]))
         .arg(Arg::new("ndjson").long("ndjson").action(ArgAction::SetTrue).conflicts_with("csv"))
@@ -53,6 +56,9 @@ fn assignment(value: &str) -> Result<(&str, &str)> {
 }
 
 async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Value> {
+    if let Some(result) = editor::dispatch(connection, args).await? {
+        return Ok(result);
+    }
     let resource = text(args, "resource").unwrap_or("health");
     let action = text(args, "action").unwrap_or("list");
     if resource == "health" {
@@ -301,7 +307,7 @@ async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Va
             .await
         }
         _ => Err(invalid(
-            "unsupported Rust CLI operation; whole-work apply/export and media commands still use the legacy CLI",
+            "unsupported operation; use work apply/export/schema/template or editor <operation> --file input.json",
         )),
     }
 }
@@ -309,6 +315,9 @@ async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Va
 async fn run(args: &ArgMatches) -> Result<Value> {
     if text(args, "resource") == Some("migrate") && text(args, "action") == Some("manifest") {
         return Ok(migrations::manifest(&migrations::bundled()?));
+    }
+    if text(args, "resource") == Some("work") && text(args, "action") == Some("schema") {
+        return nahhasio_catalog::editor::work::document_schema();
     }
     let url = env::var("DATABASE_URL").map_err(|_| {
         invalid("DATABASE_URL is required; there is no implicit production/development database")

@@ -63,9 +63,13 @@ and decoder/network safety still need separate validation. No live catalog mutat
 Aqua approved committing this checkpoint and updating these instructions/skills. This does not
 authorize publishing/pushing releases or claim Fedora/AppImage installation acceptance.
 
-The installed Nahhasio runtime must be Rust-only: replace remaining Node whole-work,
-People/Studios, artwork/provider services and remaining operator CLI commands before deployment.
-Keep the current working services until isolated parity is verified; preserve API/client design.
+The installed Nahhasio server runtime is now Rust-only: People/Studios, whole-work reconciliation,
+artwork and providers use `crates/catalog-core/src/editor`; the Node subprocess is removed.
+The compiled CLI has whole-work schema/template/export/apply and shared `editor` operations,
+with guarded writes. The development `bin/nahhasio` launcher remains legacy for advanced reports
+and older CLI options; do not package it or imply complete CLI option parity. Preserve API/client
+design. Continue isolated PostgreSQL/artwork checks via `bin/test-rust-catalog`; provider credentials,
+real Fedora installation and native UI acceptance remain separate. No live catalog writes occurred.
 Node/pnpm may remain on development/build machines for React. Jellyfin is playback/streaming
 only, with the minimum media identity/track information needed for delivery; never import its
 metadata/artwork as catalog authority or synchronize tracking. Provider keys stay server-owned,

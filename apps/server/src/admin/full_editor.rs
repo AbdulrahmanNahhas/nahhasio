@@ -1,5 +1,4 @@
-//! Authenticated facade for the preserved whole-document reconciliation service.
-//! Temporary Node catalog worker: no listener, no client credentials, fixed executable/entrypoint.
+//! Authenticated, bounded facade for the shared Rust catalog editor.
 use crate::auth::User;
 use axum::{
     Extension, Json, Router,
@@ -9,20 +8,16 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use nahhasio_catalog::{Error, editor, planets};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sqlx::PgPool;
-use std::{path::PathBuf, process::Stdio, sync::Arc, time::Duration};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::Command,
-    sync::Semaphore,
-};
+use std::{sync::Arc, time::Duration};
+use tokio::sync::Semaphore;
 #[derive(Clone)]
-struct WorkerState {
+struct EditorState {
     pool: PgPool,
-    root: PathBuf,
-    secret: Arc<String>,
+    secret: Arc<[u8; 32]>,
     workers: Arc<Semaphore>,
 }
 #[derive(Deserialize)]
@@ -34,9 +29,6 @@ struct Call {
 pub(super) fn routes(pool: PgPool) -> Router {
     let mut secret = [0; 32];
     getrandom::fill(&mut secret).expect("Editor signing requires OS randomness");
-    let root = std::env::var_os("NAHHASIO_EDITOR_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."));
     Router::new()
         .route("/api/v1/admin/editor", post(call))
         .route_layer(middleware::from_fn_with_state(
@@ -45,170 +37,83 @@ pub(super) fn routes(pool: PgPool) -> Router {
         ))
         .layer(DefaultBodyLimit::max(16 * 1024 * 1024))
         .layer(middleware::from_fn(super::no_store))
-        .with_state(WorkerState {
+        .with_state(EditorState {
             pool,
-            root,
-            secret: Arc::new(hex::encode(secret)),
+            secret: Arc::new(secret),
             workers: Arc::new(Semaphore::new(2)),
         })
 }
 async fn call(
-    State(state): State<WorkerState>,
+    State(state): State<EditorState>,
     Extension(user): Extension<User>,
     headers: HeaderMap,
     Json(input): Json<Call>,
 ) -> Result<Response, super::Error> {
-    if nahhasio_catalog::planets::Request::handles(&input.operation) {
-        return planet(&state.pool, &headers, input).await;
-    }
-    if ![
-        "planetDetail",
-        "planetSave",
-        "planetDelete",
-        "planetOptions",
-        "planetWorks",
-        "planetMove",
-        "entityOptions",
-        "entityRoleCreate",
-        "entityDeletePreview",
-        "entityBulkDelete",
-        "entityJsonRead",
-        "entityJsonReview",
-        "entityJsonSave",
-        "entityList",
-        "entitySelection",
-        "entityDetail",
-        "entitySave",
-        "assets",
-        "assetDetail",
-        "assetOwners",
-        "assetAssign",
-        "assetUnlink",
-        "assetDelete",
-        "assetRenamePreview",
-        "assetRename",
-        "read",
-        "review",
-        "save",
-        "create",
-        "parse",
-        "links",
-        "refs",
-        "schema",
-        "vocabulary",
-        "media",
-        "search",
-        "season",
-        "episodeImages",
-        "ingest",
-        "upload",
-        "preview",
-    ]
-    .contains(&input.operation.as_str())
-    {
+    if !planets::Request::handles(&input.operation) && !editor::handles(&input.operation) {
         return Err(super::Error(
             StatusCode::BAD_REQUEST,
             "عملية محرر غير صالحة.",
         ));
     }
-    let key = crate::auth::bearer(&headers)
-        .map_err(|_| super::Error(StatusCode::UNAUTHORIZED, "انتهت الجلسة."))?;
-    let _permit = state
-        .workers
-        .clone()
-        .acquire_owned()
+    let _permit = tokio::time::timeout(Duration::from_secs(2), state.workers.acquire())
         .await
-        .map_err(|_| super::Error(StatusCode::SERVICE_UNAVAILABLE, "المحرر غير متاح."))?;
-    let payload=serde_json::to_vec(&json!({"operation":input.operation,"data":input.data,"context":{"accountId":user.account_id,"sessionKey":key}})).map_err(|_|super::Error(StatusCode::BAD_REQUEST,"طلب غير صالح."))?;
-    let mut child = Command::new("node")
-        .arg("--import")
-        .arg("tsx")
-        .arg("src/editor/worker.ts")
-        .current_dir(state.root.join("packages/cli"))
-        .env("NAHHASIO_EDITOR_SECRET", state.secret.as_ref())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .spawn()
         .map_err(|_| {
             super::Error(
                 StatusCode::SERVICE_UNAVAILABLE,
-                "تعذّر بدء خدمة تحرير المستندات.",
-            )
-        })?;
-    let mut stdin = child.stdin.take().ok_or(super::Error(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "قناة المحرر غير متاحة.",
-    ))?;
-    let mut stdout = child.stdout.take().ok_or(super::Error(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "قناة المحرر غير متاحة.",
-    ))?;
-    let operation = async {
-        stdin.write_all(&payload).await?;
-        drop(stdin);
-        let mut bytes = Vec::new();
-        (&mut stdout)
-            .take(32 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .await?;
-        if bytes.len() > 32 * 1024 * 1024 {
-            return Err(std::io::Error::other("Editor response limit exceeded"));
-        }
-        let status = child.wait().await?;
-        if !status.success() {
-            return Err(std::io::Error::other("Editor worker failed"));
-        }
-        Ok::<_, std::io::Error>(bytes)
-    };
-    let bytes = tokio::time::timeout(Duration::from_secs(45), operation)
-        .await
-        .map_err(|_| {
-            super::Error(
-                StatusCode::GATEWAY_TIMEOUT,
-                "انتهت مهلة المحرر؛ أعد تحميل المستند قبل إعادة الحفظ.",
+                "المحرر مشغول. أعد المحاولة.",
             )
         })?
-        .map_err(|_| super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر تنفيذ عملية المحرر."))?;
-    let result: Value = serde_json::from_slice(&bytes)
-        .map_err(|_| super::Error(StatusCode::SERVICE_UNAVAILABLE, "استجابة المحرر غير صالحة."))?;
-    if result["ok"] == true {
-        return Ok(Json(json!({"result":result["result"]})).into_response());
-    }
-    let status = match result["status"].as_u64() {
-        Some(403) => StatusCode::FORBIDDEN,
-        Some(409) => StatusCode::CONFLICT,
-        Some(503) => StatusCode::SERVICE_UNAVAILABLE,
-        _ => StatusCode::BAD_REQUEST,
-    };
-    Ok((
-        status,
-        Json(json!({"message":result["message"].as_str().unwrap_or("تعذّر تنفيذ العملية.")})),
+        .map_err(|_| super::Error(StatusCode::SERVICE_UNAVAILABLE, "المحرر غير متاح."))?;
+    tokio::time::timeout(
+        Duration::from_secs(45),
+        execute(&state, &headers, &user.account_id, input),
     )
-        .into_response())
+    .await
+    .map_err(|_| {
+        super::Error(
+            StatusCode::GATEWAY_TIMEOUT,
+            "انتهت مهلة المحرر؛ أعد تحميل المستند قبل إعادة الحفظ.",
+        )
+    })?
 }
-
-async fn planet(pool: &PgPool, headers: &HeaderMap, input: Call) -> Result<Response, super::Error> {
-    use nahhasio_catalog::{Error, planets};
-    let request: planets::Request =
-        serde_json::from_value(json!({"operation":input.operation,"data":input.data}))
-            .map_err(|_| super::Error(StatusCode::BAD_REQUEST, "طلب كوكب غير صالح."))?;
-    let mut transaction = pool.begin().await.map_err(|_| {
+async fn execute(
+    state: &EditorState,
+    headers: &HeaderMap,
+    account_id: &str,
+    input: Call,
+) -> Result<Response, super::Error> {
+    let planet = if planets::Request::handles(&input.operation) {
+        Some(
+            serde_json::from_value::<planets::Request>(
+                json!({"operation":input.operation,"data":input.data}),
+            )
+            .map_err(|_| super::Error(StatusCode::BAD_REQUEST, "طلب كوكب غير صالح."))?,
+        )
+    } else {
+        None
+    };
+    let writes = planet.as_ref().map_or_else(
+        || editor::writes(&input.operation),
+        planets::Request::writes,
+    );
+    let mut tx = state.pool.begin().await.map_err(|_| {
         super::Error(
             StatusCode::SERVICE_UNAVAILABLE,
             "تعذّر الوصول إلى قاعدة البيانات.",
         )
     })?;
-    let actor = if request.writes() {
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE, READ WRITE")
-            .execute(&mut *transaction)
-            .await
-            .map_err(|_| {
-                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر بدء عملية التحرير.")
-            })?;
+    let statement = if writes {
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE, READ WRITE"
+    } else {
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+    };
+    sqlx::query(statement)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر بدء عملية المحرر."))?;
+    let actor = if writes {
         Some(
-            crate::auth::lock_admin_session(&mut transaction, headers)
+            crate::auth::lock_admin_session(&mut tx, headers)
                 .await
                 .map_err(|_| {
                     super::Error(
@@ -218,17 +123,36 @@ async fn planet(pool: &PgPool, headers: &HeaderMap, input: Call) -> Result<Respo
                 })?,
         )
     } else {
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *transaction)
-            .await
-            .map_err(|_| {
-                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر بدء عملية القراءة.")
-            })?;
         None
     };
-    match planets::execute(&mut transaction, request, actor.as_deref()).await {
+    let result = if let Some(planet) = planet {
+        planets::execute(&mut tx, planet, actor.as_deref()).await
+    } else {
+        editor::execute(
+            &mut tx,
+            &input.operation,
+            input.data,
+            actor.as_deref().unwrap_or(account_id),
+            state.secret.as_ref(),
+        )
+        .await
+    };
+    match result {
         Ok(result) => {
-            transaction.commit().await.map_err(|_| {
+            // Match the former worker response bound before committing any database mutation.
+            if serde_json::to_vec(&result)
+                .map_err(|_| {
+                    super::Error(StatusCode::SERVICE_UNAVAILABLE, "استجابة المحرر غير صالحة.")
+                })?
+                .len()
+                > 32 * 1024 * 1024
+            {
+                return Err(super::Error(
+                    StatusCode::BAD_REQUEST,
+                    "الاختيار أكبر من حد المحرر. ضيّق النطاق.",
+                ));
+            }
+            tx.commit().await.map_err(|_| {
                 super::Error(
                     StatusCode::CONFLICT,
                     "تعذّر تأكيد الحفظ. أعد تحميل البيانات قبل المحاولة.",
@@ -237,28 +161,35 @@ async fn planet(pool: &PgPool, headers: &HeaderMap, input: Call) -> Result<Respo
             Ok(Json(json!({"result":result})).into_response())
         }
         Err(error) => {
-            transaction.rollback().await.map_err(|_| {
-                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر إغلاق عملية التحرير.")
+            tx.rollback().await.map_err(|_| {
+                super::Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر إغلاق عملية المحرر.")
             })?;
             let (status, message) = match error {
                 Error::Invalid(message) => (StatusCode::BAD_REQUEST, message),
                 Error::Conflict(message) => (StatusCode::CONFLICT, message),
-                Error::Database(error)
-                    if error
-                        .as_database_error()
-                        .and_then(|error| error.code())
-                        .is_some_and(|code| {
-                            matches!(code.as_ref(), "23503" | "23505" | "40001" | "40P01")
-                        }) =>
-                {
-                    (
-                        StatusCode::CONFLICT,
-                        "تغيّرت البيانات أو ترتبط بسجلات أخرى. أعد تحميلها قبل المحاولة.".into(),
-                    )
+                Error::Json(_) => (
+                    StatusCode::BAD_REQUEST,
+                    "صيغة JSON غير صالحة. صحّحها قبل المراجعة.".into(),
+                ),
+                Error::Database(error) => {
+                    match error.as_database_error().and_then(|e| e.code()).as_deref() {
+                        Some("23503" | "23505" | "40001" | "40P01") => (
+                            StatusCode::CONFLICT,
+                            "تغيّرت البيانات أو ترتبط بسجلات أخرى. أعد تحميلها قبل المحاولة.".into(),
+                        ),
+                        Some("23514" | "23502" | "22P02" | "22007" | "22008") => (
+                            StatusCode::BAD_REQUEST,
+                            "تخالف بعض الحقول قيود البيانات؛ راجع القيم والتواريخ.".into(),
+                        ),
+                        _ => (
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "تعذّر تنفيذ عملية المحرر.".into(),
+                        ),
+                    }
                 }
                 _ => (
                     StatusCode::SERVICE_UNAVAILABLE,
-                    "تعذّر تنفيذ عملية الكوكب.".into(),
+                    "تعذّر تنفيذ عملية المحرر.".into(),
                 ),
             };
             Ok((status, Json(json!({"message":message}))).into_response())

@@ -10,6 +10,7 @@ name = "nahhasio"
 path = "src/main.rs"
 
 [dependencies]
+hex.workspace = true
 nahhasio-catalog = { path = "../catalog-core" }
 clap = { version = "4.6", default-features = false, features = [
   "std",

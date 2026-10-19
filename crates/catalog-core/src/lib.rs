@@ -1,5 +1,6 @@
 //! Shared database operations for the server and trusted, local operator CLI.
 //! No network listener, GUI, environment defaults, migration-on-startup or secret logging.
+pub mod editor;
 pub mod migrations;
 pub mod planets;
 pub mod records;

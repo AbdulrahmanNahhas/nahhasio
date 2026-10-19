@@ -72,7 +72,7 @@ the migration history; do not introduce a second SQLx migration ledger.
 - [ ] Link existing video folders without moving originals; use Jellyfin only as the media backend.
 - [ ] Play in Nahhasio with device → server file → permitted torrent preference and a source chooser.
 - [x] Keep progress/watched data entirely in Nahhasio; do not synchronize Jellyfin tracking.
-- [ ] Replace the remaining runtime Node editor/provider/artwork worker with Rust before deployment.
+- [x] Replace the remaining runtime Node editor/provider/artwork worker with Rust before deployment (local fixture acceptance; installed Fedora acceptance remains).
 - [x] Add authenticated, bounded backend reads and simple views for unfinished product areas.
 - [x] Inventory all tables against consumers; do not manufacture records to make a table look used.
 - [x] Keep authentication secrets and private operations out of raw client table views.
@@ -83,8 +83,10 @@ redaction/migration services are implemented. Planets definition and membership 
 use shared Rust behind the existing authenticated editor API, including transactional session
 revalidation, stale-revision checks, dependency guards and audit/revision records. The isolated
 acceptance script exercises these with the Node worker unavailable and checks Drizzle/Rust ledger
-continuation in both directions. Whole-work reconciliation, People/Studios, artwork/providers and
-full operator CLI parity remain; the worker-removal checkbox is intentionally still open.
+continuation in both directions. On 2026-10-20, People/Studios, whole-work reconciliation,
+artwork and provider operations moved to shared Rust and the Node subprocess was removed. The
+compiled CLI gained whole-work commands and shared editor operations. Legacy report/option parity
+and installed/native/provider acceptance remain; see DEVELOPMENT.md and TESTING.md.
 
 ### Phase 2 integration checkpoint — 2026-10-19
 
@@ -121,8 +123,9 @@ image controls, table inspector/drawer and logout, with zero JS/CSP errors and u
 This is a focused integration pass, not physical input/GPU/playback or full Phase 2 acceptance.
 
 Remaining Phase 2 work is explicit: video-derived still capture, folder scanning/linking and the
-Jellyfin/native server-file source workflow, and removal of the remaining private Node editor/
-provider/artwork worker after Rust parity. The broader phase is not complete. Aqua authorized proceeding with Phase 3 tools while retaining
+Jellyfin/native server-file source workflow and installed/native acceptance of the Rust editor.
+The private Node editor/provider/artwork worker was removed at the 2026-10-20 local checkpoint.
+The broader phase is not complete. Aqua authorized proceeding with Phase 3 tools while retaining
 these runtime tasks for later. A table view does not complete these runtime services or deployment acceptance.
 
 ### Complete database coverage boundary

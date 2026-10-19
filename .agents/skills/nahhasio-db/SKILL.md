@@ -28,10 +28,20 @@ runtime and does not silently fall back to the legacy CLI. Do not print credenti
 selecting the database.
 
 Use `./bin/nahhasio` for the complete catalog workflow and all examples below unless explicitly
-choosing the Rust tool. Rust currently supports health, schema/enums, generic CRUD, references,
-filters/pagination, row-count statistics, single result-producing SQL statements, and migration
-manifest/status/apply. It does **not** yet support whole-work apply/export/template/schema,
-media ingest/assignment/purge, advanced statistics or `help --json` discovery.
+choosing the Rust tool. Rust supports health, schema/enums, generic CRUD, references, filters/pagination, row-count
+statistics, SQL and migrations. It also supports `work schema`, `work template`,
+`work export <reference>` and `work apply --file document.json --mode merge|replace`
+with `--dry-run`/`--write` and optional `--create-only`. Supplied lists reconcile in replace mode;
+merge retains omitted members. Rust does not implicitly create missing vocabulary/people, and
+installment removal requires a separate review. Advanced editorial statistics, old media command
+options and `help --json` discovery still use the legacy launcher.
+
+`editor <operation> --file input.json` exposes shared Rust People/Studios, work, artwork/provider
+and reference operations using the contracts in `packages/contracts/src/editor-rpc.ts`. It needs
+`NAHHASIO_CLI_ACTOR` for audit identity; review/save ticket workflows additionally need a private
+32-byte hex `NAHHASIO_EDITOR_SECRET` retained across calls. Never print secrets or database
+credentials. Writes still require `--write`/`--dry-run`. File creation cannot be rolled back with
+PostgreSQL: an artwork dry run may leave recoverable orphan bytes. Existing files are retained.
 
 For Rust commands, generic writes need `--write` or `--dry-run`; a multi-row commit also needs
 `--yes`. Dry runs execute constraints/audits and roll back. SQL mutations need RETURNING, and
@@ -51,8 +61,9 @@ editing or application startup. It embeds the sole `packages/database/drizzle/` 
 the existing Drizzle ledger/maintenance lock, and refuses inconsistent hashes/history rather
 than guessing a baseline. Rehearse and back up before a live apply; no second SQLx history.
 `devenv shell -- bash bin/test-rust-catalog` owns private disposable PostgreSQL fixtures for
-CLI/migration and authenticated Rust Planets acceptance. It is not a live-catalog mutation test.
-The six Planets API operations are Rust-backed; that does not imply whole-editor/CLI parity.
+CLI/migration, authenticated editor and private artwork acceptance, including composite dependency
+guards and Rust/Node work-export comparison. It is not a live-catalog mutation test. The server
+editor is Rust-only; live provider, Fedora and native-client acceptance remain separate.
 
 ## The one thing to know first
 

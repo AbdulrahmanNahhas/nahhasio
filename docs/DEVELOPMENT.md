@@ -14,7 +14,7 @@ WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` wi
 | crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                                                                   |
 | crates/media-transfer          | UI-independent torrent engine and durable device state                                                                                |
 | crates/catalog-core            | Shared Rust database pool, schema discovery, local operator operations, redaction and explicit Drizzle-compatible migration execution |
-| crates/cli                     | Compiled `nahhasio` operator binary; initial generic database/migration commands, not yet whole-work/media parity                     |
+| crates/cli                     | Compiled `nahhasio` operator binary; database/migrations, whole-work documents and shared editor operations                           |
 | packages/api-contract          | Single OpenAPI definition, generator and validated TypeScript contract                                                                |
 | packages/contracts             | Shared work/editor schemas and domain contracts                                                                                       |
 | packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools                                                             |
@@ -22,9 +22,10 @@ WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` wi
 | packages/cli                   | CLI, SQL helpers and shared full-document reconciliation                                                                              |
 | apps/web, apps/api             | Transitional dashboard/legacy API and still-consumed provider/media helpers                                                           |
 
-Do not remove legacy helpers until their consumers are replaced. The full work editor calls a
-fixed Rust facade/private Node worker; containers need that source/runtime dependency until it
-is replaced with Rust. Packaging that worker is no longer the chosen deployment path.
+The installed Rust server executes all editor, provider and artwork operations through
+`crates/catalog-core/src/editor`; it does not launch Node or load TypeScript source. The private
+Node worker has been removed. Legacy helpers remain only for the transitional dashboard and
+development CLI consumers. Node/pnpm are still development/build dependencies for React.
 Schema ownership does not move from Drizzle to a second SQLx tree.
 
 ### Rust operator CLI checkpoint
@@ -47,10 +48,18 @@ The CLI remains a trusted local operator tool with direct database credentials, 
 `sql` accepts one SELECT or a data-modifying statement with RETURNING. The result CTE prevents
 transaction-control/multiple statements from escaping rollback; DDL belongs to explicit migration
 execution. SQL results and generic pages are capped at 500 rows. `stats` currently provides counts,
-not the legacy editorial/coverage reports. Whole-work apply/export, media ingest/assignment/purge
-and the existing server editor still use TypeScript. Therefore `./bin/nahhasio` and its agent
-skill remain on the legacy implementation until full parity; no silent Node fallback exists in
-the compiled binary.
+not the legacy editorial/coverage reports. The native CLI also supports `work schema`,
+`work template`, `work export <reference>` and `work apply --file document.json --mode merge|replace`
+with `--dry-run` or `--write`; `--create-only` refuses an existing work. Merge preserves omitted
+list members; replace reconciles supplied lists. Neither mode silently creates missing vocabulary
+or people, and installment removal remains blocked pending a separate dependency review.
+`editor <operation> --file input.json` shares People/Studios, work, artwork/provider and reference
+contracts with the server. Editor audit identity requires `NAHHASIO_CLI_ACTOR`; ticket-based editor
+review/save additionally needs the same private 32-byte hex `NAHHASIO_EDITOR_SECRET` across commands.
+Server tickets instead use a process-local random key and expire after 15 minutes. Do not print
+these environment values. There is no implicit Node fallback. The `bin/nahhasio` development
+launcher remains explicitly legacy for advanced reports, missing-vocabulary creation and older
+CLI option compatibility; it is not part of the installed Rust server.
 
 Migrations embed the sole `packages/database/drizzle/` history in the binary, compare applied
 hashes/timestamps, refuse gaps/unknown/newer histories and unjournalled nonempty databases, and
@@ -63,8 +72,22 @@ dependency/deletion guards, deterministic locks and atomic audit/revision writes
 use repeatable-read transactions; writes revalidate/lock the admin session inside serializable
 transactions. Revisions are opaque fingerprints; forms loaded before this backend transition
 must reload/review if their old fingerprint is rejected. The transitional web dashboard retains
-its existing TypeScript services until its replacement is accepted. People/Studios, whole-work
-reconciliation and artwork/provider operations still require the remaining worker port.
+its existing TypeScript services until its replacement is accepted. People/Studios and work
+reviews rehearse in savepoints and roll back; saves recheck revisions and authorizations. Work
+saves also compare the persisted document against the reviewed result. Foreign-key checks include
+composite keys before deleting episodes. Artwork registration uses bounded signature/dimension
+checks, exclusive files and content hashes; renames retain hard links and old-path resolution.
+Database rollback does not undo file creation: failed imports may leave recoverable orphan files,
+never overwrite or remove catalog artwork.
+
+Rust provider operations retain TMDB, Fanart and AniList behavior. Keys remain server environment
+configuration (`TMDB_API_READ_ACCESS_KEY`, `FANART_API_KEY`); authenticated masked key management
+in the desktop remains a separate task. HTTPS requests have fixed provider endpoints, no redirects,
+time/size limits and a shared connection pool. Uploads need `NAHHASIO_MEDIA_ROOT` and optional
+`NAHHASIO_PUBLIC_MEDIA_ROOT` in deployment; checkout-relative defaults are development convenience.
+Input schemas are checked-in generated data from the existing Zod contracts, with semantic guards
+in Rust. `pnpm typecheck` checks schema drift; regenerate with
+`pnpm --filter @arcadia/cli generate:rust-editor`. Old open reviews must reload after this transition.
 
 ## Run/build
 

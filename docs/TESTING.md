@@ -22,12 +22,15 @@ test requires `NAHHASIO_TEST_DATABASE_URL` and refuses databases outside its nam
 Do not set that variable to the family catalog. These checks are local runtime acceptance, not
 production migration, Fedora installation, native desktop or independent-backup acceptance.
 
-The same script runs `apps/server/tests/editor_postgres.rs` on one of its fully migrated fixture
-databases with the Node editor root deliberately unavailable. This verifies authenticated Rust
-Planets create/read/edit/options/membership/delete flows, stale/conflicting edits, rollback of a
-partially processed batch, guarded deletion, admin revocation, audit/revision records and retained
-viewing notes. It also checks that shared schema discovery/inspection still masks session secrets.
-No live catalog mutation or native-client runtime claim is implied.
+The same script runs `apps/server/tests/editor_postgres.rs` with private artwork storage and no
+usable Node worker. It covers Planets, People/Studios, credits, JSON reviews, work create/review/save,
+reference lookup, image upload/deduplication/assignment/rename/unlink/deletion, stale/tampered tickets,
+retained files and old image paths, authorization, rollback and composite foreign-key deletion guards.
+It compares Rust and legacy TypeScript exports of the same persisted fixture and exercises the
+compiled CLI's whole-work merge import and rollback. All migrations use the single Drizzle ledger.
+These checks do not call live providers or prove Fedora/container/native UI acceptance. Provider
+credentials, real artwork downloads, broad catalog-shape parity and production transfer require
+separate acceptance. No live catalog mutation is authorized by this script.
 
 ## 1. Browser fixtures and ordinary checks
 
