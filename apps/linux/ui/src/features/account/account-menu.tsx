@@ -1,11 +1,10 @@
 import type { User } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Server, HardDrive } from "lucide-react";
-import { LogOut, ShieldCheck, UserRound, ChevronLeft } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +13,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -79,8 +77,7 @@ export function AccountMenu({
             <AccountAvatar
               name={user.name}
               avatarKey={user.avatarKey}
-              className="size-10 shrink-0 rounded-xl after:rounded-xl [&_[data-slot=avatar-image]]:rounded-xl [&_[data-slot=avatar-fallback]]:rounded-xl"
-              rounded
+              className="size-10 shrink-0"
             />
           </TooltipTrigger>
           <TooltipContent side="left">{user.name} — الملف والحساب</TooltipContent>
@@ -89,7 +86,7 @@ export function AccountMenu({
           side="left"
           align="end"
           sideOffset={8}
-          className="w-64 max-w-[calc(100vw-2rem)] p-2"
+          className="w-64 max-w-[calc(100vw-2rem)] p-1.5"
           aria-label="الحساب"
           onKeyDown={(event) => {
             if (
@@ -103,39 +100,25 @@ export function AccountMenu({
           }}
         >
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="px-3 py-3">
-              <div className="flex items-center gap-3">
-                <AccountAvatar
-                  name={user.name}
-                  avatarKey={user.avatarKey}
-                  className="size-14 shrink-0"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {user.name}
-                  </span>
-                  {/*<span className="truncate text-xs text-muted-foreground" dir="ltr">
-                  {user.email}
-                </span>*/}
-                  <Badge variant="secondary" className="mt-1 w-fit">
-                    {user.isAdmin ? "مدير المكتبة" : "عضو المكتبة"}
-                  </Badge>
-                </div>
+            <DropdownMenuItem
+              onClick={() => navigate(`/profiles/${user.accountId}`)}
+              className="gap-3 py-3"
+              aria-label="الملف الشخصي"
+            >
+              <AccountAvatar
+                name={user.name}
+                avatarKey={user.avatarKey}
+                className="size-11 shrink-0"
+              />
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="truncate font-medium">{user.name}</span>
+                <span className="text-xs text-muted-foreground">الملف الشخصي</span>
               </div>
-            </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem className="min-h-11 gap-3 px-3" onClick={() => navigate("/profile")}>
-              <UserRound data-icon="inline-start" />
-              الملف الشخصي
-              <ChevronLeft className="ms-auto" data-icon="inline-end" />
             </DropdownMenuItem>
             {user.isAdmin && (
               <DropdownMenuItem className="min-h-11 gap-3 px-3" onClick={() => navigate("/admin")}>
                 <ShieldCheck data-icon="inline-start" />
                 لوحة الإدارة
-                <ChevronLeft className="ms-auto" data-icon="inline-end" />
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -150,8 +133,11 @@ export function AccountMenu({
               onClick={() => local.mutate()}
             >
               <HardDrive data-icon="inline-start" />
-              فتح مكتبة الجهاز دون الخادم
+              المكتبة دون اتصال
             </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
             <DropdownMenuItem
               variant="destructive"
               className="min-h-11 gap-3 px-3"

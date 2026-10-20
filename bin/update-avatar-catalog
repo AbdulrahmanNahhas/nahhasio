@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Refresh the embedded server allowlist and OpenAPI avatar choices from shared PNGs."""
+from pathlib import Path
+import json
+import re
+import subprocess
+
+root = Path(__file__).resolve().parents[1]
+assets = root / "assets/avatars"
+keys = sorted(str(path.relative_to(assets)) for path in assets.rglob("*.png"))
+for key in keys:
+    path = assets / key
+    if not re.fullmatch(r"(?:[a-z0-9]+(?:-[a-z0-9]+)*/)*[a-z0-9]+(?:-[a-z0-9]+)*\.png", key):
+        raise ValueError(f"Invalid avatar filename: {key}")
+    if path.stat().st_size > 512 * 1024 or not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError(f"Expected a PNG under 512 KiB: {key}")
+output = root / "apps/server/src/auth/avatar_catalog.rs"
+output.write_text(
+    "// Curated shared avatars. Regenerate with bin/update-avatar-catalog.\n"
+    "pub(super) const AVATARS: &[(&str, &[u8])] = &[\n"
+    + "".join(f'    ("{key}", include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/avatars/{key}"))),\n' for key in keys)
+    + "];\n"
+)
+subprocess.run(["rustfmt", "--edition", "2024", str(output)], check=True)
+contract = root / "packages/api-contract/openapi.json"
+document = json.loads(contract.read_text())
+document["components"]["schemas"]["ProfileUpdate"]["properties"]["avatarKey"]["enum"] = [
+    "nahhasio-library.svg", "nahhasio-orbit.svg", *keys
+]
+contract.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n")
+print(f"Updated {len(keys)} shared avatar options. Run pnpm client:generate and rebuild server/client.")

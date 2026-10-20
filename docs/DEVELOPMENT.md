@@ -601,6 +601,27 @@ reset or moved. If an older installation deliberately used a custom video root t
 variable, set `NAHHASIO_VIDEO_ROOT` to that same directory. The transfer engine still refuses an
 unreviewed root change. A fresh client process is required after this Rust change.
 
+## Member profiles and account avatars
+
+The desktop account menu links to `/profile` and its separate settings drawer. `/profiles/<account-id>`
+is the shared member profile with a single edit action shown only to its owner; comment/review authors link there. The authenticated Rust endpoint
+`GET /api/v1/profiles/{id}` returns only account ID, display name, bio, curated avatar key and join
+date. It requires an active session and respects `accounts.is_discoverable`; owners can still read
+their own hidden profile. It never returns email, roles, sessions, device state or viewing history.
+Profile writes retain existing session revalidation and optimistic revision checks.
+
+Curated account images live in `assets/avatars`, shared by the bundled UI and embedded server.
+See `assets/avatars/README.md` for adding/rebuilding choices. These are application assets rather
+than catalog artwork or a path beneath the current user's Pictures folder. The 111 supplied PNGs
+are the only selectable images; the two legacy SVG keys display a current PNG for compatibility. No migration or live catalog write is needed.
+
+Verify synthetic profile/auth/avatar behavior with `devenv shell -- bash bin/test-account-profile`.
+This owns a fresh socket-only PostgreSQL database, applies the existing migration history there,
+and deletes it afterward. UI fixture coverage is `tests/account-profile.spec.ts` in the Linux UI.
+New bridge/server capabilities require restarting the server and fully relaunching the freshly
+built GTK client; existing AppImages require a separate rebuild. Browser fixtures do not establish
+native GTK acceptance or deployment.
+
 ## Repository launchers
 
 `bin/` contains small entry scripts, not compiled executables. Compiled development executables
@@ -617,3 +638,38 @@ live in `target/debug`, release builds in `target/release`, and AppImages in `di
 The old `bin/arcadia` alias is retired. Use `bin/nahhasio` directly. Test/generation helpers are
 development tools and do not run as installed services. Keep wrappers that supply actual packaging
 or process setup; ordinary catalog operations belong in the Rust CLI rather than more scripts.
+
+### Expanded member profile activity
+
+The shared profile now has viewing, discussion/lists, personal-library, social activity,
+account information and statistics sections. `GET /api/v1/profiles/{id}/overview` returns
+counts and owner-only completed-work/movie/episode totals. Recorded playback seconds are
+current stored positions, not cumulative watch time or replay duration. `entries` takes a
+validated `section` and `page`, returns 20 rows with a stable date/ID ordering and a total,
+and never exposes arbitrary table access.
+
+Published comments/reviews and family-visible collection summaries are available to other
+signed-in members of discoverable profiles. Viewing, favorites, ratings, follows, saved flags,
+notes, page visits, saved views, download records, recommendations, events/votes, reactions,
+notifications, preferences, session-linked device summaries and content-policy summaries are
+owner-only, including when the caller is an administrator. The server enforces this boundary;
+UI visibility is additional presentation. Content activity retains the existing fail-closed
+restricted-viewer guard. Private/unpublished works are excluded for every profile reader, including administrators.
+The watching section uses the same whole-work released-unit tracking rollup as Browse; a
+partially completed series remains in progress even without a partially played episode. Public collection counts include public published works only.
+
+The profile is read-only apart from the existing self-service editor. It excludes passwords,
+session tokens, filesystem/download paths, invite secrets and raw settings/layout documents.
+Saved flags/download records are server database records, not evidence that this device has
+an offline file. Device records describe linked sessions rather than device ownership. Policy
+and account administration remain in the next separately reviewed admin users checkpoint.
+
+## Current catalog baseline
+
+The active migration chain starts at `0000_current_catalog`, adopted on 2026-10-20 after a
+consistent dump, configured artwork backup and restored preservation rehearsal. See
+[BASELINE](BASELINE.md) for receipts, recovery sources and normal additive update commands.
+The old 31-file chain and original ledger remain in Git/private archives. Neither application
+startup nor release replacement performs baseline adoption. Both migration runners reject altered
+history and populated databases without a matching ledger. The one-time baseline helper remains
+under `packages/database/scripts`; it is not a shipped service or another public CLI.

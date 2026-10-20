@@ -725,7 +725,121 @@ export type RecommendationPage = z.infer<typeof RecommendationPageSchema>;
 export const ProfileUpdateSchema = z.strictObject({
   name: z.string().min(1).max(80),
   bio: z.string().max(500),
-  avatarKey: z.enum(["nahhasio-library.svg", "nahhasio-orbit.svg"]),
+  avatarKey: z.enum([
+    "nahhasio-library.svg",
+    "nahhasio-orbit.svg",
+    "anon-1.png",
+    "anon-10.png",
+    "anon-2.png",
+    "anon-3.png",
+    "anon-4.png",
+    "anon-5.png",
+    "anon-6.png",
+    "anon-7.png",
+    "anon-8.png",
+    "anon-9.png",
+    "avatar-1.png",
+    "bighero6-1.png",
+    "bighero6-2.png",
+    "brave-1.png",
+    "cars-1.png",
+    "cars-2.png",
+    "coco-1.png",
+    "donaldduck-1.png",
+    "donaldduck-2.png",
+    "frozen-1.png",
+    "frozen-2.png",
+    "frozen-3.png",
+    "iceage-1.png",
+    "iceage-2.png",
+    "iceage-3.png",
+    "iceage-4.png",
+    "iceage-5.png",
+    "insideout-1.png",
+    "insideout-2.png",
+    "insideout-3.png",
+    "insideout-4.png",
+    "invinsible-1.png",
+    "invinsible-2.png",
+    "invinsible-3.png",
+    "invinsible-4.png",
+    "invinsible-5.png",
+    "invinsible-6.png",
+    "invinsible-7.png",
+    "iron-man.png",
+    "mickey-1.png",
+    "mickey-2.png",
+    "mickey-3.png",
+    "minimal-animal-1.png",
+    "minimal-animal-10.png",
+    "minimal-animal-11.png",
+    "minimal-animal-12.png",
+    "minimal-animal-2.png",
+    "minimal-animal-3.png",
+    "minimal-animal-4.png",
+    "minimal-animal-5.png",
+    "minimal-animal-6.png",
+    "minimal-animal-7.png",
+    "minimal-animal-8.png",
+    "minimal-animal-9.png",
+    "monsters-1.png",
+    "monsters-2.png",
+    "ralph-1.png",
+    "ratatouille-1.png",
+    "sonic-1.png",
+    "sonic-2.png",
+    "sonic-3.png",
+    "spider-man.png",
+    "square-aspect/3below-1.png",
+    "square-aspect/3below-2.png",
+    "square-aspect/3below-3.png",
+    "square-aspect/bossbaby-1.png",
+    "square-aspect/bossbaby-2.png",
+    "square-aspect/bossbaby-3.png",
+    "square-aspect/bossbaby-4.png",
+    "square-aspect/bot-1.png",
+    "square-aspect/bot-2.png",
+    "square-aspect/bot-3.png",
+    "square-aspect/bot-4.png",
+    "square-aspect/bot-5.png",
+    "square-aspect/minimal-1.png",
+    "square-aspect/minimal-10.png",
+    "square-aspect/minimal-11.png",
+    "square-aspect/minimal-12.png",
+    "square-aspect/minimal-2.png",
+    "square-aspect/minimal-3.png",
+    "square-aspect/minimal-4.png",
+    "square-aspect/minimal-5.png",
+    "square-aspect/minimal-6.png",
+    "square-aspect/minimal-7.png",
+    "square-aspect/minimal-8.png",
+    "square-aspect/minimal-9.png",
+    "square-aspect/skylanders-1.png",
+    "square-aspect/skylanders-2.png",
+    "square-aspect/skylanders-3.png",
+    "square-aspect/skylanders-4.png",
+    "square-aspect/trollhunter-1.png",
+    "square-aspect/trollhunter-2.png",
+    "square-aspect/trollhunter-3.png",
+    "square-aspect/trollhunter-4.png",
+    "square-aspect/trollhunter-5.png",
+    "starwars-1.png",
+    "starwars-2.png",
+    "starwars-3.png",
+    "starwars-4.png",
+    "starwars-5.png",
+    "starwars-6.png",
+    "toystory-1.png",
+    "toystory-2.png",
+    "toystory-3.png",
+    "toystory-4.png",
+    "up-1.png",
+    "up-2.png",
+    "wall-e.png",
+    "wolverine.png",
+    "zootopia-1.png",
+    "zootopia-2.png",
+  ]),
   updatedAt: z.string(),
 });
 export type ProfileUpdate = z.infer<typeof ProfileUpdateSchema>;
@@ -2757,6 +2871,81 @@ export const CommentChangedSchema = z.strictObject({
 });
 export type CommentChanged = z.infer<typeof CommentChangedSchema>;
 
+export const PublicProfileSchema = z.strictObject({
+  id: z.string().uuid(),
+  name: z.string(),
+  bio: z.string(),
+  avatarKey: z.string(),
+  joinedAt: z.string(),
+});
+export type PublicProfile = z.infer<typeof PublicProfileSchema>;
+
+export const ProfileSectionSchema = z.enum([
+  "watched",
+  "watching",
+  "favorites",
+  "ratings",
+  "follows",
+  "saved",
+  "comments",
+  "reviews",
+  "collections",
+  "notes",
+  "history",
+  "saved-views",
+  "downloads",
+  "recommendations",
+  "events",
+  "reactions",
+  "notifications",
+  "preferences",
+  "devices",
+  "policies",
+]);
+export type ProfileSection = z.infer<typeof ProfileSectionSchema>;
+
+export const ProfileOverviewSchema = z.strictObject({
+  owner: z.boolean(),
+  stats: z.array(
+    z.strictObject({
+      key: ProfileSectionSchema,
+      label: z.string(),
+      value: z.number().int(),
+    }),
+  ),
+  viewing: z
+    .strictObject({
+      works: z.number().int(),
+      episodes: z.number().int(),
+      movies: z.number().int(),
+      recordedSeconds: z.number().int(),
+    })
+    .nullable(),
+});
+export type ProfileOverview = z.infer<typeof ProfileOverviewSchema>;
+
+export const ProfileEntrySchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  body: z.string().nullable(),
+  workId: z.string().nullable(),
+  artworkId: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  detail: z.string().nullable(),
+  value: z.number().int().nullable(),
+  spoiler: z.boolean(),
+  status: z.string().nullable(),
+});
+export type ProfileEntry = z.infer<typeof ProfileEntrySchema>;
+
+export const ProfileEntriesSchema = z.strictObject({
+  items: z.array(ProfileEntrySchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type ProfileEntries = z.infer<typeof ProfileEntriesSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3162,5 +3351,39 @@ export class ApiClient {
       signal,
     );
     return CommentChangedSchema.parse(await response.json());
+  }
+  async getPublicProfile(id: string, signal?: AbortSignal): Promise<PublicProfile> {
+    const response = await this.request(
+      `/api/v1/profiles/${encodeURIComponent(id)}`,
+      "GET",
+      undefined,
+      signal,
+    );
+    return PublicProfileSchema.parse(await response.json());
+  }
+  async getProfileOverview(id: string, signal?: AbortSignal): Promise<ProfileOverview> {
+    const response = await this.request(
+      `/api/v1/profiles/${encodeURIComponent(id)}/overview`,
+      "GET",
+      undefined,
+      signal,
+    );
+    return ProfileOverviewSchema.parse(await response.json());
+  }
+  async getProfileEntries(
+    id: string,
+    query: { section?: ProfileSection; page?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<ProfileEntries> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      `/api/v1/profiles/${encodeURIComponent(id)}/entries` + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return ProfileEntriesSchema.parse(await response.json());
   }
 }

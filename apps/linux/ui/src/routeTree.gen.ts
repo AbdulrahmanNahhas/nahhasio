@@ -33,6 +33,7 @@ import { Route as AdminStudiosRouteImport } from "./routes/admin.studios";
 import { Route as AdminWorksRouteImport } from "./routes/admin.works";
 import { Route as PeopleIdRouteImport } from "./routes/people_.$id";
 import { Route as PlanetsIdRouteImport } from "./routes/planets_.$id";
+import { Route as ProfilesIdRouteImport } from "./routes/profiles.$id";
 import { Route as StudiosIdRouteImport } from "./routes/studios_.$id";
 import { Route as TitlesWorkIdRouteImport } from "./routes/titles.$workId";
 import { Route as AdminPeopleEntityIdRouteImport } from "./routes/admin.people_.$entityId";
@@ -163,6 +164,11 @@ const PlanetsIdRoute = PlanetsIdRouteImport.update({
   path: "/planets/$id",
   getParentRoute: () => rootRouteImport,
 } as any);
+const ProfilesIdRoute = ProfilesIdRouteImport.update({
+  id: "/profiles/$id",
+  path: "/profiles/$id",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const StudiosIdRoute = StudiosIdRouteImport.update({
   id: "/studios_/$id",
   path: "/studios/$id",
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
+  "/profiles/$id": typeof ProfilesIdRoute;
   "/studios/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin/": typeof AdminIndexRoute;
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   "/admin/works": typeof AdminWorksRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
+  "/profiles/$id": typeof ProfilesIdRoute;
   "/studios/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin": typeof AdminIndexRoute;
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   "/admin/works": typeof AdminWorksRoute;
   "/people_/$id": typeof PeopleIdRoute;
   "/planets_/$id": typeof PlanetsIdRoute;
+  "/profiles/$id": typeof ProfilesIdRoute;
   "/studios_/$id": typeof StudiosIdRoute;
   "/titles/$workId": typeof TitlesWorkIdRoute;
   "/admin/": typeof AdminIndexRoute;
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | "/admin/works"
     | "/people/$id"
     | "/planets/$id"
+    | "/profiles/$id"
     | "/studios/$id"
     | "/titles/$workId"
     | "/admin/"
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | "/admin/works"
     | "/people/$id"
     | "/planets/$id"
+    | "/profiles/$id"
     | "/studios/$id"
     | "/titles/$workId"
     | "/admin"
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | "/admin/works"
     | "/people_/$id"
     | "/planets_/$id"
+    | "/profiles/$id"
     | "/studios_/$id"
     | "/titles/$workId"
     | "/admin/"
@@ -438,6 +450,7 @@ export interface RootRouteChildren {
   WatchRoute: typeof WatchRoute;
   PeopleIdRoute: typeof PeopleIdRoute;
   PlanetsIdRoute: typeof PlanetsIdRoute;
+  ProfilesIdRoute: typeof ProfilesIdRoute;
   StudiosIdRoute: typeof StudiosIdRoute;
   TitlesWorkIdRoute: typeof TitlesWorkIdRoute;
 }
@@ -612,6 +625,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof PlanetsIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/profiles/$id": {
+      id: "/profiles/$id";
+      path: "/profiles/$id";
+      fullPath: "/profiles/$id";
+      preLoaderRoute: typeof ProfilesIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/studios_/$id": {
       id: "/studios_/$id";
       path: "/studios/$id";
@@ -733,6 +753,7 @@ const rootRouteChildren: RootRouteChildren = {
   WatchRoute: WatchRoute,
   PeopleIdRoute: PeopleIdRoute,
   PlanetsIdRoute: PlanetsIdRoute,
+  ProfilesIdRoute: ProfilesIdRoute,
   StudiosIdRoute: StudiosIdRoute,
   TitlesWorkIdRoute: TitlesWorkIdRoute,
 };

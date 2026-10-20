@@ -5,7 +5,7 @@ mod home;
 mod queries;
 mod recommendations;
 mod releases;
-mod tracking;
+pub(crate) mod tracking;
 mod viewer_state;
 
 use axum::{

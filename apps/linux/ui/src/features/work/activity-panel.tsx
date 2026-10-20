@@ -3,9 +3,10 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { MessageCircle, Star } from "lucide-react";
 import { useState } from "react";
 
+import { AccountAvatar } from "@/features/account/account-avatar";
+
 import { useCardNavigation } from "../../components/card-navigation";
 import { Failure } from "../../components/status";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -54,10 +55,10 @@ function ActivityCard({ item }: { item: WorkActivityItem }) {
       <CardHeader>
         <CardTitle>
           <div className="flex flex-wrap items-center gap-3">
-            <Avatar>
-              <AvatarFallback>{item.author.displayName.slice(0, 1)}</AvatarFallback>
-            </Avatar>
-            <span>{item.author.displayName}</span>
+            <a href={`#/profiles/${item.author.id}`} aria-label={`ملف ${item.author.displayName}`}>
+              <AccountAvatar name={item.author.displayName} avatarKey={item.author.avatarKey} />
+            </a>
+            <a href={`#/profiles/${item.author.id}`}>{item.author.displayName}</a>
             <Badge variant="outline">{item.kind === "review" ? "مراجعة" : "تعليق"}</Badge>
             {item.parentId && <Badge variant="secondary">ردّ</Badge>}
           </div>

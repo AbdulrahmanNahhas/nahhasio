@@ -14,6 +14,10 @@ import {
   AdminWorkSelectionSchema,
   UserSchema,
   ProfileUpdateSchema,
+  PublicProfileSchema,
+  ProfileOverviewSchema,
+  ProfileEntriesSchema,
+  ProfileSectionSchema,
   PasswordUpdateSchema,
   AccountMessageSchema,
   CatalogFiltersSchema,
@@ -171,6 +175,31 @@ export const gateway = {
     z
       .object({ dataUrl: z.string().startsWith("data:image/svg+xml;base64,") })
       .parse(await call("avatar", { key }, signal)).dataUrl,
+  profileOverview: async (id: string, signal?: AbortSignal) =>
+    ProfileOverviewSchema.parse(
+      await call("profileOverview", { id: z.string().uuid().parse(id) }, signal),
+    ),
+  profileEntries: async (
+    id: string,
+    section: z.infer<typeof ProfileSectionSchema>,
+    page: number,
+    signal?: AbortSignal,
+  ) =>
+    ProfileEntriesSchema.parse(
+      await call(
+        "profileEntries",
+        {
+          id: z.string().uuid().parse(id),
+          section: ProfileSectionSchema.parse(section),
+          page: z.number().int().min(1).max(100000).parse(page),
+        },
+        signal,
+      ),
+    ),
+  publicProfile: async (id: string, signal?: AbortSignal) =>
+    PublicProfileSchema.parse(
+      await call("publicProfile", { id: z.string().uuid().parse(id) }, signal),
+    ),
   profile: async (signal?: AbortSignal) => UserSchema.parse(await call("profile", {}, signal)),
   editorCall: async (input: z.input<typeof CatalogEditorCallSchema>, signal?: AbortSignal) =>
     CatalogEditorReplySchema.parse(

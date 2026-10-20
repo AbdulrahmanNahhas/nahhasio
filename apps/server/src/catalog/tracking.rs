@@ -1,6 +1,6 @@
 //! Canonical watched units and released-unit rollups, shared by browse and viewer state.
 //! Arguments below are fixed server-owned SQL expressions, never request input.
-pub(super) fn units(work: &str, installment: &str) -> String {
+pub(crate) fn units(work: &str, installment: &str) -> String {
     format!(
         r#"select x.id installment_id,e.id episode_id,x.position installment_position,e.position episode_position,
 (e.release_date<=current_date or (e.release_date is null and x.status='completed')) is_released
@@ -14,9 +14,9 @@ and ({installment} is null or x.id={installment})"#
     )
 }
 
-pub(super) const COUNTS: &str = "count(*) catalog_total,count(*) filter(where is_released) total,count(*) filter(where is_released and is_played) played,coalesce(bool_or(position_seconds>0 or is_played),false) started";
-pub(super) const WATCH_STATE: &str = "case when tracking.total>0 and tracking.played=tracking.total then 'watched' when tracking.started then 'in-progress' else 'unwatched' end";
-pub(super) fn summary() -> String {
+pub(crate) const COUNTS: &str = "count(*) catalog_total,count(*) filter(where is_released) total,count(*) filter(where is_released and is_played) played,coalesce(bool_or(position_seconds>0 or is_played),false) started";
+pub(crate) const WATCH_STATE: &str = "case when tracking.total>0 and tracking.played=tracking.total then 'watched' when tracking.started then 'in-progress' else 'unwatched' end";
+pub(crate) fn summary() -> String {
     format!(
         "jsonb_build_object('catalogUnits',tracking.catalog_total,'releasedUnits',tracking.total,'watchedReleasedUnits',tracking.played,'isFullyWatched',tracking.total>0 and tracking.played=tracking.total,'watchState',{WATCH_STATE})"
     )

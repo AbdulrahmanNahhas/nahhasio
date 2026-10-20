@@ -729,6 +729,56 @@ impl ServerSession {
                     .map_err(network)?;
                 self.json_limit(response, 16 * 1024 * 1024).await
             }
+            "profileOverview" | "profileEntries" => {
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Input {
+                    id: String,
+                    section: Option<String>,
+                    page: Option<i64>,
+                }
+                let input: Input = parse(request.payload)?;
+                if !valid_id(&input.id)
+                    || input.section.as_ref().is_some_and(|v| {
+                        v.len() > 40 || !v.bytes().all(|b| b.is_ascii_lowercase() || b == b'-')
+                    })
+                    || input.page.is_some_and(|p| !(1..=100_000).contains(&p))
+                {
+                    return Err(Error::new("bad_request", "Invalid profile request"));
+                }
+                let suffix = if request.command == "profileOverview" {
+                    "overview"
+                } else {
+                    "entries"
+                };
+                let mut request = self
+                    .authorized(
+                        Method::GET,
+                        &format!("api/v1/profiles/{}/{suffix}", input.id),
+                    )
+                    .await?;
+                if let Some(section) = input.section {
+                    request = request.query(&[("section", section)]);
+                }
+                if let Some(page) = input.page {
+                    request = request.query(&[("page", page)]);
+                }
+                let response = request.send().await.map_err(network)?;
+                self.json(response).await
+            }
+            "publicProfile" => {
+                let input: Resource = parse(request.payload)?;
+                if !valid_id(&input.id) {
+                    return Err(Error::new("bad_request", "Invalid profile identifier"));
+                }
+                let response = self
+                    .authorized(Method::GET, &format!("api/v1/profiles/{}", input.id))
+                    .await?
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
             "profile" | "adminAccess" => {
                 let path = if request.command == "profile" {
                     "api/v1/me"

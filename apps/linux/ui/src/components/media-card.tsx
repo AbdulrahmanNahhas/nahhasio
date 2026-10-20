@@ -75,6 +75,7 @@ export function MediaCard({
   const year = unit ? unit.releaseDate?.slice(0, 4) : parent?.releaseYear;
 
   const watched = entry?.watchState === "watched";
+  const watching = entry?.watchState === "in-progress";
   const status = entry?.status ?? (installment ? "announced" : null);
   const kind = unit
     ? unit.kind === "season"
@@ -158,8 +159,9 @@ export function MediaCard({
           {!minimal && showScore && score?.rating != null && (
             <span
               className={cn(
-                "absolute start-0 top-0 flex items-center min-w-12 justify-items-center gap-0.5 rounded-ss-2xl rounded-ee-xl bg-primary px-2.5 py-2 text-primary-foreground shadow-sm",
+                "absolute inset-s-0 top-0 flex items-center min-w-12 justify-items-center gap-0.5 rounded-ss-2xl rounded-ee-xl bg-muted px-2.5 py-2 text-primary-foreground shadow-sm",
                 !minimal && watched && "bg-green-700!",
+                !minimal && watching && "bg-blue-500!",
               )}
               title={`التقييم المحسوب · ${score.scored} من ${score.total} أجزاء مقيّمة`}
             >
@@ -170,15 +172,15 @@ export function MediaCard({
             </span>
           )}
           {!minimal && parent?.isPrivate && (
-            <span className="absolute end-2.5 bottom-1">
+            <span className="absolute inset-e-2.5 top-1">
               <Badge variant="secondary">خاص</Badge>
             </span>
           )}
           {!minimal &&
             showStatus &&
             (status === "announced" || status === "airing") && ( // || status !== "completed"??
-              <span className="absolute left-1/2 -translate-x-1/2 -bottom-1">
-                <Badge variant="secondary" className=" rounded-b-none! mb-1 rounded-t-lg">
+              <span className="absolute left-1/2 -translate-x-1/2 -bottom-3">
+                <Badge variant="outline" className="mb-1 rounded-full px-2 bg-accent">
                   {/*{status === "completed" ? (
                     <CheckIcon data-icon="inline-start" />
                   ) : (*/}

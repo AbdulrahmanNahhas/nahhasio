@@ -2250,6 +2250,105 @@
           }
         }
       }
+    },
+    "/api/v1/profiles/{id}": {
+      "get": {
+        "operationId": "getPublicProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discoverable profile visible to signed-in library members. Private account fields are excluded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/overview": {
+      "get": {
+        "operationId": "getProfileOverview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized bounded member profile data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/entries": {
+      "get": {
+        "operationId": "getProfileEntries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileSection"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized bounded member profile data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileEntries"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4770,7 +4869,121 @@
           },
           "avatarKey": {
             "type": "string",
-            "enum": ["nahhasio-library.svg", "nahhasio-orbit.svg"]
+            "enum": [
+              "nahhasio-library.svg",
+              "nahhasio-orbit.svg",
+              "anon-1.png",
+              "anon-10.png",
+              "anon-2.png",
+              "anon-3.png",
+              "anon-4.png",
+              "anon-5.png",
+              "anon-6.png",
+              "anon-7.png",
+              "anon-8.png",
+              "anon-9.png",
+              "avatar-1.png",
+              "bighero6-1.png",
+              "bighero6-2.png",
+              "brave-1.png",
+              "cars-1.png",
+              "cars-2.png",
+              "coco-1.png",
+              "donaldduck-1.png",
+              "donaldduck-2.png",
+              "frozen-1.png",
+              "frozen-2.png",
+              "frozen-3.png",
+              "iceage-1.png",
+              "iceage-2.png",
+              "iceage-3.png",
+              "iceage-4.png",
+              "iceage-5.png",
+              "insideout-1.png",
+              "insideout-2.png",
+              "insideout-3.png",
+              "insideout-4.png",
+              "invinsible-1.png",
+              "invinsible-2.png",
+              "invinsible-3.png",
+              "invinsible-4.png",
+              "invinsible-5.png",
+              "invinsible-6.png",
+              "invinsible-7.png",
+              "iron-man.png",
+              "mickey-1.png",
+              "mickey-2.png",
+              "mickey-3.png",
+              "minimal-animal-1.png",
+              "minimal-animal-10.png",
+              "minimal-animal-11.png",
+              "minimal-animal-12.png",
+              "minimal-animal-2.png",
+              "minimal-animal-3.png",
+              "minimal-animal-4.png",
+              "minimal-animal-5.png",
+              "minimal-animal-6.png",
+              "minimal-animal-7.png",
+              "minimal-animal-8.png",
+              "minimal-animal-9.png",
+              "monsters-1.png",
+              "monsters-2.png",
+              "ralph-1.png",
+              "ratatouille-1.png",
+              "sonic-1.png",
+              "sonic-2.png",
+              "sonic-3.png",
+              "spider-man.png",
+              "square-aspect/3below-1.png",
+              "square-aspect/3below-2.png",
+              "square-aspect/3below-3.png",
+              "square-aspect/bossbaby-1.png",
+              "square-aspect/bossbaby-2.png",
+              "square-aspect/bossbaby-3.png",
+              "square-aspect/bossbaby-4.png",
+              "square-aspect/bot-1.png",
+              "square-aspect/bot-2.png",
+              "square-aspect/bot-3.png",
+              "square-aspect/bot-4.png",
+              "square-aspect/bot-5.png",
+              "square-aspect/minimal-1.png",
+              "square-aspect/minimal-10.png",
+              "square-aspect/minimal-11.png",
+              "square-aspect/minimal-12.png",
+              "square-aspect/minimal-2.png",
+              "square-aspect/minimal-3.png",
+              "square-aspect/minimal-4.png",
+              "square-aspect/minimal-5.png",
+              "square-aspect/minimal-6.png",
+              "square-aspect/minimal-7.png",
+              "square-aspect/minimal-8.png",
+              "square-aspect/minimal-9.png",
+              "square-aspect/skylanders-1.png",
+              "square-aspect/skylanders-2.png",
+              "square-aspect/skylanders-3.png",
+              "square-aspect/skylanders-4.png",
+              "square-aspect/trollhunter-1.png",
+              "square-aspect/trollhunter-2.png",
+              "square-aspect/trollhunter-3.png",
+              "square-aspect/trollhunter-4.png",
+              "square-aspect/trollhunter-5.png",
+              "starwars-1.png",
+              "starwars-2.png",
+              "starwars-3.png",
+              "starwars-4.png",
+              "starwars-5.png",
+              "starwars-6.png",
+              "toystory-1.png",
+              "toystory-2.png",
+              "toystory-3.png",
+              "toystory-4.png",
+              "up-1.png",
+              "up-2.png",
+              "wall-e.png",
+              "wolverine.png",
+              "zootopia-1.png",
+              "zootopia-2.png"
+            ]
           },
           "updatedAt": {
             "type": "string"
@@ -12196,6 +12409,180 @@
           },
           "deleted": {
             "type": "boolean"
+          }
+        }
+      },
+      "PublicProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "bio", "avatarKey", "joinedAt"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "avatarKey": {
+            "type": "string"
+          },
+          "joinedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfileSection": {
+        "type": "string",
+        "enum": [
+          "watched",
+          "watching",
+          "favorites",
+          "ratings",
+          "follows",
+          "saved",
+          "comments",
+          "reviews",
+          "collections",
+          "notes",
+          "history",
+          "saved-views",
+          "downloads",
+          "recommendations",
+          "events",
+          "reactions",
+          "notifications",
+          "preferences",
+          "devices",
+          "policies"
+        ]
+      },
+      "ProfileOverview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner", "stats", "viewing"],
+        "properties": {
+          "owner": {
+            "type": "boolean"
+          },
+          "stats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "label", "value"],
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/ProfileSection"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "viewing": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": false,
+            "required": ["works", "episodes", "movies", "recordedSeconds"],
+            "properties": {
+              "works": {
+                "type": "integer"
+              },
+              "episodes": {
+                "type": "integer"
+              },
+              "movies": {
+                "type": "integer"
+              },
+              "recordedSeconds": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "ProfileEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "body",
+          "workId",
+          "artworkId",
+          "createdAt",
+          "detail",
+          "value",
+          "spoiler",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "workId": {
+            "type": "string",
+            "nullable": true
+          },
+          "artworkId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "value": {
+            "type": "integer",
+            "nullable": true
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ProfileEntries": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "total", "page", "pageSize"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileEntry"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
           }
         }
       }

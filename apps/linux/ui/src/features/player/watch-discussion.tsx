@@ -14,12 +14,12 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { AccountAvatar } from "@/features/account/account-avatar";
 import { dateLabel } from "@/features/work/format";
 import { gateway } from "@/lib/bridge";
 
@@ -309,12 +309,14 @@ function DiscussionComment({
         reply ? "ms-6 flex min-w-0 gap-3 border-s border-border ps-4" : "flex min-w-0 gap-3"
       }
     >
-      <Avatar>
-        <AvatarFallback>{item.author.displayName.slice(0, 1)}</AvatarFallback>
-      </Avatar>
+      <a href={`#/profiles/${item.author.id}`} aria-label={`ملف ${item.author.displayName}`}>
+        <AccountAvatar name={item.author.displayName} avatarKey={item.author.avatarKey} />
+      </a>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <header className="flex flex-wrap items-center gap-2">
-          <strong className="text-sm">{item.author.displayName}</strong>
+          <a href={`#/profiles/${item.author.id}`} className="text-sm font-semibold">
+            {item.author.displayName}
+          </a>
           <time className="text-xs text-muted-foreground" dateTime={item.createdAt}>
             {dateLabel(item.createdAt)}
           </time>

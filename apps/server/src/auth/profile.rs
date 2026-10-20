@@ -23,6 +23,36 @@ pub(super) async fn get(
 ) -> Result<Json<User>, AuthError> {
     Ok(Json(lookup(&state.pool, &headers).await?.user))
 }
+/// Public means other authenticated library members, never anonymous Internet access.
+/// Respect existing discoverability; do not project email, permissions or viewing history.
+pub(super) async fn public(
+    State(state): State<AuthState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, AuthError> {
+    let viewer = lookup(&state.pool, &headers).await?.user;
+    if id.len() != 36
+        || !id.bytes().enumerate().all(|(i, c)| {
+            if [8, 13, 18, 23].contains(&i) {
+                c == b'-'
+            } else {
+                c.is_ascii_hexdigit()
+            }
+        })
+    {
+        return Err(AuthError(
+            StatusCode::BAD_REQUEST,
+            "Invalid profile identifier",
+        ));
+    }
+    let row = sqlx::query("SELECT id::text, display_name, bio, avatar_key, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS joined_at FROM accounts WHERE id=$1::uuid AND status='active' AND (is_discoverable OR id=$2::uuid)")
+        .bind(&id).bind(&viewer.account_id).fetch_optional(&state.pool).await.map_err(unavailable)?
+        .ok_or(AuthError(StatusCode::NOT_FOUND, "Profile not available"))?;
+    Ok(Json(
+        serde_json::json!({"id": row.get::<String,_>("id"), "name": row.get::<String,_>("display_name"), "bio": row.get::<String,_>("bio"), "avatarKey": row.get::<String,_>("avatar_key"), "joinedAt": row.get::<String,_>("joined_at")}),
+    ))
+}
+
 pub(super) async fn admin_access(
     State(state): State<AuthState>,
     headers: HeaderMap,
@@ -38,6 +68,9 @@ pub(super) async fn admin_access(
 }
 fn valid_avatar(key: &str) -> bool {
     matches!(key, "nahhasio-library.svg" | "nahhasio-orbit.svg")
+        || super::avatar_catalog::AVATARS
+            .iter()
+            .any(|(name, _)| *name == key)
 }
 
 pub(super) async fn avatar(
@@ -46,13 +79,20 @@ pub(super) async fn avatar(
     Path(key): Path<String>,
 ) -> Result<Response, AuthError> {
     lookup(&state.pool, &headers).await?;
-    let body = match key.as_str() {
-        "nahhasio-library.svg" => include_str!("avatars/library.svg"),
-        "nahhasio-orbit.svg" => include_str!("avatars/orbit.svg"),
-        _ => return Err(AuthError(StatusCode::NOT_FOUND, "Avatar not found")),
+    let (body, mime): (&[u8], &str) = match key.as_str() {
+        "nahhasio-library.svg" => (include_bytes!("avatars/library.svg"), "image/svg+xml"),
+        "nahhasio-orbit.svg" => (include_bytes!("avatars/orbit.svg"), "image/svg+xml"),
+        _ => (
+            super::avatar_catalog::AVATARS
+                .iter()
+                .find(|(name, _)| *name == key)
+                .map(|(_, bytes)| *bytes)
+                .ok_or(AuthError(StatusCode::NOT_FOUND, "Avatar not found"))?,
+            "image/png",
+        ),
     };
     Response::builder()
-        .header(header::CONTENT_TYPE, "image/svg+xml")
+        .header(header::CONTENT_TYPE, mime)
         .header("x-content-type-options", "nosniff")
         .header("content-security-policy", "default-src 'none'; sandbox")
         .header(header::CACHE_CONTROL, "private, max-age=3600")

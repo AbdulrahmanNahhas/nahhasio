@@ -1,7 +1,9 @@
 //! Database-backed viewer/admin authentication using the existing identity and session tables.
 //! Passwords match Better Auth 1.6.29 / @better-auth/utils 0.5.0 exactly.
+mod avatar_catalog;
 mod device;
 mod profile;
+mod profile_activity;
 
 use std::{
     sync::{Arc, Mutex},
@@ -40,8 +42,17 @@ pub fn routes(pool: PgPool) -> Router {
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/me/device", post(device::register))
         .route("/api/v1/me", get(profile::get).patch(profile::update))
+        .route("/api/v1/profiles/{id}", get(profile::public))
+        .route(
+            "/api/v1/profiles/{id}/overview",
+            get(profile_activity::overview),
+        )
+        .route(
+            "/api/v1/profiles/{id}/entries",
+            get(profile_activity::entries),
+        )
         .route("/api/v1/me/password", post(profile::password))
-        .route("/api/v1/auth/avatars/{key}", get(profile::avatar))
+        .route("/api/v1/auth/avatars/{*key}", get(profile::avatar))
         .route("/api/v1/admin/access", get(profile::admin_access))
         .layer(DefaultBodyLimit::max(4096))
         .layer(axum::middleware::from_fn(no_store))
