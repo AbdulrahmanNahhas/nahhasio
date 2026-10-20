@@ -1,1 +1,0 @@
-ALTER TABLE "entities" ADD COLUMN "urls" jsonb DEFAULT '[]'::jsonb NOT NULL;

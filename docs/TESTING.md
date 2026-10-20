@@ -182,3 +182,12 @@ Recovery imports require explicit `ARCADIA_V1_DB_PATH` and `ARCADIA_V1_ARTWORK_R
 artwork paths are resolved under that recovery root, never under a deleted website directory.
 `pnpm --filter @arcadia/database schema:graph /absolute/path/schema.json` exports the
 schema graph without a frontend dependency.
+
+### Current baseline acceptance — 2026-10-20
+
+The active migration history is now `0000_current_catalog`, not the retired 31-file chain.
+`bin/test-rust-catalog` continues to test empty bootstrap, rollback, shared locking and both
+Drizzle/Rust continuation directions, plus catalog/editor/media/report preservation. The current
+baseline snapshot also produced no changes through Drizzle generation. The real restored-data
+and artwork rehearsal, 23 constraint assertions and live adoption receipt are documented in
+[BASELINE](BASELINE.md). These results do not establish independent recovery or Fedora deployment.

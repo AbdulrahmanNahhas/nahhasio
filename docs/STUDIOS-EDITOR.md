@@ -16,7 +16,7 @@ JSON exports include `urls` and `relations`. Omission in an older JSON document 
 preserves existing values; an explicit empty array removes them. Existing descriptions are preserved,
 including URLs previously entered as description text. No automatic editorial backfill is performed.
 
-Migration `0030_regular_paper_doll.sql` only adds a default-empty, non-null JSONB column. Its local
+The retired migration `0030_regular_paper_doll.sql` (now included in the current baseline) only added a default-empty, non-null JSONB column. Its local
 application was backed up and rehearsed on a restored database with original-column fingerprints
 for all 75 tables. Private receipts and backups are under `data/backups/studio-links-20261019-locked`.
 The checkpoint tool now hashes every journalled SQL file when binding rehearsal to application.

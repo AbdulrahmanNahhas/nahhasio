@@ -90,6 +90,22 @@ assert len(json.loads((root / "full-schema.json").read_text())) >= 70
 print(f"Drizzle/Rust migration compatibility passed in both directions: {statuses[0]['applied']} migrations.")
 PY
 
+# Both runners must refuse altered history and an unjournalled populated database.
+psql -h "$fixture_root" -p 25483 -U nahhasio_fixture -d nahhasio_test_node_migrations -v ON_ERROR_STOP=1 -c "update drizzle.__drizzle_migrations set hash='fixture-invalid'" >/dev/null
+createdb -h "$fixture_root" -p 25483 -U nahhasio_fixture nahhasio_test_unjournalled
+psql -h "$fixture_root" -p 25483 -U nahhasio_fixture -d nahhasio_test_unjournalled -v ON_ERROR_STOP=1 -c "create table baseline_guard_fixture(id integer)" >/dev/null
+for fixture_database in nahhasio_test_node_migrations nahhasio_test_unjournalled; do
+  if node_migrate "$fixture_database" >"$fixture_root/rejected-history.log" 2>&1; then
+    echo 'Drizzle accepted unsafe migration history' >&2
+    exit 1
+  fi
+  if DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/$fixture_database?host=$fixture_root" target/debug/nahhasio migrate status --json >"$fixture_root/rejected-native.json" 2>&1; then
+    echo 'Rust accepted unsafe migration history' >&2
+    exit 1
+  fi
+done
+echo 'Both migration runners rejected altered history and unjournalled populated tables.'
+
 export NAHHASIO_MEDIA_ROOT="$fixture_root/media/uploads"
 export NAHHASIO_PUBLIC_MEDIA_ROOT="$fixture_root/media"
 export NAHHASIO_TEST_EDITOR_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_rust_migrations?host=$fixture_root"

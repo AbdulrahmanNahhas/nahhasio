@@ -244,3 +244,22 @@ Use focused compile/static checks at implementation checkpoints and a consolidat
 regression after the relevant implementation. No repeated full suites for tiny changes. Complete
 an approved checkpoint and return for review; commits require explicit confirmation. Client Rust
 learning exercises remain Aqua-owned unless Aqua explicitly requests their implementation.
+
+## Pre-deployment review checkpoint — 2026-10-20
+
+The read-only [schema/logic review](PREDEPLOYMENT-REVIEW.md) is complete. Keep the existing schema;
+the historical migration-checksum finding has since been closed by the baseline below.
+Tighten transaction-level session/device/visibility checks before hosting. Packaging needs restricted runtime
+roles, explicit persistent roots and application compatibility preflight. Job execution, Jellyfin,
+fine-grained policies and verified automatic installation have separate feature gates. The review
+made no live schema/data changes and does not authorize its proposed repairs automatically.
+
+## Current-database baseline — 2026-10-20
+
+Aqua approved a new baseline of the existing database. [BASELINE](BASELINE.md) records completed
+backup/restored rehearsal, full schema equality, 23 constraint assertions, 1,055 restored artwork
+hashes and live ledger-only adoption with all 75 public tables unchanged. The native ledger now
+has one applied baseline and no pending migrations. The old 31-file chain is retired to Git and
+private recovery archives. Future changes are additive; the earlier R1 history mismatch is closed.
+Overview/server Settings follow this checkpoint, with the remaining authorization/readiness and
+production configuration requirements tracked in the pre-deployment review.

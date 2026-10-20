@@ -33,12 +33,11 @@ async fn postgres_transaction_and_migration_acceptance() {
             .is_err()
     );
     assert!(
-        migrations::status(&mut connection, &migrations::bundled().unwrap())
+        !migrations::status(&mut connection, &migrations::bundled().unwrap())
             .await
             .unwrap()
             .pending
-            .len()
-            > 1
+            .is_empty()
     );
 
     // Exercise the actual bundled history against a completely empty database. This records

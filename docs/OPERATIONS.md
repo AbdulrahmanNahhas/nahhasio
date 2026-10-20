@@ -90,3 +90,12 @@ Application image rollback cannot undo a database migration. Never restore an ol
 backup over a newer catalog as a casual fix. A same-laptop dump is not an independent backup.
 Specific retained TVDB recovery evidence is in [migrations/remove-tvdb.md](migrations/remove-tvdb.md);
 its dated verification must not be assumed to describe today's live schema/data.
+
+## Current migration starting point
+
+The approved [current-database baseline](BASELINE.md) is adopted locally. Its private recovery
+checkpoint contains the original dump/ledger, configured artwork and exact old/new migration
+sources; all public table content was preserved. Installed updates use the new baseline plus
+future additive migrations. Do not restore the old dump over current data or run its retired
+creation migrations automatically. Copy the verified recovery material to independent storage
+before production cutover.

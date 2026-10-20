@@ -1,1 +1,0 @@
-ALTER TABLE "accounts" DROP COLUMN "pin_hash";

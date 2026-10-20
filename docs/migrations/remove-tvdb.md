@@ -1,5 +1,8 @@
 # Retire TVDB
 
+Historical record: the referenced migration chain is now retired into Git/private backups.
+The active starting point is documented in [BASELINE](../BASELINE.md); TVDB data remains preserved.
+
 Retained recovery evidence from 2026-10-08. Verify the current schema and backup contents before
 using these steps; the dated read-only/live and disposable-test results are not current activation claims.
 

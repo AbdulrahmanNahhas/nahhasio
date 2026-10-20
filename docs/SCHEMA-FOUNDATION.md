@@ -32,31 +32,16 @@ Aqua chose a backup on this machine for this local development checkpoint. It co
 recovery, not loss of the whole machine. An independent copy remains a deployment requirement.
 Private dumps, artwork archives, fingerprints and rehearsal/apply receipts must never be committed.
 
-### Explicit maintenance
+### Current baseline maintenance — 2026-10-20
 
-Run inside `devenv shell`; these tools are never called from application startup:
+The original Phase 1 backup/rehearsal is a historical preservation checkpoint. The old migration
+chain and `foundation-checkpoint.ts` commands are retired after Aqua approved the current-database
+baseline. See [BASELINE](BASELINE.md) for the verified backup, adoption and future update procedure.
+The current ledger has one baseline entry; future changes remain additive and explicit.
 
-```sh
-cd packages/database
-node --import tsx scripts/foundation-checkpoint.ts backup /absolute/project/data/backups/unique-checkpoint
-node --import tsx scripts/foundation-checkpoint.ts rehearse /absolute/project/data/backups/unique-checkpoint
-node --import tsx scripts/foundation-checkpoint.ts apply /absolute/project/data/backups/unique-checkpoint
-```
-
-The rehearsal restores the dump, validates the artwork archive, migrates the restored database,
-exercises constraints in a rolled-back transaction, and compares every original column's content.
-The apply step requires matching backup checksums, an exact migration/acceptance receipt and an
-unchanged live baseline. It does not automatically revert a migrated live database on failure.
-Stop and inspect failures. Never restore an older dump over newer catalog edits without review.
-
-Normal migration commands no longer rehash/merge artwork. The legacy recovery command is
-`pnpm --filter @arcadia/database db:prepare-legacy-media` and requires its own reviewed backup.
-The explicit migration runner uses a shared advisory maintenance lock.
-
-Database functions/triggers are owned by the same Drizzle SQL migration history as the tables.
-They cover language-array validation, role/entity compatibility, playback revisions and rating
-compatibility. Drizzle table snapshots alone do not describe those functions. Keep their SQL in
-the migration history; do not introduce a second SQLx migration ledger.
+Database functions/triggers remain part of that SQL history, including language-array validation,
+role/entity compatibility, playback revisions and rating compatibility. Drizzle snapshots alone
+do not describe those functions. No separate SQLx ledger is introduced.
 
 ## Phase 2 — API and whole-client integration
 

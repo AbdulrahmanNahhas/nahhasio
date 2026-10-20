@@ -90,6 +90,22 @@ alternate episode listings or extra availability-label UI.
 Use focused compile/static checks during implementation and consolidated acceptance later;
 no repeated full suites for small changes, and no mutation tests on the live family catalog.
 
+## Current database baseline — 2026-10-20
+
+Aqua explicitly approved replacing the old migration chain with a baseline of the current database.
+`packages/database/drizzle/0000_current_catalog.sql` plus its single snapshot/journal is now the only
+active starting point; future changes are additive. The old chain is retained in Git and the private
+`data/backups/current-baseline-2026-10-20` recovery checkpoint, not a second migration tree.
+A consistent full dump, configured artwork archive and exact old/new migration sources were saved.
+Restored rehearsal preserved all 75 public tables and schema, verified all 1,055 artwork hashes and
+23 rolled-back constraint assertions; both migration runners and editor fixtures passed. Live adoption
+changed only the Drizzle ledger, with locked before/after public-data equality checks. Native status
+reports one applied baseline and no pending migrations. Do not rerun the retired creation SQL on the
+populated catalog or rehash a ledger to bypass validation. Follow `docs/BASELINE.md`.
+The earlier 31-migration fixture results above are historical. Independent recovery, remaining
+transactional authorization/readiness fixes and Fedora/native acceptance are still separate gates.
+No commit, release publication or push is authorized merely by the baseline adoption.
+
 ## Rust learning ownership
 
 Aqua has nearly completed the Rust Book. For today's initial minimal runnable GTK client,

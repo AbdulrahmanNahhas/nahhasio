@@ -5,7 +5,12 @@ import postgres from "postgres";
 
 export async function verifyFoundation(sql: postgres.Sql) {
   const [database] = await sql<{ name: string }[]>`select current_database() name`;
-  if (!database?.name.startsWith("nahhasio_schema_rehearsal_"))
+  if (
+    !(
+      database?.name.startsWith("nahhasio_schema_rehearsal_") ||
+      /^nahhasio_baseline_[a-f0-9]{32}$/.test(database?.name ?? "")
+    )
+  )
     throw new Error("Foundation acceptance requires a disposable rehearsal database.");
   let assertions = 0;
   const check = (condition: boolean, description: string) => {

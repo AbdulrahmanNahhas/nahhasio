@@ -37,6 +37,17 @@ Rehearse and back up before a live apply. `devenv shell -- bash bin/test-rust-ca
 socket-only fixtures for database/editor/artwork, reports, imports, launcher and migration checks.
 It never uses family catalog data. Installed Fedora/native acceptance remains separate.
 
+## Current migration baseline
+
+The approved 2026-10-20 current-database baseline is `0000_current_catalog` in the single
+`packages/database/drizzle/` tree. Native status reports one applied entry with no pending changes.
+The original 31-file chain is retired to Git/private backup, not another active migration tree.
+Existing public data/UUIDs and all registered artwork were preserved through a restored rehearsal
+and ledger-only adoption. See `docs/BASELINE.md`; use additive migrations from now on.
+Never apply the creation baseline to a populated unadopted database, silently replace ledger hashes,
+or rerun initial adoption as a normal update. Keep the matching old/new source archives with recovery
+backups. Independent recovery remains required before deployment.
+
 ## The one thing to know first
 
 Anywhere the CLI wants an id, you may write a name, slug, or alias instead:

@@ -4,6 +4,17 @@ The database/catalog, images and tracking are Nahhasio's primary product. Playba
 selection, server retention, device downloads and saved metadata build on stable catalog IDs.
 Read [PROJECT](PROJECT.md) for intent and [ROADMAP](ROADMAP.md) for current/future tasks.
 
+## Current pre-deployment review — 2026-10-20
+
+See [PREDEPLOYMENT-REVIEW](PREDEPLOYMENT-REVIEW.md) for current read-only evidence, ownership,
+relationships/indexes, deletion rules, storage, jobs and required deployment gates.
+The current preserved snapshot has 75 tables, 252 works, 421 installments, 1,879 episodes,
+1,626 playback states and 1,055 artwork assets. All artwork hashes matched. The historical
+migration-checksum mismatch is resolved by the approved [current-database baseline](BASELINE.md):
+one applied entry, no pending migrations, and every public table unchanged. The old chain is
+retired, preserved in Git and the private database/artwork recovery checkpoint. Inventories below
+are dated historical records.
+
 ## Applied foundation — 2026-10-18
 
 The live development database now has **75 public tables** and **30 applied migrations**.
@@ -16,7 +27,8 @@ changing existing download ownership or paths. No existing table was deleted.
 See [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md) for the full change list, 75-table service-owner
 inventory, backup/rehearsal/apply commands, verification evidence and the two remaining phases.
 The new schemas do not imply implemented playback/import/admin services. Episode stills, dub
-fields and YouTube trailers still need their Phase 2 API/client consumers. Authentication and
+fields and YouTube trailers now have Rust/API/client consumers verified in isolated fixtures;
+installed acceptance remains separate. Authentication and
 internal records need protected projections, not raw secret-bearing table views.
 
 ## Inspected live inventory — 2026-10-13
