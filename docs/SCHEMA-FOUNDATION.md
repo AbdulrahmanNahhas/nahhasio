@@ -85,8 +85,8 @@ revalidation, stale-revision checks, dependency guards and audit/revision record
 acceptance script exercises these with the Node worker unavailable and checks Drizzle/Rust ledger
 continuation in both directions. On 2026-10-20, People/Studios, whole-work reconciliation,
 artwork and provider operations moved to shared Rust and the Node subprocess was removed. The
-compiled CLI gained whole-work commands and shared editor operations. Legacy report/option parity
-and installed/native/provider acceptance remain; see DEVELOPMENT.md and TESTING.md.
+compiled CLI gained whole-work commands and shared editor operations. The native operator CLI now covers report presets/aggregation, artwork convenience commands,
+explicit missing-reference imports and discovery. Installed/native acceptance remains; see DEVELOPMENT.md and TESTING.md.
 
 ### Phase 2 integration checkpoint — 2026-10-19
 

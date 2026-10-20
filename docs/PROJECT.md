@@ -50,7 +50,17 @@ current planning; verify the host before deployment.
    This review does not authorize live data/schema changes automatically.
 4. Podman deployment foundation with verified backup/restore, controlled migrations, trusted
    artifacts and safe explicit update/rollback procedures.
-5. Admin Overview based on real server capabilities.
+5. Admin Overview and Settings in the Linux dashboard, using its reviewed visual language and
+   real server capabilities. Cover server/database/storage health, activity/jobs, users/devices,
+   provider keys, library configuration, backup/update status and later media-only Jellyfin setup.
+   Keys remain server-owned with masked status, write-only changes, authorization and audit.
+   Connect actual services before enabling controls; do not equate page layouts with full control.
+
+Current immediate checkpoint (2026-10-20): finish the Rust operator CLI transition and repair
+Downloads video/artwork root ownership. Aqua will check connection, accounts and offline behavior
+manually next. The pre-deployment schema/logic review follows, then reviewed administration and
+Podman work. The review must identify required ownership/configuration changes before schema
+mutations or broad settings controls are implemented.
 
 Keep deployment/update design in the review: image provenance and digest/signature verification,
 version compatibility, persistence/secrets, health checks, rollback limits after schema changes,

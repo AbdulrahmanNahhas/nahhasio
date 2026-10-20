@@ -1,6 +1,8 @@
 //! Trusted local operator binary. Database credentials are environment-owned, never argv.
 mod editor;
+mod media;
 mod output;
+mod reports;
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use nahhasio_catalog::{
     Error, Result, migrations,
@@ -17,10 +19,16 @@ use std::{
 fn command() -> Command {
     Command::new("nahhasio").version(env!("CARGO_PKG_VERSION"))
         .about("Nahhasio local PostgreSQL operator tool (Rust)")
-        .after_help("Examples:\n  nahhasio schema titles --json\n  nahhasio title list --search Arcane\n  nahhasio title update Arcane --set summary=... --dry-run\n  nahhasio title update Arcane --set summary=... --write\n  nahhasio sql 'select count(*) from titles' --json\n  nahhasio migrate status\n  nahhasio migrate apply --dry-run\n\nDATABASE_URL must be set explicitly. This is a trusted local operator tool, not a remote user API.\nWhole-work: work export <reference>; work apply --file document.json --dry-run or --write.\nShared services: editor <operation> --file input.json (NAHHASIO_CLI_ACTOR required).\nAdvanced legacy reports and older CLI option compatibility remain development tools.")
+        .after_help("Examples:\n  nahhasio schema titles --json\n  nahhasio title list --search Arcane\n  nahhasio title update Arcane --set summary=... --dry-run\n  nahhasio title update Arcane --set summary=... --write\n  nahhasio sql 'select count(*) from titles' --json\n  nahhasio migrate status\n  nahhasio migrate apply --dry-run\n\nDATABASE_URL must be set explicitly. This is a trusted local operator tool, not a remote user API.\nWhole-work: work export <reference>; work apply --file document.json --dry-run or --write.\nShared services: editor <operation> --file input.json (NAHHASIO_CLI_ACTOR required).\nReports: stats coverage, scores, top, classification, vocabulary, planets, awards, people, media.\nArtwork: media ingest <file-or-provider-url>, media assign <asset>, media purge.")
         .arg(Arg::new("resource").help("health, schema, stats, sql, migrate, or a catalog resource/table"))
         .arg(Arg::new("action").help("list/get/create/update/delete; SQL text; table name; migration action"))
         .arg(Arg::new("reference").help("Record id, slug, name or alias"))
+        .arg(Arg::new("by").long("by").value_delimiter(',').action(ArgAction::Append))
+        .arg(Arg::new("metric").long("metric").value_delimiter(',').action(ArgAction::Append))
+        .args(["role","name","title","installment","episode","entity"].map(|name|Arg::new(name).long(name)))
+        .arg(Arg::new("resources").long("resources").action(ArgAction::SetTrue))
+        .arg(Arg::new("input-json").long("input-json").help("Inline editor/work JSON input"))
+        .arg(Arg::new("create-missing").long("create-missing").action(ArgAction::SetTrue))
         .arg(Arg::new("mode").long("mode").value_parser(["merge","replace"]).default_value("merge"))
         .arg(Arg::new("create-only").long("create-only").action(ArgAction::SetTrue))
         .arg(Arg::new("where").long("where").action(ArgAction::Append).help("AND filter: column=value, !=, >, <, >=, <=, ~, :in=, :nin="))
@@ -55,7 +63,30 @@ fn assignment(value: &str) -> Result<(&str, &str)> {
         .ok_or_else(|| invalid("expected column=value"))
 }
 
+async fn audit_actor(c: &mut PgConnection, required: bool) -> Result<String> {
+    let Ok(reference) = env::var("NAHHASIO_CLI_ACTOR") else {
+        return if required {
+            Err(invalid("Editor commands require NAHHASIO_CLI_ACTOR"))
+        } else {
+            Ok(String::new())
+        };
+    };
+    let ids = sqlx::query_scalar::<_, String>(
+        "select id::text from accounts where id::text=$1 or slug=$1 or display_name=$1 limit 2",
+    )
+    .bind(reference)
+    .fetch_all(c)
+    .await?;
+    match ids.as_slice() {
+        [id] => Ok(id.clone()),
+        _ => Err(invalid("operator actor is unknown or ambiguous")),
+    }
+}
+
 async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Value> {
+    if text(args, "resource") == Some("media") {
+        return media::run(connection, args).await;
+    }
     if let Some(result) = editor::dispatch(connection, args).await? {
         return Ok(result);
     }
@@ -148,42 +179,9 @@ async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Va
         };
     }
     if resource == "stats" {
-        let mut output = Vec::new();
-        let target = text(args, "action").map(schema::resource);
-        if target.is_none()
-            && (!repeated(args, "where").is_empty() || text(args, "search").is_some())
-        {
-            return Err(invalid("filtered statistics require a resource/table"));
-        }
-        for table in &tables {
-            if target.is_none_or(|(name, _)| name == table.name) {
-                let selection = Selection {
-                    filters: repeated(args, "where"),
-                    search: text(args, "search").map(str::to_owned),
-                    scope: target
-                        .and_then(|(_, scope)| scope)
-                        .map(|(name, value)| (name.into(), value.into())),
-                };
-                let count = records::list(
-                    connection,
-                    table,
-                    &selection,
-                    &Page {
-                        count: true,
-                        ..Default::default()
-                    },
-                )
-                .await?;
-                output.push(json!({"table":table.name,"count":count["count"]}));
-            }
-        }
-        if target.is_some() && output.is_empty() {
-            return Err(invalid(
-                "unknown statistics resource; use stats or stats <table>",
-            ));
-        }
-        return Ok(json!(output));
+        return reports::run(connection, args).await;
     }
+
     let (name, scope) = schema::resource(resource);
     let table = tables
         .iter()
@@ -313,6 +311,25 @@ async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Va
 }
 
 async fn run(args: &ArgMatches) -> Result<Value> {
+    if text(args, "resource") == Some("help") {
+        if text(args, "action") == Some("work") {
+            return nahhasio_catalog::editor::work::document_schema();
+        }
+        if text(args, "action") == Some("editor") {
+            return nahhasio_catalog::editor::input_schema(text(args, "reference"));
+        }
+
+        return Ok(
+            json!({"name":"nahhasio","version":env!("CARGO_PKG_VERSION"),"commands":["health","schema","stats","sql","migrate","work","media","editor"],"resources":schema::resources(),"flags":command().get_arguments().map(|arg|json!({"name":arg.get_id().as_str(),"long":arg.get_long(),"help":arg.get_help().map(ToString::to_string)})).collect::<Vec<_>>(),"writes":"--write or --dry-run; multi-row commits also require --yes","workInput":"--file document.json, positional file or --input-json <document>"}),
+        );
+    }
+    if text(args, "resource") == Some("schema") && args.get_flag("resources") {
+        return Ok(schema::resources());
+    }
+    if text(args, "resource") == Some("work") && text(args, "action") == Some("template") {
+        return Ok(editor::template());
+    }
+
     if text(args, "resource") == Some("migrate") && text(args, "action") == Some("manifest") {
         return Ok(migrations::manifest(&migrations::bundled()?));
     }
@@ -346,9 +363,24 @@ async fn run(args: &ArgMatches) -> Result<Value> {
 
 #[tokio::main]
 async fn main() {
-    let args = command().get_matches();
+    let mut argv: Vec<_> = env::args_os().collect();
+    for i in 0..argv.len().saturating_sub(1) {
+        if argv[i] == "--json"
+            && argv[i + 1]
+                .to_str()
+                .is_some_and(|value| value.trim_start().starts_with('{'))
+        {
+            argv[i] = "--input-json".into();
+        }
+    }
+    let args = command().get_matches_from(argv);
     if text(&args, "resource").is_none() {
         let _ = command().print_help();
+        println!();
+        return;
+    }
+    if text(&args, "resource") == Some("help") && !args.get_flag("json") {
+        let _ = command().print_long_help();
         println!();
         return;
     }

@@ -105,7 +105,7 @@ import pathlib
 import sys
 root = pathlib.Path(sys.argv[1])
 rust = json.loads((root / "rust-export.json").read_text())
-node = json.loads((root / "node-export.json").read_text())
+node = json.loads((root / "node-export.json").read_text())["document"]
 assert rust == node, f"Exporter mismatch: {[key for key in rust if rust[key] != node.get(key)]}"
 (root / "import.json").write_text(json.dumps({"id": rust["id"], "canonicalTitle": rust["canonicalTitle"], "aliases": ["Native merge alias"]}))
 print("Rust/Node whole-work export parity passed on the same persisted fixture.")
@@ -125,3 +125,87 @@ assert read("work-import.json")["created"] is False
 assert read("merged-export.json")["installments"] == read("rust-export.json")["installments"]
 print("Native whole-work merge import, preserved structure and dry-run passed.")
 PY
+
+# Compare native reports against the old read-only implementation on identical fixtures.
+for report in overview coverage scores top vocabulary classification planets awards people media; do
+  target/debug/nahhasio stats "$report" --json >"$fixture_root/report-$report.json"
+done
+target/debug/nahhasio stats title --by format --metric count --json >"$fixture_root/grouped.json"
+./bin/nahhasio help --json >"$fixture_root/native-help.json"
+./bin/nahhasio schema --resources --json >"$fixture_root/resources.json"
+python3 - "$fixture_root" <<'PY'
+import json,pathlib,sys
+root=pathlib.Path(sys.argv[1])
+read=lambda name:json.loads((root/name).read_text())
+for name,expected in read("node-export.json")["reports"].items():
+    actual=read(f"report-{name}.json")
+    def normalize(value):
+        if isinstance(value,list): return [normalize(row) for row in value]
+        if isinstance(value,dict): return {key:float(item) if key in ("avg","min","max","rating") and item is not None else normalize(item) for key,item in value.items()}
+        return value
+    canonical=lambda value: sorted((json.dumps(normalize(r),sort_keys=True,ensure_ascii=False) for r in value)) if isinstance(value,list) else value
+    assert canonical(actual)==canonical(expected),f"report mismatch: {name}"
+assert sum(row["count"] for row in read("grouped.json"))==read("report-overview.json")["titles"]
+assert "media" in read("native-help.json")["commands"]
+assert any(r["name"]=="jellyfin-item" for r in read("resources.json"))
+(root/"new-work.json").write_text(json.dumps({"canonicalTitle":"Native create-missing fixture","genres":["Native new genre"],"credits":[{"entity":"Native new organization","role":"rust_fixture_production"}]}))
+print("All native report presets match legacy SQL; aggregation and discovery passed.")
+PY
+./bin/nahhasio work apply "$fixture_root/new-work.json" --create-missing --dry-run --json >"$fixture_root/create-missing-dry.json"
+./bin/nahhasio title list --search 'Native create-missing fixture' --json >"$fixture_root/create-missing-absent.json"
+./bin/nahhasio work apply "$fixture_root/new-work.json" --create-missing --write --json >"$fixture_root/create-missing-write.json"
+./bin/nahhasio work export 'Native create-missing fixture' --json >"$fixture_root/created-work.json"
+python3 - "$fixture_root" <<'PY'
+import json,pathlib,sys
+root=pathlib.Path(sys.argv[1]);read=lambda name:json.loads((root/name).read_text())
+assert read("create-missing-absent.json")==[]
+assert read("created-work.json")["genres"]==["native-new-genre"]
+assert read("created-work.json")["credits"][0]["entity"]=="Native new organization"
+print("Native positional import, explicit missing-reference creation and rollback passed.")
+PY
+
+python3 - "$fixture_root" <<'PY'
+import pathlib,struct,zlib,sys
+root=pathlib.Path(sys.argv[1])
+def png(color):
+    def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
+    return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',1,1,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(b'\0'+color))+chunk(b'IEND',b'')
+(root/'poster.png').write_bytes(png(bytes([255,0,0,255])))
+(root/'orphan.png').write_bytes(png(bytes([0,255,0,255])))
+PY
+./bin/nahhasio media ingest "$fixture_root/poster.png" --role poster --title 'Rust whole-work fixture' --dry-run --json >"$fixture_root/media-dry.json"
+./bin/nahhasio media ingest "$fixture_root/poster.png" --role poster --title 'Rust whole-work fixture' --write --json >"$fixture_root/media-write.json"
+fixture_asset_id="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["id"])' "$fixture_root/media-write.json")"
+./bin/nahhasio media assign "$fixture_asset_id" --role logo --entity 'Rust fixture studio' --write --json >"$fixture_root/media-assignment.json"
+./bin/nahhasio media ingest "$fixture_root/orphan.png" --role poster --write --json >"$fixture_root/orphan.json"
+./bin/nahhasio media purge --dry-run --json >"$fixture_root/media-purge-dry.json"
+./bin/nahhasio media purge --write --yes --json >"$fixture_root/media-purge.json"
+python3 - "$fixture_root" <<'PY'
+import pathlib,json,sys
+root=pathlib.Path(sys.argv[1]);read=lambda name:json.loads((root/name).read_text())
+assert read('media-dry.json')['rolledBack'] is True
+assert read('media-purge.json')['deleted']>=1
+assert read('media-purge.json')['fileRetained'] is True
+assert (root/'media'/read('orphan.json')['path'].removeprefix('/media/')).is_file()
+assert read('media-assignment.json')['id']==read('media-write.json')['id']
+print('Native artwork ingest, assignment, guarded purge and retained files passed.')
+PY
+
+if [[ "${NAHHASIO_LIVE_PROVIDER_ACCEPTANCE:-0}" == 1 ]]; then
+  NAHHASIO_CLI_ACTOR=91000000-0000-4000-8000-000000000001 ./bin/nahhasio editor search --input-json '{"title":"Star Wars","kind":"live-action-movie","role":"poster","tmdbId":11}' --json >"$fixture_root/live-provider.json"
+  python3 - "$fixture_root/live-provider.json" <<'PY'
+import json,sys,collections
+result=json.load(open(sys.argv[1]));counts=collections.Counter(row['provider'] for row in result['candidates'])
+print('Live provider candidates:',dict(counts))
+print('Live provider warnings:',result['warnings'])
+PY
+fi
+
+if ./bin/nahhasio stats auth_sessions --by token --json >"$fixture_root/protected-stats.json" 2>/dev/null; then
+  echo 'Aggregation exposed a protected field' >&2
+  exit 1
+fi
+if ./bin/nahhasio stats title --metric 'sum:quality_score);delete from titles' --json >"$fixture_root/invalid-metric.json" 2>/dev/null; then
+  echo 'Aggregation accepted an invalid metric identifier' >&2
+  exit 1
+fi

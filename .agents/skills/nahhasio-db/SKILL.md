@@ -5,65 +5,37 @@ description: Read and edit every part of the Nahhasio PostgreSQL catalog from th
 
 # Nahhasio database CLI
 
-`./bin/nahhasio` talks straight to PostgreSQL. It needs no API server and no `devenv shell` —
-run it from the repository root. This launcher still uses Node/tsx and remains the complete
-catalog tool during the Rust migration.
+`./bin/nahhasio` runs the compiled Rust PostgreSQL operator CLI. Build it once with
+`devenv shell -- cargo build --locked -p nahhasio-cli`, then invoke it directly for quiet JSON.
+`DATABASE_URL` must be selected explicitly; the tool never guesses a development/production
+connection or falls back to Node. `NAHHASIO_CLI_BIN` may select another built/installed binary.
+Do not print credentials. `help --json`, `schema --resources` and work schema/template discovery
+need no database. Do not start another database process without checking `devenv processes list`.
 
-```bash
-./bin/nahhasio health
-```
+The CLI supports generic CRUD, typed filters, references, reports/aggregation, SQL, whole-work
+schema/template/export/apply, artwork commands and explicit Drizzle-compatible migrations.
+Writes require `--write` or `--dry-run`; multi-row generic commits additionally require `--yes`.
+SQL mutations need RETURNING. Results are bounded at 500 rows; paginate reads. Generic writes
+refuse authentication/audit tables, secret fields and primary-key changes. This is a trusted local
+operator tool, not a remotely exposed family API.
 
-If that fails with `ECONNREFUSED`, PostgreSQL is not running: start it with `devenv up` (ask
-the user first — it is a long-running foreground process).
+`editor <operation> --file input.json` shares the Rust server's People/Studios, work, artwork and
+reference services. It requires `NAHHASIO_CLI_ACTOR` (UUID, slug or unique account display name).
+Review/save calls additionally need one private 32-byte hex `NAHHASIO_EDITOR_SECRET` retained
+across calls. Never print secrets. JSON input accepts `--file`, work-apply's positional file or
+`--input-json`; older `--json <document>` input is normalized, while bare `--json` selects output.
 
-**Do not use `devenv shell -- pnpm nahhasio`.** The devenv banner writes to stdout and corrupts
-`--json` output. Invoke the selected CLI directly after building it.
+Database dry runs execute constraints/audits and roll back. Artwork file creation cannot be rolled
+back with PostgreSQL: a dry run may leave recoverable orphan bytes. Media purge deletes only
+unprotected unused records and retains physical files; commit requires `--write --yes`. Preserve
+history, derived variants, assignments and old rename paths. Remote artwork ingest accepts approved
+HTTPS provider hosts rather than arbitrary URLs.
 
-## Rust CLI transition
-
-`crates/cli` also provides a compiled `nahhasio` binary. Build it with
-`devenv shell -- cargo build --locked --release -p nahhasio-cli`, then invoke
-`./target/release/nahhasio` directly. It requires an explicit `DATABASE_URL`, needs no Node
-runtime and does not silently fall back to the legacy CLI. Do not print credentials when
-selecting the database.
-
-Use `./bin/nahhasio` for the complete catalog workflow and all examples below unless explicitly
-choosing the Rust tool. Rust supports health, schema/enums, generic CRUD, references, filters/pagination, row-count
-statistics, SQL and migrations. It also supports `work schema`, `work template`,
-`work export <reference>` and `work apply --file document.json --mode merge|replace`
-with `--dry-run`/`--write` and optional `--create-only`. Supplied lists reconcile in replace mode;
-merge retains omitted members. Rust does not implicitly create missing vocabulary/people, and
-installment removal requires a separate review. Advanced editorial statistics, old media command
-options and `help --json` discovery still use the legacy launcher.
-
-`editor <operation> --file input.json` exposes shared Rust People/Studios, work, artwork/provider
-and reference operations using the contracts in `packages/contracts/src/editor-rpc.ts`. It needs
-`NAHHASIO_CLI_ACTOR` for audit identity; review/save ticket workflows additionally need a private
-32-byte hex `NAHHASIO_EDITOR_SECRET` retained across calls. Never print secrets or database
-credentials. Writes still require `--write`/`--dry-run`. File creation cannot be rolled back with
-PostgreSQL: an artwork dry run may leave recoverable orphan bytes. Existing files are retained.
-
-For Rust commands, generic writes need `--write` or `--dry-run`; a multi-row commit also needs
-`--yes`. Dry runs execute constraints/audits and roll back. SQL mutations need RETURNING, and
-results/pages are capped at 500 rows. Generic writes refuse authentication/audit tables, secret
-fields and primary-key changes; this trusted operator tool is not a remote authorization API.
-
-```bash
-./target/release/nahhasio schema titles --json
-./target/release/nahhasio title list --search Arcane --json
-./target/release/nahhasio title update Arcane --set workflow_status=published --dry-run --json
-./target/release/nahhasio migrate manifest --json  # no database connection
-./target/release/nahhasio migrate status --json
-```
-
-Migration apply is a separately authorized operator operation, never a prerequisite for catalog
-editing or application startup. It embeds the sole `packages/database/drizzle/` history, uses
-the existing Drizzle ledger/maintenance lock, and refuses inconsistent hashes/history rather
-than guessing a baseline. Rehearse and back up before a live apply; no second SQLx history.
-`devenv shell -- bash bin/test-rust-catalog` owns private disposable PostgreSQL fixtures for
-CLI/migration, authenticated editor and private artwork acceptance, including composite dependency
-guards and Rust/Node work-export comparison. It is not a live-catalog mutation test. The server
-editor is Rust-only; live provider, Fedora and native-client acceptance remain separate.
+Migration apply is separately authorized maintenance, never an application startup step. It uses
+only `packages/database/drizzle/`, checks the existing ledger and refuses inconsistent history.
+Rehearse and back up before a live apply. `devenv shell -- bash bin/test-rust-catalog` owns private
+socket-only fixtures for database/editor/artwork, reports, imports, launcher and migration checks.
+It never uses family catalog data. Installed Fedora/native acceptance remains separate.
 
 ## The one thing to know first
 
@@ -71,8 +43,8 @@ Anywhere the CLI wants an id, you may write a name, slug, or alias instead:
 
 ```bash
 ./bin/nahhasio title get Arcane
-./bin/nahhasio title update "Attack on Titan" --set theology_risk=medium
-./bin/nahhasio title create --set canonical_title=…
+./bin/nahhasio title update "Attack on Titan" --set theology_risk=medium --write
+./bin/nahhasio title create --set canonical_title=… --write
 ```
 
 Resolution tries exact match, then prefix, then substring, and also searches `title_aliases` /
@@ -83,7 +55,7 @@ This is the main reason not to look UUIDs up by hand.
 
 Default output is a compact text table (cheap to read). Add `--json` when you need to parse,
 `--ndjson` / `--csv` for streaming or spreadsheets, `--wide` to stop truncating long cells.
-Errors go to stderr as `{"error":{"message","hint"}}` under `--json`, and exit code is 1.
+Errors go to stderr as `{"error":{"message"}}`, and exit code is 1.
 
 ## Reading
 
@@ -133,10 +105,10 @@ generated from the live database and is cheaper.
 ## Writing
 
 ```bash
-./bin/nahhasio title update Arcane --set quality_score=8 --set workflow_status=published
-./bin/nahhasio person create --set name='Naoko Yamada' --set sort_name='Yamada, Naoko'
-./bin/nahhasio title update --where "workflow_status=draft" --set workflow_status=published --yes
-./bin/nahhasio alias delete --where "title_id=…" --yes
+./bin/nahhasio title update Arcane --set quality_score=8 --set workflow_status=published --write
+./bin/nahhasio person create --set name='Naoko Yamada' --set sort_name='Yamada, Naoko' --write
+./bin/nahhasio title update --where "workflow_status=draft" --set workflow_status=published --yes --write
+./bin/nahhasio alias delete --where "title_id=…" --yes --write
 ```
 
 Rules the CLI enforces:
@@ -157,7 +129,7 @@ the CLI reconciles the database to it in a single transaction.
 ```bash
 ./bin/nahhasio work template --json > new-work.json   # filled-in starting point
 ./bin/nahhasio work apply new-work.json --dry-run --create-missing   # rehearse
-./bin/nahhasio work apply new-work.json --create-missing             # commit
+./bin/nahhasio work apply new-work.json --create-missing --write # commit
 ./bin/nahhasio work export Arcane --json > arcane.json               # round-trips with apply
 ```
 
@@ -166,10 +138,12 @@ planets, credits, external ids, relations, media, installments, episodes, scores
 Fields you omit are left alone.
 
 - `--mode merge` (default): only touches what the document mentions.
-- `--mode replace`: anything absent from the document is **deleted** (installments, episodes,
-  credits, aliases, vocabulary links, awards). Use it to prune, not casually.
+- `--mode replace`: reconcile supplied lists; omitted fields remain unchanged. Episode removal
+  checks all foreign keys, including composite ownership links. Installment deletion remains
+  blocked pending a separate dependency review.
 - `--create-missing`: create referenced genres/tones/tags/entities/award organizations that do
-  not exist yet. Without it, an unknown vocabulary term is an error — which is usually what you
+  not exist yet, inside the same transaction. Existing roles must still resolve uniquely.
+  Without it, an unknown vocabulary term is an error — which is usually what you
   want, so you do not silently invent a duplicate genre.
 
 Re-applying the same document is idempotent. Installments match on `id`, else on `position`;
@@ -180,7 +154,7 @@ Editing one field of an existing work:
 ```bash
 ./bin/nahhasio work export "Frieren" --json > f.json
 # edit f.json
-./bin/nahhasio work apply f.json
+./bin/nahhasio work apply f.json --write
 ```
 
 For the editorial content of these fields — how to score, how to write `analysisNotes` and
@@ -215,8 +189,8 @@ For anything the commands above do not cover:
 
 ```bash
 ./bin/nahhasio sql "select canonical_title from titles where release_year = 2024"
-./bin/nahhasio sql --write --dry-run "update titles set quality_score = 5 where id = '…'"
-./bin/nahhasio sql --write "delete from title_aliases where title = 'typo'"
+./bin/nahhasio sql --write --dry-run "update titles set quality_score = 5 where id = '…' returning id"
+./bin/nahhasio sql --write "delete from title_aliases where title = 'typo' returning id"
 ./bin/nahhasio sql --file report.sql --json
 ```
 
@@ -227,11 +201,11 @@ executes and then rolls back, which is the safest way to preview a bulk change.
 ## Images
 
 ```bash
-./bin/nahhasio media ingest ./poster.jpg --role poster --title Arcane
-./bin/nahhasio media ingest https://example.com/banner.jpg --role banner --title Arcane
-./bin/nahhasio media assign <asset-id-or-path> --role logo --entity "Studio Ghibli"
+./bin/nahhasio media ingest ./poster.jpg --role poster --title Arcane --write
+./bin/nahhasio media ingest https://image.tmdb.org/t/p/original/example.jpg --role banner --title Arcane --write
+./bin/nahhasio media assign <asset-id-or-path> --role logo --entity "Studio Ghibli" --write
 ./bin/nahhasio media purge --dry-run          # unreferenced assets
-./bin/nahhasio media purge --yes
+./bin/nahhasio media purge --yes --write
 ```
 
 Roles are `poster`, `banner`, `logo`, `profile`, `still`. Owners are `--title`, `--installment`,
@@ -256,6 +230,7 @@ Use `nahhasio-db` and `nahhasio-cataloging`; the old skill names have been retir
 `./bin/arcadia` remains a silent compatibility alias. Internal `@arcadia/*` package names,
 PostgreSQL database name `arcadia`, catalog UUIDs and migration history retain their identity.
 The preferred audit variable is `NAHHASIO_CLI_ACTOR`; the old variable remains a fallback.
+`NAHHASIO_VIDEO_ROOT` is exclusively the native device-video override.
 `NAHHASIO_MEDIA_ROOT` and `NAHHASIO_PUBLIC_MEDIA_ROOT` override artwork roots consistently
 in the CLI/API/server; the existing `ARCADIA_*` variables and default paths remain supported.
 

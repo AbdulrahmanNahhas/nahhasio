@@ -389,7 +389,7 @@ pub(super) async fn execute(
             .await?;
             if !rows(c,"select to_jsonb(id) from roles where slug=$1->>'slug' or (entity_kind::text=$1->>'kind' and lower(label_en)=lower($1->>'name'))",input.clone()).await?.is_empty(){return Err(invalid("الدور موجود بالفعل؛ اختره من القائمة أو استخدم اسماً ورمزاً مختلفين."));}
             let role=one(c,"insert into roles(slug,label_en,label_ar,entity_kind,position,is_active) select $1->>'slug',$1->>'name',coalesce(nullif($1->>'label',''),$1->>'name'),($1->>'kind')::entity_kind,coalesce(max(position),0)+1,true from roles returning jsonb_build_object('id',id)",input.clone()).await?;
-            exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(($1->>'actor')::uuid,'admin.role.create','roles',$1->>'id','Entity role creation',$1->'input')",json!({"actor":actor,"id":role["id"],"input":input})).await?;
+            exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.role.create','roles',$1->>'id','Entity role creation',$1->'input')",json!({"actor":actor,"id":role["id"],"input":input})).await?;
             Ok(role)
         }
         "entityDeletePreview" | "entityJsonRead" => {

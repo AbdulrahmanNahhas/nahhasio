@@ -27,7 +27,9 @@ usable Node worker. It covers Planets, People/Studios, credits, JSON reviews, wo
 reference lookup, image upload/deduplication/assignment/rename/unlink/deletion, stale/tampered tickets,
 retained files and old image paths, authorization, rollback and composite foreign-key deletion guards.
 It compares Rust and legacy TypeScript exports of the same persisted fixture and exercises the
-compiled CLI's whole-work merge import and rollback. All migrations use the single Drizzle ledger.
+compiled CLI's whole-work merge import and rollback. It also compares all ten report presets,
+checks typed aggregation/discovery, explicit missing-reference creation, native media commands
+and guarded purge with retained files. All migrations use the single Drizzle ledger.
 These checks do not call live providers or prove Fedora/container/native UI acceptance. Provider
 credentials, real artwork downloads, broad catalog-shape parity and production transfer require
 separate acceptance. No live catalog mutation is authorized by this script.
@@ -155,3 +157,16 @@ The entry point respects explicit renderer overrides. A running single instance 
 adopt a new renderer setting through interface reload; quit/relaunch for comparisons.
 CPU/GPU performance has not been benchmarked; the compatibility default is based on
 confirmed visual correctness with the affected works.
+
+### Focused device-root regression
+
+`devenv shell -- cargo test --locked -p nahhasio-linux media_storage::tests` runs directory
+validation and a subprocess check proving server artwork configuration cannot override the
+client video root. It performs no live catalog or retained-video mutations. Native UI inspection,
+physical input and playback remain separate acceptance.
+
+For an explicitly requested live read-only provider search, run the isolated catalog fixture with
+`NAHHASIO_LIVE_PROVIDER_ACCEPTANCE=1`. It uses existing environment keys and reports only candidate
+counts and warnings; it neither ingests images nor changes the live catalog. TMDB and Fanart
+returned candidates at the 2026-10-20 local checkpoint; that does not establish AniList, every
+provider endpoint or production connectivity acceptance.

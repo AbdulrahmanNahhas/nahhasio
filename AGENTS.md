@@ -66,8 +66,9 @@ authorize publishing/pushing releases or claim Fedora/AppImage installation acce
 The installed Nahhasio server runtime is now Rust-only: People/Studios, whole-work reconciliation,
 artwork and providers use `crates/catalog-core/src/editor`; the Node subprocess is removed.
 The compiled CLI has whole-work schema/template/export/apply and shared `editor` operations,
-with guarded writes. The development `bin/nahhasio` launcher remains legacy for advanced reports
-and older CLI options; do not package it or imply complete CLI option parity. Preserve API/client
+with guarded writes. The public `bin/nahhasio` launcher now runs the compiled Rust CLI. It supports catalog report
+presets/aggregations, media convenience commands, explicit missing-reference imports and JSON
+discovery. Keep explicit database selection and write guards; purge retains physical artwork. Preserve API/client
 design. Continue isolated PostgreSQL/artwork checks via `bin/test-rust-catalog`; provider credentials,
 real Fedora installation and native UI acceptance remain separate. No live catalog writes occurred.
 Node/pnpm may remain on development/build machines for React. Jellyfin is playback/streaming
@@ -114,7 +115,7 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
 - `crates/catalog-core`: shared Rust catalog/database services and Drizzle-compatible explicit migration runner.
-- `crates/cli`: compiled Rust operator CLI; whole-work/media and advanced reports still need parity.
+- `crates/cli`: compiled Rust operator CLI; database, work/media, report and discovery operations.
 - `apps/api`: previous Hono API, kept until Rust endpoints pass behavior/data checks.
 - `packages/database`: existing PostgreSQL schema and the single migration history.
 - Other `packages/*`: existing contracts, domain rules, vocabulary, and database CLI.
@@ -204,13 +205,15 @@ Before a live cutover, secure a verified independent backup of both PostgreSQL a
 `data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tools require an explicit
 `ARCADIA_V1_DB_PATH`. Backups and recovery artwork are private and never committed.
 
-The complete catalog CLI remains `./bin/nahhasio` (Node/tsx); do not silently replace it with
-the partial Rust binary. Build the latter with `devenv shell -- cargo build --locked --release -p nahhasio-cli`,
-then invoke `./target/release/nahhasio` directly for quiet JSON output with an explicit
-`DATABASE_URL`. It supports generic database operations and migration manifest/status/apply;
-writes require `--write` or `--dry-run`, multi-row commits require `--yes`, and result-producing
-SQL mutations require RETURNING. It does not yet replace work apply/export, media commands,
-advanced statistics or legacy CLI discovery. Use the `nahhasio-db` skill
+The public catalog CLI is `./bin/nahhasio` (compiled Rust). Build it with
+`devenv shell -- cargo build --locked -p nahhasio-cli`; it uses `target/debug/nahhasio` unless
+`NAHHASIO_CLI_BIN` selects another binary. `DATABASE_URL` is explicit, never guessed. It supports
+generic database operations, whole-work/media operations, reports, discovery and migrations.
+Writes require `--write`/`--dry-run`, multi-row generic commits need `--yes`, and SQL mutations
+require RETURNING. Media purge removes guarded unused records while retaining recovery files.
+`NAHHASIO_MEDIA_ROOT` configures server artwork; `NAHHASIO_VIDEO_ROOT` configures client videos.
+Do not reset transfer state or move retained files to resolve a storage-root mismatch.
+Use the `nahhasio-db` skill
 for live catalog reads/writes and the `nahhasio-cataloging` skill for editorial classification.
 Preserve the current Better Auth identity/password ownership during Rust migration; verify
 hash compatibility with fixtures before cutover. Do not weaken existing production auth guards.

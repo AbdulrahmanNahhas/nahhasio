@@ -278,9 +278,9 @@ pub(super) async fn execute(
         .and_then(|p| p.to_str())
         .unwrap_or(&file_name);
     let record=one(c,"insert into media_assets(path,sha256,mime_type,byte_size,width,height,original_filename) values($1->>'path',$1->>'hash',$1->>'mime',($1->>'size')::integer,($1->>'width')::integer,($1->>'height')::integer,$1->>'name') on conflict(sha256) do update set sha256=excluded.sha256 returning jsonb_build_object('id',id,'path',path)",json!({"path":stored,"hash":hash,"mime":mime,"size":bytes.len(),"width":width,"height":height,"name":original})).await?;
-    exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(($1->>'actor')::uuid,'admin.artwork.ingest','media_assets',$1->'record'->>'id','Artwork registration',jsonb_build_object('path',$1->'record'->'path'))",json!({"actor":actor,"record":record})).await?;
+    exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.artwork.ingest','media_assets',$1->'record'->>'id','Artwork registration',jsonb_build_object('path',$1->'record'->'path'))",json!({"actor":actor,"record":record})).await?;
     if operation == "ingest" {
-        exec(c,"insert into source_evidence(entity_type,entity_id,field_path,source_note,source_url,verification_status,checked_by_account_id,checked_at) values('media_assets',$1->>'id','image','Imported image; assignment remains in the work draft',$1->>'url','verified',($1->>'actor')::uuid,now())",json!({"id":record["id"],"url":input["url"],"actor":actor})).await?;
+        exec(c,"insert into source_evidence(entity_type,entity_id,field_path,source_note,source_url,verification_status,checked_by_account_id,checked_at) values('media_assets',$1->>'id','image','Imported image; assignment remains in the work draft',$1->>'url','verified',nullif($1->>'actor','')::uuid,now())",json!({"id":record["id"],"url":input["url"],"actor":actor})).await?;
     }
     Ok(record)
 }
@@ -329,6 +329,16 @@ pub(super) async fn hard_link(asset: &Value, new_name: &str) -> Result<()> {
     })
     .await
     .map_err(|_| invalid("Artwork rename failed"))?
+}
+
+pub(super) fn detect(bytes: &[u8]) -> Result<&'static str> {
+    if bytes.is_empty() || bytes.len() > 10 * 1024 * 1024 {
+        return Err(invalid("Artwork exceeds 10 MiB"));
+    }
+    ["image/jpeg", "image/png", "image/webp", "image/gif"]
+        .into_iter()
+        .find(|mime| dimensions(bytes, mime).is_ok())
+        .ok_or_else(|| invalid("Unsupported image content"))
 }
 #[cfg(test)]
 mod tests {

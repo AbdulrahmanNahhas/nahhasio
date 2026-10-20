@@ -102,7 +102,7 @@ async fn audit(
     id: &str,
     changes: Value,
 ) -> Result<()> {
-    exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(($1->>'actor')::uuid,'admin.artwork.'||($1->>'action'),$1->>'table',$1->>'id','Artwork editor',$1->'changes')",json!({"actor":actor,"action":action,"table":table,"id":id,"changes":changes})).await
+    exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.artwork.'||($1->>'action'),$1->>'table',$1->>'id','Artwork editor',$1->'changes')",json!({"actor":actor,"action":action,"table":table,"id":id,"changes":changes})).await
 }
 async fn proposal(c: &mut PgConnection, asset: &Value) -> Result<Value> {
     let owners=rows(c,"select jsonb_build_object('name',concat_ws('-',coalesce(t.canonical_title,w.canonical_title,n.name),case when i.id is not null then 'installment-'||i.position::text when e.id is not null then 'installment-'||p.position::text||'-episode-'||e.number::text end),'role',x.role::text) from media_asset_assignments x left join titles t on t.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments p on p.id=e.installment_id left join titles w on w.id=coalesce(i.title_id,p.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.id",json!({"id":asset["id"]})).await?;

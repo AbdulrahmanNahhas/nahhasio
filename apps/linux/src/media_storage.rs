@@ -13,7 +13,7 @@ impl Roots {
         let home = glib::home_dir();
         let videos = glib::user_special_dir(glib::UserDirectory::Videos);
         let state = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from);
-        let override_root = std::env::var_os("NAHHASIO_MEDIA_ROOT").map(PathBuf::from);
+        let override_root = std::env::var_os("NAHHASIO_VIDEO_ROOT").map(PathBuf::from);
         roots_for(
             &home,
             videos.as_deref(),
@@ -38,7 +38,7 @@ fn roots_for(
         .join("nahhasio");
     let videos = match override_root {
         Some(path) if clean_absolute(path) && path.parent().is_some() => path.to_path_buf(),
-        Some(_) => return Err("NAHHASIO_MEDIA_ROOT must be an absolute media directory".into()),
+        Some(_) => return Err("NAHHASIO_VIDEO_ROOT must be an absolute media directory".into()),
         None => videos
             .filter(|path| clean_absolute(path))
             .map_or_else(|| home.join("Videos"), Path::to_path_buf)
@@ -57,6 +57,29 @@ fn clean_absolute(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn server_artwork_setting_does_not_override_device_videos() {
+        if std::env::var_os("NAHHASIO_STORAGE_FIXTURE_CHILD").is_some() {
+            let roots = Roots::discover().unwrap();
+            assert_ne!(
+                roots.videos,
+                PathBuf::from(std::env::var_os("NAHHASIO_MEDIA_ROOT").unwrap())
+            );
+            return;
+        }
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "media_storage::tests::server_artwork_setting_does_not_override_device_videos",
+            ])
+            .env("NAHHASIO_STORAGE_FIXTURE_CHILD", "1")
+            .env("NAHHASIO_MEDIA_ROOT", "/server/artwork/uploads")
+            .env_remove("NAHHASIO_VIDEO_ROOT")
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
 
     #[test]
     fn uses_configured_video_and_state_directories() {

@@ -562,6 +562,132 @@ pub async fn sql(connection: &mut PgConnection, statement: &str) -> Result<Value
     Ok(json!(rows.into_iter().map(|row| row.0).collect::<Vec<_>>()))
 }
 
+/// Bounded SQL aggregation using the same typed filters and scope as ordinary reads.
+pub async fn aggregate(
+    connection: &mut PgConnection,
+    table: &Table,
+    selection: &Selection,
+    groups: &[String],
+    metrics: &[String],
+    order: Option<&str>,
+    limit: u32,
+) -> Result<Value> {
+    let filter = predicate(table, selection)?;
+    let mut selected = vec![];
+    let mut aliases = std::collections::BTreeSet::new();
+    for group in groups {
+        table.column(group)?;
+        if crate::redaction::protected(&table.name, group) {
+            return Err(invalid("protected aggregation field"));
+        }
+        selected.push(format!("t.{}", schema::quote(group)?));
+        aliases.insert(group.clone());
+    }
+    let metrics = if metrics.is_empty() {
+        vec!["count".to_owned()]
+    } else {
+        metrics.to_vec()
+    };
+    for metric in metrics {
+        let (kind, column) = metric.split_once(':').unwrap_or((&metric, ""));
+        let (expression, alias) = if kind == "count" && column.is_empty() {
+            ("count(*)".into(), "count".into())
+        } else {
+            if !["count-distinct", "avg", "sum", "min", "max"].contains(&kind) {
+                return Err(invalid("unsupported aggregation metric"));
+            }
+            table.column(column)?;
+            if crate::redaction::protected(&table.name, column) {
+                return Err(invalid("protected aggregation field"));
+            }
+            let col = format!("t.{}", schema::quote(column)?);
+            let alias = format!(
+                "{}_{}",
+                if kind == "count-distinct" {
+                    "distinct"
+                } else {
+                    kind
+                },
+                column
+            );
+            let expression = match kind {
+                "count-distinct" => format!("count(distinct {col})"),
+                "avg" => format!("round(avg({col})::numeric,2)"),
+                _ => format!("{kind}({col})"),
+            };
+            (expression, alias)
+        };
+        if !aliases.insert(alias.clone()) {
+            return Err(invalid("duplicate aggregation output"));
+        }
+        selected.push(format!("{expression} as {}", schema::quote(&alias)?));
+    }
+    let ordering = if let Some(order) = order {
+        let words: Vec<_> = order.split_whitespace().collect();
+        let name = words
+            .first()
+            .ok_or_else(|| invalid("empty aggregate order"))?
+            .trim_matches('"');
+        if !aliases.contains(name) {
+            return Err(invalid("order must name a selected group or metric"));
+        }
+        let suffix = words[1..].join(" ").to_lowercase();
+        if ![
+            "",
+            "asc",
+            "desc",
+            "asc nulls first",
+            "asc nulls last",
+            "desc nulls first",
+            "desc nulls last",
+            "nulls first",
+            "nulls last",
+        ]
+        .contains(&suffix.as_str())
+        {
+            return Err(invalid("invalid aggregate ordering"));
+        }
+        format!("{} {suffix}", schema::quote(name)?)
+    } else {
+        format!("{} desc nulls last", groups.len() + 1)
+    };
+    let group = if groups.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "group by {}",
+            (1..=groups.len())
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    };
+    let query = format!(
+        "select to_jsonb(result) from(select {} from {} t where {} {group} order by {ordering} limit {})result",
+        selected.join(","),
+        table.source()?,
+        filter.clause(),
+        limit.clamp(1, 500)
+    );
+    let mut statement = sqlx::query_scalar::<_, Json<Value>>(AssertSqlSafe(query));
+    for value in filter.values {
+        statement = statement.bind(Json(value));
+    }
+    Ok(json!(
+        statement
+            .fetch_all(connection)
+            .await?
+            .into_iter()
+            .map(|v| v.0)
+            .collect::<Vec<_>>()
+    ))
+}
+
+/// Fixed catalog reports; the local CLI supplies no SQL through this registry.
+pub fn report_presets() -> Result<Value> {
+    Ok(serde_json::from_str(include_str!("reports.json"))?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

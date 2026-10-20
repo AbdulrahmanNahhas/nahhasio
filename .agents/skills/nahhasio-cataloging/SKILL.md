@@ -8,11 +8,10 @@ description: Editorial conventions for adding or revising a work in the Nahhasio
 This skill is the editorial half. For the mechanics of actually writing to the database, use the
 **nahhasio-db** skill (`./bin/nahhasio work apply`).
 
-The compiled Rust CLI now supports whole-work schema/template/export/apply and shared editor
-operations. Follow `nahhasio-db` for explicit database selection, write/dry-run guards and merge
-semantics. The examples below use the legacy development launcher, which still owns advanced
-editorial reports and missing-vocabulary creation. The server editor is Rust-only; its runtime
-change does not alter these editorial criteria.
+The public launcher now uses the compiled Rust CLI, including advanced editorial reports and
+explicit `--create-missing` imports. Follow `nahhasio-db` for explicit database selection,
+`--write`/`--dry-run` guards and merge/replacement semantics. The runtime transition does not
+alter editorial criteria or authorize catalog writes without Aqua's approval.
 
 Everything reader-facing in this catalog is **Arabic**: `summary`, `contentWarnings`,
 `analysisNotes`, and installment titles. English is used only for `canonicalTitle` and slugs.

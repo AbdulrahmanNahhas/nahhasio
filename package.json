@@ -21,7 +21,7 @@
     "db:consolidate": "pnpm --filter @arcadia/database db:consolidate",
     "db:restore:legacy": "pnpm db:import:knowledge && pnpm db:consolidate",
     "client:generate": "pnpm --filter @nahhasio/api-contract generate",
-    "arcadia": "pnpm --filter @arcadia/cli exec tsx src/main.ts",
+    "arcadia": "./bin/nahhasio",
     "test:e2e": "pnpm --filter @nahhasio/web test:e2e",
     "check:rust": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets --locked -- -D warnings",
     "dev:server": "PGUSER=\"${PGUSER:-$USER}\" cargo run --locked -p nahhasio-server",
@@ -29,7 +29,7 @@
     "lint:fix": "oxlint . --fix",
     "format:check": "oxfmt --check .",
     "dev:reference-api": "pnpm --filter @arcadia/api dev",
-    "nahhasio": "pnpm --filter @arcadia/cli exec tsx src/main.ts"
+    "nahhasio": "./bin/nahhasio"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.87.0",

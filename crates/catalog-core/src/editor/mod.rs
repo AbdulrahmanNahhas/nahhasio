@@ -223,8 +223,8 @@ pub(super) async fn revision(
     after: Value,
 ) -> Result<()> {
     let params = json!({"actor":actor,"id":id,"action":action,"before":before,"after":after});
-    exec(conn, "insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(($1->>'actor')::uuid,'admin.entity.'||($1->>'action'),'entities',$1->>'id','Entity editor',jsonb_build_object('before',$1->'before','after',$1->'after'))", params.clone()).await?;
-    exec(conn, "insert into editorial_revisions(actor_account_id,entity_type,entity_id,revision,action,summary,snapshot,changes) select ($1->>'actor')::uuid,'entities',$1->>'id',coalesce(max(revision),0)+1,$1->>'action','Entity editor',case when $1->>'action'='delete' then $1->'before' else $1->'after' end,jsonb_build_object('before',$1->'before','after',$1->'after') from editorial_revisions where entity_type='entities' and entity_id=$1->>'id'", params).await
+    exec(conn, "insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.entity.'||($1->>'action'),'entities',$1->>'id','Entity editor',jsonb_build_object('before',$1->'before','after',$1->'after'))", params.clone()).await?;
+    exec(conn, "insert into editorial_revisions(actor_account_id,entity_type,entity_id,revision,action,summary,snapshot,changes) select nullif($1->>'actor','')::uuid,'entities',$1->>'id',coalesce(max(revision),0)+1,$1->>'action','Entity editor',case when $1->>'action'='delete' then $1->'before' else $1->'after' end,jsonb_build_object('before',$1->'before','after',$1->'after') from editorial_revisions where entity_type='entities' and entity_id=$1->>'id'", params).await
 }
 
 /// Inspect full foreign keys, including composite ownership keys whose ON DELETE CASCADE
@@ -270,6 +270,37 @@ async fn dependencies(
         result.push(json!({"table":"source_evidence","count":count}));
     }
     Ok(json!(result))
+}
+
+/// Local operator artwork convenience: shares the exact server registration and guards.
+pub async fn upload_file(
+    c: &mut PgConnection,
+    path: &std::path::Path,
+    role: &str,
+    name: &str,
+    actor: &str,
+) -> Result<Value> {
+    use base64::Engine;
+    use std::io::Read;
+    let mut bytes = vec![];
+    std::fs::File::open(path)?
+        .take(10 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)?;
+    let mime = storage::detect(&bytes)?;
+    let input = json!({"dataUrl":format!("data:{mime};base64,{}",base64::engine::general_purpose::STANDARD.encode(&bytes)),"fileName":path.file_name().and_then(|s|s.to_str()).unwrap_or("image"),"role":role,"ownerName":name});
+    execute(c, "upload", input, actor, &[]).await
+}
+
+/// Input discovery for trusted local tools; no database or provider access.
+pub fn input_schema(operation: Option<&str>) -> Result<Value> {
+    let schemas: Value = serde_json::from_str(include_str!("contracts.json"))?;
+    match operation {
+        Some(name) => schemas
+            .get(name)
+            .cloned()
+            .ok_or_else(|| invalid("Unknown editor operation")),
+        None => Ok(schemas),
+    }
 }
 
 #[cfg(test)]

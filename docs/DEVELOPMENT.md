@@ -47,19 +47,27 @@ The CLI remains a trusted local operator tool with direct database credentials, 
 
 `sql` accepts one SELECT or a data-modifying statement with RETURNING. The result CTE prevents
 transaction-control/multiple statements from escaping rollback; DDL belongs to explicit migration
-execution. SQL results and generic pages are capped at 500 rows. `stats` currently provides counts,
-not the legacy editorial/coverage reports. The native CLI also supports `work schema`,
+execution. SQL results and generic pages are capped at 500 rows. `stats` supports the ten catalog report presets and typed group-by/metrics using the same
+filters as ordinary reads. Reports are bounded; JSON aggregate values are numbers. The native CLI also supports `work schema`,
 `work template`, `work export <reference>` and `work apply --file document.json --mode merge|replace`
 with `--dry-run` or `--write`; `--create-only` refuses an existing work. Merge preserves omitted
-list members; replace reconciles supplied lists. Neither mode silently creates missing vocabulary
-or people, and installment removal remains blocked pending a separate dependency review.
+list members; replace reconciles supplied lists. Neither mode silently creates missing vocabulary or people; the explicit operator-only
+`--create-missing` flag may create those references inside the same transaction. Installment
+removal remains blocked pending a separate dependency review. Inputs also accept a positional
+file or `--input-json`; the older inline `--json <document>` form is normalized to input JSON.
 `editor <operation> --file input.json` shares People/Studios, work, artwork/provider and reference
 contracts with the server. Editor audit identity requires `NAHHASIO_CLI_ACTOR`; ticket-based editor
 review/save additionally needs the same private 32-byte hex `NAHHASIO_EDITOR_SECRET` across commands.
 Server tickets instead use a process-local random key and expire after 15 minutes. Do not print
-these environment values. There is no implicit Node fallback. The `bin/nahhasio` development
-launcher remains explicitly legacy for advanced reports, missing-vocabulary creation and older
-CLI option compatibility; it is not part of the installed Rust server.
+these environment values. The public `bin/nahhasio`, compatibility `bin/arcadia` and workspace scripts now invoke the
+compiled Rust tool, without an implicit database or Node fallback. Build the debug binary first;
+`NAHHASIO_CLI_BIN` selects another installed/release binary. `help --json` describes commands and
+flags; `schema --resources` lists resource aliases. `work template/schema` and help need no database.
+`media ingest <file-or-approved-provider-url>`, `media assign <asset>` and `media purge` share server
+artwork guards. Media commands require `--write`/`--dry-run`; purge commits additionally need
+`--yes` and retain physical files for recovery. Dry runs roll back database changes but may leave
+recoverable orphan image bytes. Actor references resolve by UUID, slug or display name.
+TypeScript CLI source remains only for transitional consumers and isolated parity comparisons.
 
 Migrations embed the sole `packages/database/drizzle/` history in the binary, compare applied
 hashes/timestamps, refuse gaps/unknown/newer histories and unjournalled nonempty databases, and
@@ -346,7 +354,7 @@ On an ephemeral NixOS installation, preserve these **whole directories**, using 
 - `$XDG_STATE_HOME/nahhasio`, normally `~/.local/state/nahhasio`: session, `jobs.sqlite3` and its
   WAL/SHM companions, torrent metadata/resume/export records, and `payloads/` for partial jobs.
 - The configured Videos directory's `nahhasio/`, normally `~/Videos/nahhasio`: exported videos
-  and legacy torrent payloads. `NAHHASIO_MEDIA_ROOT` overrides this location.
+  and legacy torrent payloads. `NAHHASIO_VIDEO_ROOT` overrides this location.
 - The AppImage wherever it is installed, for example `~/Applications/`.
 
 Preserve the state and video roots together. Do not move/change an existing video root by changing
@@ -587,3 +595,13 @@ List pages default to 50 with a maximum of 500; use `--offset` and `--count` for
 `NAHHASIO_CLI_ACTOR`, `NAHHASIO_MEDIA_ROOT` and `NAHHASIO_PUBLIC_MEDIA_ROOT` are preferred;
 legacy environment variables remain fallbacks. This trusted local CLI does not provide remote
 user authorization. See `docs/SCHEMA-FOUNDATION.md` for deferred runtime work.
+
+### Device video storage — 2026-10-20
+
+`NAHHASIO_MEDIA_ROOT` is server artwork configuration. The native client's retained video override
+is now `NAHHASIO_VIDEO_ROOT`; its default remains the XDG Videos directory plus `nahhasio`.
+The variables must not share ownership: inheriting server artwork configuration previously made
+Downloads fail the transfer store's recorded-root check. Existing transfer records/files are not
+reset or moved. If an older installation deliberately used a custom video root through the old
+variable, set `NAHHASIO_VIDEO_ROOT` to that same directory. The transfer engine still refuses an
+unreviewed root change. A fresh client process is required after this Rust change.

@@ -171,6 +171,10 @@ pub fn resource(name: &str) -> (&str, Option<(&str, &str)>) {
     (table, scope)
 }
 
+pub fn resources() -> Value {
+    serde_json::json!(["title","alias","installment","episode","score","award","award-org","award-category","award-ceremony","entity","person","studio","credit","planet","genre","tone","tag","country","role","relation","org-relation","external-id","media-asset","media-assignment","account","capability","preference","content-policy","review","comment","collection","library","audit","revision","job","source","invite","server","device","library-root","trailer","media-file","media-track","playback","download","jellyfin-server","jellyfin-item"].into_iter().map(|name|{let(table,scope)=resource(name);serde_json::json!({"name":name,"table":table,"scope":scope.map(|(key,value)|serde_json::json!({(key):value}))})}).collect::<Vec<_>>())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

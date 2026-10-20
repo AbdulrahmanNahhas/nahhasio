@@ -912,8 +912,8 @@ pub(super) async fn execute(
                     ));
                 }
                 let p = json!({"actor":actor,"id":record["id"],"snapshot":after,"action":if record["create"]==true{"create"}else{"update"}});
-                exec(c,"insert into editorial_revisions(actor_account_id,entity_type,entity_id,revision,action,summary,snapshot,changes) select ($1->>'actor')::uuid,'work_documents',$1->>'id',coalesce(max(revision),0)+1,$1->>'action','Complete work editor',$1->'snapshot',jsonb_build_object('after',$1->'snapshot') from editorial_revisions where entity_type='work_documents' and entity_id=$1->>'id'",p.clone()).await?;
-                exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(($1->>'actor')::uuid,'admin.work.'||($1->>'action'),'titles',$1->>'id','Complete work editor',jsonb_build_object('after',$1->'snapshot'))",p).await?;
+                exec(c,"insert into editorial_revisions(actor_account_id,entity_type,entity_id,revision,action,summary,snapshot,changes) select nullif($1->>'actor','')::uuid,'work_documents',$1->>'id',coalesce(max(revision),0)+1,$1->>'action','Complete work editor',$1->'snapshot',jsonb_build_object('after',$1->'snapshot') from editorial_revisions where entity_type='work_documents' and entity_id=$1->>'id'",p.clone()).await?;
+                exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.work.'||($1->>'action'),'titles',$1->>'id','Complete work editor',jsonb_build_object('after',$1->'snapshot'))",p).await?;
             }
             Ok(
                 json!({"saved":records.len(),"createdId":records.iter().find(|r|r["create"]==true).map(|r|r["id"].clone())}),
@@ -929,8 +929,12 @@ pub async fn apply_document(
     document: Value,
     replace: bool,
     create_only: bool,
+    create_missing: bool,
 ) -> Result<Value> {
     let mut patch = validate("workDocument", document)?;
+    if create_missing {
+        create_references(c, &patch).await?;
+    }
     let existing = if let Some(id) = patch["id"].as_str() {
         rows(
             c,
@@ -1044,4 +1048,120 @@ pub async fn apply_document(
 pub fn document_schema() -> Result<Value> {
     let all: Value = serde_json::from_str(include_str!("contracts.json"))?;
     Ok(all["workDocument"].clone())
+}
+
+async fn create_references(c: &mut PgConnection, doc: &Value) -> Result<()> {
+    async fn ensure(
+        c: &mut PgConnection,
+        table: &str,
+        value: &str,
+        kind: Option<&str>,
+        organization: Option<&Value>,
+    ) -> Result<Value> {
+        let fields = if table == "entities" {
+            vec!["name", "sort_name"]
+        } else if table.starts_with("award_") {
+            vec!["slug", "name_ar", "name_en"]
+        } else {
+            vec!["slug", "label_ar", "label_en"]
+        };
+        let mut matches = fields
+            .iter()
+            .map(|f| format!("lower(btrim({f}))=lower(btrim($1->>'value'))"))
+            .collect::<Vec<_>>();
+        matches.push("id::text=$1->>'value'".into());
+        if table == "entities" {
+            matches.push("exists(select 1 from entity_aliases a where a.entity_id=t.id and lower(btrim(a.alias))=lower(btrim($1->>'value')))".into());
+        }
+        let filter = if kind.is_some() {
+            " and kind::text=$1->>'kind'"
+        } else if organization.is_some() {
+            " and organization_id=($1->>'organization')::uuid"
+        } else {
+            ""
+        };
+        let query = format!(
+            "select to_jsonb(t) from {} t where ({}){filter} limit 2",
+            schema::quote(table)?,
+            matches.join(" or ")
+        );
+        let found = rows(
+            c,
+            &query,
+            json!({"value":value,"kind":kind,"organization":organization}),
+        )
+        .await?;
+        if found.len() > 1 {
+            return Err(invalid("Ambiguous reference; no records created"));
+        }
+        if let Some(found) = found.first() {
+            return Ok(found.clone());
+        }
+        let mut slug = super::storage::slug(value, true, 60);
+        if slug.is_empty() {
+            slug = format!("item-{}", &fingerprint(&json!(value))[..12]);
+        }
+        let p = json!({"name":value,"slug":slug,"kind":kind,"organization":organization});
+        let query = if table == "entities" {
+            "insert into entities(kind,name,sort_name) values(($1->>'kind')::entity_kind,$1->>'name',$1->>'name') returning to_jsonb(entities)".into()
+        } else if table == "award_categories" {
+            "insert into award_categories(organization_id,slug,name_ar,name_en) values(($1->>'organization')::uuid,$1->>'slug',$1->>'name',$1->>'name') returning to_jsonb(award_categories)".into()
+        } else {
+            let (en, ar) = if table == "award_organizations" {
+                ("name_en", "name_ar")
+            } else {
+                ("label_en", "label_ar")
+            };
+            format!(
+                "insert into {}(slug,{en},{ar}) values($1->>'slug',$1->>'name',$1->>'name') returning to_jsonb({})",
+                schema::quote(table)?,
+                schema::quote(table)?
+            )
+        };
+        one(c, &query, p).await
+    }
+    for table in ["genres", "tones", "tags", "countries"] {
+        for value in array(&doc[table]) {
+            ensure(
+                c,
+                table,
+                value
+                    .as_str()
+                    .ok_or_else(|| invalid("Invalid vocabulary"))?,
+                None,
+                None,
+            )
+            .await?;
+        }
+    }
+    for credit in array(&doc["credits"]) {
+        let role = resolve(c, "roles", text(credit, "role"), None).await?;
+        ensure(
+            c,
+            "entities",
+            text(credit, "entity"),
+            Some(text(&role, "entity_kind")),
+            None,
+        )
+        .await?;
+    }
+    for award in array(&doc["awards"]) {
+        let org = ensure(
+            c,
+            "award_organizations",
+            text(award, "organization"),
+            None,
+            None,
+        )
+        .await?;
+        ensure(
+            c,
+            "award_categories",
+            text(award, "category"),
+            None,
+            Some(&org["id"]),
+        )
+        .await?;
+    }
+    Ok(())
 }
