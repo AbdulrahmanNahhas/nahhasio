@@ -1,11 +1,11 @@
 import type { User } from "@nahhasio/api-contract";
 import { Outlet, useRouterState } from "@tanstack/react-router";
-import { cn } from "cn";
 import { Compass, Home, Search, Library, Ellipsis, CalendarDays, MonitorPlay } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
 import { CardNavigationProvider } from "../../components/card-navigation";
 import { Button } from "../../components/ui/button";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "../../components/ui/sidebar";
 import {
   Tooltip,
   TooltipContent,
@@ -31,7 +31,7 @@ export function ViewerShell({ user }: { user: User }) {
   const resolvedPath = useRouterState({
     select: (state) => state.resolvedLocation?.pathname ?? state.location.pathname,
   });
-  const main = useRef<HTMLElement>(null);
+  const main = useRef<HTMLDivElement>(null);
   const previous = useRef(route.path);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -83,25 +83,64 @@ export function ViewerShell({ user }: { user: User }) {
   const parts = route.path.split("/").slice(1);
   const adminArea = parts[0] === "admin" && user.isAdmin;
   const home = parts[0] === "home" || !parts[0];
+  const ContentRegion = adminArea ? "div" : "main";
+  const content = (
+    <CardNavigationProvider key={route.path}>
+      <ContentRegion
+        ref={main}
+        tabIndex={-1}
+        className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-p-4 [scrollbar-color:var(--line)_transparent] scrollbar-thin motion-reduce:scroll-auto **:data-card-navigation:scroll-m-2"
+        id="main-content"
+      >
+        <Button
+          variant="ghost"
+          type="button"
+          className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-20 focus:rounded-lg focus:bg-primary focus:px-5 focus:py-3 focus:text-primary-foreground"
+          onClick={() =>
+            window.dispatchEvent(
+              new Event(parts[0] === "search" ? "nahhasio:focus-search" : "nahhasio:focus-content"),
+            )
+          }
+        >
+          {home
+            ? "الانتقال إلى العرض الرئيسي"
+            : parts[0] === "search"
+              ? "الانتقال إلى البحث"
+              : "الانتقال إلى المحتوى"}
+        </Button>
+        <Outlet />
+      </ContentRegion>
+    </CardNavigationProvider>
+  );
   return (
     <TooltipProvider delay={250}>
-      <div className="flex h-dvh overflow-hidden bg-background">
-        <nav
-          className={cn(
-            "flex w-20 shrink-0 flex-col items-center gap-6 border-e border-border bg-sidebar px-2 pt-5 pb-4 max-[520px]:w-16 max-[520px]:gap-4 max-[520px]:px-1",
-            adminArea && "w-56 gap-5 pt-4 pb-3 max-[800px]:w-20",
-          )}
-          aria-label={adminArea ? "التنقل الإداري" : "التنقل الرئيسي"}
-          onKeyDown={(event) => {
-            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      {adminArea ? (
+        <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+          <AdminNavigation />
+          <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+            <div className="flex shrink-0 items-center px-4 pt-3 md:hidden">
+              <SidebarTrigger
+                aria-label="إظهار أو إخفاء القائمة"
+                aria-keyshortcuts="Control+b Meta+b"
+              />
+            </div>
+            {content}
+          </SidebarInset>
+        </SidebarProvider>
+      ) : (
+        <div className="flex h-dvh overflow-hidden bg-background">
+          <nav
+            className="flex w-20 shrink-0 flex-col items-center gap-6 border-e border-border bg-sidebar px-2 pt-5 pb-4 max-[520px]:w-16 max-[520px]:gap-4 max-[520px]:px-1"
+            aria-label="التنقل الرئيسي"
+            onKeyDown={(event) => {
+              if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
-            if (event.key === "ArrowLeft") {
-              event.preventDefault();
-              window.dispatchEvent(new Event("nahhasio:focus-content"));
-            }
-          }}
-        >
-          {!adminArea && (
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                window.dispatchEvent(new Event("nahhasio:focus-content"));
+              }
+            }}
+          >
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -116,11 +155,7 @@ export function ViewerShell({ user }: { user: User }) {
               </TooltipTrigger>
               <TooltipContent side="left">نحّاسيو</TooltipContent>
             </Tooltip>
-          )}
 
-          {adminArea ? (
-            <AdminNavigation />
-          ) : (
             <div className="flex min-h-0 w-full flex-col items-center gap-2 overflow-y-auto py-1 scrollbar-thin">
               {[
                 { href: "#/home", label: "الرئيسية", icon: Home, active: home },
@@ -147,9 +182,15 @@ export function ViewerShell({ user }: { user: User }) {
                   href: "#/more",
                   label: "المزيد",
                   icon: Ellipsis,
-                  active: ["more", "planets", "people", "studios", "profile", "downloads"].includes(
-                    parts[0],
-                  ),
+                  active: [
+                    "more",
+                    "planets",
+                    "people",
+                    "studios",
+                    "profile",
+                    "profiles",
+                    "downloads",
+                  ].includes(parts[0]),
                 },
               ].map((item) => (
                 <Tooltip key={item.href}>
@@ -183,45 +224,14 @@ export function ViewerShell({ user }: { user: User }) {
                 </Tooltip>
               ))}
             </div>
-          )}
-          {!adminArea && (
             <div className="mt-auto flex w-full shrink-0 flex-col items-center gap-2">
               <DownloadQueueButton />
               <AccountMenu user={user} open={account} onOpenChange={changeAccountOpen} />
             </div>
-          )}
-        </nav>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <CardNavigationProvider key={route.path}>
-            <main
-              ref={main}
-              tabIndex={-1}
-              className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-p-4 [scrollbar-color:var(--line)_transparent] scrollbar-thin motion-reduce:scroll-auto **:data-card-navigation:scroll-m-2"
-              id="main-content"
-            >
-              <Button
-                variant="ghost"
-                type="button"
-                className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-20 focus:rounded-lg focus:bg-primary focus:px-5 focus:py-3 focus:text-primary-foreground"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new Event(
-                      parts[0] === "search" ? "nahhasio:focus-search" : "nahhasio:focus-content",
-                    ),
-                  )
-                }
-              >
-                {home
-                  ? "الانتقال إلى العرض الرئيسي"
-                  : parts[0] === "search"
-                    ? "الانتقال إلى البحث"
-                    : "الانتقال إلى المحتوى"}
-              </Button>
-              <Outlet />
-            </main>
-          </CardNavigationProvider>
+          </nav>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">{content}</div>
         </div>
-      </div>
+      )}
     </TooltipProvider>
   );
 }

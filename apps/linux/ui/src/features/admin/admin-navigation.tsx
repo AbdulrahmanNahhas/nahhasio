@@ -1,76 +1,104 @@
 import { useRouterState } from "@tanstack/react-router";
-import { cn } from "cn";
 import { ArrowRight } from "lucide-react";
 
-import { Separator } from "@/components/ui/separator";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 import { adminGroups, overview, isAdminSectionAvailable } from "./navigation";
 
-const linkClass =
-  "flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-[current=page]:bg-secondary aria-[current=page]:font-medium aria-[current=page]:text-primary max-[800px]:min-h-12 max-[800px]:flex-col max-[800px]:gap-1 max-[800px]:px-1 max-[800px]:text-center max-[800px]:text-[10px]";
 export function AdminNavigation() {
   const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-3" aria-label="أقسام الإدارة">
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain scrollbar-thin">
-        <a
-          href="#/admin"
-          className={linkClass}
-          aria-current={path === "/admin" ? "page" : undefined}
-          title={overview.title}
-        >
-          <overview.icon className="size-4 shrink-0" aria-hidden="true" />
-          <span>{overview.title}</span>
-        </a>
-        {adminGroups.map((group) => (
-          <div
-            key={group.title}
-            className="flex shrink-0 flex-col gap-0.5"
-            role="group"
-            aria-label={group.title}
-          >
-            <p className="mb-1 px-2 text-xs font-medium text-muted-foreground max-[800px]:px-1 max-[800px]:text-center max-[800px]:text-[10px]">
-              {group.title}
-            </p>
-            {group.items.map((item) =>
-              isAdminSectionAvailable(item.slug) ? (
+    <Sidebar side="right" variant="inset" collapsible="icon" dir="rtl" aria-label="التنقل الإداري">
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={
                 <a
-                  key={item.slug}
-                  href={`#/admin/${item.slug}`}
-                  className={linkClass}
-                  aria-current={path === `/admin/${item.slug}` ? "page" : undefined}
-                  title={item.title}
-                >
-                  <item.icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span>{item.title}</span>
-                </a>
-              ) : (
-                <button
-                  key={item.slug}
-                  type="button"
-                  disabled
-                  className={cn(
-                    linkClass,
-                    "cursor-not-allowed text-start opacity-45 hover:bg-transparent hover:text-muted-foreground",
-                  )}
-                  title={`${item.title} — غير متاح بعد`}
-                  aria-label={`${item.title} — غير متاح بعد`}
-                >
-                  <item.icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span>{item.title}</span>
-                </button>
-              ),
-            )}
-          </div>
+                  href="#/admin"
+                  onClick={closeMobile}
+                  aria-current={path === "/admin" ? "page" : undefined}
+                />
+              }
+              isActive={path === "/admin"}
+              tooltip={{ children: overview.title, side: "left" }}
+              aria-label={overview.title}
+            >
+              <overview.icon aria-hidden="true" />
+              <span>{overview.title}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent className="overflow-y-scroll! scroll-fade-y">
+        {adminGroups.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const available = isAdminSectionAvailable(item.slug);
+                  const active = path === `/admin/${item.slug}`;
+                  const label = available ? item.title : `${item.title} — غير متاح بعد`;
+                  return (
+                    <SidebarMenuItem key={item.slug}>
+                      <SidebarMenuButton
+                        render={
+                          available ? (
+                            <a
+                              href={`#/admin/${item.slug}`}
+                              onClick={closeMobile}
+                              aria-current={active ? "page" : undefined}
+                            />
+                          ) : undefined
+                        }
+                        disabled={!available}
+                        isActive={active}
+                        tooltip={{ children: label, side: "left" }}
+                        aria-label={label}
+                        title={label}
+                      >
+                        <item.icon aria-hidden="true" />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         ))}
-      </div>
-      <div className="flex shrink-0 flex-col gap-2">
-        <Separator />
-        <a href="#/home" className={linkClass} title="العودة إلى المكتبة">
-          <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-          <span>العودة إلى المكتبة</span>
-        </a>
-      </div>
-    </div>
+      </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<a href="#/home" onClick={closeMobile} />}
+              tooltip={{ children: "العودة إلى المكتبة", side: "left" }}
+              aria-label="العودة إلى المكتبة"
+            >
+              <ArrowRight aria-hidden="true" />
+              <span>العودة إلى المكتبة</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 }
