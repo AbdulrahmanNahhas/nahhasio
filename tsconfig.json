@@ -14,10 +14,7 @@
       "path": "packages/database"
     },
     {
-      "path": "apps/api"
-    },
-    {
-      "path": "apps/web"
+      "path": "tools/catalog-reference"
     }
   ]
 }

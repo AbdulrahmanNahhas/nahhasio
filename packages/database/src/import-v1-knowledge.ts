@@ -1,15 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename } from "node:path";
 
 import Database from "better-sqlite3";
 import postgres from "postgres";
 
-import { legacySourcePath } from "./legacy-source";
+import { legacyArtworkPath, legacySourcePath } from "./legacy-source";
 
 type Row = Record<string, unknown>;
-const repositoryRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const sourcePath = legacySourcePath();
 if (!existsSync(sourcePath)) throw new Error(`SQLite source not found: ${sourcePath}`);
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
@@ -98,7 +96,7 @@ await sql.begin(async (tx) => {
       on conflict (kind, sort_name) do update set name=excluded.name, description=excluded.description`;
     if (image) {
       const sourceAsset = profileAssets.find((asset) => asset.owner_id === entity.id);
-      const filePath = resolve(repositoryRoot, "apps/web/public", `.${image}`);
+      const filePath = legacyArtworkPath(image);
       if (sourceAsset && existsSync(filePath)) {
         const bytes = readFileSync(filePath);
         const [asset] = await tx`insert into media_assets

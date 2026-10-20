@@ -5,4 +5,4 @@ Type the root with createRootRouteWithContext and register the router for inferr
 Use shared feature query options in loaders and components.
 
 The packaged Vite desktop does not use setupRouterSsrQueryIntegration or per-request hydration.
-Those patterns apply to apps/web only. See the official Router external-data-loading guide.
+See the official Router external-data-loading guide for the Vite integration.

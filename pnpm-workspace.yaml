@@ -2,6 +2,7 @@ packages:
   - apps/*
   - apps/linux/ui
   - packages/*
+  - tools/catalog-reference
 
 allowBuilds:
   esbuild: true

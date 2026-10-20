@@ -470,7 +470,7 @@ The checkboxes below retain supported-platform/runtime, CI and publication accep
 - [ ] **NH-20-11** Exercise freshly installed/released AppImages and upgrade compatibility.
 - [ ] **NH-20-12** Inspect real GTK layouts/focus/RTL/input behavior; distinguish fixtures from physical input.
 - [ ] **NH-20-13** Compare every existing website workflow against its accepted client replacement.
-- [ ] **NH-20-14** Remove apps/web and its deployment/scripts/dependencies after replacement acceptance.
+- [x] **NH-20-14** Retire the web dashboard, Hono API and their development/build wiring (2026-10-20).
 - [ ] **NH-20-15** Remove unused legacy API/worker/provider/contract code only after consumer inventory.
 - [ ] **NH-20-16** Update active guides and commands to the final server/Linux-client product.
 - [ ] **NH-20-17** Publish v1.0 artifacts, installation/update/restore guides and known limitations.

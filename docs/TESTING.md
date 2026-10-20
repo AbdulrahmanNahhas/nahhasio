@@ -48,7 +48,7 @@ devenv shell -- pnpm --filter @nahhasio/api-contract test
 
 When runtime verification is required, start with the relevant spec and broaden for unresolved risks. Linux Playwright tests inject a
 fixture bridge; they do not certify native HTTP, GTK input, WebKit rendering or playback.
-The root `pnpm test:e2e` targets the administration dashboard, not the Linux viewing UI.
+The root `pnpm test:e2e` runs these same Linux UI browser fixtures.
 Use Chromium supplied by devenv (`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`); do not download browsers.
 
 The client Playwright config uses port **23110** and reuses an existing server outside CI.
@@ -170,3 +170,15 @@ For an explicitly requested live read-only provider search, run the isolated cat
 counts and warnings; it neither ingests images nor changes the live catalog. TMDB and Fanart
 returned candidates at the 2026-10-20 local checkpoint; that does not establish AniList, every
 provider endpoint or production connectivity acceptance.
+
+### Retired runtime boundaries
+
+The web dashboard and Hono API suites are retired with their applications. `pnpm test:e2e`
+now runs the Linux UI browser fixtures. This remains distinct from GTK/native acceptance.
+`bin/test-rust-catalog` retains its socket-only PostgreSQL comparison oracle in
+`tools/catalog-reference`; it must never target the live catalog.
+Contract schema drift is checked by `pnpm --filter @arcadia/contracts check:rust-editor`.
+Recovery imports require explicit `ARCADIA_V1_DB_PATH` and `ARCADIA_V1_ARTWORK_ROOT` selections;
+artwork paths are resolved under that recovery root, never under a deleted website directory.
+`pnpm --filter @arcadia/database schema:graph /absolute/path/schema.json` exports the
+schema graph without a frontend dependency.

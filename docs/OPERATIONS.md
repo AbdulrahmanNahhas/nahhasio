@@ -10,10 +10,10 @@ configuration from the installation/update procedures still to be delivered.
 - Native client: `NAHHASIO_SERVER_URL` defaults to the loopback development server.
 - Artwork: `NAHHASIO_MEDIA_ROOT` (uploads) and `NAHHASIO_PUBLIC_MEDIA_ROOT` (public media root), with legacy `ARCADIA_*` fallbacks.
   Default source-development roots are `data/media/uploads` and `data/media`.
-- Device video destination: `NAHHASIO_MEDIA_ROOT`, otherwise `~/Videos/nahhasio`.
+- Device video destination: `NAHHASIO_VIDEO_ROOT`, otherwise `~/Videos/nahhasio`.
 - Device job state: XDG state directory, normally `~/.local/state/nahhasio`.
-- Full editor: fixed private worker at the trusted repository root; `NAHHASIO_EDITOR_ROOT`
-  can select a packaged root. Node/tsx and shared dependencies remain required.
+- Full editor/providers/artwork: shared Rust services; no Node worker or repository source is
+  needed by the installed server. Node/pnpm remains development/build tooling for the desktop.
 - Debug-only generic administration: `NAHHASIO_LOCAL_ADMIN=true` and a private token; the
   server requires a debug build bound to loopback. This is not a production client credential.
 
@@ -27,7 +27,7 @@ filesystem roots. Future Podman mounts must account for service ownership, read/
 Fedora SELinux labels. Never treat all data/ directories as disposable caches.
 
 `data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tooling requires an explicit
-`ARCADIA_V1_DB_PATH`. Old artwork recovered under `data/recovery/legacy-build-artwork` may need
+`ARCADIA_V1_DB_PATH` and absolute `ARCADIA_V1_ARTWORK_ROOT`. Old artwork recovered under `data/recovery/legacy-build-artwork` may need
 reconciliation; do not delete it or import it automatically. Private backups/captures remain ignored.
 
 Device caches, completed device downloads and server library originals are separate. Removing a
@@ -38,7 +38,8 @@ errors. Cleanup only verified disposable files and respect active reader/job own
 
 Build a versioned server container and Linux AppImage, connect them on the home network, and
 provide documented persistent mounts/HTTPS trust/owner setup. No website belongs to the delivered
-product. Exact host hardware and library adapter are unresolved. Rootless Quadlets, service boot
+product. Exact host hardware remains unverified. Jellyfin is the confirmed stored-media backend, with no
+catalog metadata/artwork or tracking synchronization. Rootless Quadlets, service boot
 ordering and certificate/setup mechanics will be chosen and verified during implementation.
 
 The approved target includes automatic updates for both Nahhasio and its Linux AppImage.
@@ -54,10 +55,9 @@ managed separately from Nahhasio application updates.
    common schema discovery/redaction/pool setup and transfer-engine video selection restrictions
    are implemented; see [DEVELOPMENT.md](DEVELOPMENT.md#rust-operator-cli-checkpoint). Planets
    definition/membership workflows have also moved to shared Rust services behind the existing API.
-2. Port whole-work reconciliation/review/save, remaining entity editors, artwork storage/operations
-   and metadata/artwork providers into shared Rust services. Preserve client contracts, UUIDs,
-   transactions, revision/conflict checks, authorization and artwork paths; retire the Node worker
-   only after isolated workflow parity. Finish the operator CLI's whole-work/media commands.
+2. Whole-work reconciliation/review/save, entity editors, artwork and providers now run in shared
+   Rust, with native operator CLI parity. Isolated checks preserve contracts, UUIDs, transactions,
+   authorization and artwork paths. Installed Fedora acceptance remains separate.
 3. Add server-owned provider credential management through authenticated desktop administration.
    Saved keys are write-only through the API; responses report configured state. Keep secrets out
    of images, browser storage, logs, raw inspection and ordinary API responses.

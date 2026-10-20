@@ -19,13 +19,11 @@ WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` wi
 | packages/contracts             | Shared work/editor schemas and domain contracts                                                                                       |
 | packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools                                                             |
 | packages/domain, packages/i18n | Scoring/policy/taxonomy and labels                                                                                                    |
-| packages/cli                   | CLI, SQL helpers and shared full-document reconciliation                                                                              |
-| apps/web, apps/api             | Transitional dashboard/legacy API and still-consumed provider/media helpers                                                           |
+| tools/catalog-reference        | Development-only TypeScript export/report oracle and acceptance scripts                                                               |
 
 The installed Rust server executes all editor, provider and artwork operations through
 `crates/catalog-core/src/editor`; it does not launch Node or load TypeScript source. The private
-Node worker has been removed. Legacy helpers remain only for the transitional dashboard and
-development CLI consumers. Node/pnpm are still development/build dependencies for React.
+Node worker has been removed. Only isolated export/report comparison helpers remain under `tools/catalog-reference`. Node/pnpm are still development/build dependencies for React.
 Schema ownership does not move from Drizzle to a second SQLx tree.
 
 ### Rust operator CLI checkpoint
@@ -59,7 +57,7 @@ file or `--input-json`; the older inline `--json <document>` form is normalized 
 contracts with the server. Editor audit identity requires `NAHHASIO_CLI_ACTOR`; ticket-based editor
 review/save additionally needs the same private 32-byte hex `NAHHASIO_EDITOR_SECRET` across commands.
 Server tickets instead use a process-local random key and expire after 15 minutes. Do not print
-these environment values. The public `bin/nahhasio`, compatibility `bin/arcadia` and workspace scripts now invoke the
+these environment values. The public `bin/nahhasio` and workspace scripts invoke the
 compiled Rust tool, without an implicit database or Node fallback. Build the debug binary first;
 `NAHHASIO_CLI_BIN` selects another installed/release binary. `help --json` describes commands and
 flags; `schema --resources` lists resource aliases. `work template/schema` and help need no database.
@@ -67,7 +65,8 @@ flags; `schema --resources` lists resource aliases. `work template/schema` and h
 artwork guards. Media commands require `--write`/`--dry-run`; purge commits additionally need
 `--yes` and retain physical files for recovery. Dry runs roll back database changes but may leave
 recoverable orphan image bytes. Actor references resolve by UUID, slug or display name.
-TypeScript CLI source remains only for transitional consumers and isolated parity comparisons.
+The former TypeScript CLI entry point and editors are removed. `tools/catalog-reference` retains
+only the export/report oracle and acceptance helpers; it is never shipped or used by the server.
 
 Migrations embed the sole `packages/database/drizzle/` history in the binary, compare applied
 hashes/timestamps, refuse gaps/unknown/newer histories and unjournalled nonempty databases, and
@@ -79,8 +78,7 @@ authenticated editor endpoint. Definitions and membership edits retain stale-rev
 dependency/deletion guards, deterministic locks and atomic audit/revision writes. Read operations
 use repeatable-read transactions; writes revalidate/lock the admin session inside serializable
 transactions. Revisions are opaque fingerprints; forms loaded before this backend transition
-must reload/review if their old fingerprint is rejected. The transitional web dashboard retains
-its existing TypeScript services until its replacement is accepted. People/Studios and work
+must reload/review if their old fingerprint is rejected. The old web dashboard and Hono API are retired. People/Studios and work
 reviews rehearse in savepoints and roll back; saves recheck revisions and authorizations. Work
 saves also compare the persisted document against the reviewed result. Foreign-key checks include
 composite keys before deleting episodes. Artwork registration uses bounded signature/dimension
@@ -95,7 +93,7 @@ time/size limits and a shared connection pool. Uploads need `NAHHASIO_MEDIA_ROOT
 `NAHHASIO_PUBLIC_MEDIA_ROOT` in deployment; checkout-relative defaults are development convenience.
 Input schemas are checked-in generated data from the existing Zod contracts, with semantic guards
 in Rust. `pnpm typecheck` checks schema drift; regenerate with
-`pnpm --filter @arcadia/cli generate:rust-editor`. Old open reviews must reload after this transition.
+`pnpm --filter @arcadia/contracts generate:rust-editor`. Old open reviews must reload after this transition.
 
 ## Run/build
 
@@ -106,16 +104,13 @@ devenv shell -- nahhasio-client
 devenv up
 ```
 
-`devenv up` currently includes the transitional website; it is a development process, not the
-product target. Use `devenv up postgres server web` when checking that surface. The optional
-Hono reference API uses `devenv --profile reference-api up`. Avoid duplicate processes.
+`devenv up` starts PostgreSQL, the Rust API and the Linux client. No website or Node API
+process is started. Avoid duplicate processes.
 
 | Service                          | Port  |
 | -------------------------------- | ----- |
 | PostgreSQL                       | 23102 |
 | Rust API                         | 23103 |
-| Transitional website             | 23100 |
-| Optional Hono API                | 23101 |
 | Desktop Vite                     | 23110 |
 | Isolated player browser fixtures | 23112 |
 
@@ -539,7 +534,7 @@ separate acceptance check after relaunching the freshly built native process.
 Phase 1 is committed as `990b704`; see SCHEMA-FOUNDATION.md for the Phase 2 checklist and limits.
 The canonical contract includes policy/dubs/trailers, episode stills, contribution languages, playback
 revisions, stable server identity and native installation registration. Regenerate editor-operation
-schemas with `pnpm --filter @arcadia/cli exec tsx src/editor/generate-api.ts`, then `pnpm client:generate`.
+schemas with `pnpm --filter @arcadia/contracts generate:editor-api`, then `pnpm client:generate`.
 Never edit the generated client directly.
 
 Production administrator sessions may read `/api/v1/admin/database/schema` and bounded
@@ -605,3 +600,20 @@ Downloads fail the transfer store's recorded-root check. Existing transfer recor
 reset or moved. If an older installation deliberately used a custom video root through the old
 variable, set `NAHHASIO_VIDEO_ROOT` to that same directory. The transfer engine still refuses an
 unreviewed root change. A fresh client process is required after this Rust change.
+
+## Repository launchers
+
+`bin/` contains small entry scripts, not compiled executables. Compiled development executables
+live in `target/debug`, release builds in `target/release`, and AppImages in `dist/client`.
+
+| Entry                         | Purpose                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `bin/nahhasio`                | Quiet launcher for the compiled Rust catalog/operator CLI                         |
+| `bin/nahhasio-client`         | Build desktop assets/binary and launch the development client                     |
+| `bin/nahhasio-native-runtime` | Native library/graphics compatibility wrapper shared by development and packaging |
+| `bin/nahhasio-appimage`       | Build the Linux AppImage and its runtime closure                                  |
+| `bin/test-rust-catalog`       | Own a disposable PostgreSQL cluster for Rust catalog/migration acceptance         |
+
+The old `bin/arcadia` alias is retired. Use `bin/nahhasio` directly. Test/generation helpers are
+development tools and do not run as installed services. Keep wrappers that supply actual packaging
+or process setup; ordinary catalog operations belong in the Rust CLI rather than more scripts.

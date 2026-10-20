@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Compatibility entry point for existing scripts. The public command is nahhasio.
-set -euo pipefail
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec "$root/bin/nahhasio" "$@"

@@ -583,7 +583,7 @@ async fn run_api_suite(fixture: PgPool, api_pool: PgPool) -> TestResult {
 }
 
 #[test]
-#[ignore = "explicit opt-in; representative live catalog reads only through arcadia CLI"]
+#[ignore = "explicit opt-in; representative live catalog reads only through the native Nahhasio CLI"]
 fn representative_live_work_payload_sizes() -> TestResult {
     if env::var("NAHHASIO_RUN_VIEWER_READONLY_REPORT").as_deref() != Ok("1") {
         return Err(
@@ -597,7 +597,7 @@ fn representative_live_work_payload_sizes() -> TestResult {
     let largest = format!(
         "select t.id,t.canonical_title,octet_length(convert_to(({summary} || ({detail}))::text,'UTF8')) as estimated_bytes from titles t order by estimated_bytes desc,t.id limit 1"
     );
-    let output = Command::new(workspace.join("bin/arcadia"))
+    let output = Command::new(workspace.join("bin/nahhasio"))
         .current_dir(&workspace)
         .args(["sql", &largest, "--json"])
         .output()?;
@@ -615,7 +615,7 @@ fn representative_live_work_payload_sizes() -> TestResult {
     let query = format!(
         "select t.canonical_title,({summary} || ({detail})) as detail from titles t where t.id in ('4e0a92e1-ad91-461a-a6fc-8c6f8483d46c','98d9ce9c-c10b-413b-99f4-b0260191fa95','a5474669-5b6c-4c7f-af53-a83431e36fdf','{largest_id}') order by t.canonical_title"
     );
-    let output = Command::new(workspace.join("bin/arcadia"))
+    let output = Command::new(workspace.join("bin/nahhasio"))
         .current_dir(&workspace)
         .args(["sql", &query, "--json"])
         .output()?;

@@ -30,12 +30,6 @@
       "sourceType": "github",
       "skillPath": "skills/tanstack-router/SKILL.md",
       "computedHash": "659549bfcacc5767cd489fcbceb2889247bd38c82f0a37c282da754eb2603f63"
-    },
-    "tanstack-start-best-practices": {
-      "source": "deckardger/tanstack-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/tanstack-start/SKILL.md",
-      "computedHash": "8799a83f34c3c0631915f8ddcdccc470d91e8bff05409564679bcd76b5eb0be8"
     }
   }
 }

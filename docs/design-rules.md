@@ -25,8 +25,7 @@ Runtime geometry follows the existing typed/token boundary. Do not hand-edit ven
 to fix caller errors. The full official desktop component set was approved; imports stay scoped.
 
 Do not put HTTP/session secrets, arbitrary native operations or direct server fetch in UI code.
-Desktop uses Vite/Router/Query, not TanStack Start. The transitional website remains its own
-Start app and app-specific registry configuration until retirement; it is not the desktop theme.
+Desktop uses Vite/Router/Query, not TanStack Start. The former TanStack Start web dashboard is retired.
 
 Use the shadcn and desktop skills for implementation. Follow lint/configured composition rules;
 Aqua's explicitly approved design decisions take precedence over a generic redesign suggestion.

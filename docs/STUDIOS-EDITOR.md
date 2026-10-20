@@ -27,7 +27,7 @@ Focused verification:
 
 - `devenv shell -- pnpm check`
 - `devenv shell -- pnpm --filter @nahhasio/linux-ui test:e2e tests/studio-editor.spec.ts`
-- `devenv shell -- pnpm --filter @arcadia/cli exec tsx src/editor/entity-references.acceptance.ts /absolute/private/backup-directory`
+- `devenv shell -- bash bin/test-rust-catalog` (isolated Rust editor fixtures)
 
 The persistence check refuses a non-rehearsal database and rolls its fixture transaction back.
 Browser fixtures cover tabs, links, relationships, review/save and desktop/narrow screenshots.

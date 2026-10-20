@@ -878,7 +878,7 @@
 - [ ] Backup and restore procedure
 - [ ] Explicit server update procedure
 - [ ] Startup/restart recovery
-- [ ] No website needed by the delivered server/client
+- [x] No website needed by the delivered server/client
 
 ## Future Clients — After v1.0
 
@@ -902,4 +902,4 @@
 - [ ] Review subtitles/audio selection
 - [ ] Review Fedora installation/update/restore
 - [ ] Review fresh AppImage installation/update
-- [ ] Retire the website after replacement acceptance
+- [x] Retire the website (approved cleanup, 2026-10-20)

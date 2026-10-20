@@ -17,11 +17,13 @@ Rust/Axum/SQLx server, PostgreSQL catalog, Rust GTK4/libadwaita/WebKitGTK/libmpv
 React/Vite/TanStack Router/Query/Tailwind/shadcn UI. Accounts/discovery/viewer/playback/device
 code exists; the complete admin work/bulk/JSON editor is committed as `8aa716a`.
 
-Remaining catalog/admin migration, server-file library, server chooser, packaging/deployment
-and subtitle retrieval need work. Jellyfin is an integration choice awaiting an answer, not an
-unconditional Alpha dependency. The current full editor has a private Node/tsx worker behind
-Rust; package or replace that dependency deliberately. The existing website/legacy libraries
-remain transitional sources/consumers until their accepted replacements allow retirement.
+The installed server and operator CLI are Rust-only. Jellyfin is the confirmed future backend
+for stored-media playback/streaming; Nahhasio owns catalog metadata, artwork and tracking.
+The retired web dashboard and Hono API are removed. React/TypeScript remains the desktop UI,
+with Node/pnpm required only for development/build and recovery/reference tooling.
+
+Next: pre-deployment schema/logic review, Podman packaging and recovery, then the remaining
+Overview/Settings services and verified server/AppImage updates.
 
 ## Guides
 
@@ -42,8 +44,8 @@ devenv up postgres server
 devenv shell -- nahhasio-client
 ```
 
-`devenv up` currently starts PostgreSQL, Rust API, the transitional website and desktop.
-Ports: database 23102, Rust 23103, website 23100, desktop Vite 23110.
+`devenv up` starts PostgreSQL, the Rust API and the Linux desktop.
+Ports: database 23102, Rust 23103, desktop Vite 23110.
 Use the repository devenv environment. Build/static and runtime verification commands are in
 the development/testing guides; avoid duplicate processes.
 

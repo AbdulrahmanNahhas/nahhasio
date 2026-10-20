@@ -173,7 +173,7 @@ recovery, trusted artifacts, migration compatibility and a real target-host chec
 
 ### Phase 3 tooling checkpoint — 2026-10-19
 
-The public entry is `./bin/nahhasio`; `bin/arcadia` remains a silent compatibility wrapper.
+The public entry is `./bin/nahhasio`; the former `bin/arcadia` alias is retired.
 Agent skills are now `nahhasio-db` and `nahhasio-cataloging`. Public help/examples use Nahhasio;
 `work schema --json` exposes the current input schema without a database connection. New resource
 aliases cover server/device/library roots/trailers/files/tracks/downloads/Jellyfin and playback.

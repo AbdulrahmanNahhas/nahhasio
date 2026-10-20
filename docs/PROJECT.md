@@ -56,8 +56,9 @@ current planning; verify the host before deployment.
    Keys remain server-owned with masked status, write-only changes, authorization and audit.
    Connect actual services before enabling controls; do not equate page layouts with full control.
 
-Current immediate checkpoint (2026-10-20): finish the Rust operator CLI transition and repair
-Downloads video/artwork root ownership. Aqua will check connection, accounts and offline behavior
+Completed local checkpoint (2026-10-20): native Rust operator CLI and Downloads video/artwork
+root ownership. The retired web dashboard/Hono API are removed; development-only reference
+checks live under `tools/catalog-reference` and contract generators under `packages/contracts/scripts`. Aqua will check connection, accounts and offline behavior
 manually next. The pre-deployment schema/logic review follows, then reviewed administration and
 Podman work. The review must identify required ownership/configuration changes before schema
 mutations or broad settings controls are implemented.

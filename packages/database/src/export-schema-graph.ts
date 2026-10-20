@@ -61,10 +61,7 @@ const tables = Object.values(schema)
     };
   })
   .toSorted((a, b) => a.name.localeCompare(b.name));
-writeFileSync(
-  new URL("../../../apps/web/src/features/database/schema-graph.json", import.meta.url),
-  `${JSON.stringify(tables, null, 2)}\n`,
-);
-console.log(
+writeFileSync(process.argv[2] ?? 1, `${JSON.stringify(tables, null, 2)}\n`);
+console.error(
   `Exported ${tables.length} tables, ${tables.reduce((sum, table) => sum + table.columns.length, 0)} columns, ${tables.reduce((sum, table) => sum + table.foreignKeys.length, 0)} foreign keys.`,
 );

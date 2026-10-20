@@ -2,10 +2,8 @@ import { defineConfig } from "oxlint";
 
 export default defineConfig({
   ignorePatterns: [
-    "apps/web/src/routeTree.gen.ts",
     "apps/linux/ui/src/routeTree.gen.ts",
     // Vendored shadcn output, replaced wholesale by the shadcn CLI — hand-edits would be lost.
-    "apps/web/src/components/ui/**",
     "apps/linux/ui/src/components/ui/**",
     "tools/oxlint/anti-slop/**",
     ".agents/**",
@@ -54,30 +52,13 @@ export default defineConfig({
   },
   overrides: [
     {
-      files: ["apps/web/src/**/*.tsx", "apps/web/src/**/*.ts"],
-      rules: {
-        "shadcn/no-restyle": ["error", { allow: ["layout"] }],
-        "shadcn/no-raw-colors": "error",
-        "shadcn/no-arbitrary-values": "error",
-        "shadcn/no-inline-styles": "error",
-        "shadcn/no-unknown-classes": "error",
-        "shadcn/require-static-classes": "error",
-      },
-    },
-    {
       // Legacy modules retained for administration and recovery. Their untyped-row idiom
       // (`Record<string, unknown>` SQL rows, v1 shape
       // adapters, draft-sync effects) is what the split rewrites, so the anti-slop rules are
       // relaxed here instead of being satisfied twice. The list may only shrink: remove a file
       // the moment its replacement lands, and never add one.
       files: [
-        "apps/api/src/app.ts",
         "packages/contracts/src/index.ts",
-        "apps/api/src/features/social/routes.ts",
-        "apps/api/src/repository.ts",
-        "apps/api/src/features/archive/routes.ts",
-        "apps/api/src/features/accounts/routes.ts",
-        "apps/api/src/integrations/torrent-source.ts",
         "packages/database/src/import-v1-knowledge.ts",
         "packages/database/src/import-v1.ts",
         "packages/database/src/consolidate-v1-franchises.ts",

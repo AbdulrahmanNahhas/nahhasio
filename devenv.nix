@@ -68,17 +68,6 @@
     period = 1;
     timeout = 120;
   };
-  processes.web.exec = "pnpm --filter @nahhasio/web dev";
-  processes.web.after = [ "devenv:processes:server" ];
-  processes.web.ready = {
-    http.get = {
-      port = 23100;
-      path = "/login";
-    };
-    period = 1;
-    timeout = 120;
-  };
-
   scripts.nahhasio-client.exec = ''
     exec "${config.devenv.root}/bin/nahhasio-client"
   '';
@@ -87,19 +76,11 @@
     after = [ "devenv:processes:server" ];
   };
 
-  # Optional local reference API for migration comparisons; no old desktop runtime.
-  profiles.reference-api.module = {
-    processes.api.exec = "pnpm --filter @arcadia/api dev";
-    env.ARCADIA_MOCK_AUTH = "true";
-  };
-
   enterShell = ''
     echo "Nahhasio environment ready"
-    echo "Run: devenv up (PostgreSQL -> Rust API -> dashboard + GTK desktop)"
+    echo "Run: devenv up (PostgreSQL -> Rust API -> GTK desktop)"
     echo "Desktop only: devenv shell -- nahhasio-client"
     echo "Backend only: devenv up postgres server"
-    echo "Dashboard: devenv up postgres server web"
-    echo "Reference API: devenv --profile reference-api up"
   '';
 
   enterTest = ''

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import postgres from "postgres";
 
-import { legacySourcePath } from "./legacy-source";
+import { legacyArtworkPath, legacySourcePath } from "./legacy-source";
 
 type Row = Record<string, unknown>;
 type Report = {
@@ -87,7 +87,7 @@ const report: Report = {
   ),
   missingArtwork: assets
     .map((asset) => String(asset.relative_path))
-    .filter((path) => !existsSync(resolve(repositoryRoot, "apps/web/public", `.${path}`))),
+    .filter((path) => !existsSync(legacyArtworkPath(path))),
 };
 
 if (!dryRun) {
@@ -100,7 +100,7 @@ if (!dryRun) {
       await tx`insert into titles (id, canonical_title, sort_title, summary, release_year) values (${titleId}, ${String(work.canonical_title)}, ${String(work.sort_title)}, ${String(work.summary ?? "")}, ${work.release_year as number | null}) on conflict (id) do nothing`;
       for (const sourceAsset of workAssets) {
         const path = String(sourceAsset.relative_path);
-        const filePath = resolve(repositoryRoot, "apps/web/public", `.${path}`);
+        const filePath = legacyArtworkPath(path);
         if (!existsSync(filePath)) continue;
         const bytes = readFileSync(filePath);
         const sha256 = createHash("sha256").update(bytes).digest("hex");

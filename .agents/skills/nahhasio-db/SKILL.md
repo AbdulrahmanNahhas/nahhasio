@@ -227,7 +227,7 @@ first, then reference the returned path.
 ## Current foundation and discovery
 
 Use `nahhasio-db` and `nahhasio-cataloging`; the old skill names have been retired.
-`./bin/arcadia` remains a silent compatibility alias. Internal `@arcadia/*` package names,
+Use `./bin/nahhasio`; the former `./bin/arcadia` alias is retired. Internal `@arcadia/*` package names,
 PostgreSQL database name `arcadia`, catalog UUIDs and migration history retain their identity.
 The preferred audit variable is `NAHHASIO_CLI_ACTOR`; the old variable remains a fallback.
 `NAHHASIO_VIDEO_ROOT` is exclusively the native device-video override.

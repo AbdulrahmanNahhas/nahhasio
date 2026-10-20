@@ -11,7 +11,6 @@ concurrency:
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:23102/arcadia
-  ARCADIA_MOCK_AUTH: "true"
   ARCADIA_SEED_DEMO_ACCOUNTS: "true"
   NODE_ENV: test
 
@@ -42,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 26
+          node-version: 24
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -64,7 +63,7 @@ jobs:
       - name: Run database migrations
         run: pnpm db:migrate
 
-      # The API suites sign in as the seeded demo accounts and read seeded vocabularies
+      # Database fixtures use demo accounts and seeded vocabularies.
       # (ARCADIA_SEED_DEMO_ACCOUNTS=true above). Local `devenv up` never seeds the catalog.
       - name: Seed the test database
         run: pnpm db:seed
@@ -86,10 +85,7 @@ jobs:
         run: pnpm build
 
       - name: Install browser test runtime
-        run: pnpm --filter @nahhasio/web exec playwright install --with-deps chromium
-
-      - name: Website browser journeys
-        run: pnpm test:e2e
+        run: pnpm --filter @nahhasio/linux-ui exec playwright install --with-deps chromium
 
       - name: Linux browser journeys
         run: |

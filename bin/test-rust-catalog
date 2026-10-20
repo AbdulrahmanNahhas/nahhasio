@@ -98,7 +98,7 @@ NAHHASIO_EDITOR_ROOT=/nonexistent-rust-editor-fixture cargo test --locked -p nah
 # Compare the same persisted work through both exporters, then exercise native imports.
 export DATABASE_URL="$NAHHASIO_TEST_EDITOR_DATABASE_URL"
 target/debug/nahhasio work export 'Rust whole-work fixture' --json >"$fixture_root/rust-export.json"
-PGHOST="$fixture_root" PGPORT=25483 PGUSER=nahhasio_fixture DATABASE_URL=postgresql:///nahhasio_test_rust_migrations pnpm --filter @arcadia/cli exec tsx src/editor/parity-fixture.ts "$fixture_root/node-export.json"
+PGHOST="$fixture_root" PGPORT=25483 PGUSER=nahhasio_fixture DATABASE_URL=postgresql:///nahhasio_test_rust_migrations pnpm --filter @nahhasio/catalog-reference exec tsx src/editor/parity-fixture.ts "$fixture_root/node-export.json"
 python3 - "$fixture_root" <<'PY'
 import json
 import pathlib

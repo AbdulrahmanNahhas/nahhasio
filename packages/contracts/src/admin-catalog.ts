@@ -13,7 +13,7 @@ import {
  * Canonical admin write-side (input) schemas for titles, installments, episodes, and award
  * ceremonies — the target validation this package didn't have before: `POST
  * /api/v1/admin/titles` currently accepts an unvalidated, hand-typed `AdminTitleInput` in
- * `apps/api/src/app.ts`. These schemas are meant to replace that local type (and the local
+ * the retired API implementation. These schemas are meant to replace that local type (and the local
  * `adminStructureSchema` also in `app.ts`) so the same shape is validated on the server and
  * consumed by the web admin field registry (`admin-field-registry.ts`) to render forms.
  *
@@ -100,7 +100,7 @@ export const adminInstallmentInputSchema = z
 
 /**
  * Full-document replace payload for `PUT /api/v1/admin/titles/:titleId/structure` — promoted
- * from the local `adminStructureSchema` in `apps/api/src/app.ts`. Sending this payload deletes
+ * from the local `adminStructureSchema` in the retired API implementation. Sending this payload deletes
  * every installment/episode for the title not represented here and reinserts the rest — omitting
  * an existing installment or episode deletes it (and, for installments, its episodes). This is
  * also the intended mechanism for creating new installments/episodes: include an entry with no
@@ -130,7 +130,7 @@ export const adminContributorInputSchema = z.object({
 });
 
 /**
- * Canonical title (umbrella record) input — replaces `AdminTitleInput` in `apps/api/src/app.ts`.
+ * Canonical title (umbrella record) input — replaces `AdminTitleInput` in the retired API implementation.
  *
  * Deliberately does NOT include `awards`: title-level award recognitions are no longer part of
  * a title's own save payload (per the confirmed refactor decision) — they flow exclusively
@@ -227,7 +227,7 @@ const bulkListOpSchema = z.object({
  * (minus `id`/`titleId`, which the bulk endpoint supplies per selected title) rather than an
  * import of that schema from `index.ts` — see the module-level note on why this file never
  * imports from `./index`. When Stage 3 is implemented, reconcile this against the real
- * recognition-creation validation in `apps/api/src/features/awards/routes.ts` (org/category
+ * recognition-creation validation in the shared Rust editor (org/category
  * match, installment-belongs-to-title) so bulk-add enforces the same invariants as single-add.
  */
 export const adminBulkAwardAdditionSchema = z.object({

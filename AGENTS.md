@@ -17,8 +17,8 @@ another phase until Aqua asks to continue. The old v0.3.5 plans are historical r
 
 Read `docs/PROJECT.md`, `docs/ROADMAP.md` and `docs/design-rules.md` for current decisions.
 The Linux client uses Rust GTK4/libadwaita, WebKitGTK, React/Vite/TypeScript and libmpv.
-Preserve Aqua's reviewed desktop design. Website/legacy libraries remain transitional consumers
-until replacement acceptance; no website ships in the delivered product. Initial access is LAN,
+Preserve Aqua's reviewed desktop design. The retired web dashboard and Hono API are removed;
+there is no website runtime. Initial access is LAN,
 with admin/family-user accounts. Nahhasio owns catalog/images/tracking; Jellyfin supplies stored
 media for native playback. Existing folders are scanned/linked without moving originals.
 
@@ -110,15 +110,14 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 ## Monorepo boundaries
 
 - `apps/server`: Rust/Axum/Tokio/SQLx server, in the root Cargo workspace.
-- `apps/web`: dashboard-only TanStack Start/Vite application, TanStack Router/Query, Tailwind 4, app-specific shadcn Base UI.
 - Removed website/deployment references remain recoverable at `d77096f:reference/` in Git.
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
 - `crates/catalog-core`: shared Rust catalog/database services and Drizzle-compatible explicit migration runner.
 - `crates/cli`: compiled Rust operator CLI; database, work/media, report and discovery operations.
-- `apps/api`: previous Hono API, kept until Rust endpoints pass behavior/data checks.
+- `tools/catalog-reference`: development-only export/report oracle and acceptance helpers; never ship it.
 - `packages/database`: existing PostgreSQL schema and the single migration history.
-- Other `packages/*`: existing contracts, domain rules, vocabulary, and database CLI.
+- Other `packages/*`: shared contracts/generators, domain rules, vocabulary and OpenAPI bindings.
 
 `apps/linux` contains the Rust GTK shell; `apps/linux/ui` is the separate React/Vite viewing UI.
 The rejected Kotlin prototype was retired after a committed checkpoint. Do not create empty packages. Share media behavior in UI-independent Rust and network
@@ -127,17 +126,16 @@ contracts through the existing single generated OpenAPI definition.
 ## Development and checks
 
 Use the repository's Nix/devenv environment: Node 24, pnpm 11.11.0, and Rust.
-`devenv up` starts PostgreSQL, the Rust API, dashboard and GTK desktop with dependency ordering. The reference Hono API is available
-with `devenv --profile reference-api up`. Do not inspect `/saved/nixos-config` without Aqua's permission.
+`devenv up` starts PostgreSQL, the Rust API and GTK desktop with dependency ordering. Do not inspect `/saved/nixos-config` without Aqua's permission.
 
 - `pnpm lint`: Oxlint, the generic anti-slop plugin, and six shadcn design-system rules.
 - `pnpm format` / `pnpm format:check`: Oxfmt, the authoritative formatter and import sorter.
 - `pnpm typecheck`: TypeScript workspace checks.
 - `pnpm check:rust`: new Rust workspace formatting and Clippy with warnings rejected.
 - `pnpm check`: all the above. Run before handoff.
-- `pnpm build`: TypeScript/website builds and new Rust workspace build.
+- `pnpm build`: desktop/shared tooling checks and Rust workspace build.
 - `cargo test --workspace --locked`: Rust unit tests, with no live catalog writes.
-- `pnpm test:e2e`: new website Playwright journeys; use Chromium from Nix on this machine.
+- `pnpm test:e2e`: Linux UI browser fixtures; use Chromium from Nix on this machine.
 
 Use the approved lean checkpoint policy. Run meaningful runtime suites when needed for acceptance
 or unresolved risks; do not repeat full suites for each small change. Documentation-only work
@@ -158,13 +156,11 @@ actual viewport. Synthetic events and software-rendered smoke do not prove physi
 GPU smoothness or playback. Fully quit/relaunch GTK after bridge changes; single-instance
 activation can silently keep the old executable alive.
 
-## Website rules
+## Desktop UI rules
 
-These shadcn/TanStack composition rules apply to `apps/web`, the administration dashboard.
-The separate viewing-client UI uses its own reviewed design tokens/components and responsive
-layout. Preserve accessible labels, keyboard focus/navigation, RTL, reduced motion and typed
-HTTP/native-bridge boundaries there as well. The future admin area uses the client
-visual language and server-enforced permissions; do not embed the website UI.
+These shadcn/TanStack composition rules apply to `apps/linux/ui`, including administration.
+Preserve the reviewed design tokens/components, accessible labels, keyboard focus/navigation,
+RTL, reduced motion and typed native-bridge boundaries. Permissions are enforced by the server.
 
 Follow the `shadcn` skill and `docs/design-rules.md`. Components use the official `@shadcn`
 registry; retrieve current docs before composing them, inspect generated output, and install
@@ -182,7 +178,7 @@ fix caller errors.
   or component appearance overrides in new app source. Run the six `@shadcn/lint` rules.
 - No suppression comments or extension of the legacy anti-slop allowlist in new source.
 - No web player, Tauri bridge, global DOM navigation scanner, or whole-catalog fetch.
-  TanStack Start server functions bridge the dashboard to private backend operations; route SSR is disabled.
+  The typed native bridge connects the Vite desktop to the Rust API; no Start/SSR runtime.
 - Put feature queries/UI together, keep route entries small, use server pagination, URL filters,
   typed query factories, request cancellation, and targeted cache invalidation.
 - Do not copy remote state into effect-driven local state. Do not introduce persistent state
@@ -202,8 +198,8 @@ Changing data access to SQLx does not replace migration ownership or regenerate 
 Startup never runs migrations, seeds, imports, or cleanup jobs. Make schema changes additive,
 rehearse/backfill on restored copies, verify counts/content/constraints, and define rollback.
 Before a live cutover, secure a verified independent backup of both PostgreSQL and artwork.
-`data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tools require an explicit
-`ARCADIA_V1_DB_PATH`. Backups and recovery artwork are private and never committed.
+`data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tools require explicit
+`ARCADIA_V1_DB_PATH` and absolute `ARCADIA_V1_ARTWORK_ROOT` selections. Backups and recovery artwork are private and never committed.
 
 The public catalog CLI is `./bin/nahhasio` (compiled Rust). Build it with
 `devenv shell -- cargo build --locked -p nahhasio-cli`; it uses `target/debug/nahhasio` unless
@@ -217,7 +213,6 @@ Use the `nahhasio-db` skill
 for live catalog reads/writes and the `nahhasio-cataloging` skill for editorial classification.
 Preserve the current Better Auth identity/password ownership during Rust migration; verify
 hash compatibility with fixtures before cutover. Do not weaken existing production auth guards.
-The legacy test bypass requires both `NODE_ENV=test` and `ARCADIA_MOCK_AUTH=true`.
 Do not log secrets, database connection strings, password hashes, or session tokens.
 
 Rust database sessions default to read-only; authorized writes explicitly opt into read-write
@@ -241,8 +236,8 @@ are different workflows with different ownership and recovery behavior.
 
 ## Current product order
 
-Aqua now wants administration in the Linux client, retaining its UI language, then website
-retirement. The website remains the working dashboard until replacement parity is verified. Cover existing editorial/admin workflows, TMDB, Fanart, images, raw table
+Administration lives in the Linux client, retaining its reviewed UI language. The web dashboard
+and Hono API were retired in the approved cleanup checkpoint. Cover existing editorial/admin workflows, TMDB, Fanart, images, raw table
 inspection, JSON/bulk editing, maintenance, revisions, users/devices, and server operations.
 UI routes may be prepared before their services; pending actions must stay visibly disabled.
 Do not claim full database control from UI layouts. Connect authorization and transactional

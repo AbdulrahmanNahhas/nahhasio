@@ -184,4 +184,4 @@ const createPost = useMutation({
 - Preloading still works - just uses Query's cache
 - Mutations, optimistic updates, invalidation all work normally
 - DevTools show the single authoritative cache state
-- In apps/web only, use `setupRouterSsrQueryIntegration` for SSR hydration. The desktop has no SSR hydration.
+- The desktop has no SSR hydration; do not add `setupRouterSsrQueryIntegration`.
