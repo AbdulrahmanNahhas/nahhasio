@@ -498,11 +498,12 @@ fn build_window(
             }
         });
     });
-    let header = adw::HeaderBar::builder()
-        .title_widget(&adw::WindowTitle::new("Nahhasio", "Family library"))
-        .build();
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    content.append(&header);
+    let header = adw::HeaderBar::new();
+    header.set_show_title(false);
+    header.add_css_class("flat");
+    let content = adw::ToolbarView::new();
+    content.set_extend_content_to_top_edge(true);
+    content.add_top_bar(&header);
     let overlay = gtk::Overlay::new();
     overlay.set_hexpand(true);
     overlay.set_vexpand(true);
@@ -514,7 +515,7 @@ fn build_window(
     overlay.set_clip_overlay(&video_surface, true);
     overlay.add_overlay(&view);
     overlay.set_measure_overlay(&view, true);
-    content.append(&overlay);
+    content.set_content(Some(&overlay));
     let recovery = adw::StatusPage::builder()
         .title("تعذّر عرض واجهة نحّاسيو")
         .description("أعد تحميل الواجهة دون إغلاق التطبيق.")
@@ -617,8 +618,20 @@ fn build_window(
         }
     });
     let fullscreen_header = header.clone();
+    let fullscreen_view = view.downgrade();
     window.connect_fullscreened_notify(move |window| {
         fullscreen_header.set_visible(!window.is_fullscreen());
+        if let Some(view) = fullscreen_view.upgrade() {
+            publish_window_state(&view, window.is_fullscreen());
+        }
+    });
+    let initial_window = window.downgrade();
+    view.connect_load_changed(move |view, event| {
+        if event == webkit6::LoadEvent::Finished
+            && let Some(window) = initial_window.upgrade()
+        {
+            publish_window_state(view, window.is_fullscreen());
+        }
     });
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
@@ -730,4 +743,12 @@ mod tests {
         assert!(!config.permits("http://127.0.0.1:23110/evil"));
         assert!(!config.permits("https://example.com/"));
     }
+}
+
+// Chrome visibility follows the compositor's window state, including Niri fullscreen.
+fn publish_window_state(view: &webkit6::WebView, fullscreen: bool) {
+    let script = format!(
+        "document.documentElement.toggleAttribute('data-native-fullscreen', {fullscreen});window.dispatchEvent(new Event('nahhasio:window-state'));"
+    );
+    view.evaluate_javascript(&script, None, None, None::<&gio::Cancellable>, |_| {});
 }

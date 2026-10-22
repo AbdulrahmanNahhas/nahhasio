@@ -22,6 +22,7 @@
 
 /* shadcn Maia / Mist / Sky, with Arabic font coverage and catalog status tokens. */
 @theme inline {
+  --spacing-home-hero: 84svh;
   --font-sans:
     "Noto Sans Variable", "Noto Sans Arabic Variable", "Plex Arabic", system-ui, sans-serif;
   --font-emoji: "Noto Color Emoji", emoji, sans-serif;

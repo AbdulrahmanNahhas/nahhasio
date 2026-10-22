@@ -1,6 +1,9 @@
 import type { User } from "@nahhasio/api-contract";
 import { Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { cn } from "cn";
+import { useEffect, useState, useRef, useSyncExternalStore } from "react";
+
+import { nativeAvailable } from "@/lib/bridge";
 
 import { CardNavigationProvider } from "../../components/card-navigation";
 import { Button } from "../../components/ui/button";
@@ -14,6 +17,12 @@ import { openSearch, useViewerRoute } from "./navigation";
 const scrollPositions = new Map<string, number>();
 export function ViewerShell({ user }: { user: User }) {
   const route = useViewerRoute();
+  const fullscreen = useSyncExternalStore(
+    subscribeWindowState,
+    () => document.documentElement.hasAttribute("data-native-fullscreen"),
+    () => false,
+  );
+  const nativeFrame = nativeAvailable() && !fullscreen;
 
   const [account, setAccount] = useState(false);
   const accountOpen = useRef(false);
@@ -83,7 +92,10 @@ export function ViewerShell({ user }: { user: User }) {
       <ContentRegion
         ref={main}
         tabIndex={-1}
-        className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-p-4 [scrollbar-color:var(--line)_transparent] scrollbar-thin motion-reduce:scroll-auto **:data-card-navigation:scroll-m-2"
+        className={cn(
+          "relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-p-4 [scrollbar-color:var(--line)_transparent] scrollbar-thin motion-reduce:scroll-auto **:data-card-navigation:scroll-m-2",
+          nativeFrame && !home && !adminArea && "pt-12",
+        )}
         id="main-content"
       >
         <Button
@@ -109,7 +121,7 @@ export function ViewerShell({ user }: { user: User }) {
   return (
     <TooltipProvider delay={250}>
       {adminArea ? (
-        <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+        <SidebarProvider className={cn("h-dvh min-h-0 overflow-hidden", nativeFrame && "pt-12")}>
           <AdminNavigation />
           <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
             <div className="flex shrink-0 items-center px-4 pt-3 md:hidden">
@@ -125,6 +137,7 @@ export function ViewerShell({ user }: { user: User }) {
         <div className="flex h-dvh overflow-hidden bg-background">
           <LibraryNavigation
             path={route.path}
+            overlayControls={nativeFrame}
             onDialogChange={(open) => {
               navigationOpen.current = open;
             }}
@@ -140,4 +153,9 @@ export function ViewerShell({ user }: { user: User }) {
       )}
     </TooltipProvider>
   );
+}
+
+function subscribeWindowState(onChange: () => void) {
+  window.addEventListener("nahhasio:window-state", onChange);
+  return () => window.removeEventListener("nahhasio:window-state", onChange);
 }

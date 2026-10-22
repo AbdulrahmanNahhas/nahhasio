@@ -86,7 +86,7 @@ export function HomePage() {
   return (
     <div className="min-w-0">
       <Hero />
-      <div className="mx-auto flex max-w-[1700px] flex-col gap-10 px-4 pt-6 pb-12 sm:px-8 lg:px-10">
+      <div className="mx-auto flex max-w-[1700px] flex-col gap-12 px-4 pt-8 pb-12 sm:px-8 lg:px-10">
         {feed.error && <Failure error={feed.error} retry={() => void feed.refetch()} />}
         {!!feed.data?.resume?.length && (
           <section aria-label="أكمل المشاهدة">
