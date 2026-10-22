@@ -134,6 +134,25 @@ async fn rust_planet_api_preserves_authorization_revisions_and_atomicity() {
     entity_acceptance(&api, &pool).await;
     work_acceptance(&api, &pool).await;
     artwork_acceptance(&api).await;
+    let facets = inspection(&api, "/api/v1/catalog/facets?view=works&privacy=all").await;
+    let genres = facets["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["key"] == "genres")
+        .unwrap();
+    let genre = genres["options"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|option| option["value"] == "rust_fixture_genre")
+        .unwrap();
+    assert!(
+        genre["searchTerms"]
+            .to_string()
+            .contains("Rust fixture genre")
+    );
+    assert!(genre["searchTerms"].to_string().contains("تصنيف اختباري"));
     let schema = inspection(&api, "/api/v1/admin/database/schema").await;
     let sessions = schema["tables"]
         .as_array()

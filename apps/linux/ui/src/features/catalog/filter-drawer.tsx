@@ -1,18 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  Check,
-  Library,
-  Minus,
-  Orbit,
-  Search,
-  ShieldCheck,
-  Star,
-  Users,
-  X,
-} from "lucide-react";
+import { CalendarDays, Orbit, Search, ShieldCheck, Star, Users, X } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import type { RefObject } from "react";
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { Failure } from "../../components/status";
 import { Badge } from "../../components/ui/badge";
@@ -26,15 +17,7 @@ import {
   DrawerTitle,
 } from "../../components/ui/drawer";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../../components/ui/empty";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "../../components/ui/field";
-import { Input } from "../../components/ui/input";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "../../components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
@@ -42,9 +25,11 @@ import {
   InputGroupInput,
 } from "../../components/ui/input-group";
 import { Separator } from "../../components/ui/separator";
+import { Slider } from "../../components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
+import { AppliedFilters } from "./applied-filters";
 import {
   refinementCount,
   refinementQuery,
@@ -53,15 +38,26 @@ import {
 } from "./browse-refinements";
 import type { BrowseRefinements, LockedFacet } from "./browse-refinements";
 import { FilterFacets } from "./filter-facets";
-import { criteria, optionLabel } from "./filter-model";
+import { completeFacetGroups, facetMatches, normalizeFacetSearch } from "./filter-model";
+import { ScoreFilters } from "./score-filters";
 
 const categories = [
   {
     key: "basics",
     icon: CalendarDays,
-    label: "الإصدار والنطاق",
-    description: "نوع العمل، حالته وسنوات إصداره",
-    facets: ["kinds", "releaseStatuses", "releaseStates", "structureStates"],
+    label: "الإصدار ومكتبتي",
+    description: "الإصدار والمشاهدة والمفضلة ومصادر التشغيل",
+    facets: [
+      "kinds",
+      "releaseStatuses",
+      "releaseStates",
+      "structureStates",
+      "watchStates",
+      "favoriteStates",
+      "playableStates",
+      "dubLanguages",
+      "playbackPolicies",
+    ],
   },
   {
     key: "story",
@@ -74,15 +70,8 @@ const categories = [
     key: "family",
     icon: ShieldCheck,
     label: "العائلة والمحتوى",
-    description: "الجمهور والعمر والتنبيهات",
-    facets: [
-      "audiences",
-      "ages",
-      "sexualityRisks",
-      "behavioralRisks",
-      "theologyRisks",
-      "warningStates",
-    ],
+    description: "الجمهور والعمر ومستويات المحتوى",
+    facets: ["audiences", "ages", "sexualityRisks", "behavioralRisks", "theologyRisks"],
   },
   {
     key: "scores",
@@ -96,16 +85,23 @@ const categories = [
     icon: Users,
     label: "الصنّاع والجوائز",
     description: "الأشخاص والاستوديوهات والتكريمات",
-    facets: ["studios", "contributors", "awardPrograms", "awardCategories", "awardResults"],
-  },
-  {
-    key: "library",
-    icon: Library,
-    label: "مكتبتي",
-    description: "المشاهدة والمفضلة والفيديو المسجّل",
-    facets: ["watchStates", "favoriteStates", "playableStates"],
+    facets: [
+      "studios",
+      "contributors",
+      "contributionRoles",
+      "awardPrograms",
+      "awardCategories",
+      "awardResults",
+    ],
   },
 ];
+const categoryNames = new Map([
+  ["basics", "الإصدار ومكتبتي"],
+  ["story", "التصنيف"],
+  ["family", "المحتوى"],
+  ["scores", "التقييم"],
+  ["people", "الصنّاع والجوائز"],
+]);
 const knownFacets = new Set(categories.flatMap((category) => category.facets));
 // Mounted on open: the draft has one owner and is discarded on every close.
 export function FilterDrawer({
@@ -126,8 +122,9 @@ export function FilterDrawer({
   const isAdmin = useIsAdmin();
   const searchInput = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(value);
+  const [fallbackYear] = useState(() => new Date().getFullYear());
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("basics");
+  const [category, setCategory] = useState("story");
   const content = useRef<HTMLDivElement>(null);
   const [previewDraft, setPreviewDraft] = useState(draft);
   useEffect(() => {
@@ -146,16 +143,34 @@ export function FilterDrawer({
     enabled: !invalid && previewDraft === draft,
   });
   const pending = previewDraft !== draft || preview.isFetching;
+  const yearMin = Math.min(options.data?.yearMin ?? 1900, Number(draft.from) || Infinity);
+  const yearMax = Math.max(
+    options.data?.yearMax ?? fallbackYear,
+    Number(draft.to) || 0,
+    yearMin + 1,
+  );
+  const years = [Number(draft.from) || yearMin, Number(draft.to) || yearMax];
   const changeFilters = (filters: BrowseRefinements["filters"]) =>
     setDraft((previous) => ({ ...previous, filters }));
 
-  const searchText = search.trim().toLocaleLowerCase();
+  const searchText = normalizeFacetSearch(search);
+  const categoryTerms = new Map([
+    ["basics", "release year status privacy kind watch favorite library video"],
+    ["story", "planet genre country tone tag format"],
+    ["family", "family audience age risk"],
+    ["scores", "rating score criteria"],
+    ["people", "people studio contributor awards category"],
+  ]);
   const categoryMatches = (item: (typeof categories)[number]) =>
-    `${item.label} ${item.description}`.toLocaleLowerCase().includes(searchText);
+    normalizeFacetSearch(
+      `${item.label} ${item.description} ${categoryTerms.get(item.key) ?? ""}`,
+    ).includes(searchText);
+  const facetGroups = options.data ? completeFacetGroups(options.data.groups, view) : [];
   const categoryGroups = (item: (typeof categories)[number]) =>
-    options.data?.groups.filter(
+    facetGroups.filter(
       (facet) =>
-        item.facets.includes(facet.key) || (item.key === "basics" && !knownFacets.has(facet.key)),
+        facet.key !== "warningStates" &&
+        (item.facets.includes(facet.key) || (item.key === "basics" && !knownFacets.has(facet.key))),
     ) ?? [];
   const visibleCategories = searchText
     ? categories.filter(
@@ -163,10 +178,8 @@ export function FilterDrawer({
           categoryMatches(item) ||
           categoryGroups(item).some(
             (facet) =>
-              facet.label.toLocaleLowerCase().includes(searchText) ||
-              facet.options.some((option) =>
-                optionLabel(option.value, option.label).toLocaleLowerCase().includes(searchText),
-              ),
+              normalizeFacetSearch(facet.label).includes(searchText) ||
+              facet.options.some((option) => facetMatches(option, searchText)),
           ),
       )
     : categories;
@@ -178,11 +191,11 @@ export function FilterDrawer({
   return (
     <DrawerContent
       dir="rtl"
-      className="h-dvh w-full max-w-4xl sm:w-11/12 data-[swipe-direction=right]:end-auto data-[swipe-direction=right]:right-0"
+      className="mx-auto h-5/6 w-full max-w-6xl sm:w-11/12"
       finalFocus={returnFocus}
       initialFocus={searchInput}
     >
-      <DrawerHeader className="gap-2 p-5 text-start">
+      <DrawerHeader className="gap-2 px-5 py-4 text-start">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <DrawerTitle>مرشحات المكتبة</DrawerTitle>
@@ -192,12 +205,11 @@ export function FilterDrawer({
             <X />
           </DrawerClose>
         </div>
-        <DrawerDescription className="w-full text-start">
-          اختر مرشحاتك ثم طبّقها. تُحفظ الاختيارات المطبّقة؛ إغلاق اللوحة يلغي التعديلات الجديدة.
+        <DrawerDescription className="sr-only">
+          ابحث بالاسم العربي أو الإنجليزي. ضمّن ما تريد واستبعد ما لا تريد، ثم اعرض النتائج.
         </DrawerDescription>
       </DrawerHeader>
-      <Separator />
-      <div className="flex shrink-0 flex-col gap-3 px-5 py-4">
+      <div className="flex shrink-0 flex-col gap-2 px-5 pb-3">
         <Field>
           <FieldLabel htmlFor="facet-search" className="sr-only">
             ابحث في المرشحات
@@ -207,8 +219,11 @@ export function FilterDrawer({
               ref={searchInput}
               id="facet-search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="ابحث عن مرشح: نوع، كوكب، بلد، صانع…"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                content.current?.scrollTo({ top: 0 });
+              }}
+              placeholder="ابحث بالعربية أو الإنجليزية…"
             />
             <InputGroupAddon>
               <Search />
@@ -226,29 +241,13 @@ export function FilterDrawer({
             )}
           </InputGroup>
         </Field>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>كل ضغطة تغيّر الاختيار:</span>
-          <Badge variant="secondary">
-            <Check data-icon="inline-start" />
-            تضمين
-          </Badge>
-          <span aria-hidden="true">←</span>
-          <Badge variant="destructive">
-            <Minus data-icon="inline-start" />
-            استبعاد
-          </Badge>
-          <span aria-hidden="true">←</span>
-          <Badge variant="outline">
-            <X data-icon="inline-start" />
-            إزالة
-          </Badge>
-        </div>
       </div>
-      <div className="overflow-x-auto px-5 pb-3 lg:hidden">
+      <div className="overflow-x-auto px-5 flex">
         <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={2}
+          variant="default"
+          className={"w-full flex items-center"}
+          size="lg"
+          spacing={0}
           value={searchText ? [] : [category]}
           aria-label="قسم المرشحات"
           onValueChange={(values) => {
@@ -261,18 +260,21 @@ export function FilterDrawer({
           }}
         >
           {categories.map((item) => (
-            <ToggleGroupItem key={item.key} value={item.key} aria-label={item.label}>
-              <item.icon data-icon="inline-start" />
-              {item.label}
+            <ToggleGroupItem
+              className={"border flex-1"}
+              key={item.key}
+              value={item.key}
+              aria-label={categoryNames.get(item.key)}
+            >
+              {categoryNames.get(item.key)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
       </div>
-      <Separator />
       <div className="flex min-h-0 flex-1">
         <div
           ref={content}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto scroll-fade-y overscroll-contain px-5 py-5"
         >
           {options.isLoading && (
             <p role="status" className="py-5">
@@ -288,35 +290,37 @@ export function FilterDrawer({
               </EmptyHeader>
             </Empty>
           )}
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
             {displayed.map((item) => (
               <section
                 key={item.key}
                 id={`filter-section-${item.key}`}
                 aria-labelledby={`filter-heading-${item.key}`}
               >
-                <header className="mb-5 flex items-start gap-3">
-                  <item.icon className="mt-1 size-5 shrink-0 text-primary" aria-hidden="true" />
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 id={`filter-heading-${item.key}`} className="text-base font-semibold">
-                        {item.label}
-                      </h2>
-                      {categoryCount(item.key, item.facets, draft, locked) > 0 && (
-                        <Badge variant="secondary">
-                          {categoryCount(item.key, item.facets, draft, locked)}
-                        </Badge>
-                      )}
+                {searchText && (
+                  <header className="mb-3 flex items-start gap-3">
+                    <item.icon className="mt-1 size-5 shrink-0 text-primary" aria-hidden="true" />
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 id={`filter-heading-${item.key}`} className="text-base font-semibold">
+                          {item.label}
+                        </h2>
+                        {categoryCount(item.key, item.facets, draft, locked) > 0 && (
+                          <Badge variant="secondary">
+                            {categoryCount(item.key, item.facets, draft, locked)}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                  </div>
-                </header>
-                <FieldGroup className="gap-7">
+                  </header>
+                )}
+                <FieldGroup className="gap-5">
                   {item.key === "basics" && (
-                    <>
+                    <FieldGroup className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
                       {isAdmin && (
-                        <FieldSet>
-                          <FieldLegend>الخصوصية</FieldLegend>
+                        <FieldSet className="gap-3 md:flex-1">
+                          <FieldLegend variant="label">الخصوصية</FieldLegend>
                           <ToggleGroup
                             variant="outline"
                             spacing={2}
@@ -337,85 +341,43 @@ export function FilterDrawer({
                             <ToggleGroupItem value="all">العامة والخاصة</ToggleGroupItem>
                             <ToggleGroupItem value="private">الخاصة فقط</ToggleGroupItem>
                           </ToggleGroup>
-                          <FieldDescription>الأعمال الخاصة مخفية افتراضيًا.</FieldDescription>
                         </FieldSet>
                       )}
-                      <FieldSet>
-                        <FieldLegend>سنوات الإصدار</FieldLegend>
-                        <FieldGroup className="grid grid-cols-2 gap-4">
-                          <Field data-invalid={Boolean(invalid)}>
-                            <FieldLabel htmlFor="from-year">من سنة</FieldLabel>
-                            <Input
-                              id="from-year"
-                              type="number"
-                              min={1}
-                              max={9999}
-                              value={draft.from}
-                              aria-invalid={Boolean(invalid)}
-                              aria-describedby={invalid ? "year-error" : undefined}
-                              onChange={(event) => setDraft({ ...draft, from: event.target.value })}
-                              placeholder={String(options.data?.yearMin ?? "")}
-                            />
-                          </Field>
-                          <Field data-invalid={Boolean(invalid)}>
-                            <FieldLabel htmlFor="to-year">إلى سنة</FieldLabel>
-                            <Input
-                              id="to-year"
-                              type="number"
-                              min={1}
-                              max={9999}
-                              value={draft.to}
-                              aria-invalid={Boolean(invalid)}
-                              aria-describedby={invalid ? "year-error" : undefined}
-                              onChange={(event) => setDraft({ ...draft, to: event.target.value })}
-                              placeholder={String(options.data?.yearMax ?? "")}
-                            />
-                          </Field>
-                        </FieldGroup>
-                        <FieldDescription>اترك الحقل فارغًا لعدم تقييد السنة.</FieldDescription>
+                      <FieldSet className="min-w-0 gap-3 md:flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <FieldLegend variant="label">سنوات الإصدار</FieldLegend>
+                          <span className="text-sm text-muted-foreground" dir="ltr">
+                            {years[0]} – {years[1]}
+                          </span>
+                        </div>
+                        <Field>
+                          <Slider
+                            aria-label="سنوات الإصدار"
+                            min={yearMin}
+                            max={yearMax}
+                            step={1}
+                            value={years}
+                            onValueChange={(next) => {
+                              if (!Array.isArray(next)) return;
+                              setDraft({
+                                ...draft,
+                                from: next[0] === yearMin ? "" : String(next[0]),
+                                to: next[1] === yearMax ? "" : String(next[1]),
+                              });
+                            }}
+                          />
+                        </Field>
                       </FieldSet>
-                    </>
+                    </FieldGroup>
                   )}
                   {item.key === "scores" && (
-                    <>
-                      <ScoreInput
-                        id="minimum-rating"
-                        label="الحد الأدنى للتقييم العام"
-                        value={draft.filters.minimumRating}
-                        onChange={(minimumRating) =>
-                          changeFilters({ ...draft.filters, minimumRating })
-                        }
-                      />
-                      <FieldSet>
-                        <FieldLegend>المعايير التفصيلية</FieldLegend>
-                        <FieldDescription>
-                          كل حد تختاره يجب أن يتحقق. صفر يعني بلا حد أدنى.
-                        </FieldDescription>
-                        <FieldGroup className="grid gap-5 sm:grid-cols-2">
-                          {criteria.map((criterion) => (
-                            <ScoreInput
-                              key={criterion.key}
-                              id={`score-${criterion.key}`}
-                              label={criterion.label}
-                              value={draft.filters.minimumScores[criterion.key]}
-                              onChange={(score) =>
-                                changeFilters({
-                                  ...draft.filters,
-                                  minimumScores: {
-                                    ...draft.filters.minimumScores,
-                                    [criterion.key]: score,
-                                  },
-                                })
-                              }
-                            />
-                          ))}
-                        </FieldGroup>
-                      </FieldSet>
-                    </>
+                    <ScoreFilters value={draft.filters} onChange={changeFilters} />
                   )}
                   {options.data && (
                     <FilterFacets
                       groups={categoryGroups(item)}
+                      compact={item.key === "basics"}
+                      family={item.key === "family"}
                       filters={draft.filters}
                       onChange={changeFilters}
                       search={categoryMatches(item) ? "" : search}
@@ -427,67 +389,43 @@ export function FilterDrawer({
             ))}
           </div>
         </div>
-        <aside
-          className="hidden w-52 shrink-0 flex-col gap-3 overflow-y-auto border-s border-border p-3 lg:flex"
-          aria-label="أقسام المرشحات"
-        >
-          <ToggleGroup
-            orientation="vertical"
-            variant="outline"
-            spacing={2}
-            value={searchText ? [] : [category]}
-            aria-label="قسم المرشحات"
-            className="w-full"
-            onValueChange={(values) => {
-              const next = categories.find((item) => item.key === values[0]);
-              if (next) {
-                setCategory(next.key);
-                setSearch("");
-                content.current?.scrollTo({ top: 0 });
-              }
-            }}
-          >
-            {categories.map((item) => (
-              <ToggleGroupItem
-                key={item.key}
-                value={item.key}
-                className="h-auto min-h-11 justify-start gap-2 px-3 py-3"
-                aria-label={item.label}
-              >
-                <item.icon data-icon="inline-start" aria-hidden="true" />
-                <span className="flex-1 text-start whitespace-normal">{item.label}</span>
-                {categoryCount(item.key, item.facets, draft, locked) > 0 && (
-                  <Badge variant="secondary">
-                    {categoryCount(item.key, item.facets, draft, locked)}
-                  </Badge>
-                )}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </aside>
       </div>
       <Separator />
-      <DrawerFooter className="gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
-        <div
-          className="flex min-w-0 flex-1 flex-col gap-1 text-start"
-          role="status"
-          aria-live="polite"
-        >
-          {invalid ? (
-            <p id="year-error">{invalid}</p>
-          ) : (
-            <p>
-              {pending || preview.isPending
-                ? "جارٍ حساب النتائج…"
-                : preview.error
-                  ? "تعذّرت معاينة العدد؛ يمكنك تطبيق المرشحات."
-                  : `${preview.data?.total ?? "…"} نتيجة مطابقة`}
-            </p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            التضمين داخل القسم بدائل؛ الاستبعاد يخفي أي تطابق.
-          </p>
-        </div>
+      <DrawerFooter className="gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+        {refinementCount(draft, locked) > 0 && (
+          <Collapsible>
+            <div className="flex items-center justify-center gap-3">
+              <CollapsibleTrigger render={<Button variant="secondary" size="sm" />}>
+                مراجعة الاختيارات ({refinementCount(draft, locked)})
+              </CollapsibleTrigger>
+              <div
+                className="flex min-w-0 flex-1 flex-col gap-1 text-start"
+                role="status"
+                aria-live="polite"
+              >
+                {invalid ? (
+                  <p id="year-error">{invalid}</p>
+                ) : (
+                  <p>
+                    {pending || preview.isPending
+                      ? "جارٍ حساب النتائج…"
+                      : preview.error
+                        ? "تعذّرت معاينة العدد؛ يمكنك تطبيق المرشحات."
+                        : `${preview.data?.total ?? "…"} نتيجة مطابقة`}
+                  </p>
+                )}
+              </div>
+            </div>
+            <CollapsibleContent className="max-h-28 overflow-y-auto pt-3">
+              <AppliedFilters
+                value={draft}
+                options={options.data}
+                locked={locked}
+                onChange={setDraft}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        )}
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             variant="ghost"
@@ -498,8 +436,10 @@ export function FilterDrawer({
             مسح كل المرشحات
           </Button>
 
+          <DrawerClose render={<Button variant="outline" />}>إلغاء</DrawerClose>
           <Button size="lg" disabled={Boolean(invalid)} onClick={() => onApply(draft)}>
             تطبيق المرشحات
+            {!pending && !preview.error && preview.data ? ` · ${preview.data.total}` : ""}
           </Button>
         </div>
       </DrawerFooter>
@@ -534,39 +474,8 @@ function categoryCount(
   if (key === "scores")
     return (
       count +
-      Number(value.filters.minimumRating > 0) +
+      Number(value.filters.minimumRating > 0 || (value.filters.maximumRating ?? 10) < 10) +
       Object.values(value.filters.minimumScores).filter((score) => score > 0).length
     );
   return count;
-}
-
-function ScoreInput({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        type="number"
-        min={0}
-        max={10}
-        step={0.1}
-        value={value}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-          if (Number.isFinite(next) && next >= 0 && next <= 10) onChange(next);
-        }}
-      />
-      <FieldDescription>من 0 إلى 10 · صفر يعرض الكل</FieldDescription>
-    </Field>
-  );
 }

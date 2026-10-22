@@ -21,6 +21,18 @@ pub struct Display {
     pub borderless: bool,
     pub show_score: bool,
     pub show_status: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_metadata: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_original_title: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_columns: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_posters: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_density: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_title: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -78,6 +90,29 @@ fn valid_display(display: &Display) -> bool {
         display.layout.as_str(),
         "poster" | "banner" | "logo" | "table"
     ) && matches!(display.size.as_str(), "compact" | "normal" | "comfortable")
+        && display
+            .table_density
+            .as_deref()
+            .is_none_or(|value| matches!(value, "compact" | "normal"))
+        && display
+            .table_title
+            .as_deref()
+            .is_none_or(|value| matches!(value, "arabic" | "english" | "both"))
+        && display.table_columns.as_ref().is_none_or(|columns| {
+            columns.len() <= 7
+                && columns.iter().all(|value| {
+                    matches!(
+                        value.as_str(),
+                        "release"
+                            | "status"
+                            | "score"
+                            | "audience"
+                            | "age"
+                            | "watchState"
+                            | "format"
+                    )
+                })
+        })
 }
 impl Preferences {
     fn validate(&self) -> Result<(), Error> {

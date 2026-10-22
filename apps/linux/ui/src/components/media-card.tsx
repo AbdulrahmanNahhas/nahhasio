@@ -42,6 +42,8 @@ export function MediaCard({
   borderless = false,
   showScore = true,
   showStatus = true,
+  showMetadata = true,
+  showOriginalTitle = false,
 }: {
   work?: WorkSummary;
   installment?: UpcomingInstallment;
@@ -53,6 +55,8 @@ export function MediaCard({
   borderless?: boolean;
   showScore?: boolean;
   showStatus?: boolean;
+  showMetadata?: boolean;
+  showOriginalTitle?: boolean;
 }) {
   const navigation = useCardNavigation();
   const parent = entry?.work ?? work;
@@ -178,7 +182,7 @@ export function MediaCard({
           )}
           {!minimal &&
             showStatus &&
-            (status === "announced" || status === "airing") && ( // || status !== "completed"??
+            (status === "announced" || status === "airing" || status === "ongoing") && ( // || status !== "completed"??
               <span className="absolute left-1/2 -translate-x-1/2 -bottom-3">
                 <Badge variant="outline" className="mb-1 rounded-full px-2 bg-accent">
                   {/*{status === "completed" ? (
@@ -210,26 +214,33 @@ export function MediaCard({
             >
               {title}
             </h3>
-            <span className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
-              {year && (
-                <>
-                  <span className="shrink-0">{year}</span>
-                  <span aria-hidden="true">·</span>
-                </>
-              )}
-              <KindIcon className="size-3.5 shrink-0" aria-label={kind} />
-              <span className="truncate">
-                {unit
-                  ? unit.runtimeMinutes
-                    ? `${unit.runtimeMinutes} دقيقة`
-                    : unit.episodeCount
-                      ? `${unit.episodeCount} حلقة`
-                      : !unit.releaseDate
-                        ? "لم يُعلن الموعد بعد"
-                        : ""
-                  : kind}
+            {showOriginalTitle && parent?.canonicalTitle && parent.canonicalTitle !== title && (
+              <p className="truncate text-xs text-muted-foreground" dir="auto">
+                {parent.canonicalTitle}
+              </p>
+            )}
+            {showMetadata && (
+              <span className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
+                {year && (
+                  <>
+                    <span className="shrink-0">{year}</span>
+                    <span aria-hidden="true">·</span>
+                  </>
+                )}
+                <KindIcon className="size-3.5 shrink-0" aria-label={kind} />
+                <span className="truncate">
+                  {unit
+                    ? unit.runtimeMinutes
+                      ? `${unit.runtimeMinutes} دقيقة`
+                      : unit.episodeCount
+                        ? `${unit.episodeCount} حلقة`
+                        : !unit.releaseDate
+                          ? "لم يُعلن الموعد بعد"
+                          : ""
+                    : kind}
+                </span>
               </span>
-            </span>
+            )}
           </div>
         )}
       </a>

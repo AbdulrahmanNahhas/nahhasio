@@ -1,25 +1,19 @@
 import type { CatalogEntry } from "@nahhasio/api-contract";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useCardNavigation, useLoadMoreNavigation } from "../../components/card-navigation";
-import { MediaCard, ScoreBadge } from "../../components/media-card";
+import { MediaCard } from "../../components/media-card";
 import { Failure, NoResults } from "../../components/status";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Drawer, DrawerTrigger } from "../../components/ui/drawer";
-import {
-  InputGroup,
-  InputGroupInput,
-  InputGroupAddon,
-  InputGroupButton,
-} from "../../components/ui/input-group";
+import { Drawer } from "../../components/ui/drawer";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
-import { replaceParams, workLink } from "../shell/navigation";
+import { replaceParams } from "../shell/navigation";
 import { AppliedFilters } from "./applied-filters";
 import {
   useBrowsePreferences,
@@ -27,7 +21,6 @@ import {
   rememberedSearch,
   type BrowsePreferences,
 } from "./browse-preferences";
-import { BrowsePresets } from "./browse-presets";
 import {
   groupKey,
   groupTitle,
@@ -39,10 +32,11 @@ import {
 } from "./browse-refinements";
 import type { BrowseRefinements } from "./browse-refinements";
 import { browseGridClass, BrowseResultsSkeleton } from "./browse-results-skeleton";
-import { DisplaySettings, displayDefaults } from "./display-settings";
+import { BrowseTable } from "./browse-table";
+import { BrowseToolbar } from "./browse-toolbar";
+import { displayDefaults } from "./display-settings";
 import { FilterDrawer } from "./filter-drawer";
-import { parseFilters, optionLabel } from "./filter-model";
-import { OrganizationControls } from "./organization-controls";
+import { parseFilters } from "./filter-model";
 type BrowseProps = {
   params: URLSearchParams;
   path?: string;
@@ -68,7 +62,6 @@ export function BrowsePage(props: BrowseProps) {
       params={params}
       preferences={saved}
       onRemember={(value) => preferences.save.mutate(value)}
-      onPersist={(value) => preferences.save.mutateAsync(value)}
       preferenceError={preferences.query.error ?? preferences.save.error}
     />
   );
@@ -80,12 +73,10 @@ function BrowseContent({
   preset,
   preferences,
   onRemember,
-  onPersist,
   preferenceError,
 }: {
   preferences: BrowsePreferences;
   onRemember: (value: BrowsePreferences) => void;
-  onPersist: (value: BrowsePreferences) => Promise<void>;
   preferenceError?: Error | null;
   params: URLSearchParams;
   path?: string;
@@ -185,7 +176,7 @@ function BrowseContent({
 
   return (
     <Drawer
-      swipeDirection="right"
+      swipeDirection="down"
       open={filtersOpen}
       onOpenChange={(open) => {
         if (open) setFiltersMounted(true);
@@ -196,10 +187,10 @@ function BrowseContent({
       }}
     >
       <section
-        className="mx-auto max-w-400 px-10 py-8 max-[720px]:px-5 max-[720px]:py-6"
+        className="mx-auto flex w-full max-w-400 flex-col px-4 py-6 sm:px-6 lg:px-10"
         aria-label={title}
       >
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl leading-relaxed font-semibold">{title}</h1>
             <Badge variant="secondary" aria-live="polite">
@@ -225,76 +216,45 @@ function BrowseContent({
             <ToggleGroupItem value="installments">المواسم والإصدارات</ToggleGroupItem>
           </ToggleGroup>
         </header>
-        <div className="mb-5 flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <InputGroup className="h-10 min-w-0 flex-1">
-              <InputGroupInput
-                aria-label="البحث في المكتبة"
-                value={q}
-                placeholder="ابحث بعنوان، اسم بديل، صانع أو استوديو…"
-                onChange={(event) => update([["q", event.target.value]])}
-              />
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              {q && (
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-sm"
-                    aria-label="مسح البحث"
-                    onClick={() => update([["q", ""]])}
-                  >
-                    <X />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              )}
-            </InputGroup>
-            <DrawerTrigger
-              render={
-                <Button
-                  ref={filterTrigger}
-                  variant={refinementCount(refinements, preset) > 0 ? "secondary" : "outline"}
-                  className="h-10"
-                />
-              }
-            >
-              <SlidersHorizontal data-icon="inline-start" />
-              المرشحات
-              {refinementCount(refinements, preset) > 0 && (
-                <Badge variant="secondary">{refinementCount(refinements, preset)}</Badge>
-              )}
-            </DrawerTrigger>
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-border pt-3">
-            <OrganizationControls
-              sort={sort}
-              group={group}
-              onSort={(next) => apply({ ...refinements, sort: next })}
-              onGroup={(next) => apply({ ...refinements, group: next })}
-            />
-            <DisplaySettings value={display} onChange={setDisplay} />
-          </div>
-          <BrowsePresets
-            value={{ ...preferences, search: rememberedSearch(params) }}
-            onSave={onPersist}
-            onApply={(search, nextDisplay) => {
-              onRemember({ ...preferences, search, display: nextDisplay });
-              replaceParams(path, new URLSearchParams(search));
-            }}
-            onReset={() => {
-              const next = new URLSearchParams();
-              next.set("filters", JSON.stringify(parseFilters(null)));
-              onRemember({ ...preferences, search: next.toString(), display: displayDefaults });
-              replaceParams(path, next);
-            }}
-          />
-        </div>
+        <BrowseToolbar
+          filters={filters}
+          onFacet={(key, value) => {
+            const facets = filters.facets.filter((facet) => facet.key !== key);
+            if (value !== "all") facets.push({ key, include: [value], exclude: [] });
+            apply({ ...refinements, filters: { ...filters, facets } });
+          }}
+          sort={sort}
+          onSort={(nextSort) => apply({ ...refinements, sort: nextSort })}
+          display={display}
+          onDisplay={setDisplay}
+          group={group}
+          onGroup={(nextGroup) => apply({ ...refinements, group: nextGroup })}
+          search={params.toString()}
+          onTemplate={(search, nextDisplay) => {
+            onRemember({ ...preferences, search, display: nextDisplay });
+            replaceParams(path, new URLSearchParams(search));
+          }}
+          filterCount={refinementCount(refinements, preset)}
+          filterTrigger={filterTrigger}
+        />
         {preferenceError && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>
               تعذّر حفظ أو استعادة تفضيلات التصفح: {preferenceError.message}
             </AlertDescription>
           </Alert>
+        )}
+        {q && (
+          <div className="mb-3 flex">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`مسح البحث: ${q}`}
+              onClick={() => update([["q", ""]])}
+            >
+              <X data-icon="inline-start" /> بحث: {q}
+            </Button>
+          </div>
         )}
         <AppliedFilters
           value={refinements}
@@ -304,7 +264,28 @@ function BrowseContent({
         />
         {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
         {result.isLoading && <BrowseResultsSkeleton display={display} />}
-        {items.length === 0 && !result.isLoading && !result.error && <NoResults />}
+        {items.length === 0 && !result.isLoading && !result.error && (
+          <div className="flex flex-col items-center gap-4">
+            <NoResults />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFiltersMounted(true);
+                  setFiltersOpen(true);
+                }}
+              >
+                <SlidersHorizontal data-icon="inline-start" />
+                تعديل المرشحات
+              </Button>
+              {q && (
+                <Button variant="ghost" onClick={() => update([["q", ""]])}>
+                  مسح البحث
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {groupedEntries.map(({ key, entries }) => (
           <section key={key}>
             {key !== "all" && (
@@ -321,61 +302,7 @@ function BrowseContent({
               </header>
             )}
             {layout === "table" ? (
-              <div className="my-6.5 overflow-x-auto rounded-2xl border border-border">
-                <table className="w-full text-start text-[13px]">
-                  <thead>
-                    <tr>
-                      <th className="border-b border-border px-4.5 py-3.75 text-start font-normal text-muted-foreground">
-                        العمل
-                      </th>
-                      <th className="border-b border-border px-4.5 py-3.75 text-start font-normal text-muted-foreground">
-                        الإصدار
-                      </th>
-                      <th className="border-b border-border px-4.5 py-3.75 text-start font-normal text-muted-foreground">
-                        التقييم
-                      </th>
-                      <th className="border-b border-border px-4.5 py-3.75 text-start font-normal text-muted-foreground">
-                        الجمهور
-                      </th>
-                      <th className="border-b border-border px-4.5 py-3.75 text-start font-normal text-muted-foreground">
-                        المشاهدة
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entries.map((item) => (
-                      <tr key={item.installment?.id ?? item.work.id}>
-                        <td className="border-b border-border px-4.5 py-3.75 text-start">
-                          <a
-                            {...navigation}
-                            className="font-semibold"
-                            href={workLink(item.work.id, item.installment?.id)}
-                          >
-                            {item.work.titleAr || item.work.canonicalTitle}
-                          </a>
-                        </td>
-                        <td className="border-b border-border px-4.5 py-3.75 text-start">
-                          {item.installment?.title ?? item.work.releaseYear}
-                        </td>
-                        <td className="border-b border-border px-4.5 py-3.75 text-start">
-                          {item.status === "announced" &&
-                          (item.installment?.score ?? item.work.score).rating === null ? (
-                            "—"
-                          ) : (
-                            <ScoreBadge score={item.installment?.score ?? item.work.score} />
-                          )}
-                        </td>
-                        <td className="border-b border-border px-4.5 py-3.75 text-start">
-                          {optionLabel(item.classification.audience, item.classification.audience)}
-                        </td>
-                        <td className="border-b border-border px-4.5 py-3.75 text-start">
-                          {optionLabel(item.watchState, item.watchState)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <BrowseTable entries={entries} display={display} />
             ) : (
               <div className={browseGridClass(display)}>
                 {entries.map((item) => (
@@ -387,6 +314,8 @@ function BrowseContent({
                     borderless={display.borderless}
                     showScore={display.showScore}
                     showStatus={display.showStatus}
+                    showMetadata={display.showMetadata ?? true}
+                    showOriginalTitle={display.showOriginalTitle ?? false}
                   />
                 ))}
               </div>

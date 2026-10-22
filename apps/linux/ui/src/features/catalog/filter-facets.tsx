@@ -1,69 +1,114 @@
 import type { BrowseFilters, FacetCatalog } from "@nahhasio/api-contract";
-import { Check, ChevronDown, LockKeyhole, Minus, Plus, RotateCcw } from "lucide-react";
+import { cn } from "cn";
+import {
+  Check,
+  ChevronDown,
+  LockKeyhole,
+  Minus,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  TriangleAlert,
+  OctagonAlert,
+} from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "../../components/ui/button";
-import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "../../components/ui/field";
-import { withPreset } from "./browse-refinements";
-import { optionLabel } from "./filter-model";
+import { Artwork } from "@/components/artwork";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 
-type FilterFacetsProps = {
+import { withPreset } from "./browse-refinements";
+import { facetMatches, normalizeFacetSearch, optionLabel, setFacetSelection } from "./filter-model";
+
+type Props = {
   groups: FacetCatalog["groups"];
   filters: BrowseFilters;
   onChange: (filters: BrowseFilters) => void;
   search: string;
+  compact?: boolean;
+  family?: boolean;
   locked?: { key: string; value: string };
 };
-
-export function FilterFacets({ groups, filters, onChange, search, locked }: FilterFacetsProps) {
-  const query = search.trim().toLocaleLowerCase();
-  const matchingGroups = groups
+export function FilterFacets({
+  groups,
+  filters,
+  onChange,
+  search,
+  locked,
+  compact,
+  family,
+}: Props) {
+  const query = normalizeFacetSearch(search);
+  const matching = groups
     .map((group) => ({
       ...group,
       options: group.options.filter(
         (option) =>
-          group.label.toLocaleLowerCase().includes(query) ||
-          optionLabel(option.value, option.label).toLocaleLowerCase().includes(query),
+          normalizeFacetSearch(group.label).includes(query) || facetMatches(option, query),
       ),
     }))
-    .filter((group) => group.options.length > 0);
-
-  function cycleOption(key: string, value: string) {
-    if (locked?.key === key && locked.value === value) return;
-    const previous = filters.facets.find((facet) => facet.key === key) ?? {
-      key,
-      include: [],
-      exclude: [],
-    };
-    const included = previous.include.includes(value);
-    const excluded = previous.exclude.includes(value);
-    const next = {
-      key,
-      include: [
-        ...previous.include.filter((item) => item !== value),
-        ...(!included && !excluded ? [value] : []),
-      ],
-      exclude: [...previous.exclude.filter((item) => item !== value), ...(included ? [value] : [])],
-    };
-    const facets = [...filters.facets.filter((facet) => facet.key !== key), next].filter(
-      (facet) => facet.include.length || facet.exclude.length,
-    );
-    onChange(withPreset({ ...filters, facets }, locked));
-  }
-
+    .filter((group) => group.options.length);
   return (
-    <FieldGroup className="gap-7">
-      {!matchingGroups.length ? (
-        <FieldDescription role="status">لا توجد خيارات مطابقة. جرّب اسمًا آخر.</FieldDescription>
+    <FieldGroup
+      className={cn(
+        "gap-5",
+        compact && "grid md:grid-cols-2",
+        family && "grid gap-y-8 md:grid-cols-6",
+      )}
+    >
+      {!matching.length ? (
+        <FieldDescription role="status">لا توجد خيارات مطابقة.</FieldDescription>
       ) : (
-        matchingGroups.map((group) => (
+        matching.map((group) => (
           <FacetOptions
-            key={JSON.stringify([group.key, query])}
+            key={`${group.key}:${query}`}
             group={group}
+            family={family}
             filters={filters}
             locked={locked}
-            onSelect={cycleOption}
-            onReset={() =>
+            onChange={onChange}
+          />
+        ))
+      )}
+    </FieldGroup>
+  );
+}
+function FacetOptions({
+  group,
+  family,
+  filters,
+  locked,
+  onChange,
+}: {
+  group: FacetCatalog["groups"][number];
+  family?: boolean;
+  filters: BrowseFilters;
+  locked: Props["locked"];
+  onChange: Props["onChange"];
+}) {
+  const [limit, setLimit] = useState(30);
+  const selection = filters.facets.find((facet) => facet.key === group.key);
+  const selected = (selection?.include.length ?? 0) + (selection?.exclude.length ?? 0);
+  const risk = ["sexualityRisks", "behavioralRisks", "theologyRisks"].includes(group.key);
+  const entities = group.key === "contributors" || group.key === "studios";
+  return (
+    <FieldSet
+      className={cn(
+        "min-w-0 gap-3",
+        family && "gap-2 pt-6",
+        family && (risk ? "md:col-span-2" : "md:col-span-3"),
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <FieldLegend variant="label">
+          {group.label} <Badge variant="outline">{group.options.length}</Badge>
+        </FieldLegend>
+        {selected > 0 && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
               onChange(
                 withPreset(
                   { ...filters, facets: filters.facets.filter((facet) => facet.key !== group.key) },
@@ -71,98 +116,104 @@ export function FilterFacets({ groups, filters, onChange, search, locked }: Filt
                 ),
               )
             }
-          />
-        ))
-      )}
-    </FieldGroup>
-  );
-}
-
-function FacetOptions({
-  group,
-  filters,
-  locked,
-  onSelect,
-  onReset,
-}: {
-  group: FacetCatalog["groups"][number];
-  filters: BrowseFilters;
-  locked: FilterFacetsProps["locked"];
-  onSelect: (key: string, value: string) => void;
-  onReset: () => void;
-}) {
-  const [limit, setLimit] = useState(30);
-  const selection = filters.facets.find((facet) => facet.key === group.key);
-  const chosen = (value: string) =>
-    Number(Boolean(selection?.include.includes(value) || selection?.exclude.includes(value)));
-  const ordered = group.options.toSorted((a, b) => chosen(b.value) - chosen(a.value));
-  const visible = ordered.slice(0, limit);
-  const remaining = group.options.length - visible.length;
-  const selected = (selection?.include.length ?? 0) + (selection?.exclude.length ?? 0);
-  const removable =
-    selected -
-    Number(locked?.key === group.key && Boolean(selection?.include.includes(locked.value)));
-  return (
-    <FieldSet className="gap-3">
-      <FieldLegend variant="label">{group.label}</FieldLegend>
-      {selected > 0 && (
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <p>
-            {selection?.include.length ?? 0} مضمّن، {selection?.exclude.length ?? 0} مستبعد
-          </p>
-          {removable > 0 && (
-            <Button size="xs" variant="ghost" onClick={onReset} aria-label={`مسح ${group.label}`}>
-              <RotateCcw data-icon="inline-start" />
-              مسح
-            </Button>
-          )}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={group.label}>
-        {visible.map((option) => {
-          const isLocked = locked?.key === group.key && locked.value === option.value;
-          const included = isLocked || Boolean(selection?.include.includes(option.value));
-          const excluded = !isLocked && Boolean(selection?.exclude.includes(option.value));
-          const label = optionLabel(option.value, option.label);
-          const state = included ? "مضمّن" : excluded ? "مستبعد" : "غير محدد";
-          const action = isLocked
-            ? "مقفل"
-            : included
-              ? "اضغط للاستبعاد"
-              : excluded
-                ? "اضغط لإزالة المرشح"
-                : "اضغط للتضمين";
-          const Icon = isLocked ? LockKeyhole : included ? Check : excluded ? Minus : Plus;
-          return (
-            <Button
-              key={option.value}
-              type="button"
-              variant={excluded ? "destructive" : included ? "secondary" : "outline"}
-              className="h-auto min-h-9 max-w-full gap-2 py-2"
-              disabled={isLocked}
-              aria-pressed={included ? true : excluded ? "mixed" : false}
-              aria-label={`${label}، ${state}، ${option.count} في المكتبة، ${action}`}
-              title={action}
-              onClick={() => onSelect(group.key, option.value)}
-            >
-              <Icon data-icon="inline-start" aria-hidden="true" />
-              <span className="min-w-0 whitespace-normal text-start">{label}</span>
-              <span className="shrink-0 text-xs opacity-70">{option.count}</span>
-            </Button>
-          );
-        })}
+            aria-label={`مسح ${group.label}`}
+          >
+            <RotateCcw data-icon="inline-start" />
+            مسح
+          </Button>
+        )}
       </div>
-      {remaining > 0 && (
+      <div
+        className={cn("flex flex-wrap gap-2", family && "gap-y-4")}
+        role="group"
+        aria-label={group.label}
+      >
+        {(risk
+          ? group.options.toSorted(
+              (a, b) =>
+                ["none", "low", "medium", "high"].indexOf(a.value) -
+                ["none", "low", "medium", "high"].indexOf(b.value),
+            )
+          : group.options
+        )
+          .slice(0, limit)
+          .map((option) => {
+            const fixed = locked?.key === group.key && locked.value === option.value;
+            const included = fixed || !!selection?.include.includes(option.value);
+            const excluded = !fixed && !!selection?.exclude.includes(option.value);
+            const label = optionLabel(option.value, option.label);
+            const Icon = fixed ? LockKeyhole : included ? Check : excluded ? Minus : Plus;
+            return (
+              <Button
+                key={option.value}
+                variant={
+                  excluded ? "destructive" : included ? "secondary" : risk ? "ghost" : "outline"
+                }
+                size="sm"
+                className="h-auto min-h-9 max-w-full gap-2 py-2"
+                disabled={fixed}
+                aria-pressed={included ? true : excluded ? "mixed" : false}
+                aria-label={`${label}، ${fixed ? "ثابت" : included ? "مضمّن" : excluded ? "مستبعد" : "غير محدد"}، ${option.count} في المكتبة`}
+                title={
+                  included ? "نقرة أخرى للاستبعاد" : excluded ? "نقرة أخرى للإزالة" : "نقرة للتضمين"
+                }
+                onClick={() =>
+                  onChange(
+                    withPreset(
+                      setFacetSelection(
+                        filters,
+                        group.key,
+                        option.value,
+                        included ? "exclude" : excluded ? null : "include",
+                      ),
+                      locked,
+                    ),
+                  )
+                }
+              >
+                {entities && option.artworkId ? (
+                  <Artwork
+                    id={option.artworkId}
+                    alt=""
+                    studioLogo={group.key === "studios"}
+                    className="size-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <Icon data-icon="inline-start" />
+                )}
+                <span
+                  className={cn(
+                    "flex min-w-0 items-center gap-1.5 whitespace-normal text-start",
+                    risk && option.value === "medium" && "text-warning",
+                    risk && option.value === "high" && "text-destructive",
+                    risk && option.value === "low" && "text-success",
+                    risk && option.value === "none" && "text-muted-foreground",
+                  )}
+                >
+                  {risk &&
+                    (option.value === "high" ? (
+                      <OctagonAlert className="size-4" aria-hidden="true" />
+                    ) : option.value === "medium" ? (
+                      <TriangleAlert className="size-4" aria-hidden="true" />
+                    ) : (
+                      <ShieldCheck className="size-4" aria-hidden="true" />
+                    ))}
+                  {label}
+                </span>
+                <span className="text-xs opacity-70">{option.count}</span>
+              </Button>
+            );
+          })}
+      </div>
+      {group.options.length > limit && (
         <Button
-          type="button"
           variant="ghost"
           size="sm"
           className="self-start"
-          aria-label={`عرض المزيد من ${group.label}، ${remaining} خيارًا متبقيًا`}
-          onClick={() => setLimit((current) => current + 30)}
+          onClick={() => setLimit(limit + 30)}
         >
           <ChevronDown data-icon="inline-start" />
-          عرض المزيد ({remaining})
+          المزيد ({group.options.length - limit})
         </Button>
       )}
     </FieldSet>

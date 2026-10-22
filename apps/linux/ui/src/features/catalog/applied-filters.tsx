@@ -50,11 +50,12 @@ export function AppliedFilters({
         label: `${key === "from" ? "من سنة" : "إلى سنة"}: ${value[key]}`,
         remove: () => onChange({ ...value, [key]: "" }),
       });
-  if (value.filters.minimumRating > 0)
+  if (value.filters.minimumRating > 0 || (value.filters.maximumRating ?? 10) < 10)
     chips.push({
       key: "rating",
-      label: `التقييم ≥ ${value.filters.minimumRating}`,
-      remove: () => onChange({ ...value, filters: { ...value.filters, minimumRating: 0 } }),
+      label: `التقييم: ${value.filters.minimumRating} – ${value.filters.maximumRating ?? 10}`,
+      remove: () =>
+        onChange({ ...value, filters: { ...value.filters, minimumRating: 0, maximumRating: 10 } }),
     });
   for (const [key, score] of Object.entries(value.filters.minimumScores))
     if (score > 0)

@@ -4727,6 +4727,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "searchTerms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Visible catalog names, English labels, slugs and aliases for multilingual option search; optional for older servers."
           }
         }
       },
@@ -4798,6 +4805,12 @@
             "items": {
               "$ref": "#/components/schemas/FacetSelection"
             }
+          },
+          "maximumRating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "Inclusive upper rating bound; omitted or 10 leaves the upper bound unrestricted."
           },
           "minimumRating": {
             "type": "number"

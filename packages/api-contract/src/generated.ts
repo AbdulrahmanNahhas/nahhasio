@@ -660,6 +660,7 @@ export const FacetOptionSchema = z.strictObject({
     )
     .optional(),
   languages: z.array(z.string()).optional(),
+  searchTerms: z.array(z.string()).optional(),
 });
 export type FacetOption = z.infer<typeof FacetOptionSchema>;
 
@@ -686,6 +687,7 @@ export type FacetSelection = z.infer<typeof FacetSelectionSchema>;
 
 export const BrowseFiltersSchema = z.strictObject({
   facets: z.array(FacetSelectionSchema),
+  maximumRating: z.number().min(0).max(10).optional(),
   minimumRating: z.number(),
   minimumScores: z.strictObject({
     story: z.number(),

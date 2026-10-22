@@ -9,6 +9,15 @@ export const displaySchema = z.strictObject({
   borderless: z.boolean(),
   showScore: z.boolean(),
   showStatus: z.boolean(),
+  showMetadata: z.boolean().optional(),
+  showOriginalTitle: z.boolean().optional(),
+  tableColumns: z
+    .array(z.enum(["release", "status", "score", "audience", "age", "watchState", "format"]))
+    .max(7)
+    .optional(),
+  tablePosters: z.boolean().optional(),
+  tableTitle: z.enum(["arabic", "english", "both"]).optional(),
+  tableDensity: z.enum(["compact", "normal"]).optional(),
 });
 const searchSchema = z.string().max(9000);
 export const preferencesSchema = z.strictObject({
