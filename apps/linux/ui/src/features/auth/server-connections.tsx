@@ -18,6 +18,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   connectionKey,
@@ -123,15 +125,21 @@ function ConnectionForm({
 }) {
   const [url, setUrl] = useState(editing?.url ?? "");
   const [name, setName] = useState(editing?.name ?? "");
+  const [certificate, setCertificate] = useState("");
+  const [fingerprint, setFingerprint] = useState("");
+  const trust = certificate.trim() || fingerprint.trim() ? { certificate, fingerprint } : undefined;
   const client = useQueryClient();
-  const test = useMutation({ mutationFn: () => probeServer(url), networkMode: "always" });
+  const test = useMutation({
+    mutationFn: () => probeServer(url, undefined, trust),
+    networkMode: "always",
+  });
   const save = useMutation({
     onMutate: () => onBusyChange(true),
     onSettled: () => onBusyChange(false),
     mutationFn: () =>
       editing
         ? updateServer("servers.save", { url, name: name.trim() })
-        : selectServer(client, { url, name: name.trim() }),
+        : selectServer(client, { url, name: name.trim(), trust }),
     networkMode: "always",
     onSuccess: (state) => {
       client.setQueryData(connectionKey, state);
@@ -175,6 +183,60 @@ function ConnectionForm({
               : "HTTPS لخادم الشبكة. للتجربة على هذا الجهاز: http://127.0.0.1:23103"}
           </FieldDescription>
         </Field>
+        {!editing && (
+          <Collapsible>
+            <CollapsibleTrigger render={<Button type="button" variant="outline" disabled={busy} />}>
+              شهادة خادم منزلي
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <FieldGroup className="mt-4">
+                <Field>
+                  <FieldLabel htmlFor="server-certificate">شهادة الجذر العامة (PEM)</FieldLabel>
+                  <Textarea
+                    id="server-certificate"
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={8192}
+                    value={certificate}
+                    disabled={busy}
+                    rows={4}
+                    onChange={(event) => {
+                      setCertificate(event.target.value);
+                      test.reset();
+                      save.reset();
+                    }}
+                  />
+                  <FieldDescription>
+                    انسخ الشهادة العامة فقط من جهاز الخادم. لا تُدخل أي مفتاح خاص. تُحفظ الثقة لهذا
+                    العنوان وحده.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="server-fingerprint">بصمة شهادة الجذر SHA-256</FieldLabel>
+                  <Input
+                    id="server-fingerprint"
+                    dir="ltr"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={128}
+                    value={fingerprint}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setFingerprint(event.target.value);
+                      test.reset();
+                      save.reset();
+                    }}
+                  />
+                  <FieldDescription>
+                    انقل البصمة من شاشة الخادم أو عبر SSH موثوق. تُرفض الشهادة عند عدم تطابقها؛ يستمر
+                    التحقق من اسم الخادم وصلاحية اتصاله.
+                  </FieldDescription>
+                </Field>
+              </FieldGroup>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
         <Field>
           <FieldLabel htmlFor="server-name">اسم الاتصال {editing ? "" : "(اختياري)"}</FieldLabel>
           <Input
@@ -189,6 +251,16 @@ function ConnectionForm({
           />
         </Field>
       </FieldGroup>
+      {editing?.trustedFingerprint && (
+        <Alert>
+          <ShieldCheck />
+          <AlertTitle>ثقة خاصة بهذا الخادم</AlertTitle>
+          <AlertDescription>
+            <bdi className="break-all font-mono text-xs">{editing.trustedFingerprint}</bdi>
+            <p>لتغيير شهادة الجذر، اختر خادماً آخر ثم أزل هذا الاتصال وأضفه بالشهادة الجديدة.</p>
+          </AlertDescription>
+        </Alert>
+      )}
       {test.data && !test.error && (
         <Alert>
           <ShieldCheck />

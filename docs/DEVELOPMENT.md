@@ -1,7 +1,7 @@
 # Development guide
 
 Read [PROJECT.md](PROJECT.md) for scope and [ROADMAP.md](ROADMAP.md) for current priorities.
-Use the repository's Nix/devenv environment: Node 24, pnpm 11.11.0, Rust, GTK/libadwaita,
+Use the repository's Nix/devenv environment: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
 WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` without permission.
 
 ## Repository map
@@ -673,3 +673,60 @@ The old 31-file chain and original ledger remain in Git/private archives. Neithe
 startup nor release replacement performs baseline adoption. Both migration runners reject altered
 history and populated databases without a matching ledger. The one-time baseline helper remains
 under `packages/database/scripts`; it is not a shipped service or another public CLI.
+
+## Server Overview and Settings
+
+The desktop administration landing page now reads real aggregate catalog/account/session counts,
+registered artwork bytes, database size, server identity, uptime and migration compatibility through
+`GET /api/v1/admin/server/overview`. It polls every 30 seconds while mounted. Counts are bounded
+server queries, not a catalog download; artwork totals do not certify filesystem health. Session
+counts do not imply online devices. Jellyfin delivery, backup scheduling and automatic updates
+remain future services, clearly identified in the interface.
+
+`GET /api/v1/admin/server/settings` returns identity and masked provider status. The PATCH operation
+changes only the server display name, checks the previous revision, revalidates/locks the administrator
+session and writes an audit record in the same transaction. Server UUIDs and catalog data are unchanged.
+`PUT /api/v1/admin/server/providers` accepts a single provider/action and expected revision. Keys are
+write-only; set, disable (including environment fallback), and return-to-environment are distinct actions.
+The shared Rust provider implementation reads current credentials for each request, without restart.
+Configuration means a key is present, not that its provider has accepted it. AniList requires no key.
+
+Credential persistence belongs to the installed server, outside PostgreSQL and generic table inspection.
+`NAHHASIO_CONFIG_ROOT` must be an absolute, server-private persistent directory. Devenv selects
+`data/server-config`; no source-relative installed fallback is guessed. If unset, status remains readable
+and environment credentials work, but dashboard writes are disabled. The directory is created on the
+first authorized write with mode 0700; JSON and lock files use 0600. Existing symlinks/public permissions
+are refused. The small JSON document uses an optimistic revision and last-changing account UUID;
+it is replaced atomically under a cross-process file lock and synced to disk. That replacement is the
+credential commit boundary, independent of PostgreSQL; no credential is written to database audit logs.
+An admin authorization transaction holds session/identity/device locks through the replacement, even
+if the HTTP request is cancelled. Provider keys never enter Query mutation variables, query keys,
+local storage or status replies; input fields are cleared before submitting to the native gateway.
+
+The shared admin write guard now locks and rechecks the current device against revocation. The 2026-10-21 follow-up below
+closes the other implemented viewer/device/profile transaction authorization paths.
+Readiness now requires the bundled migration history to match, no pending migration and an existing
+server identity; startup still never migrates or repairs anything. This does not replace storage/role/
+HTTPS installation preflight, provider acceptance, or a restore rehearsal.
+
+`bin/test-account-profile` also exercises these services using its disposable socket database and
+private temporary config root: authorization, revision conflicts, durable key reload, masked responses,
+disable, revoked-device rejection and incompatible-schema readiness. `tests/admin-server.spec.ts`
+covers fixture-backed desktop/narrow UI and failure states. Neither suite changes family data or
+contacts providers. Native GTK/AppImage and Fedora acceptance must be reported separately.
+
+## Transactional authorization follow-up — 2026-10-21
+
+`apps/server/src/auth/write.rs` now owns write authorization. All implemented viewer mutations,
+profile/password/device writes and admin mutations use its consistent identity/account/session/device
+locks. Ordinary viewer policy and work visibility are rechecked under locks using current permissions.
+Login issuance locks identity/account too, so a password rotation cannot race old verified credentials
+into a new surviving session. No auth schema or family data changed. A session's installation binding
+is immutable; another installation signs in separately. Read-only requests retain their middleware/
+snapshot model. Future management writers must use this lock order.
+
+Overview includes preliminary deployment-role/artwork/config checks. Shared `catalog-core::storage`
+root selection preserves the current uploads/public and legacy environment semantics across delivery,
+editing and diagnostics. Settings can reload a stale name conflict. `providers.json` format version 1
+accepts existing unversioned documents and refuses an unknown future format without rewriting it.
+The full gate analysis and boundaries are in PREDEPLOYMENT-REVIEW's 2026-10-21 follow-up.

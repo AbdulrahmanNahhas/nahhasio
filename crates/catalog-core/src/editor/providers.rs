@@ -52,7 +52,9 @@ async fn json(response: Response) -> Result<Value> {
     )?)
 }
 async fn tmdb(path: &str, params: &[(&str, String)]) -> Result<Value> {
-    let Ok(token) = std::env::var("TMDB_API_READ_ACCESS_KEY") else {
+    let Some(token) =
+        crate::provider_config::credential(crate::provider_config::Provider::Tmdb).await?
+    else {
         return Ok(Value::Null);
     };
     let response = client()?
@@ -269,7 +271,9 @@ async fn anilist(input: &Value) -> Result<Vec<Value>> {
     Ok(result)
 }
 async fn fanart(input: &Value, id: &Value) -> Result<Vec<Value>> {
-    let Ok(key) = std::env::var("FANART_API_KEY") else {
+    let Some(key) =
+        crate::provider_config::credential(crate::provider_config::Provider::Fanart).await?
+    else {
         return Ok(vec![]);
     };
     let role = text(input, "role");
@@ -454,10 +458,17 @@ pub(super) async fn execute(operation: &str, input: &Value) -> Result<Value> {
         "search" => {
             let kind = input["kind"].as_str().unwrap_or("animated-movie");
             let mut warnings = vec![];
-            if std::env::var("TMDB_API_READ_ACCESS_KEY").is_err() {
+            if crate::provider_config::credential(crate::provider_config::Provider::Tmdb)
+                .await?
+                .is_none()
+            {
                 warnings.push("TMDB: مفتاح المصدر غير مفعّل.".to_owned());
             }
-            if kind.ends_with("movie") && std::env::var("FANART_API_KEY").is_err() {
+            if kind.ends_with("movie")
+                && crate::provider_config::credential(crate::provider_config::Provider::Fanart)
+                    .await?
+                    .is_none()
+            {
                 warnings.push("Fanart: مفتاح المصدر غير مفعّل.".to_owned());
             }
             let (tmdb, anime) = tokio::join!(tmdb_art(input), async {
@@ -493,7 +504,10 @@ pub(super) async fn execute(operation: &str, input: &Value) -> Result<Value> {
             Ok(json!({"candidates":candidates,"warnings":warnings}))
         }
         "season" | "episodeImages" => {
-            if std::env::var("TMDB_API_READ_ACCESS_KEY").is_err() {
+            if crate::provider_config::credential(crate::provider_config::Provider::Tmdb)
+                .await?
+                .is_none()
+            {
                 return Err(invalid("مفتاح TMDB غير مفعّل."));
             }
             if operation == "season" {

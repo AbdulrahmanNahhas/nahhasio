@@ -30,14 +30,26 @@ pub(super) async fn register(
             "Invalid device registration",
         ));
     }
-    let key = bearer(&headers)?;
     let mut tx = state.pool.begin().await.map_err(unavailable)?;
     sqlx::query("SET TRANSACTION READ WRITE")
         .execute(&mut *tx)
         .await
         .map_err(unavailable)?;
-    let session:Option<String>=sqlx::query_scalar("select s.id from auth_sessions s join auth_users u on u.id=s.user_id join accounts a on a.auth_user_id=u.id where s.token=$1 and u.id=$2 and s.expires_at>now() and a.status='active' and (not u.banned or u.ban_expires<=now()) for update of s,a,u").bind(&key).bind(&current.id).fetch_optional(&mut *tx).await.map_err(unavailable)?;
-    let session = session.ok_or_else(unauthorized)?;
+    let session = lock_session(&mut tx, &headers, Some(&current)).await?;
+    if let Some(device) = &session.device_id {
+        let installation: String =
+            sqlx::query_scalar("select installation_id from devices where id=$1::uuid")
+                .bind(device)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(unavailable)?;
+        if installation != input.installation_id {
+            return Err(AuthError(
+                StatusCode::FORBIDDEN,
+                "A session cannot change its registered installation",
+            ));
+        }
+    }
     let device:Option<String>=sqlx::query_scalar("insert into devices(installation_id,name,platform,last_seen_at) values($1,$2,$3,now()) on conflict(installation_id) do update set name=excluded.name,platform=excluded.platform,last_seen_at=now(),updated_at=now() where devices.revoked_at is null returning id::text").bind(input.installation_id).bind(input.name.trim()).bind(input.platform).fetch_optional(&mut *tx).await.map_err(unavailable)?;
     let device = device.ok_or(AuthError(
         StatusCode::FORBIDDEN,
@@ -45,7 +57,7 @@ pub(super) async fn register(
     ))?;
     sqlx::query("update auth_sessions set device_id=$1::uuid,updated_at=now() where id=$2")
         .bind(&device)
-        .bind(session)
+        .bind(session.session_id)
         .execute(&mut *tx)
         .await
         .map_err(unavailable)?;

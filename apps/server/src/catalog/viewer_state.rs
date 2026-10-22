@@ -10,7 +10,7 @@ use axum::{
     },
     http::{HeaderMap, HeaderValue, StatusCode, header},
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use serde::Deserialize;
@@ -100,45 +100,31 @@ async fn begin(pool: &PgPool, write: bool) -> ApiResult<Transaction<'_, Postgres
     Ok(tx)
 }
 
-async fn account(
-    tx: &mut Transaction<'_, Postgres>,
-    user: &User,
-    write: bool,
-) -> ApiResult<String> {
-    // Locking the account serializes overlapping bulk/single writes for this owner. Recheck
-    // account/identity status inside the write transaction, not only in middleware.
-    let query = format!(
-        "SELECT a.id::text FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE u.id=$1 AND a.status='active' AND u.role IN ('owner','admin','member') AND (NOT u.banned OR u.ban_expires<=now()){}",
-        if write { " FOR UPDATE OF a,u" } else { "" }
-    );
-    sqlx::query_scalar(AssertSqlSafe(query))
-        .bind(&user.id)
-        .fetch_optional(&mut **tx)
-        .await?
+async fn account(tx: &mut Transaction<'_, Postgres>, user: &User) -> ApiResult<String> {
+    sqlx::query_scalar("SELECT a.id::text FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE u.id=$1 AND a.id=$2::uuid AND a.status='active' AND u.role IN ('owner','admin','member') AND (NOT u.banned OR u.ban_expires<=now())")
+        .bind(&user.id).bind(&user.account_id).fetch_optional(&mut **tx).await?
         .ok_or(ApiError(StatusCode::UNAUTHORIZED, "Account is unavailable"))
 }
-async fn session_device(
-    tx: &mut Transaction<'_, Postgres>,
-    headers: &HeaderMap,
-) -> ApiResult<Option<String>> {
-    let key = crate::auth::bearer(headers)
-        .map_err(|_| ApiError(StatusCode::UNAUTHORIZED, "Authentication required"))?;
-    Ok(sqlx::query_scalar::<_, Option<String>>(
-        "select device_id::text from auth_sessions where token=$1 and expires_at>now()",
+
+fn authorization(error: crate::auth::AuthError) -> ApiError {
+    ApiError(
+        error.into_response().status(),
+        "Session or catalog permission is no longer valid",
     )
-    .bind(key)
-    .fetch_optional(&mut **tx)
-    .await?
-    .flatten())
 }
-async fn ensure_work(tx: &mut Transaction<'_, Postgres>, id: &str, write: bool) -> ApiResult<()> {
-    let query = if write {
-        "select id::text from titles where id=$1::uuid for share"
-    } else {
-        "select id::text from titles where id=$1::uuid"
-    };
-    sqlx::query_scalar::<_, String>(query)
+async fn ensure_work(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &str,
+    admin: bool,
+    write: bool,
+) -> ApiResult<()> {
+    let query = format!(
+        "select id::text from titles where id=$1::uuid and ($2 or (not is_private and workflow_status='published')){}",
+        if write { " for share" } else { "" }
+    );
+    sqlx::query_scalar::<_, String>(AssertSqlSafe(query))
         .bind(id)
+        .bind(admin)
         .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(not_found)?;
@@ -190,8 +176,8 @@ async fn state(
 ) -> ApiResult<Json<Value>> {
     validate_id(&id)?;
     let mut tx = begin(&pool, false).await?;
-    let account = account(&mut tx, &user, false).await?;
-    ensure_work(&mut tx, &id, false).await?;
+    let account = account(&mut tx, &user).await?;
+    ensure_work(&mut tx, &id, user.is_admin, false).await?;
     let result = snapshot(&mut tx, &id, &account).await?;
     tx.commit().await?;
     Ok(Json(result))
@@ -200,6 +186,7 @@ async fn state(
 const FAVORITE_WRITE: &str = "insert into account_title_states(account_id,title_id,is_favorite) values($1::uuid,$2::uuid,$3) on conflict(account_id,title_id) do update set is_favorite=excluded.is_favorite,updated_at=now()";
 async fn favorite(
     State(pool): State<PgPool>,
+    headers: HeaderMap,
     Extension(user): Extension<User>,
     Path(id): Path<String>,
     input: Result<Json<FavoriteInput>, JsonRejection>,
@@ -207,8 +194,11 @@ async fn favorite(
     validate_id(&id)?;
     let input = payload(input)?;
     let mut tx = begin(&pool, true).await?;
-    let account = account(&mut tx, &user, true).await?;
-    ensure_work(&mut tx, &id, true).await?;
+    let session = crate::auth::lock_viewer_session(&mut tx, &headers, &user)
+        .await
+        .map_err(authorization)?;
+    let account = session.account_id;
+    ensure_work(&mut tx, &id, session.is_admin, true).await?;
     sqlx::query(FAVORITE_WRITE)
         .bind(&account)
         .bind(&id)
@@ -268,11 +258,14 @@ async fn watched(
     let input = payload(input)?;
     input.validate()?;
     let mut tx = begin(&pool, true).await?;
-    let account = account(&mut tx, &user, true).await?;
-    ensure_work(&mut tx, &id, true).await?;
+    let session = crate::auth::lock_viewer_session(&mut tx, &headers, &user)
+        .await
+        .map_err(authorization)?;
+    let account = session.account_id;
+    ensure_work(&mut tx, &id, session.is_admin, true).await?;
     validate_target(&mut tx, &id, &input).await?;
     // No release filter: an explicit manual work/season choice includes future catalog units.
-    let device = session_device(&mut tx, &headers).await?;
+    let device = session.device_id;
     sqlx::query(AssertSqlSafe(watched_query()))
         .bind(&id)
         .bind(&account)
@@ -329,8 +322,11 @@ async fn sync_tracking(
         return Err(invalid("Invalid tracking change"));
     }
     let mut tx = begin(&pool, true).await?;
-    let account = account(&mut tx, &user, true).await?;
-    ensure_work(&mut tx, &id, true).await?;
+    let session = crate::auth::lock_viewer_session(&mut tx, &headers, &user)
+        .await
+        .map_err(authorization)?;
+    let account = session.account_id;
+    ensure_work(&mut tx, &id, session.is_admin, true).await?;
     validate_target(
         &mut tx,
         &id,
@@ -380,7 +376,7 @@ async fn sync_tracking(
             "Viewing state changed; review the device and server versions",
         ));
     }
-    let device = session_device(&mut tx, &headers).await?;
+    let device = session.device_id;
     sqlx::query("insert into account_playback_states(account_id,installment_id,episode_id,position_seconds,duration_seconds,is_played,played_manually,played_at,last_device_id) values($1::uuid,$2::uuid,$3::uuid,coalesce($4,0),$5,coalesce($6,false),$7,case when $6 then now() else null end,$8::uuid) on conflict on constraint account_playback_owner_uq do update set position_seconds=coalesce($4,account_playback_states.position_seconds),duration_seconds=coalesce($5,account_playback_states.duration_seconds),last_device_id=$8::uuid,is_played=coalesce($6,account_playback_states.is_played),played_manually=case when $7 then true else account_playback_states.played_manually end,played_at=case when $6 is null then account_playback_states.played_at when $6 then coalesce(account_playback_states.played_at,now()) else null end,updated_at=now()")
         .bind(&account).bind(&input.installment_id).bind(&input.episode_id).bind(input.position_seconds).bind(input.duration_seconds).bind(resolved_played).bind(input.is_played.is_some()).bind(device).execute(&mut *tx).await?;
     let result = snapshot(&mut tx, &id, &account).await?;
@@ -424,8 +420,8 @@ async fn activity(
     let Query(input) = input.map_err(|_| invalid("Invalid discussion query"))?;
     let page = input.page()?;
     let mut tx = begin(&pool, false).await?;
-    account(&mut tx, &user, false).await?;
-    ensure_work(&mut tx, &id, false).await?;
+    account(&mut tx, &user).await?;
+    ensure_work(&mut tx, &id, user.is_admin, false).await?;
     let result = sqlx::query_scalar::<_, SqlJson<Value>>(ACTIVITY_SQL)
         .bind(&id)
         .bind(page)
@@ -476,6 +472,7 @@ impl CommentInput {
 }
 async fn change_comment(
     State(pool): State<PgPool>,
+    headers: HeaderMap,
     Extension(user): Extension<User>,
     Path(id): Path<String>,
     input: Result<Json<CommentInput>, JsonRejection>,
@@ -484,12 +481,11 @@ async fn change_comment(
     let input: CommentInput = payload(input)?;
     input.validate()?;
     let mut tx = begin(&pool, true).await?;
-    let actor = account(&mut tx, &user, true).await?;
-    let visible=sqlx::query_scalar::<_,String>("select id::text from titles where id=$1::uuid and (($2::boolean) or (not is_private and workflow_status='published')) for share")
-        .bind(&id).bind(matches!(user.role.as_str(),"owner"|"admin")).fetch_optional(&mut *tx).await?;
-    if visible.is_none() {
-        return Err(not_found());
-    }
+    let session = crate::auth::lock_viewer_session(&mut tx, &headers, &user)
+        .await
+        .map_err(authorization)?;
+    let actor = session.account_id;
+    ensure_work(&mut tx, &id, session.is_admin, true).await?;
     let result=match input.action {
         CommentAction::Create => {
             if let Some(parent)=&input.parent_id {

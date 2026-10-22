@@ -316,8 +316,11 @@ fn network(error: reqwest::Error) -> Error {
     }
 }
 impl ServerSession {
-    pub fn new_persistent(base: &str) -> Result<Self, Error> {
-        let mut service = Self::new(base)?;
+    pub fn new_persistent(
+        base: &str,
+        trust: Option<&crate::server_trust::Trust>,
+    ) -> Result<Self, Error> {
+        let mut service = Self::with_trust(base, trust)?;
         let roots = crate::media_storage::Roots::discover()
             .map_err(|_| Error::new("configuration", "تعذّر تحديد مجلد حالة التطبيق."))?;
         let store = crate::session_store::SessionStore::new(&roots.state);
@@ -340,6 +343,12 @@ impl ServerSession {
         Ok(())
     }
     pub fn new(base: &str) -> Result<Self, Error> {
+        Self::with_trust(base, None)
+    }
+    pub fn with_trust(
+        base: &str,
+        trust: Option<&crate::server_trust::Trust>,
+    ) -> Result<Self, Error> {
         let base =
             Url::parse(base).map_err(|_| Error::new("configuration", "Invalid server address"))?;
         if base.username() != ""
@@ -359,13 +368,21 @@ impl ServerSession {
                 "Server must use HTTPS or a loopback HTTP address",
             ));
         }
-        let client = Client::builder()
+        let mut builder = Client::builder()
             .no_proxy()
             .timeout(Duration::from_secs(15))
             .connect_timeout(Duration::from_secs(3))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(network)?;
+            .redirect(reqwest::redirect::Policy::none());
+        if let Some(trust) = trust {
+            if base.scheme() != "https" {
+                return Err(Error::new(
+                    "certificate",
+                    "شهادة الخادم متاحة لاتصالات HTTPS فقط.",
+                ));
+            }
+            builder = builder.add_root_certificate(trust.certificate()?);
+        }
+        let client = builder.build().map_err(network)?;
         Ok(Self {
             session_store: None,
             client,
@@ -430,7 +447,7 @@ impl ServerSession {
         if info.product != "nahhasio"
             || info.api_version != 1
             || info.name.is_empty()
-            || info.name.chars().count() > 80
+            || info.name.chars().count() > 100
             || info.version.len() > 64
         {
             return Err(Error::new(
@@ -728,6 +745,21 @@ impl ServerSession {
                     .await
                     .map_err(network)?;
                 self.json_limit(response, 16 * 1024 * 1024).await
+            }
+            "serverOverview" | "serverSettings" | "renameServer" | "updateProviders" => {
+                let (method, path) = match request.command.as_str() {
+                    "serverOverview" => (Method::GET, "api/v1/admin/server/overview"),
+                    "serverSettings" => (Method::GET, "api/v1/admin/server/settings"),
+                    "renameServer" => (Method::PATCH, "api/v1/admin/server/settings"),
+                    _ => (Method::PUT, "api/v1/admin/server/providers"),
+                };
+                let write = method != Method::GET;
+                let mut outgoing = self.authorized(method, path).await?;
+                if write {
+                    outgoing = outgoing.json(&request.payload);
+                }
+                let response = outgoing.send().await.map_err(network)?;
+                self.json(response).await
             }
             "profileOverview" | "profileEntries" => {
                 #[derive(Deserialize)]

@@ -7,8 +7,10 @@ use axum::{
 use nahhasio_server::{database_pool, router};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
+use sqlx::{ConnectOptions, PgPool};
 use tower::ServiceExt;
+#[path = "profile_postgres/authorization.rs"]
+mod authorization;
 const ACTOR: &str = "91000000-0000-4000-8000-000000000001";
 fn token(admin: bool) -> String {
     format!("nh1_{}", if admin { "a1" } else { "b2" }.repeat(32))
@@ -94,7 +96,57 @@ async fn public_profiles_and_curated_avatars_preserve_privacy() {
         .unwrap();
     tx.commit().await.unwrap();
     setup(&pool).await;
-    let api = router(pool.clone());
+    // Exercise HTTP as a runtime role, not the cluster owner used for fixture preparation.
+    let mut grants = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *grants)
+        .await
+        .unwrap();
+    for statement in [
+        "create role nahhasio_runtime_fixture login",
+        "grant usage on schema public,drizzle to nahhasio_runtime_fixture",
+        "grant select,insert,update,delete on all tables in schema public to nahhasio_runtime_fixture",
+        "grant usage,select on all sequences in schema public to nahhasio_runtime_fixture",
+        "grant select on all tables in schema drizzle to nahhasio_runtime_fixture",
+    ] {
+        sqlx::query(statement).execute(&mut *grants).await.unwrap();
+    }
+    grants.commit().await.unwrap();
+    let runtime_url = options
+        .clone()
+        .username("nahhasio_runtime_fixture")
+        .to_url_lossy();
+    let runtime = database_pool(runtime_url.as_str()).unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "select has_table_privilege(current_user,'drizzle.__drizzle_migrations','INSERT')"
+        )
+        .fetch_one(&runtime)
+        .await
+        .unwrap()
+    );
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "select has_schema_privilege(current_user,'public','CREATE')"
+        )
+        .fetch_one(&runtime)
+        .await
+        .unwrap()
+    );
+    let api = router(runtime.clone());
+    for (connection, expected) in [(&runtime, true), (&pool, false)] {
+        let checks = nahhasio_catalog::deployment::inspect(
+            &mut connection.acquire().await.unwrap(),
+            nahhasio_catalog::storage::ArtworkRoots::configured(),
+            nahhasio_catalog::provider_config::root(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            checks.iter().find(|c| c.key == "database-role").unwrap().ok,
+            expected
+        );
+    }
     activity_acceptance(&api, &pool).await;
     let path = format!("/api/v1/profiles/{ACTOR}");
     assert_eq!(
@@ -207,6 +259,9 @@ async fn public_profiles_and_curated_avatars_preserve_privacy() {
         request(&api, "GET", &path, Some(true), Value::Null).await.0,
         StatusCode::OK
     );
+    authorization::acceptance(&api, &pool).await;
+    server_acceptance(&api, &pool).await;
+    runtime.close().await;
     pool.close().await;
 }
 
@@ -390,5 +445,216 @@ async fn activity_acceptance(api: &Router, pool: &PgPool) {
             .await
             .0,
         StatusCode::UNAUTHORIZED
+    );
+}
+
+// Reuse the same disposable accounts/database; no additional fixture cluster or live writes.
+async fn server_acceptance(api: &Router, pool: &PgPool) {
+    const BASE: &str = "/api/v1/admin/server";
+    assert_eq!(
+        request(api, "GET", "/api/health/ready", None, Value::Null)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    for path in ["overview", "settings"] {
+        assert_eq!(
+            request(api, "GET", &format!("{BASE}/{path}"), None, Value::Null)
+                .await
+                .0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            request(
+                api,
+                "GET",
+                &format!("{BASE}/{path}"),
+                Some(false),
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    let (status, body, _) = request(
+        api,
+        "GET",
+        &format!("{BASE}/overview"),
+        Some(true),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let overview: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(overview["schema"]["compatible"], true);
+    assert_eq!(overview["schema"]["applied"], 1);
+    assert_eq!(overview["counts"]["works"], 4);
+    let (_, body, _) = request(
+        api,
+        "GET",
+        &format!("{BASE}/settings"),
+        Some(true),
+        Value::Null,
+    )
+    .await;
+    let settings: Value = serde_json::from_slice(&body).unwrap();
+    let rename = json!({"name":"مكتبة الاختبار","expectedRevision":settings["server"]["revision"]});
+    assert_eq!(
+        request(
+            api,
+            "PATCH",
+            &format!("{BASE}/settings"),
+            Some(false),
+            rename.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request(
+            api,
+            "PATCH",
+            &format!("{BASE}/settings"),
+            Some(true),
+            rename.clone()
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        request(
+            api,
+            "PATCH",
+            &format!("{BASE}/settings"),
+            Some(true),
+            rename
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let key = "fixture-server-private-key";
+    let update = json!({"expectedRevision":0,"provider":"tmdb","action":"set","key":key});
+    assert_eq!(
+        request(
+            api,
+            "PUT",
+            &format!("{BASE}/providers"),
+            Some(false),
+            update.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, body, _) = request(
+        api,
+        "PUT",
+        &format!("{BASE}/providers"),
+        Some(true),
+        update.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    assert!(!String::from_utf8_lossy(&body).contains(key));
+    let status: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(status["tmdb"]["source"], "server");
+    assert_eq!(
+        request(api, "PUT", &format!("{BASE}/providers"), Some(true), update)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        nahhasio_catalog::provider_config::credential(
+            nahhasio_catalog::provider_config::Provider::Tmdb
+        )
+        .await
+        .unwrap()
+        .as_deref(),
+        Some(key)
+    );
+    // A new router/process view still reads the persisted status, without echoing keys.
+    let fresh = router(pool.clone());
+    let (_, body, _) = request(
+        &fresh,
+        "GET",
+        &format!("{BASE}/settings"),
+        Some(true),
+        Value::Null,
+    )
+    .await;
+    assert!(!String::from_utf8_lossy(&body).contains(key));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["providers"]["revision"],
+        1
+    );
+    let disable = json!({"expectedRevision":1,"provider":"tmdb","action":"disable"});
+    assert_eq!(
+        request(
+            api,
+            "PUT",
+            &format!("{BASE}/providers"),
+            Some(true),
+            disable
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert!(
+        nahhasio_catalog::provider_config::credential(
+            nahhasio_catalog::provider_config::Provider::Tmdb
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("insert into devices(id,installation_id,revoked_at) values('99000000-0000-4000-8000-000000000001','revoked-admin-fixture',now())").execute(&mut *tx).await.unwrap();
+    sqlx::query("update auth_sessions set device_id='99000000-0000-4000-8000-000000000001' where user_id='rust-editor-admin'").execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        request(
+            api,
+            "PUT",
+            &format!("{BASE}/providers"),
+            Some(true),
+            json!({"expectedRevision":2,"provider":"tmdb","action":"environment"})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        nahhasio_catalog::provider_config::status(
+            nahhasio_catalog::provider_config::root().as_deref()
+        )
+        .unwrap()
+        .revision,
+        2
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update drizzle.__drizzle_migrations set hash='fixture-incompatible'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        request(api, "GET", "/api/health/ready", None, Value::Null)
+            .await
+            .0,
+        StatusCode::SERVICE_UNAVAILABLE
     );
 }

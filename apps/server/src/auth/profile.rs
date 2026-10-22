@@ -115,16 +115,12 @@ pub(super) async fn update(
     {
         return Err(AuthError(StatusCode::BAD_REQUEST, "Invalid profile fields"));
     }
-    let key = bearer(&headers)?;
     let mut tx = state.pool.begin().await.map_err(unavailable)?;
     sqlx::query("SET TRANSACTION READ WRITE")
         .execute(&mut *tx)
         .await
         .map_err(unavailable)?;
-    // Lock identity first, matching password changes; recheck live session/account authorization.
-    let authorized:Option<String>=sqlx::query_scalar("SELECT u.id FROM auth_users u JOIN accounts a ON a.auth_user_id=u.id JOIN auth_sessions s ON s.user_id=u.id WHERE u.id=$1 AND s.token=$2 AND s.expires_at>now() AND a.status='active' AND (NOT u.banned OR u.ban_expires<=now()) FOR UPDATE OF u,a")
-        .bind(&current.id).bind(key).fetch_optional(&mut *tx).await.map_err(unavailable)?;
-    authorized.ok_or_else(unauthorized)?;
+    lock_session(&mut tx, &headers, Some(&current)).await?;
     let updated=sqlx::query("UPDATE accounts SET display_name=$2,bio=$3,avatar_key=$4,updated_at=now() WHERE auth_user_id=$1 AND to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')=$5")
         .bind(&current.id).bind(name).bind(input.bio.trim()).bind(&input.avatar_key).bind(input.updated_at).execute(&mut *tx).await.map_err(unavailable)?;
     if updated.rows_affected() != 1 {
@@ -205,8 +201,7 @@ pub(super) async fn password(
         .execute(&mut *tx)
         .await
         .map_err(unavailable)?;
-    let authorized:Option<String>=sqlx::query_scalar("SELECT u.id FROM auth_users u JOIN accounts a ON a.auth_user_id=u.id JOIN auth_sessions s ON s.user_id=u.id WHERE u.id=$1 AND s.token=$2 AND s.expires_at>now() AND a.status='active' AND (NOT u.banned OR u.ban_expires<=now()) FOR UPDATE OF u,a").bind(&current.id).bind(&key).fetch_optional(&mut *tx).await.map_err(unavailable)?;
-    authorized.ok_or_else(unauthorized)?;
+    lock_session(&mut tx, &headers, Some(&current)).await?;
     let changed=sqlx::query("UPDATE auth_accounts SET password=$2,updated_at=now() WHERE user_id=$1 AND provider_id='credential' AND password=$3").bind(&current.id).bind(hashed).bind(old).execute(&mut *tx).await.map_err(unavailable)?;
     if changed.rows_affected() != 1 {
         return Err(AuthError(

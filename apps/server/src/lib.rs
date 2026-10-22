@@ -57,25 +57,33 @@ async fn live() -> Json<Health> {
 }
 
 async fn ready(State(pool): State<PgPool>) -> (StatusCode, Json<Health>) {
-    match sqlx::query("SELECT 1").execute(&pool).await {
-        Ok(_) => (StatusCode::OK, Json(Health { status: "ready" })),
-        Err(error) => {
-            if let sqlx::Error::Database(database_error) = &error {
-                tracing::warn!(
-                    code = database_error.code().as_deref().unwrap_or("unknown"),
-                    message = database_error.message(),
-                    "database readiness check failed"
-                );
-            } else {
-                tracing::warn!(kind = ?std::mem::discriminant(&error), "database readiness check failed");
-            }
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(Health {
-                    status: "unavailable",
-                }),
-            )
-        }
+    let compatible = async {
+        let mut connection = pool
+            .acquire()
+            .await
+            .map_err(nahhasio_catalog::Error::from)?;
+        let status = nahhasio_catalog::migrations::status(
+            &mut connection,
+            &nahhasio_catalog::migrations::bundled()?,
+        )
+        .await?;
+        let identity: bool =
+            sqlx::query_scalar("select exists(select 1 from server_instance where singleton)")
+                .fetch_one(&mut *connection)
+                .await?;
+        Ok::<_, nahhasio_catalog::Error>(status.pending.is_empty() && identity)
+    }
+    .await;
+    if matches!(compatible, Ok(true)) {
+        (StatusCode::OK, Json(Health { status: "ready" }))
+    } else {
+        // Database diagnostics can include values; report only the readiness outcome.
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(Health {
+                status: "unavailable",
+            }),
+        )
     }
 }
 

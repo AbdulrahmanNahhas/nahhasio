@@ -77,7 +77,7 @@ export const adminGroups = [
     ],
   },
 ] as const;
-export const overview = { slug: "", title: "أدوات الإدارة", icon: LayoutDashboard };
+export const overview = { slug: "", title: "نظرة عامة", icon: LayoutDashboard };
 export function adminSection(slug: string) {
   return adminGroups.flatMap((group) => [...group.items]).find((item) => item.slug === slug);
 }
@@ -92,6 +92,7 @@ const implementedAdminSections: ReadonlySet<string> = new Set([
   "people",
   "studios",
   "planets",
+  "settings",
 ]);
 export function isAdminSectionAvailable(slug: string) {
   return implementedAdminSections.has(slug) || slug in inspectionSections;

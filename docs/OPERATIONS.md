@@ -17,8 +17,9 @@ configuration from the installation/update procedures still to be delivered.
 - Debug-only generic administration: `NAHHASIO_LOCAL_ADMIN=true` and a private token; the
   server requires a debug build bound to loopback. This is not a production client credential.
 
-Native credentials and provider keys stay outside JavaScript/committed files. Do not print
-connection strings, hashes or tokens. Do not reuse demo accounts/passwords as production setup.
+Session credentials remain native. Provider keys entered in the administration form are transient
+and pass through the native gateway; they are never returned or stored by the UI. Keep secrets out
+of committed files and do not print connection strings, hashes or tokens. Do not reuse demo accounts/passwords as production setup.
 
 ## Storage ownership
 
@@ -99,3 +100,89 @@ sources; all public table content was preserved. Installed updates use the new b
 future additive migrations. Do not restore the old dump over current data or run its retired
 creation migrations automatically. Copy the verified recovery material to independent storage
 before production cutover.
+
+## Private provider configuration
+
+Set `NAHHASIO_CONFIG_ROOT` to a dedicated absolute persistent directory owned by the service user.
+The directory must be private (0700); credential files must be private (0600). Do not mount the
+configuration beneath artwork/public content or put it into an image, repository or AppImage.
+The server creates a missing final directory on an authorized dashboard write; its parent must
+already exist. Devenv uses the ignored persistent `data/server-config` directory. Restart an existing
+server once after adding/changing this environment path; subsequent key updates need no restart.
+
+Desktop Settings can replace TMDB/Fanart keys, explicitly disable a provider, or restore the existing
+`TMDB_API_READ_ACCESS_KEY` / `FANART_API_KEY` environment selection. Stored overrides take precedence;
+disabling suppresses environment fallback. No configured key value or fragment is returned. Keys
+are plaintext in the private server file, protected by service-user filesystem permissions; include
+`providers.json` in a separate protected configuration backup. Never include it in public diagnostics.
+A replacement records its revision and changing account UUID atomically with its values. The database
+rename audit does not substitute for backing up this private configuration.
+
+For recovery, stop the server, restore the complete configuration file to the same root with its
+private permissions/ownership, then restart and inspect masked status. Retain the prior file privately
+until provider operations are verified. Restoring this file does not change catalog/account identities.
+Readiness checks migration history and server identity without applying changes. Persistent artwork
+access, restricted database roles, HTTPS and recovery/update activation still require deployment checks.
+
+Overview's new deployment checks report privileged-role flags and explicit readable artwork/config
+selection without changing anything. They do not certify write grants, free space, file health or SELinux.
+Use the 2026-10-21 gate table in PREDEPLOYMENT-REVIEW for the Podman implementation. In particular,
+LAN clients require trusted HTTPS; the existing plain-HTTP server listener alone is insufficient.
+The private provider document is format version 1; unversioned existing files remain compatible,
+and a newer unsupported version is refused instead of overwritten. Preserve it with configuration backups.
+
+## Local readiness checkpoint — 2026-10-22
+
+The selected family target is Fedora Silverblue 44 with approximately 300 GB available for now.
+This is Aqua's supplied inventory, not a disk/OS inspection. SSH installation comes later. Initial
+recovery covers PostgreSQL, artwork and private configuration; video storage is outside this pass.
+See [PREDEPLOYMENT-REVIEW](PREDEPLOYMENT-REVIEW.md#local-application-follow-up--2026-10-22).
+
+### Home-server certificate trust
+
+The desktop connection form now accepts one public root certificate in PEM format and its SHA-256
+fingerprint. Obtain both from the server itself or a separately trusted SSH connection. For an
+exported public root certificate, the operator can read its fingerprint with:
+
+```sh
+openssl x509 -in root.crt -noout -fingerprint -sha256
+```
+
+Paste only the hexadecimal fingerprint (colons/spaces are accepted) into the fingerprint field.
+Never distribute the CA's private key. A fingerprint obtained only from the same unverified network
+connection does not authenticate the server.
+
+The native transport checks the fingerprint before attempting HTTPS, retains normal TLS chain,
+hostname and validity checks, and refuses redirects. Trust applies only to the saved origin (scheme,
+host and port); provider/torrent transports and system certificate trust are unchanged. An untrusted
+LAN HTTP address remains rejected. Testing a connection does not persist trust. Selecting it saves
+trust only after the server information and readiness probes succeed, without sending credentials.
+
+Saved connection format 2 contains the public CA and normalized fingerprint; existing format 1 files
+remain readable. Storage is private (0600) and atomic. The UI receives the fingerprint rather than the
+certificate. Changing an existing origin's CA requires switching to another connection, removing the
+old connection (which clears its saved session), then adding it again. Older client binaries cannot
+read format 2; keep a protected state backup before a deliberate downgrade. This checkpoint does
+not provision certificates or change the server's current HTTP listener: the installation must supply
+HTTPS before family LAN acceptance.
+
+### Shared preliminary preflight
+
+With explicit database selection and the intended service's artwork/config environment, run:
+
+```sh
+./bin/nahhasio preflight --json
+```
+
+Run it as the intended runtime database role, not the migration owner. It never writes files/data or
+runs migrations. It returns exit status 1 if a check fails, with its report on stdout; command/database
+errors remain on stderr. It checks migration compatibility, server identity, high database privileges
+and inherited public/Drizzle schema or table ownership, explicit readable artwork roots, and an
+existing private config directory separated from artwork (including resolved path aliases). Unknown
+private provider formats fail their check. `--write` and `--dry-run` are rejected.
+
+Overview uses the same role/storage checks. These checks do not prove complete DML grants, writable
+mounts, SELinux access, disk capacity, TLS service configuration, artifact trust or recovery. Those
+remain installation acceptance. Provider keys stay manageable through Settings; initial database
+credentials, bind address and mount paths remain private installation/bootstrap configuration because
+the service needs them before its dashboard can run.

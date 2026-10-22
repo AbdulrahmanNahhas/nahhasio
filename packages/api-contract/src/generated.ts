@@ -1830,6 +1830,72 @@ export const CatalogPreviewResultSchema = z.strictObject({
 });
 export type CatalogPreviewResult = z.infer<typeof CatalogPreviewResultSchema>;
 
+export const CatalogAwardListInputSchema = z.strictObject({
+  table: z.enum([
+    "award_organizations",
+    "award_categories",
+    "award_ceremonies",
+    "award_recognitions",
+  ]),
+  organization: z.union([z.string().uuid(), z.null()]),
+  q: z.string().max(300),
+  page: z.number().int().min(1).max(100000),
+  result: z.enum(["all", "winner", "nominee"]),
+  category: z.union([z.string().uuid(), z.null()]).optional(),
+  ceremony: z.union([z.string().uuid(), z.null()]).optional(),
+  year: z.union([z.number().int().min(1900).max(2100), z.null()]).optional(),
+  featured: z.boolean().optional(),
+  source: z.enum(["all", "documented", "missing"]).optional(),
+  sort: z.enum(["newest", "oldest", "work"]).optional(),
+});
+export type CatalogAwardListInput = z.infer<typeof CatalogAwardListInputSchema>;
+
+export const CatalogAwardListCallSchema = z.strictObject({
+  operation: z.enum(["awardList"]),
+  data: CatalogAwardListInputSchema,
+});
+export type CatalogAwardListCall = z.infer<typeof CatalogAwardListCallSchema>;
+
+export const CatalogAwardDetailInputSchema = z.strictObject({
+  table: z.enum(["award_organizations", "award_categories", "award_ceremonies"]),
+  id: z.string().uuid(),
+});
+export type CatalogAwardDetailInput = z.infer<typeof CatalogAwardDetailInputSchema>;
+
+export const CatalogAwardDetailCallSchema = z.strictObject({
+  operation: z.enum(["awardDetail"]),
+  data: CatalogAwardDetailInputSchema,
+});
+export type CatalogAwardDetailCall = z.infer<typeof CatalogAwardDetailCallSchema>;
+
+export const CatalogAwardSaveInputSchema = z.strictObject({
+  table: z.enum(["award_organizations", "award_categories", "award_ceremonies"]),
+  id: z.union([z.string().uuid(), z.null()]),
+  revision: z.union([z.string().min(64).max(64), z.null()]),
+  draft: z.record(z.string(), z.json()),
+});
+export type CatalogAwardSaveInput = z.infer<typeof CatalogAwardSaveInputSchema>;
+
+export const CatalogAwardSaveCallSchema = z.strictObject({
+  operation: z.enum(["awardSave"]),
+  data: CatalogAwardSaveInputSchema,
+});
+export type CatalogAwardSaveCall = z.infer<typeof CatalogAwardSaveCallSchema>;
+
+export const CatalogAwardDeleteInputSchema = z.strictObject({
+  table: z.enum(["award_organizations", "award_categories", "award_ceremonies"]),
+  id: z.string().uuid(),
+  revision: z.string().min(64).max(64),
+  confirmation: z.string().max(100),
+});
+export type CatalogAwardDeleteInput = z.infer<typeof CatalogAwardDeleteInputSchema>;
+
+export const CatalogAwardDeleteCallSchema = z.strictObject({
+  operation: z.enum(["awardDelete"]),
+  data: CatalogAwardDeleteInputSchema,
+});
+export type CatalogAwardDeleteCall = z.infer<typeof CatalogAwardDeleteCallSchema>;
+
 export const CatalogPlanetDetailInputSchema = z.strictObject({
   id: z.string().uuid(),
 });
@@ -2242,6 +2308,10 @@ export const CatalogEpisodeImagesCallSchema = z.strictObject({
 export type CatalogEpisodeImagesCall = z.infer<typeof CatalogEpisodeImagesCallSchema>;
 
 export const CatalogEditorCallSchema = z.union([
+  CatalogAwardListCallSchema,
+  CatalogAwardDetailCallSchema,
+  CatalogAwardSaveCallSchema,
+  CatalogAwardDeleteCallSchema,
   CatalogPlanetDetailCallSchema,
   CatalogPlanetSaveCallSchema,
   CatalogPlanetDeleteCallSchema,
@@ -2770,7 +2840,7 @@ export type CatalogPlanetDeleteResult = z.infer<typeof CatalogPlanetDeleteResult
 
 export const ServerInfoSchema = z.strictObject({
   product: z.enum(["nahhasio"]),
-  name: z.string().min(1).max(80),
+  name: z.string().min(1).max(100),
   version: z.string().max(64),
   apiVersion: z.number().int().min(1),
   serverId: z.string().uuid().optional(),
@@ -2948,6 +3018,109 @@ export const ProfileEntriesSchema = z.strictObject({
 });
 export type ProfileEntries = z.infer<typeof ProfileEntriesSchema>;
 
+export const ServerIdentitySchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  revision: z.string(),
+});
+export type ServerIdentity = z.infer<typeof ServerIdentitySchema>;
+
+export const ProviderKeyStatusSchema = z.strictObject({
+  configured: z.boolean(),
+  source: z.enum(["server", "environment", "disabled"]),
+});
+export type ProviderKeyStatus = z.infer<typeof ProviderKeyStatusSchema>;
+
+export const ProviderSettingsSchema = z.strictObject({
+  revision: z.number().int().min(0),
+  editable: z.boolean(),
+  tmdb: ProviderKeyStatusSchema,
+  fanart: ProviderKeyStatusSchema,
+});
+export type ProviderSettings = z.infer<typeof ProviderSettingsSchema>;
+
+export const ServerSettingsSchema = z.strictObject({
+  server: ServerIdentitySchema,
+  providers: ProviderSettingsSchema,
+});
+export type ServerSettings = z.infer<typeof ServerSettingsSchema>;
+
+export const ServerRenameSchema = z.strictObject({
+  name: z.string().min(1).max(100),
+  expectedRevision: z.string(),
+});
+export type ServerRename = z.infer<typeof ServerRenameSchema>;
+
+export const ProviderUpdateSchema = z.strictObject({
+  expectedRevision: z.number().int().min(0),
+  provider: z.enum(["tmdb", "fanart"]),
+  action: z.enum(["set", "disable", "environment"]),
+  key: z.string().min(8).max(4096).optional(),
+});
+export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
+
+export const ServerOverviewSchema = z.strictObject({
+  server: ServerIdentitySchema,
+  version: z.string(),
+  apiVersion: z.number().int().min(0),
+  uptimeSeconds: z.number().int().min(0),
+  database: z.enum(["connected"]),
+  schema: z.strictObject({
+    compatible: z.boolean(),
+    applied: z.number().int().min(0).nullable(),
+    pending: z.number().int().min(0).nullable(),
+  }),
+  counts: z.strictObject({
+    works: z.number().int().min(0),
+    installments: z.number().int().min(0),
+    episodes: z.number().int().min(0),
+    artwork: z.number().int().min(0),
+    artworkBytes: z.number().int().min(0),
+    accounts: z.number().int().min(0),
+    sessions: z.number().int().min(0),
+    databaseBytes: z.number().int().min(0),
+  }),
+  checks: z.array(
+    z.strictObject({
+      key: z.string(),
+      label: z.string(),
+      ok: z.boolean(),
+      detail: z.string(),
+    }),
+  ),
+});
+export type ServerOverview = z.infer<typeof ServerOverviewSchema>;
+
+export const CatalogAwardListResultSchema = z.strictObject({
+  rows: z.array(z.record(z.string(), z.json())),
+  total: z.number(),
+  counts: z.record(z.string(), z.number()),
+});
+export type CatalogAwardListResult = z.infer<typeof CatalogAwardListResultSchema>;
+
+export const CatalogAwardDetailResultSchema = z.strictObject({
+  row: z.record(z.string(), z.json()),
+  revision: z.string().min(64).max(64),
+  links: z.array(
+    z.strictObject({
+      table: z.string(),
+      count: z.number(),
+    }),
+  ),
+});
+export type CatalogAwardDetailResult = z.infer<typeof CatalogAwardDetailResultSchema>;
+
+export const CatalogAwardSaveResultSchema = z.strictObject({
+  id: z.string().uuid(),
+  created: z.boolean(),
+});
+export type CatalogAwardSaveResult = z.infer<typeof CatalogAwardSaveResultSchema>;
+
+export const CatalogAwardDeleteResultSchema = z.strictObject({
+  removed: z.boolean(),
+});
+export type CatalogAwardDeleteResult = z.infer<typeof CatalogAwardDeleteResultSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -2966,6 +3139,8 @@ export class ApiClient {
       | LoginRequest
       | PasswordUpdate
       | ProfileUpdate
+      | ProviderUpdate
+      | ServerRename
       | TrackingChange
       | WatchedRequest
       | WorkReadRequest
@@ -3387,5 +3562,21 @@ export class ApiClient {
       signal,
     );
     return ProfileEntriesSchema.parse(await response.json());
+  }
+  async getServerOverview(signal?: AbortSignal): Promise<ServerOverview> {
+    const response = await this.request("/api/v1/admin/server/overview", "GET", undefined, signal);
+    return ServerOverviewSchema.parse(await response.json());
+  }
+  async getServerSettings(signal?: AbortSignal): Promise<ServerSettings> {
+    const response = await this.request("/api/v1/admin/server/settings", "GET", undefined, signal);
+    return ServerSettingsSchema.parse(await response.json());
+  }
+  async renameServer(body: ServerRename, signal?: AbortSignal): Promise<ServerIdentity> {
+    const response = await this.request("/api/v1/admin/server/settings", "PATCH", body, signal);
+    return ServerIdentitySchema.parse(await response.json());
+  }
+  async updateProviders(body: ProviderUpdate, signal?: AbortSignal): Promise<ProviderSettings> {
+    const response = await this.request("/api/v1/admin/server/providers", "PUT", body, signal);
+    return ProviderSettingsSchema.parse(await response.json());
   }
 }

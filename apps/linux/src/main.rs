@@ -13,6 +13,7 @@ mod player;
 mod player_protocol;
 mod player_smoke;
 mod private_state;
+mod server_trust;
 mod services;
 mod session_store;
 mod smoke;

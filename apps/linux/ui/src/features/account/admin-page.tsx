@@ -16,7 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 
 import { DatabaseInspector, inspectionSections } from "../admin/database-inspector";
-import { adminSection, adminGroups, isAdminSectionAvailable } from "../admin/navigation";
+import { adminSection } from "../admin/navigation";
+import { ServerOverviewPage, ServerSettingsPage } from "../admin/server/server-pages";
 
 export function AdminPage() {
   const access = useQuery({
@@ -66,31 +67,8 @@ export function AdminPage() {
   );
 }
 export function AdminSectionPage({ section = "" }: { section?: string }) {
-  if (!section)
-    return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-6">
-        <h1 className="text-2xl font-semibold">أدوات الإدارة</h1>
-        <p className="text-sm text-muted-foreground">
-          اختر قسماً متاحاً لإدارة المكتبة. إنشاء الأعمال وتحريرها والتحرير الجماعي متاحة داخل صفحة
-          الأعمال.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {adminGroups
-            .flatMap((group) => [...group.items])
-            .filter((item) => isAdminSectionAvailable(item.slug))
-            .map((item) => (
-              <a
-                key={item.slug}
-                href={`#/admin/${item.slug}`}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <item.icon data-icon="inline-start" />
-                {item.title}
-              </a>
-            ))}
-        </div>
-      </div>
-    );
+  if (!section) return <ServerOverviewPage />;
+  if (section === "settings") return <ServerSettingsPage />;
   const item = adminSection(section);
   const title = section ? (item?.title ?? "صفحة غير موجودة") : "نظرة عامة";
   if (item && section in inspectionSections)

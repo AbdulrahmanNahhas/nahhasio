@@ -1,11 +1,14 @@
 //! Shared database operations for the server and trusted, local operator CLI.
 //! No network listener, GUI, environment defaults, migration-on-startup or secret logging.
+pub mod deployment;
 pub mod editor;
 pub mod migrations;
 pub mod planets;
+pub mod provider_config;
 pub mod records;
 pub mod redaction;
 pub mod schema;
+pub mod storage;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;

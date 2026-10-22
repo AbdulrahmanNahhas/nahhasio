@@ -2349,6 +2349,92 @@
           }
         }
       }
+    },
+    "/api/v1/admin/server/overview": {
+      "get": {
+        "operationId": "getServerOverview",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/server/settings": {
+      "get": {
+        "operationId": "getServerSettings",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameServer",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerIdentity"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerRename"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/server/providers": {
+      "put": {
+        "operationId": "updateProviders",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSettings"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderUpdate"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8775,6 +8861,18 @@
       "CatalogEditorCall": {
         "oneOf": [
           {
+            "$ref": "#/components/schemas/CatalogAwardListCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAwardDetailCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAwardSaveCall"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAwardDeleteCall"
+          },
+          {
             "$ref": "#/components/schemas/CatalogPlanetDetailCall"
           },
           {
@@ -10356,7 +10454,7 @@
           },
           "slug": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]{0,79}$"
+            "pattern": "^[a-z][a-z0-9_]{0,79}$"
           },
           "name": {
             "type": "string",
@@ -11968,7 +12066,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 80
+            "maxLength": 100
           },
           "version": {
             "type": "string",
@@ -12598,6 +12696,552 @@
             "type": "integer"
           }
         }
+      },
+      "ServerIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "revision"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
+      "ProviderKeyStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["configured", "source"],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["server", "environment", "disabled"]
+          }
+        }
+      },
+      "ProviderSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision", "editable", "tmdb", "fanart"],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "tmdb": {
+            "$ref": "#/components/schemas/ProviderKeyStatus"
+          },
+          "fanart": {
+            "$ref": "#/components/schemas/ProviderKeyStatus"
+          }
+        }
+      },
+      "ServerSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["server", "providers"],
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerIdentity"
+          },
+          "providers": {
+            "$ref": "#/components/schemas/ProviderSettings"
+          }
+        }
+      },
+      "ServerRename": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "expectedRevision"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "expectedRevision": {
+            "type": "string"
+          }
+        }
+      },
+      "ProviderUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedRevision", "provider", "action"],
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["tmdb", "fanart"]
+          },
+          "action": {
+            "type": "string",
+            "enum": ["set", "disable", "environment"]
+          },
+          "key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 4096
+          }
+        }
+      },
+      "ServerOverview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "server",
+          "version",
+          "apiVersion",
+          "uptimeSeconds",
+          "database",
+          "schema",
+          "counts",
+          "checks"
+        ],
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerIdentity"
+          },
+          "version": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uptimeSeconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "database": {
+            "type": "string",
+            "enum": ["connected"]
+          },
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["compatible", "applied", "pending"],
+            "properties": {
+              "compatible": {
+                "type": "boolean"
+              },
+              "applied": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              }
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "works",
+              "installments",
+              "episodes",
+              "artwork",
+              "artworkBytes",
+              "accounts",
+              "sessions",
+              "databaseBytes"
+            ],
+            "properties": {
+              "works": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "installments": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episodes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artwork": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artworkBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "accounts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sessions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "databaseBytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "label", "ok", "detail"],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CatalogAwardListInput": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": [
+              "award_organizations",
+              "award_categories",
+              "award_ceremonies",
+              "award_recognitions"
+            ]
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "result": {
+            "type": "string",
+            "enum": ["all", "winner", "nominee"]
+          },
+          "category": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ceremony": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "year": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1900,
+                "maximum": 2100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "featured": {
+            "default": false,
+            "type": "boolean"
+          },
+          "source": {
+            "default": "all",
+            "type": "string",
+            "enum": ["all", "documented", "missing"]
+          },
+          "sort": {
+            "default": "newest",
+            "type": "string",
+            "enum": ["newest", "oldest", "work"]
+          }
+        },
+        "required": ["table", "organization", "q", "page", "result"],
+        "additionalProperties": false
+      },
+      "CatalogAwardListCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["awardList"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAwardListInput"
+          }
+        }
+      },
+      "CatalogAwardDetailInput": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["table", "id"],
+        "additionalProperties": false
+      },
+      "CatalogAwardDetailCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["awardDetail"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAwardDetailInput"
+          }
+        }
+      },
+      "CatalogAwardSaveInput": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "x-zod-json": true
+            }
+          }
+        },
+        "required": ["table", "id", "revision", "draft"],
+        "additionalProperties": false
+      },
+      "CatalogAwardSaveCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["awardSave"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAwardSaveInput"
+          }
+        }
+      },
+      "CatalogAwardDeleteInput": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string",
+            "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "confirmation": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": ["table", "id", "revision", "confirmation"],
+        "additionalProperties": false
+      },
+      "CatalogAwardDeleteCall": {
+        "type": "object",
+        "required": ["operation", "data"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["awardDelete"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CatalogAwardDeleteInput"
+          }
+        }
+      },
+      "CatalogAwardListResult": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "x-zod-json": true
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "required": ["rows", "total", "counts"]
+      },
+      "CatalogAwardDetailResult": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "x-zod-json": true
+            }
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "table": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number"
+                }
+              },
+              "required": ["table", "count"]
+            }
+          }
+        },
+        "required": ["row", "revision", "links"]
+      },
+      "CatalogAwardSaveResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "created"]
+      },
+      "CatalogAwardDeleteResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": ["removed"]
       }
     }
   }

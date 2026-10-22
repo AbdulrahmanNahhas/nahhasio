@@ -20,7 +20,7 @@ fn command() -> Command {
     Command::new("nahhasio").version(env!("CARGO_PKG_VERSION"))
         .about("Nahhasio local PostgreSQL operator tool (Rust)")
         .after_help("Examples:\n  nahhasio schema titles --json\n  nahhasio title list --search Arcane\n  nahhasio title update Arcane --set summary=... --dry-run\n  nahhasio title update Arcane --set summary=... --write\n  nahhasio sql 'select count(*) from titles' --json\n  nahhasio migrate status\n  nahhasio migrate apply --dry-run\n\nDATABASE_URL must be set explicitly. This is a trusted local operator tool, not a remote user API.\nWhole-work: work export <reference>; work apply --file document.json --dry-run or --write.\nShared services: editor <operation> --file input.json (NAHHASIO_CLI_ACTOR required).\nReports: stats coverage, scores, top, classification, vocabulary, planets, awards, people, media.\nArtwork: media ingest <file-or-provider-url>, media assign <asset>, media purge.")
-        .arg(Arg::new("resource").help("health, schema, stats, sql, migrate, or a catalog resource/table"))
+        .arg(Arg::new("resource").help("health, preflight, schema, stats, sql, migrate, or a catalog resource/table"))
         .arg(Arg::new("action").help("list/get/create/update/delete; SQL text; table name; migration action"))
         .arg(Arg::new("reference").help("Record id, slug, name or alias"))
         .arg(Arg::new("by").long("by").value_delimiter(',').action(ArgAction::Append))
@@ -98,6 +98,29 @@ async fn dispatch(connection: &mut PgConnection, args: &ArgMatches) -> Result<Va
             .await?;
         return Ok(
             json!({"ok":true,"product":"nahhasio","database":database,"version":env!("CARGO_PKG_VERSION")}),
+        );
+    }
+    if resource == "preflight" {
+        if args.get_flag("write") || args.get_flag("dry-run") {
+            return Err(invalid(
+                "preflight is read-only; omit --write and --dry-run",
+            ));
+        }
+        let checks = nahhasio_catalog::deployment::inspect(
+            connection,
+            nahhasio_catalog::storage::ArtworkRoots::configured(),
+            nahhasio_catalog::provider_config::root(),
+        )
+        .await?;
+        let status = migrations::status(connection, &migrations::bundled()?).await?;
+        let identity: bool =
+            sqlx::query_scalar("select exists(select 1 from server_instance where singleton)")
+                .fetch_one(connection)
+                .await?;
+        return Ok(
+            json!({"ok":identity && status.pending.is_empty() && checks.iter().all(|c| c.ok),
+            "readOnly":true,"checks":checks,"schema":status,"serverIdentity":identity,
+            "scope":"Preliminary checks only; installation must verify writes, TLS, backups and restoration"}),
         );
     }
     if resource == "migrate" {
@@ -320,7 +343,7 @@ async fn run(args: &ArgMatches) -> Result<Value> {
         }
 
         return Ok(
-            json!({"name":"nahhasio","version":env!("CARGO_PKG_VERSION"),"commands":["health","schema","stats","sql","migrate","work","media","editor"],"resources":schema::resources(),"flags":command().get_arguments().map(|arg|json!({"name":arg.get_id().as_str(),"long":arg.get_long(),"help":arg.get_help().map(ToString::to_string)})).collect::<Vec<_>>(),"writes":"--write or --dry-run; multi-row commits also require --yes","workInput":"--file document.json, positional file or --input-json <document>"}),
+            json!({"name":"nahhasio","version":env!("CARGO_PKG_VERSION"),"commands":["health","preflight","schema","stats","sql","migrate","work","media","editor"],"resources":schema::resources(),"flags":command().get_arguments().map(|arg|json!({"name":arg.get_id().as_str(),"long":arg.get_long(),"help":arg.get_help().map(ToString::to_string)})).collect::<Vec<_>>(),"writes":"--write or --dry-run; multi-row commits also require --yes","workInput":"--file document.json, positional file or --input-json <document>"}),
         );
     }
     if text(args, "resource") == Some("schema") && args.get_flag("resources") {
@@ -389,6 +412,7 @@ async fn main() {
         Ok(value) => (value, false),
         Err(error) => (json!({"error":{"message":error.to_string()}}), true),
     };
+    let rejected_preflight = text(&args, "resource") == Some("preflight") && value["ok"] == false;
     nahhasio_catalog::redaction::scrub(&mut value, 0);
     let rendered = if failed || args.get_flag("json") {
         serde_json::to_string_pretty(&value).expect("JSON value")
@@ -410,7 +434,10 @@ async fn main() {
     } else {
         writeln!(io::stdout().lock(), "{rendered}")
     };
-    if failed || written.is_err_and(|error| error.kind() != io::ErrorKind::BrokenPipe) {
+    if failed
+        || rejected_preflight
+        || written.is_err_and(|error| error.kind() != io::ErrorKind::BrokenPipe)
+    {
         std::process::exit(1);
     }
 }

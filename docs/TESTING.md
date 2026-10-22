@@ -191,3 +191,70 @@ Drizzle/Rust continuation directions, plus catalog/editor/media/report preservat
 baseline snapshot also produced no changes through Drizzle generation. The real restored-data
 and artwork rehearsal, 23 constraint assertions and live adoption receipt are documented in
 [BASELINE](BASELINE.md). These results do not establish independent recovery or Fedora deployment.
+
+## Server administration services
+
+`devenv shell -- bash bin/test-account-profile` now also exercises real Overview/Settings handlers
+in the same synthetic socket-only database and a temporary `NAHHASIO_CONFIG_ROOT`. It checks
+admin/member/revoked-device access, server rename and provider revision conflicts, persisted masked
+key status, shared-provider reload/disable, and readiness rejection of an incompatible migration
+ledger. The fixture deletes its database and credential directory afterward. It never uses the
+family database or calls real providers.
+
+`devenv shell -- pnpm --filter @nahhasio/linux-ui exec playwright test admin-server.spec.ts`
+checks the typed native-gateway fixture, name/key controls, secret input clearing, failure/retry,
+disabled unconfigured storage and 1440/520-pixel layouts. Build the bundle before starting preview;
+do not rebuild the same output while browser tests run. Browser captures remain separate from GTK,
+physical keyboard, real credentials, AppImage installation and Fedora acceptance.
+
+2026-10-20 acceptance: `pnpm check`, workspace build, all 24 server unit tests, private provider-file
+unit checks and the extended disposable API fixture passed. Both new administration browser tests
+passed; sidebar/selection regressions passed, including a separate rerun of the one navigation case
+interrupted by a concurrent bundle rebuild. Browser captures were inspected at 1440×900 and 520×900.
+A fresh copied native binary (`8f65ca976112d701b89244573c271ce7c8e8ecefb38cb791569044c1866d9984`)
+and production bundle also rendered Overview/Settings through real GTK/WebKit and native HTTP
+against an isolated mock. Private captures/receipt are in `data/previews/admin-server-native`.
+The compositor initially selected a 708×793 CSS viewport; its own test window was then narrowed to
+520 requested width and captured again. This was an intentionally terminated rendering probe,
+not a completed built-in smoke journey or physical-input/real-provider/AppImage/Fedora acceptance.
+The probe required synthetic login/device registration; it never contacted the family API/database.
+
+2026-10-21 authorization follow-up: the extended profile fixture runs HTTP requests as a non-superuser
+runtime role, while setup/revocation/snapshots use a separate operator connection in its own temporary
+socket-only cluster. Runtime has DML but no public-schema CREATE or migration-ledger INSERT. Fifty-three
+deterministic races wait for an actual blocked PostgreSQL request, commit revocation/visibility/role
+changes, then require rejection and equal fingerprints for state, identities, credentials, devices and
+audit. Positive viewer/profile/password/device flows remain required. The test's 15-second barrier
+allows actual scrypt work before the write lock; production lock/request timeouts are unchanged.
+`admin-server.spec.ts` adds the deployment signals and stale-name reload case. A migration unit fixture
+now uses synthetic ordered entries instead of assuming two or more real baseline migrations.
+
+Final 2026-10-21 checks: `pnpm check`, server/native builds, all 12 catalog + 24 server unit tests,
+`bin/test-rust-catalog`, the runtime-role 53-race profile/Settings fixture, and all three focused
+Overview/Settings browser scenarios passed. Documentation links and `git diff --check` passed.
+Today's isolated native rendering probe timed out before issuing any API requests and produced no
+new captures; the 2026-10-20 native result is historical, not acceptance of today's small UI additions.
+No live catalog/account/artwork/grant change or deployment/release activation was performed.
+
+After those passing checks, concurrent development-environment changes appeared in the worktree
+(pnpm/Nix/CI and related files). They were preserved. A later repository-wide format check flags the
+concurrently edited root `package.json`; it is outside this authorization/Overview checkpoint.
+Reconcile that environment checkpoint before treating a new repository-wide run as accepted.
+
+## Home-server HTTPS trust acceptance
+
+```sh
+devenv shell -- cargo build --locked -p nahhasio-linux
+devenv shell -- python3 apps/linux/tests/server_trust.py
+devenv shell -- pnpm --filter @nahhasio/linux-ui test:e2e server-connections.spec.ts admin-server.spec.ts
+devenv shell -- cargo test --locked -p nahhasio-catalog --lib deployment
+```
+
+The Python fixture creates ephemeral certificates with OpenSSL and an HTTPS server on loopback,
+then exercises the actual native `--bridge-smoke` process with isolated HOME/XDG state. It checks
+untrusted CA, incorrect fingerprint, bundles/private keys, hostname mismatch, forbidden LAN HTTP,
+successful enrollment, restart persistence, origin isolation, replacement refusal and private state
+permissions. No GTK, database, real provider or real session is involved. Browser fixtures cover the
+connection form and saved fingerprint at desktop/narrow sizes; their captures are private under
+`data/previews/server-trust`. Neither proves a deployed HTTPS server or physical GTK behavior.
+The existing disposable profile suite also verifies shared diagnostics against owner/runtime roles.

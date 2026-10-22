@@ -13,4 +13,4 @@ trap cleanup EXIT
 initdb -D "$fixture_root/database" -U nahhasio_fixture --auth=trust --no-instructions >"$fixture_root/init.log"
 pg_ctl -D "$fixture_root/database" -l "$fixture_root/postgres.log" -o "-k $fixture_root -h '' -p 25484" -w start >/dev/null
 createdb -h "$fixture_root" -p 25484 -U nahhasio_fixture nahhasio_test_profiles
-NAHHASIO_TEST_PROFILE_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25484/nahhasio_test_profiles?host=$fixture_root" cargo test --locked -p nahhasio-server --test profile_postgres -- --ignored --nocapture
+NAHHASIO_CONFIG_ROOT="$fixture_root/config" NAHHASIO_TEST_PROFILE_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25484/nahhasio_test_profiles?host=$fixture_root" cargo test --locked -p nahhasio-server --test profile_postgres -- --ignored --nocapture

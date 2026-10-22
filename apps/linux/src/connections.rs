@@ -29,6 +29,8 @@ pub struct ServerInfo {
 struct SavedServer {
     url: String,
     name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    trust: Option<crate::server_trust::Trust>,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -43,6 +45,8 @@ struct Address {
     url: String,
     #[serde(default)]
     name: String,
+    #[serde(default)]
+    trust: Option<crate::server_trust::Trust>,
 }
 #[derive(Clone)]
 pub struct Services {
@@ -103,16 +107,21 @@ impl Services {
     pub fn new_persistent(default: &str) -> Result<Self, Error> {
         let root = Roots::discover().map_err(|_| storage())?.state;
         let default = address(default)?;
-        let mut settings = private_state::read::<Settings>(&root, "connections.json")?
-            .unwrap_or_else(|| Settings {
-                version: 1,
-                selected: default.clone(),
-                servers: vec![SavedServer {
-                    url: default.clone(),
-                    name: "هذا الجهاز".into(),
-                }],
-            });
-        if settings.version != 1 || settings.servers.is_empty() || settings.servers.len() > 8 {
+        let mut settings =
+            private_state::read_limit::<Settings>(&root, "connections.json", 96 * 1024)?
+                .unwrap_or_else(|| Settings {
+                    version: 1,
+                    selected: default.clone(),
+                    servers: vec![SavedServer {
+                        url: default.clone(),
+                        name: "هذا الجهاز".into(),
+                        trust: None,
+                    }],
+                });
+        if !matches!(settings.version, 1 | 2)
+            || settings.servers.is_empty()
+            || settings.servers.len() > 8
+        {
             return Err(storage());
         }
         let mut seen = std::collections::BTreeSet::new();
@@ -124,6 +133,7 @@ impl Services {
             {
                 return Err(storage());
             }
+            ServerSession::with_trust(&server.url, server.trust.as_ref())?;
         }
         if !settings
             .servers
@@ -144,10 +154,16 @@ impl Services {
                 settings.servers.push(SavedServer {
                     url: default,
                     name: "خادم مخصص".into(),
+                    trust: None,
                 });
             }
         }
-        let active = ServerSession::new_persistent(&settings.selected)?;
+        let selected = settings
+            .servers
+            .iter()
+            .find(|s| s.url == settings.selected)
+            .ok_or_else(storage)?;
+        let active = ServerSession::new_persistent(&settings.selected, selected.trust.as_ref())?;
         Ok(Self {
             permits: active.permits.clone(),
             active: Arc::new(RwLock::new(active)),
@@ -166,7 +182,10 @@ impl Services {
     }
     fn state(&self) -> Result<Value, Error> {
         let settings = self.settings.lock().map_err(|_| storage())?;
-        Ok(json!({"selected":settings.selected,"servers":settings.servers}))
+        let servers: Vec<Value> = settings.servers.iter().map(|s|
+            json!({"url":s.url,"name":s.name,"trustedFingerprint":s.trust.as_ref().map(|t| &t.fingerprint)})
+        ).collect();
+        Ok(json!({"selected":settings.selected,"servers":servers}))
     }
     pub async fn execute(&self, request: Request) -> Result<Value, Error> {
         if request.command.starts_with("browsePreferences.") {
@@ -224,8 +243,30 @@ impl Services {
             if name.chars().count() > 80 {
                 return Err(Error::new("bad_request", "اسم الخادم طويل جدًا."));
             }
+            let saved = self
+                .settings
+                .lock()
+                .map_err(|_| storage())?
+                .servers
+                .iter()
+                .find(|s| s.url == url)
+                .cloned();
+            // Changing trust for an existing origin requires removing that connection first.
+            // Never silently send an existing session to a newly enrolled authority.
+            if saved.is_some() && input.trust.is_some() {
+                return Err(Error::new(
+                    "conflict",
+                    "أزل الاتصال المحفوظ قبل تغيير شهادة الثقة الخاصة به.",
+                ));
+            }
+            let trust = match saved.as_ref() {
+                Some(server) => server.trust.clone(),
+                None => input.trust.map(|t| t.normalized()).transpose()?,
+            };
             if request.command == "servers.probe" {
-                let info = ServerSession::new(&url)?.probe().await?;
+                let info = ServerSession::with_trust(&url, trust.as_ref())?
+                    .probe()
+                    .await?;
                 return Ok(json!({"url":url,"info":info}));
             }
             if request.command == "servers.remove" {
@@ -239,7 +280,7 @@ impl Services {
                 let mut next = settings.clone();
                 next.servers.retain(|server| server.url != url);
                 SessionStore::new(&self.root).clear(&url)?;
-                private_state::write(&self.root, "connections.json", &next)?;
+                private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
                 *settings = next;
                 drop(settings);
                 return self.state();
@@ -256,13 +297,13 @@ impl Services {
                     return Err(Error::new("bad_request", "أدخل اسمًا للاتصال."));
                 }
                 existing.name = name.into();
-                private_state::write(&self.root, "connections.json", &next)?;
+                private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
                 *settings = next;
                 drop(settings);
                 return self.state();
             }
             if request.command == "servers.select" {
-                let session = ServerSession::new_persistent(&url)?;
+                let session = ServerSession::new_persistent(&url, trust.as_ref())?;
                 let info = session.probe().await?;
                 {
                     let mut settings = self.settings.lock().map_err(|_| storage())?;
@@ -279,18 +320,22 @@ impl Services {
                                 "يمكن حفظ ثمانية خوادم. احذف اتصالًا قديمًا أولًا.",
                             ));
                         }
+                        if trust.is_some() {
+                            next.version = 2;
+                        }
                         next.servers.push(SavedServer {
                             url: url.clone(),
                             name: if name.is_empty() {
-                                info.name.clone()
+                                info.name.chars().take(80).collect()
                             } else {
                                 name.into()
                             },
+                            trust,
                         });
                     }
                     next.selected = url;
                     let mut active = self.active.write().map_err(|_| storage())?;
-                    private_state::write(&self.root, "connections.json", &next)?;
+                    private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
                     *active = session;
                     *settings = next;
                     drop(active);

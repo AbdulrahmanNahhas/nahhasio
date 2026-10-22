@@ -11,8 +11,8 @@ Aqua approved replacing the historical chain with a baseline of the current data
 completed on 2026-10-20: all 75 public tables and database definitions were preserved, all 1,055
 restored artwork hashes matched, and the native ledger now reports one applied baseline with no
 pending migrations. [BASELINE](BASELINE.md) records the backups, rehearsal and exact boundary.
-R1 below is retained as the initial finding and is resolved. R2–R4 and the later feature gates
-remain open. The rest of this report records the pre-adoption inspection, not a current mismatch.
+R1 below is retained as the initial finding and is resolved. At that checkpoint R2–R4 and the later
+feature gates remained open; the dated follow-ups below record subsequent resolutions. The rest of this report records the pre-adoption inspection, not a current mismatch.
 
 ## Original review decision
 
@@ -303,3 +303,123 @@ safe video content; real decoder/network/content validation remains a separate p
 
 No new table, index, grant, credential store, live repair or automatic job is authorized by the
 existence of this report. The current step ends at review; implementation follows Aqua's approval.
+
+## Overview/Settings follow-up — 2026-10-20
+
+The current Overview/Settings implementation closes the admin revoked-device predicate gap in R2:
+admin mutations lock the bound device and recheck its revocation inside the authorization transaction.
+Viewer writes, self-service profile writes and device registration retain their separately listed
+transaction follow-ups; R2 is not fully closed. R3's routine readiness now checks exact bundled ledger
+compatibility, pending migrations and server identity. Storage/role/HTTPS installation preflight is still
+required. R4 now has a private, atomic server-owned provider-key store and real authenticated dashboard
+controls, with masked read status and immediate shared-provider use. Production roles/mounts/Quadlets,
+independent recovery, live providers and native/installed acceptance remain open. This follow-up adds
+no schema migration and performs no live catalog mutation.
+
+## Authorization and deployment review — 2026-10-21
+
+**R2 is closed for the implemented HTTP mutation paths.** Viewer favorite, watched, tracking and
+comment writes; profile/password changes; device registration; and admin editor/Settings mutations
+now share transaction-level session authorization. Identity → account → session → device is the
+lock order, before policy/catalog locks. Expected middleware account identity is checked again;
+expiry, suspension, bans, role and device revocation are rechecked from locked current rows.
+The unrestricted policy grant is locked for ordinary viewer writes. Work visibility is checked
+again under a title lock using the fresh admin flag, including after demotion. A missing/expired
+session is rejected rather than becoming a device-less write. Profiles retain optimistic revisions;
+tracking retains its revision/idempotency behavior and admin editorial access remains available.
+
+An established session cannot move to another installation. A new installation signs in to obtain
+its own session; first registration and registration refresh on the same installation remain supported.
+Login now also locks identity/account before issuing a session. This closes a further race in which
+old-password verification could otherwise overlap password rotation and insert a surviving session.
+Future account/policy/device management must follow the same lock order; this is not a claim that
+all future capability-policy or device-management services already exist.
+
+The isolated fixture uses a separate, non-superuser HTTP runtime role with public-table DML and
+read-only migration-ledger access; fixture creation, revocation and fingerprints use its separate
+operator role. The runtime cannot create public tables or write the migration ledger. Fifty-three
+controlled races cover logout/password rotation, expired sessions, revoked devices, suspension,
+policy removal, private/draft works, stale admin bypass and login issuance. Whole-table fingerprints
+around each rejected request prove no additional state/audit/credential/device change; positive
+controls prove the guarded operations still work. Scrypt runs normally in these tests; the fixture
+waits up to 15 seconds for its lock barrier, without extending application request/lock timeouts.
+No live account, catalog, grant or schema change is involved.
+
+Overview now reports read-only deployment checks for dangerous database-role flags, explicit
+absolute readable artwork roots and private-configuration selection/readability. It does not change
+permissions, create storage, probe writes, scan artwork, or certify a complete installation. Delivery,
+editing and diagnostics now share artwork-root selection, including existing environment fallbacks.
+Settings has a reload action after a stale server-name conflict. The private provider file now carries
+a format version; old unversioned files are accepted as version 1, and unsupported future versions
+are rejected without replacement. No key is returned or recorded in database audit logs.
+
+### What must be delivered in the Podman foundation
+
+| Gate                             | Current evidence and required next work                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LAN HTTPS and client trust       | The Rust listener currently serves plain HTTP; the native client deliberately rejects non-loopback HTTP. Its reqwest `rustls-tls` feature selects webpki roots, with no custom home-CA enrollment path. Implement trusted HTTPS and verified client trust; never disable certificate checks. Native Rust TLS can preserve the intended three-service deployment without adding a proxy process. |
+| Runtime/operator separation      | Restricted-role profile/viewer/Settings fixtures now pass. Supply production grants and separate migration credentials; verify every editor operation against those grants and ensure the runtime cannot own/create schema or alter the ledger. Do not apply grants to the development/family database as a side effect.                                                                        |
+| Persistent storage and preflight | The shared root resolver removes duplicate configuration logic. Production must require explicit absolute artwork/config paths and validate ownership, real read/write access and SELinux mounts before activation. The dashboard's preliminary checks do not replace that write/permission preflight. Keep database, artwork, private configuration and backup mounts distinct.                |
+| Recovery and controlled upgrades | A local verified baseline checkpoint exists. An independently stored PostgreSQL/artwork/private-config backup and restore rehearsal remain required before the family server becomes authoritative. Coordinate backup → explicit migration → image replacement → readiness; older-image rollback cannot undo schema changes.                                                                    |
+| Reproducible release artifacts   | Deliver a pinned Rust-only server image, release manifest/digest/trust and local install/update commands. Compile-time migrations/contracts/avatar assets belong in the image build context; Node remains a UI/build dependency. Existing AppImage workflow creates a draft but hosted build/install acceptance and verified installation/updater behavior remain unproven.                     |
+| Installed acceptance             | Test on Fedora: restricted role, volume/SELinux access, trusted LAN login, desktop session persistence, image editing/tracking, reboot/reconnect, a controlled upgrade and recovery into a separate instance. Development/browser/isolated native probes do not certify this.                                                                                                                   |
+
+**No further broad application rewrite or dashboard feature is a prerequisite to start the Podman
+foundation.** The gates above should be built/tested as part of that installation, then accepted before
+real family use. Existing database accounts can be preserved during transfer; a fresh empty install
+still needs an explicit first-owner setup operation before it is offered as a general installation.
+Account-creation/email writers must first enforce case-insensitive email and one-credential ownership
+constraints described earlier; that is not needed to preserve and transfer existing accounts.
+
+Full user/device/policy editors, queue workers, server acquisition, automatic installation and Jellyfin
+linking/delivery can follow their own reviewed checkpoints. They must not appear enabled merely
+because their tables exist. Jellyfin remains delivery/playback only; Nahhasio owns catalog/artwork/
+tracking. Real video-content/decoder/network acceptance remains required for playback claims and
+is not established by filename filtering or these authorization tests.
+
+## Local application follow-up — 2026-10-22
+
+The family target is now specified as Fedora Silverblue 44, approximately 300 GB initially, with SSH
+access deferred. Video storage is deferred. This checkpoint changes application readiness only;
+it neither installs Podman nor changes the authoritative database/artwork or credentials.
+
+Implemented here:
+
+- Origin-scoped home-CA enrollment through the desktop connection form, with a required out-of-band
+  SHA-256 fingerprint. TLS verification remains enabled. A probe cannot persist trust; saving follows
+  successful server-info/readiness probes. Existing origin trust cannot be silently replaced. The
+  public CA is stored in private versioned native state, and removing a connection clears its session.
+- Server information accepts the same 100-character name as Settings. Saved device connection names
+  retain their 80-character bound; an automatically suggested name is shortened for that field only.
+- Dashboard and Rust CLI share preliminary role/storage diagnostics. The role check also detects
+  inherited schema/table ownership. Configuration must exist, be private/readable, and remain outside
+  artwork storage, with canonical path comparison. `nahhasio preflight --json` additionally checks
+  schema and server identity and returns a failing exit status for a failed report.
+
+Remaining release boundaries are explicit:
+
+| Area              | Required work before acceptance                                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backup/recovery   | Implement the pg_dump/artwork/private-config backup coordinator, encrypted USB snapshots, mount identity checks, retention, dashboard status and isolated restore rehearsal. No scheduled backup service exists yet. |
+| Installed server  | Supply private bootstrap configuration, runtime/operator grants, persistent mounts, TLS termination/certificates, health/startup and Fedora SELinux/firewall integration.                                            |
+| Releases/updates  | Build and accept actual AppImages/container artifacts, verify their provenance, compatibility and recovery, then enable the approved automatic update target. No automatic installation is enabled.                  |
+| Native acceptance | Fresh packaged GTK client, trusted LAN login/session persistence, offline reconnect/sync, editing/artwork/tracking, reboot, controlled upgrade and restore on the selected machines.                                 |
+| Optional services | Jellyfin delivery, video acquisition and fine-grained account/policy management retain their own gates; table inspection is not a management service.                                                                |
+
+There is no justified catalog/schema rewrite or blanket index addition in this checkpoint. Keep
+existing IDs, viewing history, artwork paths and migration ownership. The application pass cannot
+certify storage, hardware or services that have not been installed. Read-only preflight is not a
+substitute for write/restore acceptance.
+
+Verification for this follow-up: the rebuilt native bridge passed 14 isolated HTTPS checks; 13
+shared-service unit tests and two CLI unit tests passed. The disposable account/profile suite passed
+including runtime/owner diagnostics and all 53 controlled authorization races. The disposable catalog
+suite passed CLI preflight failure reporting, both migration runners, editor/artwork/report/import
+acceptance. Five focused browser cases passed on a freshly bundled preview at isolated port 23114;
+the two enrollment cases were rerun to capture the stable dialogs at 1440×1000 and 520×1000, and
+those captures were inspected. This is browser plus native-service verification, not GTK acceptance.
+Server/catalog/CLI strict Clippy and client-only `--no-deps` Clippy passed. Aggregate lint, Oxfmt and
+workspace TypeScript checks passed on the final run; Rust formatting was blocked by concurrently
+edited Awards fixtures. Workspace strict Clippy separately exposes the existing transfer engine's
+`fetch_update` deprecation under the newly selected compiler. Neither failure was hidden or suppressed.
+Concurrent Awards work remains outside this checkpoint's acceptance. No commit or deployment occurred.

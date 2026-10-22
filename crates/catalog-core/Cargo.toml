@@ -19,10 +19,10 @@ base64 = "0.22"
 tokio.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query"] }
 unicode-normalization.workspace = true
+tempfile = "3"
 
 [dev-dependencies]
 tokio.workspace = true
-tempfile = "3"
 
 [lints]
 workspace = true

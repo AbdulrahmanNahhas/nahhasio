@@ -2,6 +2,7 @@
 mod editor;
 mod full_editor;
 mod inspection;
+mod server;
 use axum::{
     Json, Router,
     extract::{Query, State, rejection::QueryRejection},
@@ -26,7 +27,8 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool.clone())
         .merge(editor::routes(pool.clone()))
         .merge(full_editor::routes(pool.clone()))
-        .merge(inspection::routes(pool))
+        .merge(inspection::routes(pool.clone()))
+        .merge(server::routes(pool))
 }
 async fn no_store(request: axum::extract::Request, next: middleware::Next) -> Response {
     let mut response = next.run(request).await;

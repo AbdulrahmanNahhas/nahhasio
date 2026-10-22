@@ -186,7 +186,11 @@ mod tests {
     }
     #[test]
     fn rejects_changed_unknown_reordered_or_missing_applied_migrations() {
-        let history = bundled().unwrap();
+        // Exercise ordering independently of how many real migrations the baseline contains.
+        let history = parse(
+            r#"{"dialect":"postgresql","entries":[{"idx":0,"when":1,"tag":"baseline"},{"idx":1,"when":2,"tag":"additive"}]}"#,
+            &[("baseline", "select 1"), ("additive", "select 2")],
+        ).unwrap();
         let first = &history[0];
         assert!(check(&history, &[("bad".into(), Some(first.when))]).is_err());
         assert!(

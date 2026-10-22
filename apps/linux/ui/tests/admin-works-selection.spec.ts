@@ -174,7 +174,7 @@ test("selection survives pagination, empty search, display changes and leaving t
   await page.evaluate(() => {
     window.location.hash = "/admin";
   });
-  await expect(page.getByRole("heading", { name: "أدوات الإدارة", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "نظرة عامة", exact: true })).toBeVisible();
   await page.evaluate(() => {
     window.location.hash = "/admin/works";
   });

@@ -9,10 +9,7 @@ use std::{
 use unicode_normalization::UnicodeNormalization;
 
 pub(super) fn uploads() -> PathBuf {
-    std::env::var_os("NAHHASIO_MEDIA_ROOT")
-        .or_else(|| std::env::var_os("ARCADIA_MEDIA_ROOT"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/media/uploads"))
+    crate::storage::ArtworkRoots::configured().uploads
 }
 pub(super) async fn path(stored: &str) -> Result<PathBuf> {
     let relative = stored
@@ -24,11 +21,8 @@ pub(super) async fn path(stored: &str) -> Result<PathBuf> {
     {
         return Err(invalid("Invalid artwork path"));
     }
-    let upload = uploads();
-    let public = std::env::var_os("NAHHASIO_PUBLIC_MEDIA_ROOT")
-        .or_else(|| std::env::var_os("ARCADIA_PUBLIC_MEDIA_ROOT"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|| upload.parent().unwrap_or(&upload).to_path_buf());
+    let roots = crate::storage::ArtworkRoots::configured();
+    let (upload, public) = (roots.uploads, roots.public);
     let (root, suffix) = relative
         .strip_prefix("uploads/")
         .map_or((public, relative), |suffix| (upload, suffix));

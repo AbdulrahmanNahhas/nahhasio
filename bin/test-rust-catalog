@@ -74,6 +74,17 @@ target/debug/nahhasio migrate apply --write --json >"$fixture_root/rust-migratio
 target/debug/nahhasio schema --json >"$fixture_root/full-schema.json"
 node_migrate nahhasio_test_rust_migrations
 target/debug/nahhasio migrate status --json >"$fixture_root/rust-status.json"
+# A migration owner must not pass the runtime deployment gate; preserve the JSON report on failure.
+if target/debug/nahhasio preflight --json >"$fixture_root/preflight.json"; then
+  echo 'Preflight incorrectly accepted the fixture cluster owner' >&2
+  exit 1
+fi
+python3 - "$fixture_root/preflight.json" <<'PY'
+import json, sys
+report = json.load(open(sys.argv[1]))
+assert report["ok"] is False and report["readOnly"] is True
+assert next(c for c in report["checks"] if c["key"] == "database-role")["ok"] is False
+PY
 export DATABASE_URL="postgresql://nahhasio_fixture@localhost:25483/nahhasio_test_node_migrations?host=$fixture_root"
 node_migrate nahhasio_test_node_migrations
 target/debug/nahhasio migrate apply --write --json >"$fixture_root/rust-after-node.json"

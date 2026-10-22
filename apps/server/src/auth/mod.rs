@@ -4,6 +4,8 @@ mod avatar_catalog;
 mod device;
 mod profile;
 mod profile_activity;
+mod write;
+pub(crate) use write::{lock_session, lock_viewer_session};
 
 use std::{
     sync::{Arc, Mutex},
@@ -257,6 +259,7 @@ async fn login(
         .execute(&mut *transaction)
         .await
         .map_err(unavailable)?;
+    write::lock_identity(&mut transaction, &user.id).await?;
     // Recheck account state after the slow password verification. Hash equality prevents a
     // concurrent password reset from issuing a session using the previous credential.
     let expires_at: Option<String> = sqlx::query_scalar("INSERT INTO auth_sessions (id, token, user_id, expires_at) SELECT $1, $2, u.id, now()+interval '7 days' FROM auth_users u JOIN accounts a ON a.auth_user_id=u.id JOIN auth_accounts c ON c.user_id=u.id AND c.provider_id='credential' WHERE u.id=$3 AND u.role IN ('owner','admin','member') AND a.status='active' AND (NOT u.banned OR u.ban_expires <= now()) AND c.password=$4 RETURNING to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')")
@@ -380,10 +383,14 @@ pub(crate) async fn lock_admin_session(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     headers: &HeaderMap,
 ) -> Result<String, AuthError> {
-    let key = bearer(headers)?;
-    sqlx::query_scalar("SELECT a.id::text FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id JOIN accounts a ON a.auth_user_id=u.id WHERE s.token=$1 AND s.expires_at>now() AND u.role IN ('owner','admin') AND a.kind='admin' AND a.status='active' AND (NOT u.banned OR u.ban_expires<=now()) FOR UPDATE OF a,u,s")
-        .bind(key).fetch_optional(&mut **transaction).await.map_err(unavailable)?
-        .ok_or_else(unauthorized)
+    let session = lock_session(transaction, headers, None).await?;
+    if !session.is_admin {
+        return Err(AuthError(
+            StatusCode::FORBIDDEN,
+            "Administrator access required",
+        ));
+    }
+    Ok(session.account_id)
 }
 
 #[cfg(test)]
