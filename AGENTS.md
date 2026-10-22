@@ -141,7 +141,7 @@ contracts through the existing single generated OpenAPI definition.
 
 ## Development and checks
 
-Use the repository's Nix/devenv environment: Node 24, pnpm 11.11.0, and Rust.
+Use the repository's Nix/devenv environment: Node 24, pnpm 12.9.0, and Rust.
 `devenv up` starts PostgreSQL, the Rust API and GTK desktop with dependency ordering. Do not inspect `/saved/nixos-config` without Aqua's permission.
 
 - `pnpm lint`: Oxlint, the generic anti-slop plugin, and six shadcn design-system rules.

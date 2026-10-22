@@ -1,3 +1,4 @@
+pmOnFail: error
 packages:
   - apps/*
   - apps/linux/ui

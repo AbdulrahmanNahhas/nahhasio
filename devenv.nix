@@ -7,13 +7,13 @@
     npm.enable = false;
     pnpm = {
       enable = true;
-      package = pkgs.pnpm_11;
+      package = pkgs.pnpm_12;
       install.enable = true;
     };
   };
   languages.typescript.enable = true;
   languages.rust.enable = true;
-  languages.rust.channel = "nixpkgs";
+  languages.rust.channel = "stable";
   dotenv.enable = true;
 
   # Reuse the existing persistent catalog. Startup never migrates or seeds it.
@@ -26,6 +26,7 @@
   };
   env.DATABASE_URL = "postgresql://127.0.0.1:23102/arcadia";
   env.NAHHASIO_BIND = "127.0.0.1:23103";
+  env.NAHHASIO_CONFIG_ROOT = "${config.devenv.root}/data/server-config";
 
   packages = with pkgs; [
     typos
@@ -85,5 +86,26 @@
 
   enterTest = ''
     pnpm check
+  '';
+
+  scripts.env-versions.exec = ''
+    set -eu
+    printf 'Project: %s\n' "$DEVENV_ROOT"
+    command -v node
+    node --version
+    command -v pnpm
+    pnpm --version
+    command -v rustc
+    rustc --version
+    command -v cargo
+    cargo --version
+  '';
+
+  scripts.env-check.exec = ''
+    set -eu
+    env-versions
+    test "$(node -p 'process.versions.node.split(".")[0]')" = 24
+    case "$(pnpm --version)" in 12.*) ;; *) echo "Expected pnpm 12" >&2; exit 1 ;; esac
+    rustc --version | grep -Eq '^rustc [0-9]+\.[0-9]+\.[0-9]+ '
   '';
 }

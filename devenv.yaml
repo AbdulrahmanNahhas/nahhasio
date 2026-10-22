@@ -1,14 +1,17 @@
+# yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
+# Shared reviewed baseline; update revisions deliberately, then regenerate devenv.lock.
 inputs:
-  # Shared toolchain baseline across the selected ~/Projects environments.
   devenv:
-    url: github:cachix/devenv/30ef5a2458f270574726efe3574e5eb7e731f647?dir=src/modules
+    url: github:cachix/devenv/9b375a0819b225176316f6e05927c569598dce7a?dir=src/modules
   nixpkgs:
-    url: github:cachix/devenv-nixpkgs/760b85220489f69855e6df78a6d1dad5873f8bf6
+    url: github:NixOS/nixpkgs/5adc50831c259f87faeb09ddf930d43597197473
+  rust-overlay:
+    url: github:oxalica/rust-overlay/83dd732f2428827f35d997deae108a2ced5125f4
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
 
-# Fail loudly when a pinned port is taken instead of silently allocating the next one.
-# devenv bakes the resolved port into the generated setup-postgres script, but env.DATABASE_URL
-# in devenv.nix stays the literal 23102 — so a silent bump to 23103 leaves the API pointed at a
-# port nothing is listening on, and every request fails with a database-unavailable 503 that
-# looks nothing like a port problem. This cost hours of misdiagnosis; an error at startup is
-# vastly cheaper than that. Override for a one-off run with `devenv up --no-strict-ports`.
+require_version: ">=2.4"
+
+# DATABASE_URL uses a fixed port; fail if it is occupied instead of choosing another.
 strict_ports: true
