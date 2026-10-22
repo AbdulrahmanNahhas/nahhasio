@@ -15,7 +15,6 @@ import { Route as BrowseRouteImport } from "./routes/browse";
 import { Route as DownloadsRouteImport } from "./routes/downloads";
 import { Route as EpisodesRouteImport } from "./routes/episodes";
 import { Route as HomeRouteImport } from "./routes/home";
-import { Route as MoreRouteImport } from "./routes/more";
 import { Route as PeopleRouteImport } from "./routes/people";
 import { Route as PlanetsRouteImport } from "./routes/planets";
 import { Route as ProfileRouteImport } from "./routes/profile";
@@ -72,11 +71,6 @@ const EpisodesRoute = EpisodesRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: "/home",
   path: "/home",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const MoreRoute = MoreRouteImport.update({
-  id: "/more",
-  path: "/more",
   getParentRoute: () => rootRouteImport,
 } as any);
 const PeopleRoute = PeopleRouteImport.update({
@@ -222,7 +216,6 @@ export interface FileRoutesByFullPath {
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
-  "/more": typeof MoreRoute;
   "/people": typeof PeopleRoute;
   "/planets": typeof PlanetsRoute;
   "/profile": typeof ProfileRoute;
@@ -257,7 +250,6 @@ export interface FileRoutesByTo {
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
-  "/more": typeof MoreRoute;
   "/people": typeof PeopleRoute;
   "/planets": typeof PlanetsRoute;
   "/profile": typeof ProfileRoute;
@@ -294,7 +286,6 @@ export interface FileRoutesById {
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
-  "/more": typeof MoreRoute;
   "/people": typeof PeopleRoute;
   "/planets": typeof PlanetsRoute;
   "/profile": typeof ProfileRoute;
@@ -332,7 +323,6 @@ export interface FileRouteTypes {
     | "/downloads"
     | "/episodes"
     | "/home"
-    | "/more"
     | "/people"
     | "/planets"
     | "/profile"
@@ -367,7 +357,6 @@ export interface FileRouteTypes {
     | "/downloads"
     | "/episodes"
     | "/home"
-    | "/more"
     | "/people"
     | "/planets"
     | "/profile"
@@ -403,7 +392,6 @@ export interface FileRouteTypes {
     | "/downloads"
     | "/episodes"
     | "/home"
-    | "/more"
     | "/people"
     | "/planets"
     | "/profile"
@@ -440,7 +428,6 @@ export interface RootRouteChildren {
   DownloadsRoute: typeof DownloadsRoute;
   EpisodesRoute: typeof EpisodesRoute;
   HomeRoute: typeof HomeRoute;
-  MoreRoute: typeof MoreRoute;
   PeopleRoute: typeof PeopleRoute;
   PlanetsRoute: typeof PlanetsRoute;
   ProfileRoute: typeof ProfileRoute;
@@ -497,13 +484,6 @@ declare module "@tanstack/react-router" {
       path: "/home";
       fullPath: "/home";
       preLoaderRoute: typeof HomeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/more": {
-      id: "/more";
-      path: "/more";
-      fullPath: "/more";
-      preLoaderRoute: typeof MoreRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/people": {
@@ -743,7 +723,6 @@ const rootRouteChildren: RootRouteChildren = {
   DownloadsRoute: DownloadsRoute,
   EpisodesRoute: EpisodesRoute,
   HomeRoute: HomeRoute,
-  MoreRoute: MoreRoute,
   PeopleRoute: PeopleRoute,
   PlanetsRoute: PlanetsRoute,
   ProfileRoute: ProfileRoute,

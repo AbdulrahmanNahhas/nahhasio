@@ -1,29 +1,23 @@
 import type { User } from "@nahhasio/api-contract";
 import { Outlet, useRouterState } from "@tanstack/react-router";
-import { Compass, Home, Search, Library, Ellipsis, CalendarDays, MonitorPlay } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
 import { CardNavigationProvider } from "../../components/card-navigation";
 import { Button } from "../../components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../../components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../../components/ui/tooltip";
+import { TooltipProvider } from "../../components/ui/tooltip";
 import { AccountMenu } from "../account/account-menu";
 import { AdminNavigation } from "../admin/admin-navigation";
 import { DownloadQueueButton } from "../player/download-queue-button";
+import { LibraryNavigation } from "./library-navigation";
 import { openSearch, useViewerRoute } from "./navigation";
-const navigationItemClass =
-  "relative flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground outline-none hover:bg-card hover:text-foreground aria-[current=page]:bg-secondary aria-[current=page]:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
 const scrollPositions = new Map<string, number>();
 export function ViewerShell({ user }: { user: User }) {
   const route = useViewerRoute();
 
   const [account, setAccount] = useState(false);
   const accountOpen = useRef(false);
+  const navigationOpen = useRef(false);
   const changeAccountOpen = (open: boolean) => {
     accountOpen.current = open;
     setAccount(open);
@@ -42,7 +36,7 @@ export function ViewerShell({ user }: { user: User }) {
         (event.code === "KeyK" || event.key.toLowerCase() === "k")
       ) {
         event.preventDefault();
-        if (!event.repeat && !accountOpen.current) {
+        if (!event.repeat && !accountOpen.current && !navigationOpen.current) {
           openSearch(true);
         }
       }
@@ -129,106 +123,18 @@ export function ViewerShell({ user }: { user: User }) {
         </SidebarProvider>
       ) : (
         <div className="flex h-dvh overflow-hidden bg-background">
-          <nav
-            className="flex w-20 shrink-0 flex-col items-center gap-6 border-e border-border bg-sidebar px-2 pt-5 pb-4 max-[520px]:w-16 max-[520px]:gap-4 max-[520px]:px-1"
-            aria-label="التنقل الرئيسي"
-            onKeyDown={(event) => {
-              if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                window.dispatchEvent(new Event("nahhasio:focus-content"));
-              }
+          <LibraryNavigation
+            path={route.path}
+            onDialogChange={(open) => {
+              navigationOpen.current = open;
             }}
-          >
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <a
-                    href="#/home"
-                    className="flex size-12 shrink-0 items-center justify-center rounded-xl text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="نحّاسيو الرئيسية"
-                  />
-                }
-              >
-                <Library className="size-7" aria-hidden="true" />
-              </TooltipTrigger>
-              <TooltipContent side="left">نحّاسيو</TooltipContent>
-            </Tooltip>
-
-            <div className="flex min-h-0 w-full flex-col items-center gap-2 overflow-y-auto py-1 scrollbar-thin">
-              {[
-                { href: "#/home", label: "الرئيسية", icon: Home, active: home },
-                { href: "#/search", label: "البحث", icon: Search, active: parts[0] === "search" },
-                {
-                  href: "#/browse",
-                  label: "تصفّح المكتبة",
-                  icon: Compass,
-                  active: parts[0] === "browse",
-                },
-                {
-                  href: "#/watch",
-                  label: "مشاهدة مباشرة",
-                  icon: MonitorPlay,
-                  active: parts[0] === "watch",
-                },
-                {
-                  href: "#/releases",
-                  label: "التقويم",
-                  icon: CalendarDays,
-                  active: parts[0] === "releases",
-                },
-                {
-                  href: "#/more",
-                  label: "المزيد",
-                  icon: Ellipsis,
-                  active: [
-                    "more",
-                    "planets",
-                    "people",
-                    "studios",
-                    "profile",
-                    "profiles",
-                    "downloads",
-                  ].includes(parts[0]),
-                },
-              ].map((item) => (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger
-                    render={
-                      item.href === "#/search" ? (
-                        <Button
-                          variant="ghost"
-                          type="button"
-                          onClick={() => openSearch()}
-                          className={navigationItemClass}
-                          aria-current={item.active ? "page" : undefined}
-                          aria-label={item.label}
-                          aria-keyshortcuts="Control+k Meta+k"
-                        />
-                      ) : (
-                        <a
-                          href={item.href}
-                          className={navigationItemClass}
-                          aria-current={item.active ? "page" : undefined}
-                          aria-label={item.label}
-                        />
-                      )
-                    }
-                  >
-                    <item.icon className="size-6 stroke-[1.65]" aria-hidden="true" />
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    {item.href === "#/search" ? "البحث (Ctrl+K)" : item.label}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-            <div className="mt-auto flex w-full shrink-0 flex-col items-center gap-2">
-              <DownloadQueueButton />
-              <AccountMenu user={user} open={account} onOpenChange={changeAccountOpen} />
-            </div>
-          </nav>
+            footer={
+              <>
+                <DownloadQueueButton />
+                <AccountMenu user={user} open={account} onOpenChange={changeAccountOpen} />
+              </>
+            }
+          />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">{content}</div>
         </div>
       )}
