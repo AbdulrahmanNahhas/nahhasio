@@ -2,12 +2,19 @@
 import { readFile, writeFile } from "node:fs/promises";
 
 import { projectionSchema } from "@arcadia/contracts/editor";
-import { rpcInputs, adminEntityJsonDocumentSchema } from "@arcadia/contracts/editor-rpc";
+import {
+  rpcInputs,
+  adminEntityJsonDocumentSchema,
+  awardDrafts,
+} from "@arcadia/contracts/editor-rpc";
 import { workDocument } from "@arcadia/contracts/work";
 import { z } from "zod";
 
 const contracts = {
   ...rpcInputs,
+  awardOrganizationDraft: awardDrafts.award_organizations,
+  awardCategoryDraft: awardDrafts.award_categories,
+  awardCeremonyDraft: awardDrafts.award_ceremonies,
   workDocument,
   projection: projectionSchema,
   entityDocument: adminEntityJsonDocumentSchema,

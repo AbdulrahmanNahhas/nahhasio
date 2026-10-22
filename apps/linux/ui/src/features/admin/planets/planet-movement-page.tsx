@@ -19,13 +19,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel, FieldSet, FieldLegend } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
   InputGroupButton,
 } from "@/components/ui/input-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -63,6 +65,7 @@ export function PlanetMovementPage({
   const confirm = useConfirm();
   const [selected, setSelected] = useState<Map<string, PlanetWork>>(() => new Map());
   const [destination, setDestination] = useState("");
+  const [destinationSearch, setDestinationSearch] = useState("");
   const [review, setReview] = useState<MoveReview | null>(null);
   const [definitionsOpen, setDefinitionsOpen] = useState(false);
   const planets = options.data?.planets ?? [];
@@ -130,7 +133,7 @@ export function PlanetMovementPage({
     await Promise.all([works.refetch(), options.refetch()]);
   }
   return (
-    <article className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-5 p-4 pb-28 sm:p-6 sm:pb-28">
+    <article className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-5 p-4 sm:p-6 pb-20!">
       {confirm.dialog}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -249,7 +252,7 @@ export function PlanetMovementPage({
                           className="aspect-2/3 w-full rounded-xl object-cover"
                         />
                       </button>
-                      <div className="absolute start-2 top-2 rounded-lg bg-background p-2">
+                      <div className="absolute inset-s-2 top-2 rounded-lg bg-background p-2">
                         <Checkbox
                           aria-label={`اختيار ${work.title}`}
                           checked={selected.has(work.id)}
@@ -304,51 +307,84 @@ export function PlanetMovementPage({
           </CardContent>
         </Card>
         <Card className="min-w-0 lg:sticky lg:top-4">
-          <CardHeader>
-            <CardTitle>إلى أين؟</CardTitle>
-            <CardDescription>
-              انتماءات الأعمال للكواكب الأخرى تبقى محفوظة. اختر وجهة واحدة لهذه الدفعة.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex max-h-140 flex-col gap-2 overflow-y-auto">
+          <CardContent className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="planet-destination-search">البحث عن وجهة</FieldLabel>
+              <Input
+                id="planet-destination-search"
+                placeholder="اسم الكوكب…"
+                value={destinationSearch}
+                onChange={(event) => setDestinationSearch(event.target.value)}
+              />
+            </Field>
             {options.isPending ? (
               <Skeleton className="h-56" />
             ) : (
-              planets
-                .filter((planet) => planet.active && planet.id !== source)
-                .map((planet) => (
-                  <Button
-                    key={planet.id}
-                    variant={destination === planet.id ? "secondary" : "outline"}
-                    className="h-auto justify-start gap-3 py-3"
-                    aria-pressed={destination === planet.id}
-                    onClick={() => setDestination(planet.id)}
-                  >
-                    <span className="font-emoji text-2xl" aria-hidden="true">
-                      {planet.icon}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-1 text-start">
-                      <span className="truncate">{planet.name}</span>
-                      <span className="text-xs text-muted-foreground">{planet.count} عمل</span>
-                    </span>
-                    {destination === planet.id && <Check data-icon="inline-end" />}
-                  </Button>
-                ))
+              <FieldSet>
+                <FieldLegend className="sr-only">الكوكب الوجهة</FieldLegend>
+                <RadioGroup
+                  aria-label="الكوكب الوجهة"
+                  value={destination}
+                  onValueChange={setDestination}
+                  className="max-h-[calc(65vh)] gap-2 overflow-y-auto scroll-fade-y!"
+                >
+                  {planets
+                    .filter(
+                      (planet) =>
+                        planet.active &&
+                        planet.id !== source &&
+                        `${planet.name} ${planet.englishName ?? ""} ${planet.description}`
+                          .toLocaleLowerCase()
+                          .includes(destinationSearch.toLocaleLowerCase()),
+                    )
+                    .map((planet) => (
+                      <Field
+                        key={planet.id}
+                        orientation="horizontal"
+                        className="rounded-xl border border-border p-3 has-data-checked:bg-accent"
+                      >
+                        <RadioGroupItem id={`destination-${planet.id}`} value={planet.id} />
+                        <FieldLabel htmlFor={`destination-${planet.id}`} className="min-w-0 flex-1">
+                          <span className="font-emoji text-2xl" aria-hidden="true">
+                            {planet.icon}
+                          </span>
+                          <span className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="truncate">{planet.name}</span>
+                              <Badge variant="outline">{planet.count} عمل</Badge>
+                            </span>
+                            <span className="line-clamp-2 text-xs text-muted-foreground">
+                              {planet.description || planet.englishName || "كوكب في مكتبتك"}
+                            </span>
+                          </span>
+                        </FieldLabel>
+                      </Field>
+                    ))}
+                  {source && (
+                    <Field
+                      orientation="horizontal"
+                      className="rounded-xl border border-border p-3 has-data-checked:bg-accent"
+                    >
+                      <RadioGroupItem id="destination-none" value="none" />
+                      <FieldLabel htmlFor="destination-none">إزالة من {sourceName}</FieldLabel>
+                    </Field>
+                  )}
+                </RadioGroup>
+              </FieldSet>
             )}
-            {source && (
-              <Button
-                variant={destination === "none" ? "secondary" : "outline"}
-                aria-pressed={destination === "none"}
-                onClick={() => setDestination("none")}
-              >
-                إزالة من {sourceName}
-              </Button>
-            )}
-            {source && (
-              <p className="text-xs text-muted-foreground">
-                الإزالة تخص الكوكب المصدر فقط. يصبح العمل بلا كوكب إذا لم تكن له انتماءات أخرى.
-              </p>
-            )}
+            {!options.isPending &&
+              !planets.some(
+                (planet) =>
+                  planet.active &&
+                  planet.id !== source &&
+                  `${planet.name} ${planet.englishName ?? ""} ${planet.description}`
+                    .toLocaleLowerCase()
+                    .includes(destinationSearch.toLocaleLowerCase()),
+              ) && (
+                <p className="text-sm text-muted-foreground">
+                  لا توجد كواكب مطابقة. غيّر البحث أو أضف كوكباً من تعريف الكواكب.
+                </p>
+              )}
           </CardContent>
         </Card>
       </div>

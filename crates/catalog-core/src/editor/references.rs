@@ -88,6 +88,7 @@ pub(super) async fn execute(c: &mut PgConnection, operation: &str, input: &Value
             "slug",
             "name",
             "canonical_title",
+            "year",
         ]
         .contains(&key.as_str())
             || !matches!(value, Value::String(_) | Value::Number(_) | Value::Bool(_))

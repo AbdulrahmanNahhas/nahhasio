@@ -1,4 +1,145 @@
 {
+  "awardList": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "table": {
+        "type": "string",
+        "enum": [
+          "award_organizations",
+          "award_categories",
+          "award_ceremonies",
+          "award_recognitions"
+        ]
+      },
+      "organization": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "type": "null" }
+        ]
+      },
+      "q": { "type": "string", "maxLength": 300 },
+      "page": { "type": "integer", "minimum": 1, "maximum": 100000 },
+      "result": { "type": "string", "enum": ["all", "winner", "nominee"] },
+      "category": {
+        "default": null,
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "type": "null" }
+        ]
+      },
+      "ceremony": {
+        "default": null,
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "type": "null" }
+        ]
+      },
+      "year": {
+        "default": null,
+        "anyOf": [{ "type": "integer", "minimum": 1900, "maximum": 2100 }, { "type": "null" }]
+      },
+      "featured": { "default": false, "type": "boolean" },
+      "source": { "default": "all", "type": "string", "enum": ["all", "documented", "missing"] },
+      "sort": { "default": "newest", "type": "string", "enum": ["newest", "oldest", "work"] }
+    },
+    "required": ["table", "organization", "q", "page", "result"],
+    "additionalProperties": false
+  },
+  "awardDetail": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "table": {
+        "type": "string",
+        "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      }
+    },
+    "required": ["table", "id"],
+    "additionalProperties": false
+  },
+  "awardSave": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "table": {
+        "type": "string",
+        "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+      },
+      "id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "type": "null" }
+        ]
+      },
+      "revision": {
+        "anyOf": [{ "type": "string", "minLength": 64, "maxLength": 64 }, { "type": "null" }]
+      },
+      "draft": {
+        "type": "object",
+        "propertyNames": { "type": "string" },
+        "additionalProperties": { "$ref": "#/$defs/__schema0" }
+      }
+    },
+    "required": ["table", "id", "revision", "draft"],
+    "additionalProperties": false,
+    "$defs": {
+      "__schema0": {
+        "anyOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "null" },
+          { "type": "array", "items": { "$ref": "#/$defs/__schema0" } },
+          {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        ]
+      }
+    }
+  },
+  "awardDelete": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "table": {
+        "type": "string",
+        "enum": ["award_organizations", "award_categories", "award_ceremonies"]
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "revision": { "type": "string", "minLength": 64, "maxLength": 64 },
+      "confirmation": { "type": "string", "maxLength": 100 }
+    },
+    "required": ["table", "id", "revision", "confirmation"],
+    "additionalProperties": false
+  },
   "planetDetail": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -874,6 +1015,91 @@
     "type": "object",
     "properties": { "url": { "type": "string", "format": "uri" } },
     "required": ["url"],
+    "additionalProperties": false
+  },
+  "awardOrganizationDraft": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$" },
+      "name_ar": { "type": "string", "minLength": 1, "maxLength": 300 },
+      "name_en": { "anyOf": [{ "type": "string", "maxLength": 20000 }, { "type": "null" }] },
+      "description": { "type": "string", "maxLength": 20000 },
+      "website_url": {
+        "anyOf": [
+          { "type": "string", "maxLength": 2000, "pattern": "^https?:\\/\\/" },
+          { "type": "null" }
+        ]
+      },
+      "logo_path": {
+        "anyOf": [
+          { "type": "string", "maxLength": 2000, "pattern": "^\\/media\\/" },
+          { "type": "null" }
+        ]
+      },
+      "is_active": { "type": "boolean" }
+    },
+    "required": [
+      "slug",
+      "name_ar",
+      "name_en",
+      "description",
+      "website_url",
+      "logo_path",
+      "is_active"
+    ],
+    "additionalProperties": false
+  },
+  "awardCategoryDraft": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "organization_id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$" },
+      "name_ar": { "type": "string", "minLength": 1, "maxLength": 300 },
+      "name_en": { "anyOf": [{ "type": "string", "maxLength": 20000 }, { "type": "null" }] },
+      "description": { "type": "string", "maxLength": 20000 },
+      "is_active": { "type": "boolean" }
+    },
+    "required": ["organization_id", "slug", "name_ar", "name_en", "description", "is_active"],
+    "additionalProperties": false
+  },
+  "awardCeremonyDraft": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "organization_id": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+      "edition": {
+        "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 10000 }, { "type": "null" }]
+      },
+      "label": { "type": "string", "maxLength": 300 },
+      "held_on": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          { "type": "null" }
+        ]
+      },
+      "source_url": {
+        "anyOf": [
+          { "type": "string", "maxLength": 2000, "pattern": "^https?:\\/\\/" },
+          { "type": "null" }
+        ]
+      }
+    },
+    "required": ["organization_id", "year", "edition", "label", "held_on", "source_url"],
     "additionalProperties": false
   },
   "workDocument": {

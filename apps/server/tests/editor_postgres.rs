@@ -133,6 +133,7 @@ async fn rust_planet_api_preserves_authorization_revisions_and_atomicity() {
     let api = router(pool.clone());
     entity_acceptance(&api, &pool).await;
     work_acceptance(&api, &pool).await;
+    awards_acceptance(&api, &pool).await;
     artwork_acceptance(&api).await;
     let facets = inspection(&api, "/api/v1/catalog/facets?view=works&privacy=all").await;
     let genres = facets["groups"]
@@ -679,4 +680,112 @@ async fn artwork_acceptance(api: &Router) {
         .0,
         StatusCode::BAD_REQUEST
     );
+}
+
+async fn awards_acceptance(api: &Router, pool: &PgPool) {
+    let draft = json!({"slug":"fixture-award-editor","name_ar":"جائزة المحرر","name_en":null,"description":"Fixture award organization","website_url":null,"logo_path":null,"is_active":true});
+    let input = json!({"table":"award_organizations","id":null,"revision":null,"draft":draft});
+    for identity in [None, Some(false)] {
+        assert_ne!(
+            call(api, "awardSave", input.clone(), identity).await.0,
+            StatusCode::OK
+        );
+    }
+    let organization = ok(api, "awardSave", input.clone()).await;
+    let id = organization["id"].clone();
+    let detail_input = json!({"table":"award_organizations","id":id});
+    let before = ok(api, "awardDetail", detail_input.clone()).await;
+    let mut changed = draft.clone();
+    changed["description"] = json!("Updated fixture");
+    let update = json!({"table":"award_organizations","id":id,"revision":before["revision"],"draft":changed});
+    ok(api, "awardSave", update.clone()).await;
+    assert_eq!(
+        call(api, "awardSave", update, Some(true)).await.0,
+        StatusCode::CONFLICT
+    );
+    let mut invalid = draft.clone();
+    invalid["id"] = id.clone();
+    assert_eq!(
+        call(
+            api,
+            "awardSave",
+            json!({"table":"award_organizations","id":null,"revision":null,"draft":invalid}),
+            Some(true)
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let category=ok(api,"awardSave",json!({"table":"award_categories","id":null,"revision":null,"draft":{"organization_id":id,"slug":"fixture-category","name_ar":"الفئة الاختبارية","name_en":null,"description":"","is_active":true}})).await;
+    let ceremony=ok(api,"awardSave",json!({"table":"award_ceremonies","id":null,"revision":null,"draft":{"organization_id":id,"year":2026,"edition":1,"label":"الدورة الأولى","held_on":"2026-10-22","source_url":"https://example.invalid/awards"}})).await;
+    let detail = ok(api, "awardDetail", detail_input.clone()).await;
+    assert_eq!(detail["links"].as_array().unwrap().len(), 2);
+    assert_eq!(call(api,"awardDelete",json!({"table":"award_organizations","id":id,"revision":detail["revision"],"confirmation":"fixture-award-editor"}),Some(true)).await.0,StatusCode::BAD_REQUEST);
+    let list = ok(
+        api,
+        "awardList",
+        json!({"table":"award_ceremonies","organization":id,"q":"2026","page":1,"result":"all"}),
+    )
+    .await;
+    let refs=ok(api,"refs",json!({"table":"award_ceremonies","search":"","offset":0,"filters":{"organization_id":id,"year":2026},"sort":"default"})).await;
+    assert_eq!(refs["rows"][0]["id"], ceremony["id"]);
+    assert_eq!(list["total"], 1);
+    assert_eq!(list["rows"][0]["id"], ceremony["id"]);
+    let results=ok(api,"awardList",json!({"table":"award_recognitions","organization":null,"q":"عمل اختباري","page":1,"result":"winner"})).await;
+    assert!(results["total"].as_i64().unwrap() > 0);
+    assert_eq!(results["rows"][0]["work_name"], "عمل اختباري");
+    assert!(results["rows"][0].get("poster_id").is_some());
+    assert_eq!(
+        results["rows"][0]["work_english_name"],
+        "Rust whole-work fixture"
+    );
+    let base = json!({"table":"award_recognitions","organization":null,"q":"عمل اختباري","page":1,"result":"winner"});
+    for patch in [
+        json!({"year":1900}),
+        json!({"category":category["id"]}),
+        json!({"ceremony":ceremony["id"]}),
+        json!({"featured":true}),
+        json!({"source":"documented"}),
+    ] {
+        let mut filtered = base.clone();
+        filtered
+            .as_object_mut()
+            .unwrap()
+            .extend(patch.as_object().unwrap().clone());
+        let empty = ok(api, "awardList", filtered).await;
+        assert_eq!(empty["total"], 0, "filter {patch}");
+    }
+    let mut filtered = base.clone();
+    filtered["category"] = results["rows"][0]["category_id"].clone();
+    filtered["year"] = json!(2026);
+    filtered["source"] = json!("missing");
+    let matched = ok(api, "awardList", filtered).await;
+    assert_eq!(matched["total"], results["total"]);
+    let mut invalid_year = base;
+    invalid_year["year"] = json!(1899);
+    assert_eq!(
+        call(api, "awardList", invalid_year, Some(true)).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    for (table, record, confirmation) in [
+        ("award_categories", category, "fixture-category"),
+        ("award_ceremonies", ceremony, "2026"),
+    ] {
+        let detail = ok(api, "awardDetail", json!({"table":table,"id":record["id"]})).await;
+        ok(api,"awardDelete",json!({"table":table,"id":record["id"],"revision":detail["revision"],"confirmation":confirmation})).await;
+    }
+    let final_detail = ok(api, "awardDetail", detail_input).await;
+    ok(api,"awardDelete",json!({"table":"award_organizations","id":id,"revision":final_detail["revision"],"confirmation":"fixture-award-editor"})).await;
+    let audits: i64 =
+        sqlx::query_scalar("select count(*) from audit_logs where action like 'admin.awards.%'")
+            .fetch_one(pool)
+            .await
+            .unwrap();
+    let revisions: i64 =
+        sqlx::query_scalar("select count(*) from editorial_revisions where summary='Award editor'")
+            .fetch_one(pool)
+            .await
+            .unwrap();
+    assert_eq!(audits, 7);
+    assert_eq!(audits, revisions);
 }

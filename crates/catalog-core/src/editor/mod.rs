@@ -1,5 +1,6 @@
 //! Shared editor services. The caller owns authorization and the transaction boundary.
 mod assets;
+mod awards;
 mod entities;
 mod providers;
 mod references;
@@ -15,6 +16,10 @@ use std::{collections::BTreeMap, sync::OnceLock};
 
 pub fn handles(operation: &str) -> bool {
     operation.starts_with("asset")
+        || matches!(
+            operation,
+            "awardList" | "awardDetail" | "awardSave" | "awardDelete"
+        )
         || matches!(
             operation,
             "ingest" | "upload" | "preview" | "search" | "season" | "episodeImages"
@@ -37,7 +42,9 @@ pub fn handles(operation: &str) -> bool {
 pub fn writes(operation: &str) -> bool {
     matches!(
         operation,
-        "assetAssign"
+        "awardSave"
+            | "awardDelete"
+            | "assetAssign"
             | "assetUnlink"
             | "assetDelete"
             | "assetRename"
@@ -149,7 +156,9 @@ pub async fn execute(
         ));
     }
 
-    if operation.starts_with("asset") {
+    if operation.starts_with("award") {
+        awards::execute(connection, operation, &data, actor).await
+    } else if operation.starts_with("asset") {
         assets::execute(connection, operation, &data, actor).await
     } else if matches!(operation, "ingest" | "upload" | "preview") {
         storage::execute(connection, operation, &data, actor).await
