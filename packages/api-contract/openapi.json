@@ -2435,6 +2435,67 @@
           }
         }
       }
+    },
+    "/api/v1/catalog/trailers": {
+      "get": {
+        "operationId": "getTrailers",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["animated", "live-action"]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["newest", "title"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public catalog YouTube trailers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrailersPage"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4598,6 +4659,21 @@
         "type": "object",
         "required": ["comments", "upcoming"],
         "properties": {
+          "nextUp": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeViewingItem"
+            }
+          },
+          "followingEpisodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeViewingItem"
+            }
+          },
+          "recommendations": {
+            "$ref": "#/components/schemas/RecommendationPage"
+          },
           "featured": {
             "type": "array",
             "items": {
@@ -13242,6 +13318,42 @@
           }
         },
         "required": ["removed"]
+      },
+      "TrailerEntry": {
+        "type": "object",
+        "required": ["work", "trailer"],
+        "properties": {
+          "work": {
+            "$ref": "#/components/schemas/WorkSummary"
+          },
+          "trailer": {
+            "$ref": "#/components/schemas/Trailer"
+          }
+        }
+      },
+      "TrailersPage": {
+        "type": "object",
+        "required": ["items", "total", "page", "pageSize"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrailerEntry"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     }
   }

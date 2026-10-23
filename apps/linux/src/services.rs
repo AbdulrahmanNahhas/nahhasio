@@ -181,6 +181,21 @@ struct CatalogQuery {
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TrailersQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page_size: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    q: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sort: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct EpisodesQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     kind: Option<String>,
@@ -1057,6 +1072,31 @@ impl ServerSession {
                 self.json(response).await
             }
 
+            "trailers" => {
+                let input: TrailersQuery = parse(request.payload)?;
+                if input.page.is_some_and(|n| !(1..=100_000).contains(&n))
+                    || input.page_size.is_some_and(|n| !(1..=60).contains(&n))
+                    || input.q.as_ref().is_some_and(|q| q.chars().count() > 200)
+                    || input
+                        .format
+                        .as_deref()
+                        .is_some_and(|v| !matches!(v, "animated" | "live-action"))
+                    || input
+                        .sort
+                        .as_deref()
+                        .is_some_and(|v| !matches!(v, "newest" | "title"))
+                {
+                    return Err(Error::new("bad_request", "Invalid trailer filters"));
+                }
+                let response = self
+                    .authorized(Method::GET, "api/v1/catalog/trailers")
+                    .await?
+                    .query(&input)
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
             "episodes" => {
                 let input: EpisodesQuery = parse(request.payload)?;
                 if input.page.is_some_and(|n| !(1..=100_000).contains(&n))

@@ -585,7 +585,34 @@ export const EpisodesPageSchema = z.strictObject({
 });
 export type EpisodesPage = z.infer<typeof EpisodesPageSchema>;
 
+export const RecommendationReasonSchema = z.strictObject({
+  key: z.string(),
+  label: z.string(),
+  weight: z.number().min(0),
+  similarity: z.number().min(0).max(100),
+  shared: z.array(z.string()),
+});
+export type RecommendationReason = z.infer<typeof RecommendationReasonSchema>;
+
+export const WorkMatchSchema = z.strictObject({
+  workId: z.string().uuid(),
+  percentage: z.number().int().min(0).max(100),
+  reasons: z.array(RecommendationReasonSchema),
+});
+export type WorkMatch = z.infer<typeof WorkMatchSchema>;
+
+export const RecommendationPageSchema = z.strictObject({
+  items: z.array(WorkSummarySchema),
+  basis: z.enum(["related", "personal", "editorial"]),
+  algorithm: z.string().optional(),
+  matches: z.array(WorkMatchSchema).optional(),
+});
+export type RecommendationPage = z.infer<typeof RecommendationPageSchema>;
+
 export const HomeFeedSchema = z.strictObject({
+  nextUp: z.array(HomeViewingItemSchema).optional(),
+  followingEpisodes: z.array(HomeViewingItemSchema).optional(),
+  recommendations: RecommendationPageSchema.optional(),
   featured: z.array(WorkSummarySchema).optional(),
   recentEpisodes: z.array(HomeViewingItemSchema).optional(),
   resume: z.array(HomeViewingItemSchema).optional(),
@@ -699,30 +726,6 @@ export const BrowseFiltersSchema = z.strictObject({
   }),
 });
 export type BrowseFilters = z.infer<typeof BrowseFiltersSchema>;
-
-export const RecommendationReasonSchema = z.strictObject({
-  key: z.string(),
-  label: z.string(),
-  weight: z.number().min(0),
-  similarity: z.number().min(0).max(100),
-  shared: z.array(z.string()),
-});
-export type RecommendationReason = z.infer<typeof RecommendationReasonSchema>;
-
-export const WorkMatchSchema = z.strictObject({
-  workId: z.string().uuid(),
-  percentage: z.number().int().min(0).max(100),
-  reasons: z.array(RecommendationReasonSchema),
-});
-export type WorkMatch = z.infer<typeof WorkMatchSchema>;
-
-export const RecommendationPageSchema = z.strictObject({
-  items: z.array(WorkSummarySchema),
-  basis: z.enum(["related", "personal", "editorial"]),
-  algorithm: z.string().optional(),
-  matches: z.array(WorkMatchSchema).optional(),
-});
-export type RecommendationPage = z.infer<typeof RecommendationPageSchema>;
 
 export const ProfileUpdateSchema = z.strictObject({
   name: z.string().min(1).max(80),
@@ -3121,6 +3124,20 @@ export const CatalogAwardDeleteResultSchema = z.strictObject({
 });
 export type CatalogAwardDeleteResult = z.infer<typeof CatalogAwardDeleteResultSchema>;
 
+export const TrailerEntrySchema = z.strictObject({
+  work: WorkSummarySchema,
+  trailer: TrailerSchema,
+});
+export type TrailerEntry = z.infer<typeof TrailerEntrySchema>;
+
+export const TrailersPageSchema = z.strictObject({
+  items: z.array(TrailerEntrySchema),
+  total: z.number().int().min(0),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+});
+export type TrailersPage = z.infer<typeof TrailersPageSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3578,5 +3595,26 @@ export class ApiClient {
   async updateProviders(body: ProviderUpdate, signal?: AbortSignal): Promise<ProviderSettings> {
     const response = await this.request("/api/v1/admin/server/providers", "PUT", body, signal);
     return ProviderSettingsSchema.parse(await response.json());
+  }
+  async getTrailers(
+    query: {
+      page?: number;
+      pageSize?: number;
+      q?: string;
+      format?: "animated" | "live-action";
+      sort?: "newest" | "title";
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<TrailersPage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/catalog/trailers" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return TrailersPageSchema.parse(await response.json());
   }
 }
