@@ -57,6 +57,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ReferencePicker } from "@/features/editor/references/reference-picker";
 
+import { AdminPageHeader, AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
 import { AwardEditor } from "./award-editor";
 import { AwardFilters } from "./award-filters";
 import {
@@ -102,6 +103,37 @@ export function AwardsPage({
     .url()
     .regex(/^https?:\/\//)
     .safeParse(current?.website_url).data;
+  const filterChips: AdminFilterChip[] = [];
+  if (search.q)
+    filterChips.push({
+      key: "q",
+      label: `بحث: ${search.q}`,
+      clear: () => onChange({ q: "", page: "1" }),
+    });
+  if (search.year)
+    filterChips.push({
+      key: "year",
+      label: `سنة ${search.year}`,
+      clear: () => onChange({ year: "", page: "1" }),
+    });
+  if (search.result !== "all")
+    filterChips.push({
+      key: "result",
+      label: search.result === "winner" ? "الفائزون" : "المرشحون",
+      clear: () => onChange({ result: "all", page: "1" }),
+    });
+  if (search.featured)
+    filterChips.push({
+      key: "featured",
+      label: "جوائز بارزة",
+      clear: () => onChange({ featured: "", page: "1" }),
+    });
+  if (search.source !== "all")
+    filterChips.push({
+      key: "source",
+      label: search.source === "documented" ? "بمرجع" : "بدون مرجع",
+      clear: () => onChange({ source: "all", page: "1" }),
+    });
   const pages = Math.max(1, Math.ceil((records.data?.total ?? 0) / 25));
   const openWork = (id: string) =>
     void navigate({
@@ -114,32 +146,29 @@ export function AwardsPage({
       className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 pb-16 sm:p-6"
       aria-label="إدارة الجوائز"
     >
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold">الجوائز</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            من الجهة المانحة إلى العمل الفائز. نظّم الفئات والدورات ووثّق الجوائز والترشيحات في
-            مكتبتك.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={records.isFetching}
-            onClick={() => void records.refetch()}
-          >
-            <RefreshCw data-icon="inline-start" />
-            تحديث
-          </Button>
-          <Button onClick={() => setEditor({ table: "award_organizations", id: null })}>
-            <Plus data-icon="inline-start" />
-            جهة جديدة
-          </Button>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="الجوائز"
+        description="نظّم الجهات والفئات والدورات، ووثّق الجوائز والترشيحات المرتبطة بأعمال المكتبة."
+        icon={Award}
+        count={records.data?.total}
+        unit={recognition ? "جائزة وترشيح" : "سجل"}
+      >
+        <Button
+          variant="outline"
+          disabled={records.isFetching}
+          onClick={() => void records.refetch()}
+        >
+          <RefreshCw data-icon="inline-start" />
+          تحديث
+        </Button>
+        <Button onClick={() => setEditor({ table: "award_organizations", id: null })}>
+          <Plus data-icon="inline-start" />
+          جهة جديدة
+        </Button>
+      </AdminPageHeader>
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-4">
         <div
-          className="hidden min-w-0 xl:sticky xl:top-4 xl:col-start-4 xl:row-start-1 xl:block"
+          className="hidden min-w-0 xl:sticky xl:top-16 xl:col-start-4 xl:row-start-1 xl:block"
           aria-label="جهات الجوائز"
           role="complementary"
         >
@@ -272,7 +301,7 @@ export function AwardsPage({
               retry={() => void organization.refetch()}
             />
           )}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4">
             <AwardSearchForm
               key={`${search.tab}:${search.q}`}
               value={search.q}
@@ -321,6 +350,10 @@ export function AwardsPage({
             )}
           </div>
           {recognition && <AwardFilters search={search} onChange={onChange} />}
+          <AdminFilterChips
+            filters={filterChips}
+            reset={() => onChange({ ...resetAwardFilters, q: "" })}
+          />
           <p className="text-sm text-muted-foreground" role="status">
             {records.isFetching
               ? "جارٍ تحميل النتائج…"
@@ -642,7 +675,7 @@ function OrganizationRail({
           <Trophy data-icon="inline-start" />
           كل الجهات<Badge variant="outline">{list.data?.total ?? "…"}</Badge>
         </Button>
-        <div className="flex max-h-96 flex-col gap-1 overflow-y-auto">
+        <div className="flex max-h-120 scroll-fade-y flex-col scrollbar-thin gap-1 overflow-y-auto overscroll-y-contain py-1">
           {list.isPending ? (
             <Skeleton className="h-48" />
           ) : list.isError ? (

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowLeft, ArrowRight, Check, RefreshCw, Search, X, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, RefreshCw, Search, X, Settings2, Orbit } from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
@@ -42,6 +42,7 @@ import { toast } from "@/components/ui/toast";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
 import { useConfirm } from "@/features/editor/use-confirm";
 
+import { AdminPageHeader } from "../admin-page-header";
 import { PlanetDefinitions } from "./planet-definitions";
 import {
   moveWorks,
@@ -133,34 +134,28 @@ export function PlanetMovementPage({
     await Promise.all([works.refetch(), options.refetch()]);
   }
   return (
-    <article className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-5 p-4 sm:p-6 pb-20!">
+    <article className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 pb-20 sm:p-6 sm:pb-20">
       {confirm.dialog}
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">الكواكب</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            اختر المصدر، حدد الأعمال، ثم اختر الوجهة وراجع النقل.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={save.isPending}
-            onClick={() => setDefinitionsOpen(true)}
-          >
-            <Settings2 data-icon="inline-start" />
-            تعريف الكواكب
-          </Button>
-          <Button
-            variant="outline"
-            disabled={save.isPending || works.isFetching || options.isFetching}
-            onClick={() => void reload()}
-          >
-            <RefreshCw data-icon="inline-start" />
-            تحديث
-          </Button>
-        </div>
-      </header>
+      <AdminPageHeader
+        title="الكواكب"
+        description="اختر المصدر، حدّد الأعمال، ثم اختر الوجهة وراجع النقل قبل الحفظ."
+        icon={Orbit}
+        count={options.data?.planets.length}
+        unit="كوكب"
+      >
+        <Button
+          variant="outline"
+          disabled={save.isPending || works.isFetching || options.isFetching}
+          onClick={() => void reload()}
+        >
+          <RefreshCw data-icon="inline-start" />
+          تحديث
+        </Button>
+        <Button disabled={save.isPending} onClick={() => setDefinitionsOpen(true)}>
+          <Settings2 data-icon="inline-start" />
+          تعريف الكواكب
+        </Button>
+      </AdminPageHeader>
       <PlanetDefinitions
         open={definitionsOpen}
         onOpenChange={setDefinitionsOpen}
@@ -211,6 +206,17 @@ export function PlanetMovementPage({
               />
               <FieldLabel htmlFor="planet-page-selection">تحديد الصفحة</FieldLabel>
               <Badge variant="secondary">{selected.size} محدد</Badge>
+              {selected.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={save.isPending}
+                  onClick={() => setSelected(new Map())}
+                >
+                  <X data-icon="inline-start" />
+                  إلغاء الاختيار
+                </Button>
+              )}
             </Field>
             {works.isPending ? (
               <Skeleton className="h-96" />
@@ -306,7 +312,15 @@ export function PlanetMovementPage({
             </nav>
           </CardContent>
         </Card>
-        <Card className="min-w-0 lg:sticky lg:top-4">
+        <Card className="min-w-0 lg:sticky lg:top-16">
+          <CardHeader>
+            <CardTitle>وجهة الأعمال</CardTitle>
+            <CardDescription>
+              {selected.size
+                ? `${selected.size} عمل محدد للنقل من ${sourceName}.`
+                : "حدّد أعمالًا من المصدر أولًا، ثم اختر الكوكب الذي ستنتقل إليه."}
+            </CardDescription>
+          </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Field>
               <FieldLabel htmlFor="planet-destination-search">البحث عن وجهة</FieldLabel>
@@ -326,7 +340,7 @@ export function PlanetMovementPage({
                   aria-label="الكوكب الوجهة"
                   value={destination}
                   onValueChange={setDestination}
-                  className="max-h-[calc(65vh)] gap-2 overflow-y-auto scroll-fade-y!"
+                  className="max-h-120 scroll-fade-y scrollbar-thin gap-2 overflow-y-auto overscroll-y-contain"
                 >
                   {planets
                     .filter(
