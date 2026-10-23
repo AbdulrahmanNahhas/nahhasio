@@ -80,7 +80,7 @@ async fn settings(State(state): State<Services>) -> Result<Json<Value>, Error> {
 }
 async fn overview(State(state): State<Services>) -> Result<Json<Value>, Error> {
     let mut tx = state.pool.begin().await?;
-    sqlx::query("set transaction isolation level repeatable read")
+    sqlx::query("set transaction isolation level repeatable read, read only")
         .execute(&mut *tx)
         .await?;
     sqlx::query("set local statement_timeout='5s'")
@@ -96,6 +96,13 @@ async fn overview(State(state): State<Services>) -> Result<Json<Value>, Error> {
         },
         Err(_) => json!({"compatible":false,"applied":null,"pending":null}),
     };
+    let insight_sql = include_str!("server/insights.sql")
+        .replace("$WORK_STATUS", crate::catalog::WORK_RELEASE_STATUS);
+    let insights =
+        sqlx::query_scalar::<_, sqlx::types::Json<Value>>(sqlx::AssertSqlSafe(insight_sql))
+            .fetch_one(&mut *tx)
+            .await?
+            .0;
     // No jobs, recursive artwork scan, provider calls or migrations are started by this read.
     tx.rollback().await?;
     let mut counts = serde_json::Map::new();
@@ -112,7 +119,7 @@ async fn overview(State(state): State<Services>) -> Result<Json<Value>, Error> {
         counts.insert(key.into(), json!(row.get::<i64, _>(column)));
     }
     Ok(Json(
-        json!({"server":identity(&state.pool).await?,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1,"uptimeSeconds":state.started.elapsed().as_secs(),"database":"connected","schema":schema,"counts":counts,"checks":checks::inspect(&state.pool,state.config).await?}),
+        json!({"server":identity(&state.pool).await?,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1,"uptimeSeconds":state.started.elapsed().as_secs(),"database":"connected","schema":schema,"counts":counts,"insights":insights,"checks":checks::inspect(&state.pool,state.config).await?}),
     ))
 }
 #[derive(Deserialize)]

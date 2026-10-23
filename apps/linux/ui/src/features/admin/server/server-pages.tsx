@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 
+import { OverviewInsights } from "./overview-insights";
 import { serverOverviewQuery, serverSettingsQuery } from "./queries";
 
 const number = new Intl.NumberFormat("ar");
@@ -55,7 +56,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 export function ServerOverviewPage() {
   const overview = useQuery(serverOverviewQuery());
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">نظرة عامة</h1>
@@ -119,6 +120,7 @@ export function ServerOverviewPage() {
               </Card>
             ))}
           </div>
+          <OverviewInsights data={overview.data.insights} works={overview.data.counts.works} />
           <Card>
             <CardHeader>
               <CardTitle>فحوص تجهيز الخادم</CardTitle>

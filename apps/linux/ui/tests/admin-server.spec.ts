@@ -1,3 +1,11 @@
+import type { rpcInputs } from "@arcadia/contracts/editor-rpc";
+import type { z } from "zod";
+type LibraryCall = { operation: string; data: z.infer<(typeof rpcInputs)[keyof typeof rpcInputs]> };
+declare global {
+  interface Window {
+    fixtureLibraryCalls: LibraryCall[];
+  }
+}
 import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -26,6 +34,22 @@ test.beforeEach(async ({ page }) => {
       tmdb: { configured: false, source: "environment" },
       fanart: { configured: true, source: "environment" },
     };
+    const calls: LibraryCall[] = [];
+    Object.assign(window, { fixtureLibraryCalls: calls });
+    const assets = [1, 2].map((index) => ({
+      id: `00000000-0000-4000-8000-${String(index + 20).padStart(12, "0")}`,
+      path: `/media/fixture-${index}.jpg`,
+      fileName: `fixture-${index}.jpg`,
+      mimeType: "image/jpeg",
+      byteSize: 100,
+      width: 100,
+      height: 100,
+      sha256: "a".repeat(64),
+      createdAt: "2026-10-20T00:00:00Z",
+      health: "healthy",
+      assignmentCount: 0,
+      roles: [],
+    }));
     window.webkit = {
       messageHandlers: {
         nahhasio: {
@@ -71,6 +95,35 @@ test.beforeEach(async ({ page }) => {
                     },
                   ],
                   schema: { compatible: true, applied: 1, pending: 0 },
+                  insights: {
+                    formats: [{ key: "animated", value: 252 }],
+                    workflow: [{ key: "published", value: 252 }],
+                    statuses: [{ key: "completed", value: 252 }],
+                    languages: [
+                      { key: "ar", value: 88 },
+                      { key: "en", value: 164 },
+                    ],
+                    additions: [{ key: "2026-10", value: 252 }],
+                    artworkRoles: [{ key: "poster", value: 200 }],
+                    genres: [],
+                    missing: [{ key: "poster", value: 52 }],
+                    unattachedImages: 2,
+                    episodesMissing: 1,
+                    episodesEligible: 1,
+                    people: 20,
+                    studios: 10,
+                    episodeTargets: [
+                      {
+                        id: "00000000-0000-4000-8000-000000000050",
+                        number: 1,
+                        workId: "00000000-0000-4000-8000-000000000060",
+                        workName: "عمل تجريبي",
+                        tmdbId: 100,
+                        season: 1,
+                      },
+                    ],
+                    recentActivity: [],
+                  },
                   counts: {
                     works: 252,
                     installments: 421,
@@ -108,6 +161,44 @@ test.beforeEach(async ({ page }) => {
                   },
                 };
                 result = providers;
+                break;
+              }
+              case "editorCall": {
+                const { operation, data } = request.payload;
+                calls.push({ operation, data });
+                if (operation === "assets")
+                  result = { items: assets, total: 2, page: 1, pageSize: 48 };
+                else if (operation === "assetDetail")
+                  result = {
+                    asset: assets.find((asset) => asset.id === data.id) ?? assets[0],
+                    assignments: [],
+                    deleteBlockedReason:
+                      data.id === assets[1].id ? "Artwork is needed by retained revisions" : null,
+                  };
+                else if (operation === "assetDelete")
+                  result = { removed: true, fileRetained: true };
+                else if (operation === "season")
+                  result = [
+                    {
+                      number: 1,
+                      title: "الحلقة الأولى",
+                      summary: "",
+                      releaseDate: null,
+                      runtimeMinutes: null,
+                      stillUrl: "https://image.tmdb.org/t/p/original/fixture.jpg",
+                    },
+                  ];
+                else if (operation === "ingest")
+                  result = { id: assets[0].id, path: assets[0].path };
+                else if (operation === "assetAssign")
+                  result = { assignmentId: "00000000-0000-4000-8000-000000000070" };
+                else if (operation === "preview")
+                  result = {
+                    dataUrl:
+                      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6kAAAAABJRU5ErkJggg==",
+                  };
+                else result = null;
+                result = { result };
                 break;
               }
               default:
@@ -193,7 +284,7 @@ test("failed services show retry and unprepared credential storage disables writ
   });
   await page.goto("/#/admin");
   await expect(page.getByRole("button", { name: "إعادة المحاولة", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "الإعدادات", exact: true }).click();
+  await page.getByRole("link", { name: "الإعدادات والاتصالات", exact: true }).click();
   await expect(page.getByText("مجلد الإعدادات الخاص غير مجهّز", { exact: true })).toBeVisible();
   await expect(page.getByLabel("رمز الوصول للقراءة من TMDB", { exact: true })).toBeDisabled();
 });
@@ -239,4 +330,113 @@ test("a stale server name can reload the current settings", async ({ page }) => 
   await page.getByRole("button", { name: "حفظ الاسم", exact: true }).click();
   await page.getByRole("button", { name: "إعادة تحميل الإعدادات", exact: true }).click();
   await expect(page.getByLabel("اسم الخادم", { exact: true })).toHaveValue("اسم غيّره مدير آخر");
+});
+
+test("library actions cleanup requires preview and confirmation and excludes protected images", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/maintenance?tab=actions");
+  await page.getByRole("button", { name: "معاينة التنظيف", exact: true }).click();
+  await page.getByRole("button", { name: "معاينة الصور", exact: true }).click();
+  await expect(page.getByText("1 صورة قابلة للحذف · 1 صورة محمية")).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.fixtureLibraryCalls.filter(
+        (call: { operation: string }) => call.operation === "assetDelete",
+      ),
+    ),
+  ).toHaveLength(0);
+  await page.getByRole("button", { name: "حذف 1 صورة", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.fixtureLibraryCalls.filter(
+        (call: { operation: string }) => call.operation === "assetDelete",
+      ),
+    ),
+  ).toHaveLength(0);
+  await confirmation.getByRole("button", { name: "تأكيد الحذف", exact: true }).click();
+  await expect(page.getByText("انتهت العملية", { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.fixtureLibraryCalls.filter(
+        (call: { operation: string }) => call.operation === "assetDelete",
+      ),
+    ),
+  ).toEqual([
+    {
+      operation: "assetDelete",
+      data: { id: "00000000-0000-4000-8000-000000000021", expectedSha256: "a".repeat(64) },
+    },
+  ]);
+});
+
+test("library actions episode images require source preview and only assign after confirmation", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/maintenance?tab=actions");
+  await page.getByRole("button", { name: "تجهيز دفعة صور", exact: true }).click();
+  await expect(page.getByLabel("رقم موسم TMDB", { exact: true })).toHaveValue("1");
+  await page.getByRole("button", { name: "معاينة الصور", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "تأكيد استيراد 1 صورة", exact: true }),
+  ).toBeEnabled();
+  expect(
+    await page.evaluate(() =>
+      window.fixtureLibraryCalls.filter((call: { operation: string }) =>
+        ["ingest", "assetAssign"].includes(call.operation),
+      ),
+    ),
+  ).toHaveLength(0);
+  await page.getByRole("button", { name: "تأكيد استيراد 1 صورة", exact: true }).click();
+  await expect(page.getByText("انتهت الدفعة", { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      window.fixtureLibraryCalls.filter(
+        (call: { operation: string }) => call.operation === "assetAssign",
+      ),
+    ),
+  ).toEqual([
+    {
+      operation: "assetAssign",
+      data: {
+        assetId: "00000000-0000-4000-8000-000000000021",
+        ownerKind: "episode",
+        ownerId: "00000000-0000-4000-8000-000000000050",
+        role: "still",
+        expectedPrimaryId: null,
+        expectedPrimaryAssetId: null,
+      },
+    },
+  ]);
+});
+
+test("library actions reports a concurrent episode assignment conflict", async ({ page }) => {
+  await page.addInitScript(() => {
+    const handler = window.webkit!.messageHandlers!.nahhasio!;
+    const original = handler.postMessage.bind(handler);
+    handler.postMessage = (raw: string) => {
+      const request = JSON.parse(raw);
+      if (request.command === "editorCall" && request.payload.operation === "assetAssign") {
+        queueMicrotask(() =>
+          window["__nahhasioReply"]?.({
+            id: request.id,
+            ok: false,
+            error: { code: "conflict", message: "تغيّرت الصورة الأساسية" },
+          }),
+        );
+        return;
+      }
+      original(raw);
+    };
+  });
+  await page.goto("/#/admin/maintenance?tab=actions");
+  await page.getByRole("button", { name: "تجهيز دفعة صور", exact: true }).click();
+  await page.getByRole("button", { name: "معاينة الصور", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد استيراد 1 صورة", exact: true }).click();
+  await expect(page.getByText("انتهت الدفعة", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("عمل تجريبي · 1: تغيّرت الصورة الأساسية", { exact: true }),
+  ).toBeVisible();
 });

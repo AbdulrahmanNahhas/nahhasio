@@ -3083,6 +3083,79 @@ export const ServerOverviewSchema = z.strictObject({
     sessions: z.number().int().min(0),
     databaseBytes: z.number().int().min(0),
   }),
+  insights: z.strictObject({
+    formats: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    workflow: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    statuses: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    languages: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    additions: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    artworkRoles: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    genres: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    missing: z.array(
+      z.strictObject({
+        key: z.string(),
+        value: z.number().int().min(0),
+      }),
+    ),
+    unattachedImages: z.number().int().min(0),
+    episodesMissing: z.number().int().min(0),
+    episodesEligible: z.number().int().min(0),
+    people: z.number().int().min(0),
+    studios: z.number().int().min(0),
+    episodeTargets: z.array(
+      z.strictObject({
+        id: z.string().uuid(),
+        number: z.number(),
+        workId: z.string().uuid(),
+        workName: z.string(),
+        tmdbId: z.number().int(),
+        season: z.number().int(),
+      }),
+    ),
+    recentActivity: z.array(
+      z.strictObject({
+        key: z.string(),
+        action: z.string(),
+        summary: z.string(),
+        createdAt: z.string(),
+      }),
+    ),
+  }),
   checks: z.array(
     z.strictObject({
       key: z.string(),

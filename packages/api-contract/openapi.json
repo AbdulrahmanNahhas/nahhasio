@@ -12952,7 +12952,8 @@
           "database",
           "schema",
           "counts",
-          "checks"
+          "checks",
+          "insights"
         ],
         "properties": {
           "server": {
@@ -13038,6 +13039,239 @@
               "databaseBytes": {
                 "type": "integer",
                 "minimum": 0
+              }
+            }
+          },
+          "insights": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "formats",
+              "workflow",
+              "statuses",
+              "languages",
+              "additions",
+              "artworkRoles",
+              "genres",
+              "missing",
+              "unattachedImages",
+              "episodesMissing",
+              "episodesEligible",
+              "people",
+              "studios",
+              "episodeTargets",
+              "recentActivity"
+            ],
+            "properties": {
+              "formats": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "workflow": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "statuses": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "additions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "artworkRoles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "genres": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "unattachedImages": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episodesMissing": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episodesEligible": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "people": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "studios": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episodeTargets": {
+                "type": "array",
+                "maxItems": 48,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "number", "workId", "workName", "tmdbId", "season"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "number": {
+                      "type": "number"
+                    },
+                    "workId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "workName": {
+                      "type": "string"
+                    },
+                    "tmdbId": {
+                      "type": "integer"
+                    },
+                    "season": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "recentActivity": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "action", "summary", "createdAt"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },

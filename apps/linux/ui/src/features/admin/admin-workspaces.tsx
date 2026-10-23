@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { AdminPageHeader } from "./admin-page-header";
 import { DatabaseInspector } from "./database-inspector";
+import { LibraryActions } from "./server/library-actions";
 import { ServerSettingsPage } from "./server/server-pages";
 
 const workspaces = {
@@ -66,6 +67,11 @@ const workspaces = {
     icon: Wrench,
     tabs: [
       {
+        value: "actions",
+        label: "إجراءات المكتبة",
+        description: "صور الحلقات وتنظيف الصور ومراجعة النواقص",
+      },
+      {
         value: "backups",
         label: "النسخ والاستعادة",
         description: "أدوات إنشاء النسخ الاحتياطية واستعادتها لم تُربط بعد.",
@@ -110,7 +116,9 @@ export function AdminWorkspacePage({
         </TabsList>
         {workspace.tabs.map((item) => (
           <TabsContent key={item.value} value={item.value}>
-            {section === "maintenance" ? (
+            {section === "maintenance" && item.value === "actions" ? (
+              <LibraryActions />
+            ) : section === "maintenance" ? (
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
