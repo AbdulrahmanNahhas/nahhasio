@@ -1,19 +1,14 @@
 import type { HomeViewingItem } from "@nahhasio/api-contract";
-import { Info, Play } from "lucide-react";
+import { Clapperboard, Film, Play, RotateCcw } from "lucide-react";
+import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { useCardNavigation } from "@/components/card-navigation";
+import { NoResults } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { requestWatch, type WatchTarget } from "@/features/player/watch-request";
 import { workLink } from "@/features/shell/navigation";
 import { episodeNumberLabel } from "@/features/work/format";
@@ -37,20 +32,72 @@ export function continueItems(resume: HomeViewingItem[], next: HomeViewingItem[]
 }
 
 export function ContinueWatching({ items }: { items: ContinueItem[] }) {
+  const [selected, setSelected] = useState("episodes");
+  const episodes = items.filter(({ item }) => Boolean(item.episodeId));
+  const movies = items.filter(({ item }) => !item.episodeId);
+  const groups = [
+    { value: "episodes", label: "الحلقات", icon: Clapperboard, items: episodes },
+    { value: "movies", label: "الأفلام", icon: Film, items: movies },
+  ];
   if (!items.length) return null;
   return (
     <section aria-label="تابع مشاهدتك">
-      <HomeSectionHeading
-        title="تابع مشاهدتك"
-        description="استأنف من حيث توقفت، أو انتقل إلى الحلقة التالية."
-      />
-      <ScrollShelf
-        items={items}
-        layout="banner"
-        render={({ item, resume }) => (
-          <ContinueCard key={item.work.id} item={item} resume={resume} />
-        )}
-      />
+      <Tabs
+        value={selected}
+        onValueChange={(value) => {
+          if (value === "episodes" || value === "movies") setSelected(value);
+        }}
+      >
+        <HomeSectionHeading
+          title="تابع مشاهدتك"
+          description={
+            selected === "episodes"
+              ? "استأنف حلقتك، أو ابدأ الحلقة التالية."
+              : "استأنف فيلمك، أو شاهد الإصدار التالي."
+          }
+        >
+          <TabsList aria-label="نوع المتابعة">
+            {groups.map((group) => (
+              <TabsTrigger key={group.value} value={group.value}>
+                <group.icon data-icon="inline-start" />
+                {group.label}
+                <Badge variant="secondary">{group.items.length}</Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </HomeSectionHeading>
+        {groups.map((group) => (
+          <TabsContent key={group.value} value={group.value}>
+            {group.items.length ? (
+              <ScrollShelf
+                items={group.items}
+                layout="banner"
+                render={({ item, resume }) => (
+                  <ContinueCard key={item.work.id} item={item} resume={resume} />
+                )}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 pb-4">
+                <NoResults
+                  title={
+                    group.value === "episodes"
+                      ? "لا توجد حلقات للمتابعة الآن"
+                      : "لا توجد أفلام للمتابعة الآن"
+                  }
+                  description="ستظهر هنا مشاهدتك المحفوظة والإصدارات التالية المتاحة من أعمال بدأتَها."
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelected(group.value === "episodes" ? "movies" : "episodes")}
+                >
+                  {group.value === "episodes" ? "انتقل إلى الأفلام" : "انتقل إلى الحلقات"}
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
     </section>
   );
 }
@@ -68,78 +115,86 @@ function ContinueCard({ item, resume }: ContinueItem) {
     duration && duration > 0
       ? Math.max(0, Math.ceil((duration - item.positionSeconds) / 60))
       : null;
+  const detail = item.episodeId ? `${item.installmentTitle} · ${episode}` : item.installmentTitle;
+  const watch = () => {
+    const target: WatchTarget = { workId: item.work.id, title, installmentId: item.installmentId };
+    if (item.episodeId) target.episodeId = item.episodeId;
+    requestWatch(target);
+  };
+  const timing = resume
+    ? remaining !== null
+      ? `متبقٍ ${remaining} د`
+      : `${Math.floor(item.positionSeconds / 60)} د تمت مشاهدتها`
+    : null;
   return (
-    <Card size="sm">
-      <div className="relative aspect-video overflow-hidden">
-        <Artwork id={item.artwork?.id} alt="" className="absolute inset-0 size-full object-cover" />
-        <div className="absolute start-3 top-3">
-          <Badge variant="secondary">{resume ? "استئناف" : "التالي لك"}</Badge>
-        </div>
-      </div>
-      <CardHeader>
-        <CardTitle>
-          <a
-            {...navigation}
-            href={workLink(item.work.id, item.installmentId)}
-            dir="auto"
-            className="line-clamp-1 rounded-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {title}
-          </a>
-        </CardTitle>
-        <CardDescription>
-          <span className="line-clamp-1" dir="auto">
-            {item.episodeId ? `${item.installmentTitle} · ${episode}` : item.installmentTitle}
-          </span>
-          {item.episodeTitle && (
-            <span className="line-clamp-1" dir="auto">
-              {item.episodeTitle}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex min-h-12 flex-col justify-center gap-2">
-        {resume ? (
-          <>
-            {progress !== null && <Progress value={progress} aria-label={`تقدم مشاهدة ${title}`} />}
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {remaining !== null
-                ? `متبقٍ ${remaining} دقيقة`
-                : `${Math.floor(item.positionSeconds / 60)} دقيقة تمت مشاهدتها`}
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {item.episodeId ? "حلقة صادرة لم تشاهدها بعد" : "الإصدار التالي في مشاهدتك"}
-          </p>
-        )}
-      </CardContent>
-      <CardFooter className="gap-2">
+    <article className="flex min-w-0 flex-col gap-3">
+      <div className="relative overflow-hidden rounded-2xl">
         <Button
           {...navigation}
-          className="flex-1"
-          onClick={() => {
-            const target: WatchTarget = {
-              workId: item.work.id,
-              title,
-              installmentId: item.installmentId,
-            };
-            if (item.episodeId) target.episodeId = item.episodeId;
-            requestWatch(target);
-          }}
+          variant="ghost"
+          className="group/continue relative aspect-video h-auto w-full overflow-hidden p-0"
+          aria-label={`${resume ? "استأنف" : "شاهد التالي من"} ${title}، ${detail}${timing ? `، ${timing}` : ""}`}
+          onClick={watch}
         >
-          <Play data-icon="inline-start" />
-          {resume ? "متابعة المشاهدة" : "شاهد التالي"}
+          <Artwork
+            id={item.artwork?.id ?? item.work.banner?.id ?? item.work.poster?.id}
+            alt=""
+            className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover/continue:scale-105 motion-reduce:transition-none"
+          />
+          <span className="absolute inset-0 bg-linear-to-t from-background/70 via-transparent to-transparent" />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex size-11 items-center justify-center rounded-full bg-background/80 text-foreground transition-transform duration-200 group-hover/continue:scale-110 motion-reduce:transition-none">
+              <Play className="size-5" />
+            </span>
+          </span>
+          {resume && (
+            <span className="absolute start-3 top-3">
+              <Badge variant="secondary">
+                <RotateCcw data-icon="inline-start" />
+                متابعة
+              </Badge>
+            </span>
+          )}
+          {timing && (
+            <span className="absolute end-3 bottom-3">
+              <Badge variant="secondary">{timing}</Badge>
+            </span>
+          )}
         </Button>
+        {resume && progress !== null && (
+          <Progress
+            className="pointer-events-none absolute inset-x-0 bottom-0"
+            value={progress}
+            aria-label={`تقدم مشاهدة ${title}`}
+          />
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 px-1">
         <a
           {...navigation}
           href={workLink(item.work.id, item.installmentId)}
-          aria-label={`تفاصيل ${title}`}
-          className={buttonVariants({ variant: "outline", size: "icon" })}
+          dir="auto"
+          className="truncate rounded-sm text-sm font-semibold outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Info />
+          {title}
         </a>
-      </CardFooter>
-    </Card>
+        <p
+          className="truncate text-xs text-muted-foreground"
+          dir="auto"
+          title={item.episodeTitle ? `${detail} · ${item.episodeTitle}` : detail}
+        >
+          {detail}
+        </p>
+        {item.episodeTitle && (
+          <p
+            className="truncate text-xs text-muted-foreground"
+            dir="auto"
+            title={item.episodeTitle}
+          >
+            {item.episodeTitle}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
