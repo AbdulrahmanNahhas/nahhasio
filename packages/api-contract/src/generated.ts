@@ -3425,8 +3425,27 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
-      gap?: "poster" | "summary" | "arabic-name" | "structure";
-      sort?: "updated" | "title" | "year-desc" | "year-asc";
+      gap?:
+        | "poster"
+        | "summary"
+        | "arabic-name"
+        | "structure"
+        | "banner"
+        | "logo"
+        | "trailers"
+        | "scores"
+        | "genres"
+        | "planet"
+        | "credits"
+        | "episode-images";
+      sort?:
+        | "updated"
+        | "added"
+        | "title"
+        | "year-desc"
+        | "year-asc"
+        | "installments-desc"
+        | "episodes-desc";
     } = {},
     signal?: AbortSignal,
   ): Promise<AdminWorksPage> {
@@ -3493,8 +3512,27 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
-      gap?: "poster" | "summary" | "arabic-name" | "structure";
-      sort?: "updated" | "title" | "year-desc" | "year-asc";
+      gap?:
+        | "poster"
+        | "summary"
+        | "arabic-name"
+        | "structure"
+        | "banner"
+        | "logo"
+        | "trailers"
+        | "scores"
+        | "genres"
+        | "planet"
+        | "credits"
+        | "episode-images";
+      sort?:
+        | "updated"
+        | "added"
+        | "title"
+        | "year-desc"
+        | "year-asc"
+        | "installments-desc"
+        | "episodes-desc";
     } = {},
     signal?: AbortSignal,
   ): Promise<AdminWorkSelection> {

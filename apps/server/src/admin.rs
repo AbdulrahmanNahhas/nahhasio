@@ -96,7 +96,20 @@ impl WorksQuery {
             || !choice(&self.visibility, &["public", "private"])
             || !choice(
                 &self.gap,
-                &["poster", "summary", "arabic-name", "structure"],
+                &[
+                    "poster",
+                    "summary",
+                    "arabic-name",
+                    "structure",
+                    "banner",
+                    "logo",
+                    "trailers",
+                    "scores",
+                    "genres",
+                    "planet",
+                    "credits",
+                    "episode-images",
+                ],
             )
         {
             return Err(Error(
@@ -107,6 +120,13 @@ impl WorksQuery {
         let order = match self.sort.as_deref().unwrap_or("updated") {
             "updated" => "t.updated_at DESC,t.id",
             "title" => "t.sort_title,t.id",
+            "added" => "t.created_at DESC,t.id",
+            "installments-desc" => {
+                "(SELECT count(*) FROM installments i WHERE i.title_id=t.id) DESC,t.sort_title,t.id"
+            }
+            "episodes-desc" => {
+                "(SELECT count(*) FROM episodes e JOIN installments i ON i.id=e.installment_id WHERE i.title_id=t.id) DESC,t.sort_title,t.id"
+            }
             "year-desc" => "t.release_year DESC NULLS LAST,t.sort_title,t.id",
             "year-asc" => "t.release_year ASC NULLS LAST,t.sort_title,t.id",
             _ => {
@@ -126,7 +146,15 @@ AND ($2::text IS NULL OR t.format::text=$2)
 AND ($3::text IS NULL OR ($3='series' AND EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id AND i.kind='season')) OR ($3='movie' AND EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id) AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id AND i.kind='season')))
 AND ($4::text IS NULL OR t.workflow_status::text=$4)
 AND ($5::text IS NULL OR t.is_private=($5='private'))
-AND ($6::text IS NULL OR ($6='poster' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='poster')) OR ($6='summary' AND trim(t.summary)='') OR ($6='arabic-name' AND trim(coalesce(t.title_ar,''))='') OR ($6='structure' AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id)))
+AND ($6::text IS NULL OR ($6='poster' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='poster')) OR ($6='summary' AND trim(t.summary)='') OR ($6='arabic-name' AND trim(coalesce(t.title_ar,''))='') OR ($6='structure' AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id))
+OR ($6='banner' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='banner'))
+OR ($6='logo' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='logo'))
+OR ($6='trailers' AND NOT EXISTS(SELECT 1 FROM title_trailers v WHERE v.title_id=t.id))
+OR ($6='scores' AND EXISTS(SELECT 1 FROM installments i LEFT JOIN installment_scores s ON s.installment_id=i.id WHERE i.title_id=t.id AND (s.story IS NULL OR s.characters IS NULL OR s.depth IS NULL OR s.world_building IS NULL OR s.originality IS NULL OR s.craft IS NULL)))
+OR ($6='genres' AND NOT EXISTS(SELECT 1 FROM title_genres g WHERE g.title_id=t.id))
+OR ($6='planet' AND NOT EXISTS(SELECT 1 FROM title_planets p WHERE p.title_id=t.id))
+OR ($6='credits' AND NOT EXISTS(SELECT 1 FROM contributions c WHERE c.title_id=t.id))
+OR ($6='episode-images' AND EXISTS(SELECT 1 FROM installments i JOIN episodes e ON e.installment_id=i.id WHERE i.title_id=t.id AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.episode_id=e.id AND m.role IN ('still','poster','banner')))))
 "#;
 async fn works(
     State(pool): State<PgPool>,

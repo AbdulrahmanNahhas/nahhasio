@@ -1425,7 +1425,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["poster", "summary", "arabic-name", "structure"]
+              "enum": [
+                "poster",
+                "summary",
+                "arabic-name",
+                "structure",
+                "banner",
+                "logo",
+                "trailers",
+                "scores",
+                "genres",
+                "planet",
+                "credits",
+                "episode-images"
+              ]
             }
           },
           {
@@ -1434,7 +1447,15 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["updated", "title", "year-desc", "year-asc"]
+              "enum": [
+                "updated",
+                "added",
+                "title",
+                "year-desc",
+                "year-asc",
+                "installments-desc",
+                "episodes-desc"
+              ]
             }
           }
         ],
@@ -2041,7 +2062,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["poster", "summary", "arabic-name", "structure"]
+              "enum": [
+                "poster",
+                "summary",
+                "arabic-name",
+                "structure",
+                "banner",
+                "logo",
+                "trailers",
+                "scores",
+                "genres",
+                "planet",
+                "credits",
+                "episode-images"
+              ]
             }
           },
           {
@@ -2050,7 +2084,15 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["updated", "title", "year-desc", "year-asc"]
+              "enum": [
+                "updated",
+                "added",
+                "title",
+                "year-desc",
+                "year-asc",
+                "installments-desc",
+                "episodes-desc"
+              ]
             }
           }
         ],
