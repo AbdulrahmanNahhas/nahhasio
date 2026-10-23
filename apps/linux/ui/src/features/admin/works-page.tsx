@@ -8,9 +8,11 @@ import {
   X,
   CheckCheck,
   SlidersHorizontal,
+  Film,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { Choice } from "@/components/choice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { gateway } from "@/lib/bridge";
 
+import { AdminPageHeader, AdminFilterChips, type AdminFilterChip } from "./admin-page-header";
 import { useCatalogSelection, CatalogSelectionActions } from "./catalog-selection";
 import { selectedWork } from "./catalog-selection-model";
 import { useMatchingSelection } from "./use-matching-selection";
@@ -58,12 +61,14 @@ import {
   adminWorksQuery,
   adminWorksOptions,
   worksFilterChoices,
+  worksSortChoices,
+  workGapChoices,
   worksSearchSchema,
   type WorksSearch,
 } from "./works-model";
 import { WorksResults, WorksViewToggle } from "./works-results";
 
-const number = new Intl.NumberFormat("ar");
+const number = new Intl.NumberFormat("ar-u-nu-latn");
 function SearchForm({ value, onSearch }: { value: string; onSearch: (value: string) => void }) {
   const [draft, setDraft] = useState(value);
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -135,9 +140,22 @@ export function AdminWorksPage({
     search.visibility !== "all" ||
     search.gap !== "all",
   );
-  const activeFilters = worksFilterChoices.filter(
-    (filter) => search[filter.key] !== (filter.key === "sort" ? "updated" : "all"),
-  ).length;
+  const activeFilters = worksFilterChoices.filter((filter) => search[filter.key] !== "all").length;
+  const filterChips: AdminFilterChip[] = worksFilterChoices
+    .filter((filter) => search[filter.key] !== "all")
+    .map((filter) => ({
+      key: filter.key,
+      label: `${filter.label}: ${filter.items.find((item) => item.value === search[filter.key])?.label ?? search[filter.key]}`,
+      clear: () =>
+        onChange(
+          worksSearchSchema.parse({
+            ...search,
+            [filter.key]: "all",
+          }),
+        ),
+    }));
+  if (search.q)
+    filterChips.unshift({ key: "q", label: `بحث: ${search.q}`, clear: () => onChange({ q: "" }) });
   const pageWorks = result.data?.items ?? [];
   const selectedIds = new Set(selection.selected.map((work) => work.id));
   const pageSelected = pageWorks.filter((work) => selectedIds.has(work.id)).length;
@@ -153,22 +171,22 @@ export function AdminWorksPage({
   });
   return (
     <article
-      className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-5 p-4 sm:p-6 has-data-[slot=work-selection-actions]:pb-24"
+      className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 sm:p-6 has-data-[slot=work-selection-actions]:pb-24"
       aria-label="إدارة الأعمال"
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-semibold">الأعمال</h2>
-          <p className="text-sm text-muted-foreground">
-            راجع بيانات أعمال المكتبة، أو حدّد عدة أعمال لتحريرها معاً.
-          </p>
-        </div>
+      <AdminPageHeader
+        title="الأعمال"
+        description="حرّر بيانات المكتبة، راجع النواقص، أو حدّد أعمالًا للتعديل الجماعي."
+        icon={Film}
+        count={result.data?.total}
+        unit={filtered ? "عمل مطابق" : "عمل"}
+      >
         <Button render={<a href="#/admin/works/new" />}>
           <Plus data-icon="inline-start" />
           عمل جديد
         </Button>
-      </header>
-      <div className="flex flex-col gap-3">
+      </AdminPageHeader>
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-3">
           <SearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
           <Popover>
@@ -187,50 +205,75 @@ export function AdminWorksPage({
                 <PopoverDescription>تُطبّق اختياراتك مباشرة على النتائج.</PopoverDescription>
               </PopoverHeader>
               <FieldGroup className="grid grid-cols-2 gap-3">
-                {worksFilterChoices.map((filter) => (
-                  <Field key={filter.key}>
-                    <FieldLabel htmlFor={`admin-works-${filter.key}`}>{filter.label}</FieldLabel>
-                    <Select
-                      items={[...filter.items]}
-                      value={search[filter.key]}
-                      onValueChange={(value) => {
-                        if (value !== null) {
-                          const next = worksSearchSchema.parse({ ...search, [filter.key]: value });
-                          onChange({ [filter.key]: next[filter.key] });
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        id={`admin-works-${filter.key}`}
-                        aria-label={filter.label}
-                        className="w-full"
+                {worksFilterChoices
+                  .filter((filter) => filter.key !== "gap")
+                  .map((filter) => (
+                    <Field key={filter.key}>
+                      <FieldLabel htmlFor={`admin-works-${filter.key}`}>{filter.label}</FieldLabel>
+                      <Select
+                        items={[...filter.items]}
+                        value={search[filter.key]}
+                        onValueChange={(value) => {
+                          if (value !== null) {
+                            const next = worksSearchSchema.parse({
+                              ...search,
+                              [filter.key]: value,
+                            });
+                            onChange({ [filter.key]: next[filter.key] });
+                          }
+                        }}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {filter.items.map((item) => (
-                            <SelectItem key={item.value} value={item.value}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                ))}
+                        <SelectTrigger
+                          id={`admin-works-${filter.key}`}
+                          aria-label={filter.label}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {filter.items.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  ))}
               </FieldGroup>
 
               <Button
                 variant="ghost"
                 size="sm"
                 disabled={!activeFilters}
-                onClick={() => onChange({ ...worksSearchSchema.parse({}), q: search.q })}
+                onClick={() =>
+                  onChange({ ...worksSearchSchema.parse({ sort: search.sort }), q: search.q })
+                }
               >
                 <X data-icon="inline-start" /> إعادة ضبط المرشحات
               </Button>
             </PopoverContent>
           </Popover>
+          <div className="w-full sm:w-56">
+            <Choice
+              label="اكتمال بيانات الأعمال"
+              value={search.gap}
+              options={workGapChoices}
+              onChange={(gap) => onChange({ gap: worksSearchSchema.parse({ ...search, gap }).gap })}
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <Choice
+              label="ترتيب الأعمال"
+              value={search.sort}
+              options={worksSortChoices}
+              onChange={(sort) =>
+                onChange({ sort: worksSearchSchema.parse({ ...search, sort }).sort })
+              }
+            />
+          </div>
           <Button
             variant="outline"
             size="icon"
@@ -241,6 +284,10 @@ export function AdminWorksPage({
             {result.isFetching ? <Spinner /> : <RefreshCw />}
           </Button>
         </div>
+        <AdminFilterChips
+          filters={filterChips}
+          reset={() => onChange(worksSearchSchema.parse({ sort: search.sort }))}
+        />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Checkbox
@@ -268,7 +315,7 @@ export function AdminWorksPage({
               ) : (
                 <CheckCheck data-icon="inline-start" />
               )}
-              {selectAll.allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+              {selectAll.allSelected ? "إلغاء تحديد النتائج" : "تحديد كل النتائج"}
             </Button>
           </div>
           <WorksViewToggle value={selection.view} onChange={selection.setView} />
@@ -304,7 +351,10 @@ export function AdminWorksPage({
             <EmptyDescription>غيّر البحث أو المرشحات لعرض أعمال المكتبة.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button variant="outline" onClick={() => onChange(worksSearchSchema.parse({}))}>
+            <Button
+              variant="outline"
+              onClick={() => onChange(worksSearchSchema.parse({ sort: search.sort }))}
+            >
               عرض جميع الأعمال
             </Button>
           </EmptyContent>

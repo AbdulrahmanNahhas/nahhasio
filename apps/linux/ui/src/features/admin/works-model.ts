@@ -18,8 +18,36 @@ export const worksSearchSchema = z.object({
     .catch("all")
     .default("all"),
   visibility: z.enum(["all", "public", "private"]).catch("all").default("all"),
-  gap: z.enum(["all", "poster", "summary", "arabic-name", "structure"]).catch("all").default("all"),
-  sort: z.enum(["updated", "title", "year-desc", "year-asc"]).catch("updated").default("updated"),
+  gap: z
+    .enum([
+      "all",
+      "poster",
+      "summary",
+      "arabic-name",
+      "structure",
+      "banner",
+      "logo",
+      "trailers",
+      "scores",
+      "genres",
+      "planet",
+      "credits",
+      "episode-images",
+    ])
+    .catch("all")
+    .default("all"),
+  sort: z
+    .enum([
+      "updated",
+      "added",
+      "title",
+      "year-desc",
+      "year-asc",
+      "installments-desc",
+      "episodes-desc",
+    ])
+    .catch("updated")
+    .default("updated"),
 });
 export type WorksSearch = z.infer<typeof worksSearchSchema>;
 export const workflowLabels = {
@@ -69,24 +97,34 @@ export const worksFilterChoices = [
     key: "gap",
     label: "بيانات ناقصة",
     items: [
-      { value: "all", label: "دون تحديد" },
+      { value: "all", label: "اكتمال البيانات: الكل" },
       { value: "poster", label: "بلا ملصق" },
       { value: "summary", label: "بلا ملخص" },
       { value: "arabic-name", label: "بلا اسم عربي" },
       { value: "structure", label: "بلا أجزاء" },
-    ],
-  },
-  {
-    key: "sort",
-    label: "الترتيب",
-    items: [
-      { value: "updated", label: "آخر تعديل" },
-      { value: "title", label: "الاسم" },
-      { value: "year-desc", label: "الأحدث إصداراً" },
-      { value: "year-asc", label: "الأقدم إصداراً" },
+      { value: "banner", label: "بلا صورة عريضة" },
+      { value: "logo", label: "بلا شعار للعمل" },
+      { value: "trailers", label: "بلا إعلان تشويقي" },
+      { value: "scores", label: "أجزاء بتقييمات ناقصة" },
+      { value: "genres", label: "بلا أنواع قصصية" },
+      { value: "planet", label: "بلا كوكب" },
+      { value: "credits", label: "بلا مساهمات" },
+      { value: "episode-images", label: "حلقات بلا صور" },
     ],
   },
 ] as const;
+export const worksSortChoices = [
+  { value: "updated", label: "آخر تعديل" },
+  { value: "added", label: "الأحدث إضافة" },
+  { value: "title", label: "الاسم" },
+  { value: "year-desc", label: "الأحدث إصدارًا" },
+  { value: "year-asc", label: "الأقدم إصدارًا" },
+  { value: "installments-desc", label: "الأكثر أجزاء" },
+  { value: "episodes-desc", label: "الأكثر حلقات" },
+] as const;
+export const workGapChoices =
+  worksFilterChoices.find((filter) => filter.key === "gap")?.items ?? [];
+
 export function adminWorksQuery(search: WorksSearch): AdminWorksQuery {
   return {
     page: Number(search.page),

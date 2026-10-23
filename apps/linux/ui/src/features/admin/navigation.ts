@@ -5,7 +5,6 @@ import {
   BookOpen,
   Braces,
   Building2,
-  Clapperboard,
   Download,
   Film,
   GitBranch,
@@ -25,7 +24,6 @@ import {
   TableProperties,
   Tags,
   Users,
-  WandSparkles,
   Waypoints,
 } from "lucide-react";
 
@@ -34,13 +32,11 @@ export const adminGroups = [
     title: "المحتوى والتحرير",
     items: [
       { slug: "works", title: "الأعمال", icon: Film },
-      { slug: "installments", title: "المواسم والأفلام", icon: Clapperboard },
       { slug: "episodes", title: "الحلقات", icon: ListVideo },
       { slug: "people", title: "الأشخاص", icon: Users },
       { slug: "studios", title: "الاستوديوهات", icon: Building2 },
       { slug: "planets", title: "العوالم", icon: Globe },
       { slug: "relationships", title: "العلاقات", icon: GitBranch },
-      { slug: "scores", title: "التقييمات والتحليل", icon: WandSparkles },
       { slug: "awards", title: "الجوائز", icon: Award },
       { slug: "vocabularies", title: "المفردات والترجمات", icon: Tags },
       { slug: "credits", title: "المساهمات", icon: BookOpen },

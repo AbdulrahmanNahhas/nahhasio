@@ -1,8 +1,6 @@
 export const inspectionSections = {
-  installments: ["installments"],
   episodes: ["episodes"],
   relationships: ["title_relations", "organization_relations"],
-  scores: ["installment_scores"],
   awards: ["award_organizations", "award_categories", "award_ceremonies", "award_recognitions"],
   vocabularies: ["genres", "tones", "tags", "countries", "vocabulary_labels", "roles"],
   credits: ["contributions", "entity_aliases"],
