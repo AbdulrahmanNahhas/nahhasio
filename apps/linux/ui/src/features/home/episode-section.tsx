@@ -24,7 +24,7 @@ export function EpisodeSection({
   return (
     <section aria-label="أحدث الحلقات">
       <HomeSectionHeading
-        title={mode === "following" ? "الجديد من متابعتك" : "أحدث الحلقات"}
+        title="أحدث الحلقات"
         description={
           mode === "following"
             ? "حلقات صادرة لم تشاهدها من أعمال بدأتَها أو أضفتها للمفضلة."

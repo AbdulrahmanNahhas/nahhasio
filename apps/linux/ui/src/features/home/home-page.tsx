@@ -7,7 +7,6 @@ import { gateway } from "@/lib/bridge";
 
 import { continueItems, ContinueWatching } from "./continue-watching";
 import { EpisodeSection } from "./episode-section";
-import { FamilyActivitySection } from "./family-activity";
 import { Hero } from "./hero";
 import { HomeRecommendations } from "./home-recommendations";
 import { DeferredHomeSection } from "./home-section";
@@ -49,11 +48,6 @@ export function HomePage() {
           </div>
         )}
         <ContinueWatching items={continuing} />
-        <EpisodeSection
-          following={feed.data?.followingEpisodes ?? []}
-          recent={feed.data?.recentEpisodes ?? []}
-          continuing={continuing.map(({ item }) => item.work.id)}
-        />
         <DeferredHomeSection>
           <Shelf
             title="صدر حديثًا"
@@ -68,6 +62,12 @@ export function HomePage() {
             hideEmpty
           />
         </DeferredHomeSection>
+        <EpisodeSection
+          following={feed.data?.followingEpisodes ?? []}
+          recent={feed.data?.recentEpisodes ?? []}
+          continuing={continuing.map(({ item }) => item.work.id)}
+        />
+        <HomeRecommendations value={feed.data?.recommendations} />
         <UpcomingSection items={feed.data?.upcoming ?? []} />
         <DeferredHomeSection>
           <Shelf
@@ -83,11 +83,9 @@ export function HomePage() {
             hideEmpty
           />
         </DeferredHomeSection>
-        <HomeRecommendations value={feed.data?.recommendations} />
         <DeferredHomeSection>
           <PlanetShelves planets={filters.data?.planets ?? []} />
         </DeferredHomeSection>
-        <FamilyActivitySection items={feed.data?.comments ?? []} />
         <DeferredHomeSection>
           <Shelf
             title="آخر تحديثات المكتبة"
