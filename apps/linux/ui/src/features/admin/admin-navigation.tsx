@@ -54,7 +54,8 @@ export function AdminNavigation() {
               <SidebarMenu>
                 {group.items.map((item) => {
                   const available = isAdminSectionAvailable(item.slug);
-                  const active = path === `/admin/${item.slug}`;
+                  const active =
+                    path === `/admin/${item.slug}` || path.startsWith(`/admin/${item.slug}/`);
                   const label = available ? item.title : `${item.title} — غير متاح بعد`;
                   return (
                     <SidebarMenuItem key={item.slug}>

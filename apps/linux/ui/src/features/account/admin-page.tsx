@@ -15,9 +15,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 
+import { AdminWorkspacePage, isAdminWorkspace } from "../admin/admin-workspaces";
 import { DatabaseInspector, inspectionSections } from "../admin/database-inspector";
 import { adminSection } from "../admin/navigation";
-import { ServerOverviewPage, ServerSettingsPage } from "../admin/server/server-pages";
+import { ServerOverviewPage } from "../admin/server/server-pages";
 
 export function AdminPage() {
   const access = useQuery({
@@ -55,20 +56,28 @@ export function AdminPage() {
     );
   return (
     <section className="flex min-h-full flex-col" aria-label="لوحة الإدارة">
-      {/*<header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-5">
-        <div>
-          <p className="text-sm text-muted-foreground">نحّاسيو</p>
-          <h1 className="text-xl font-semibold">لوحة الإدارة</h1>
-        </div>
-        <Badge variant="secondary">المدير</Badge>
-      </header>*/}
       <Outlet />
     </section>
   );
 }
-export function AdminSectionPage({ section = "" }: { section?: string }) {
+export function AdminSectionPage({
+  section = "",
+  tab = "",
+  onTabChange,
+}: {
+  section?: string;
+  tab?: string;
+  onTabChange?: (value: string) => void;
+}) {
   if (!section) return <ServerOverviewPage />;
-  if (section === "settings") return <ServerSettingsPage />;
+  if (isAdminWorkspace(section))
+    return (
+      <AdminWorkspacePage
+        section={section}
+        tab={tab}
+        onTabChange={(value) => onTabChange?.(value)}
+      />
+    );
   const item = adminSection(section);
   const title = section ? (item?.title ?? "صفحة غير موجودة") : "نظرة عامة";
   if (item && section in inspectionSections)

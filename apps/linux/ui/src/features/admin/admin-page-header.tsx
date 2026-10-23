@@ -20,7 +20,7 @@ export function AdminPageHeader({
   icon: LucideIcon;
   count?: number;
   unit?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-5">
@@ -43,7 +43,9 @@ export function AdminPageHeader({
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
         </div>
       </div>
-      <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{children}</div>
+      {children && (
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{children}</div>
+      )}
     </header>
   );
 }

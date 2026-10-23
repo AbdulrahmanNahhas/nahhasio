@@ -1,5 +1,6 @@
 import type { DatabasePage } from "@nahhasio/api-contract";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Database, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
@@ -40,7 +41,15 @@ function display(value: DatabaseRecord[string] | undefined) {
   const text = z.string().safeParse(value);
   return text.success ? text.data : (JSON.stringify(value) ?? "—");
 }
-export function DatabaseInspector({ section, title }: { section: string; title: string }) {
+export function DatabaseInspector({
+  section,
+  title,
+  embedded = false,
+}: {
+  section: string;
+  title: string;
+  embedded?: boolean;
+}) {
   const schema = useQuery({
     queryKey: ["admin", "database", "schema"],
     queryFn: ({ signal }) => gateway.databaseSchema(signal),
@@ -66,19 +75,24 @@ export function DatabaseInspector({ section, title }: { section: string; title: 
   const error = schema.error ?? rows.error;
   return (
     <article
-      className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-5 p-4 sm:p-6"
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-5",
+        !embedded && "mx-auto max-w-7xl p-4 sm:p-6",
+      )}
       aria-label={title}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">{title}</h1>
-          <p className="text-sm text-muted-foreground">
-            عرض بيانات الخادم وتعريف الحقول. افتح السجل لعرض جميع قيمه؛ التعديل متاح في المحررات
-            المخصصة.
-          </p>
-        </div>
-        <Badge variant="secondary">للقراءة فقط</Badge>
-      </header>
+      {!embedded && (
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            <p className="text-sm text-muted-foreground">
+              عرض بيانات الخادم وتعريف الحقول. افتح السجل لعرض جميع قيمه؛ التعديل متاح في المحررات
+              المخصصة.
+            </p>
+          </div>
+          <Badge variant="secondary">للقراءة فقط</Badge>
+        </header>
+      )}
       {error && (
         <Alert variant="destructive" className="border-border">
           <AlertTitle>تعذّر قراءة البيانات</AlertTitle>

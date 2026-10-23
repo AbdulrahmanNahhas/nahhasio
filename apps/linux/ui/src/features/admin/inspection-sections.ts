@@ -1,10 +1,6 @@
 export const inspectionSections = {
-  episodes: ["episodes"],
-  relationships: ["title_relations", "organization_relations"],
   awards: ["award_organizations", "award_categories", "award_ceremonies", "award_recognitions"],
   vocabularies: ["genres", "tones", "tags", "countries", "vocabulary_labels", "roles"],
-  credits: ["contributions", "entity_aliases"],
-  evidence: ["source_evidence", "external_identities", "title_trivia", "title_aliases"],
   revisions: ["editorial_revisions"],
   library: ["library_roots", "media_files", "media_tracks", "jellyfin_items"],
   downloads: ["account_downloads"],

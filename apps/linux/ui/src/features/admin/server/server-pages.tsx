@@ -5,6 +5,7 @@ import type {
   ServerSettings,
 } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Database, Film, Images, KeyRound, RefreshCw, Server, Settings, Users } from "lucide-react";
 import { useRef } from "react";
 
@@ -231,16 +232,18 @@ export function ServerOverviewPage() {
     </div>
   );
 }
-export function ServerSettingsPage() {
+export function ServerSettingsPage({ embedded = false }: { embedded?: boolean }) {
   const settings = useQuery(serverSettingsQuery());
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">إعدادات الخادم</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          هوية مكتبة العائلة ومفاتيح مصادر الصور والبيانات.
-        </p>
-      </header>
+    <div className={cn("flex w-full flex-col gap-6", !embedded && "mx-auto max-w-4xl p-6")}>
+      {!embedded && (
+        <header>
+          <h1 className="text-2xl font-semibold">إعدادات الخادم</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            هوية مكتبة العائلة ومفاتيح مصادر الصور والبيانات.
+          </p>
+        </header>
+      )}
       {settings.isPending ? (
         <Skeleton className="h-64 w-full" aria-busy="true" />
       ) : settings.isError ? (
