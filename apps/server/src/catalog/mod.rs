@@ -1,3 +1,6 @@
+// Shared work-level status for Browse and administration; t is the title alias.
+pub(crate) const WORK_RELEASE_STATUS: &str = "coalesce((select case when bool_and(x.status='completed') then 'completed' when bool_or((x.release_date<=current_date or (x.release_date is null and x.status='completed')) or x.status='airing') and bool_or(x.status in ('announced','airing')) then 'ongoing' when not bool_or((x.release_date<=current_date or (x.release_date is null and x.status='completed')) or x.status='airing') and bool_or(x.status='announced') then 'announced' else 'unknown' end from installments x where x.title_id=t.id),'unknown')";
+
 mod artwork;
 mod browse;
 mod episodes;

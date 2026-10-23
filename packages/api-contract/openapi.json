@@ -1420,6 +1420,18 @@
             }
           },
           {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["ar", "en"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["completed", "ongoing", "announced", "unknown"] }
+          },
+          {
             "name": "gap",
             "in": "query",
             "required": false,
@@ -2055,6 +2067,18 @@
               "type": "string",
               "enum": ["public", "private"]
             }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["ar", "en"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["completed", "ongoing", "announced", "unknown"] }
           },
           {
             "name": "gap",

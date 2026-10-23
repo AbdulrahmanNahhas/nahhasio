@@ -125,6 +125,10 @@ struct AdminWorksQuery {
     gap: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     sort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -693,6 +697,8 @@ impl ServerSession {
                         &input.workflow,
                         &input.visibility,
                         &input.gap,
+                        &input.language,
+                        &input.status,
                         &input.sort,
                     ]
                     .iter()

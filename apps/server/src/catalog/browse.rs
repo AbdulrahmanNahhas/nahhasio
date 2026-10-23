@@ -154,12 +154,12 @@ impl Input {
         Ok((page, size, view, privacy, order, filters))
     }
 }
-// A work remains eligible when it has released installments alongside upcoming ones.
 const RELEASED_INSTALLMENT: &str =
     "(x.release_date<=current_date or (x.release_date is null and x.status='completed'))";
 fn release_status() -> String {
     format!(
-        "case when i.id is null then coalesce((select case when bool_and(x.status='completed') then 'completed' when bool_or({RELEASED_INSTALLMENT} or x.status='airing') and bool_or(x.status in ('announced','airing')) then 'ongoing' when not bool_or({RELEASED_INSTALLMENT} or x.status='airing') and bool_or(x.status='announced') then 'announced' else 'unknown' end from installments x where x.title_id=t.id),'unknown') else i.status::text end"
+        "case when i.id is null then {} else i.status::text end",
+        super::WORK_RELEASE_STATUS
     )
 }
 fn facets() -> Vec<(&'static str, &'static str, String)> {

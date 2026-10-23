@@ -75,6 +75,8 @@ struct WorksQuery {
     workflow: Option<String>,
     visibility: Option<String>,
     gap: Option<String>,
+    language: Option<String>,
+    status: Option<String>,
     sort: Option<String>,
 }
 impl WorksQuery {
@@ -94,6 +96,11 @@ impl WorksQuery {
                 &["draft", "in_review", "approved", "published", "archived"],
             )
             || !choice(&self.visibility, &["public", "private"])
+            || !choice(&self.language, &["ar", "en"])
+            || !choice(
+                &self.status,
+                &["completed", "ongoing", "announced", "unknown"],
+            )
             || !choice(
                 &self.gap,
                 &[
@@ -155,7 +162,14 @@ OR ($6='genres' AND NOT EXISTS(SELECT 1 FROM title_genres g WHERE g.title_id=t.i
 OR ($6='planet' AND NOT EXISTS(SELECT 1 FROM title_planets p WHERE p.title_id=t.id))
 OR ($6='credits' AND NOT EXISTS(SELECT 1 FROM contributions c WHERE c.title_id=t.id))
 OR ($6='episode-images' AND EXISTS(SELECT 1 FROM installments i JOIN episodes e ON e.installment_id=i.id WHERE i.title_id=t.id AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.episode_id=e.id AND m.role IN ('still','poster','banner')))))
+AND ($7::text IS NULL OR ($7='ar')=('ar'=ANY(t.dub_languages)))
 "#;
+fn work_filter() -> String {
+    format!(
+        "{FILTER} AND ($8::text IS NULL OR ({})=$8)",
+        crate::catalog::WORK_RELEASE_STATUS
+    )
+}
 async fn works(
     State(pool): State<PgPool>,
     input: Result<Query<WorksQuery>, QueryRejection>,
@@ -164,7 +178,7 @@ async fn works(
         input.map_err(|_| Error(StatusCode::BAD_REQUEST, "Invalid administration query"))?;
     let (page, size, order) = input.validate()?;
     let query = format!(
-        r#"WITH filtered AS (SELECT t.* FROM titles t WHERE {FILTER}), page_rows AS (
+        r#"WITH filtered AS (SELECT t.* FROM titles t WHERE {filter}), page_rows AS (
 SELECT t.id, row_number() OVER(ORDER BY {order}) AS ordinal, jsonb_build_object(
 'id',t.id,'canonicalTitle',t.canonical_title,'titleAr',t.title_ar,'releaseYear',t.release_year,
 'format',t.format,'workflow',t.workflow_status,'isPrivate',t.is_private,
@@ -173,8 +187,9 @@ SELECT t.id, row_number() OVER(ORDER BY {order}) AS ordinal, jsonb_build_object(
 'installmentCount',(SELECT count(*) FROM installments i WHERE i.title_id=t.id),
 'episodeCount',(SELECT count(*) FROM episodes e JOIN installments i ON i.id=e.installment_id WHERE i.title_id=t.id),
 'posterId',(SELECT m.asset_id FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='poster' ORDER BY m.is_primary DESC,m.id LIMIT 1)
-) AS item FROM filtered t ORDER BY {order} LIMIT $8 OFFSET (($7-1)*$8))
-SELECT jsonb_build_object('items',coalesce((SELECT jsonb_agg(item ORDER BY ordinal) FROM page_rows),'[]'::jsonb),'total',(SELECT count(*) FROM filtered),'page',$7::bigint,'pageSize',$8::bigint)"#
+) AS item FROM filtered t ORDER BY {order} LIMIT $10 OFFSET (($9-1)*$10))
+SELECT jsonb_build_object('items',coalesce((SELECT jsonb_agg(item ORDER BY ordinal) FROM page_rows),'[]'::jsonb),'total',(SELECT count(*) FROM filtered),'page',$9::bigint,'pageSize',$10::bigint)"#,
+        filter = work_filter()
     );
     let value = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(query))
         .bind(input.q.as_deref().map(str::trim).filter(|v| !v.is_empty()))
@@ -183,6 +198,8 @@ SELECT jsonb_build_object('items',coalesce((SELECT jsonb_agg(item ORDER BY ordin
         .bind(input.workflow)
         .bind(input.visibility)
         .bind(input.gap)
+        .bind(input.language)
+        .bind(input.status)
         .bind(page)
         .bind(size)
         .fetch_one(&pool)
@@ -199,7 +216,8 @@ async fn work_selection(
         input.map_err(|_| Error(StatusCode::BAD_REQUEST, "Invalid administration query"))?;
     let (_, _, order) = input.validate()?;
     let query = format!(
-        "select coalesce(jsonb_agg(item order by ordinal),'[]'::jsonb) from (select row_number() over(order by {order}) ordinal,jsonb_build_object('id',t.id,'name',coalesce(nullif(trim(t.title_ar),''),t.canonical_title)) item from titles t where {FILTER}) selected"
+        "select coalesce(jsonb_agg(item order by ordinal),'[]'::jsonb) from (select row_number() over(order by {order}) ordinal,jsonb_build_object('id',t.id,'name',coalesce(nullif(trim(t.title_ar),''),t.canonical_title)) item from titles t where {filter}) selected",
+        filter = work_filter()
     );
     let value = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(query))
         .bind(input.q.as_deref().map(str::trim).filter(|v| !v.is_empty()))
@@ -208,6 +226,8 @@ async fn work_selection(
         .bind(input.workflow)
         .bind(input.visibility)
         .bind(input.gap)
+        .bind(input.language)
+        .bind(input.status)
         .fetch_one(&pool)
         .await?;
     Ok(Json(value.0))

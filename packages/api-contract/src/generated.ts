@@ -3425,6 +3425,8 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
+      language?: "ar" | "en";
+      status?: "completed" | "ongoing" | "announced" | "unknown";
       gap?:
         | "poster"
         | "summary"
@@ -3512,6 +3514,8 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
+      language?: "ar" | "en";
+      status?: "completed" | "ongoing" | "announced" | "unknown";
       gap?:
         | "poster"
         | "summary"
