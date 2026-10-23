@@ -1,4 +1,4 @@
-import { Grid2X2, List, X, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { Choice } from "@/components/choice";
@@ -7,11 +7,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ReferenceField } from "@/features/editor/references/reference-field";
-import { useIsMobile } from "@/hooks/use-mobile";
 
-import { resetAwardFilters, type AwardSearch } from "./awards.queries";
+import { type AwardSearch } from "./awards.queries";
 export function AwardFilters({
   search,
   onChange,
@@ -19,7 +17,6 @@ export function AwardFilters({
   search: AwardSearch;
   onChange: (patch: Partial<AwardSearch>) => void;
 }) {
-  const mobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const filters = Object.fromEntries(
     search.organization ? [["organization_id", search.organization]] : [],
@@ -34,14 +31,13 @@ export function AwardFilters({
     search.q
   );
   return (
-    <Collapsible open={!mobile || open} onOpenChange={setOpen}>
-      <CollapsibleTrigger
-        render={<Button variant="outline" className="w-full justify-between md:hidden" />}
-      >
+    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 flex-1">
+      <CollapsibleTrigger render={<Button variant="outline" className="justify-between" />}>
         <SlidersHorizontal data-icon="inline-start" />
-        تصفية الجوائز{active ? " · مرشحات نشطة" : ""}
+        المرشحات{active ? " · نشطة" : ""}
+        <ChevronDown data-icon="inline-end" />
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="pt-3">
         <div className="flex flex-col gap-4 rounded-2xl border border-border p-4">
           <FieldGroup className="grid sm:grid-cols-2 lg:grid-cols-3">
             <ReferenceField
@@ -91,22 +87,6 @@ export function AwardFilters({
                 }}
               />
             </Field>
-            <Field className="w-full sm:w-48">
-              <FieldLabel>الترتيب</FieldLabel>
-              <Choice
-                label="ترتيب الجوائز"
-                value={search.sort}
-                options={[
-                  { value: "newest", label: "الأحدث أولاً" },
-                  { value: "oldest", label: "الأقدم أولاً" },
-                  { value: "work", label: "اسم العمل" },
-                ]}
-                onChange={(sort) => {
-                  if (sort === "newest" || sort === "oldest" || sort === "work")
-                    onChange({ sort, page: "1" });
-                }}
-              />
-            </Field>
             <Field orientation="horizontal" className="w-auto">
               <Switch
                 id="award-featured-filter"
@@ -117,62 +97,7 @@ export function AwardFilters({
               />
               <FieldLabel htmlFor="award-featured-filter">الجوائز البارزة فقط</FieldLabel>
             </Field>
-            <ToggleGroup
-              aria-label="طريقة عرض الجوائز"
-              variant="outline"
-              spacing={0}
-              value={[search.view]}
-              onValueChange={(values) => {
-                const view = values[0];
-                if (view === "grid" || view === "table") onChange({ view });
-              }}
-            >
-              <ToggleGroupItem value="grid" aria-label="بوسترات">
-                <Grid2X2 />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="table" aria-label="جدول">
-                <List />
-              </ToggleGroupItem>
-            </ToggleGroup>
           </div>
-          {active && (
-            <div className="flex flex-wrap gap-2" aria-label="المرشحات النشطة">
-              {search.category && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onChange({ category: "", page: "1" })}
-                >
-                  الفئة المحددة
-                  <X data-icon="inline-end" />
-                </Button>
-              )}
-              {search.ceremony && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onChange({ ceremony: "", page: "1" })}
-                >
-                  الدورة المحددة
-                  <X data-icon="inline-end" />
-                </Button>
-              )}
-              {search.year && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onChange({ year: "", ceremony: "", page: "1" })}
-                >
-                  سنة {search.year}
-                  <X data-icon="inline-end" />
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => onChange(resetAwardFilters)}>
-                <X data-icon="inline-start" />
-                مسح المرشحات
-              </Button>
-            </div>
-          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

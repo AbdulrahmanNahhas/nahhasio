@@ -93,7 +93,11 @@ export const awardLabels = {
   award_recognitions: "الجوائز والترشيحات",
 } satisfies Record<AwardTable, string>;
 export const awardLabel = (row: AwardRow) =>
-  text(row, "name_ar") || text(row, "label") || String(row.year ?? "");
+  text(row, "name_ar") ||
+  text(row, "name_en") ||
+  text(row, "label") ||
+  String(row.year ?? "") ||
+  text(row, "slug");
 
 export const resetAwardFilters = {
   category: "",

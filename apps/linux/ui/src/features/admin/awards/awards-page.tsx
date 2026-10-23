@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ExternalLink,
   ListFilter,
+  Grid2X2,
+  List,
   Pencil,
   Plus,
   RefreshCw,
@@ -19,6 +21,7 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Artwork } from "@/components/artwork";
+import { Choice } from "@/components/choice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -45,19 +48,12 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ReferencePicker } from "@/features/editor/references/reference-picker";
 
 import { AdminPageHeader, AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
+import { AwardDefinitions } from "./award-definitions";
 import { AwardEditor } from "./award-editor";
 import { AwardFilters } from "./award-filters";
 import {
@@ -93,6 +89,14 @@ export function AwardsPage({
     ...awardDetailQuery("award_organizations", search.organization),
     enabled: !!search.organization,
   });
+  const categoryDetail = useQuery({
+    ...awardDetailQuery("award_categories", search.category),
+    enabled: !!search.category,
+  });
+  const ceremonyDetail = useQuery({
+    ...awardDetailQuery("award_ceremonies", search.ceremony),
+    enabled: !!search.ceremony,
+  });
   const [editor, setEditor] = useState<{ table: DefinitionTable; id: string | null } | null>(null);
   const [detail, setDetail] = useState<AwardRow | null>(null);
   const [organizationOpen, setOrganizationOpen] = useState(false);
@@ -104,6 +108,18 @@ export function AwardsPage({
     .regex(/^https?:\/\//)
     .safeParse(current?.website_url).data;
   const filterChips: AdminFilterChip[] = [];
+  if (search.category)
+    filterChips.push({
+      key: "category",
+      label: categoryDetail.data ? awardLabel(categoryDetail.data.row) : "فئة محددة",
+      clear: () => onChange({ category: "", page: "1" }),
+    });
+  if (search.ceremony)
+    filterChips.push({
+      key: "ceremony",
+      label: ceremonyDetail.data ? `الدورة: ${awardLabel(ceremonyDetail.data.row)}` : "دورة محددة",
+      clear: () => onChange({ ceremony: "", page: "1" }),
+    });
   if (search.q)
     filterChips.push({
       key: "q",
@@ -208,24 +224,22 @@ export function AwardsPage({
           aria-label="نتائج الجوائز"
           role="region"
         >
-          <Card size="sm">
-            <CardHeader>
+          <section className="flex flex-col gap-4" aria-label="نطاق الجوائز">
+            <div>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-2">
-                  <CardTitle>
-                    <span className="font-display text-2xl">
-                      {current
-                        ? awardLabel(current)
-                        : search.organization
-                          ? "الجهة المحددة"
-                          : "سجل التكريم"}
-                    </span>
-                  </CardTitle>
-                  <CardDescription>
+                  <h2 className="font-display text-2xl font-semibold">
+                    {current
+                      ? awardLabel(current)
+                      : search.organization
+                        ? "الجهة المحددة"
+                        : "سجل التكريم"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
                     {current
                       ? text(current, "name_en") || text(current, "slug")
                       : "كل الجهات المانحة، في مكان واحد"}
-                  </CardDescription>
+                  </p>
                 </div>
                 {current ? (
                   <Button
@@ -242,8 +256,8 @@ export function AwardsPage({
                   <Award className="size-8 text-muted-foreground" aria-hidden="true" />
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            </div>
+            <div className="flex flex-col gap-4">
               {current && (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
@@ -292,8 +306,8 @@ export function AwardsPage({
                   ))}
                 </TabsList>
               </Tabs>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
           {organization.isError && (
             <Failure
               title="تعذّر تحميل الجهة"
@@ -349,7 +363,43 @@ export function AwardsPage({
               </Button>
             )}
           </div>
-          {recognition && <AwardFilters search={search} onChange={onChange} />}
+          {recognition && (
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <AwardFilters search={search} onChange={onChange} />
+              <div className="flex flex-wrap items-center gap-2">
+                <Choice
+                  label="ترتيب الجوائز"
+                  value={search.sort}
+                  options={[
+                    { value: "newest", label: "الأحدث أولاً" },
+                    { value: "oldest", label: "الأقدم أولاً" },
+                    { value: "work", label: "اسم العمل" },
+                  ]}
+                  onChange={(sort) => {
+                    if (sort === "newest" || sort === "oldest" || sort === "work")
+                      onChange({ sort, page: "1" });
+                  }}
+                />
+                <ToggleGroup
+                  variant="outline"
+                  spacing={0}
+                  value={[search.view]}
+                  aria-label="طريقة عرض الجوائز"
+                  onValueChange={(values) => {
+                    const view = values[0];
+                    if (view === "grid" || view === "table") onChange({ view });
+                  }}
+                >
+                  <ToggleGroupItem value="grid" aria-label="بطاقات الجوائز">
+                    <Grid2X2 data-icon="inline-start" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="table" aria-label="جدول الجوائز">
+                    <List data-icon="inline-start" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </div>
+          )}
           <AdminFilterChips
             filters={filterChips}
             reset={() => onChange({ ...resetAwardFilters, q: "" })}
@@ -394,7 +444,7 @@ export function AwardsPage({
                 </Button>
               )}
             </Empty>
-          ) : recognition ? (
+          ) : search.tab === "award_recognitions" ? (
             <RecognitionResults
               rows={records.data.rows}
               view={search.view}
@@ -402,148 +452,13 @@ export function AwardsPage({
               onFilter={onChange}
             />
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>{awardLabels[search.tab]}</CardTitle>
-                <CardDescription>
-                  {records.data.total} سجل
-                  {search.organization && search.tab !== "award_organizations"
-                    ? " ضمن الجهة المحددة"
-                    : " في المكتبة"}{" "}
-                  · افتح التفاصيل لعرض جميع البيانات
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="min-w-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{recognition ? "العمل" : "الاسم"}</TableHead>
-                      <TableHead>{recognition ? "الجائزة" : "التعريف"}</TableHead>
-                      <TableHead>{recognition ? "النتيجة" : "الحالة"}</TableHead>
-                      <TableHead>الإجراءات</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {records.data.rows.map((row) => (
-                      <TableRow key={text(row, "id")}>
-                        <TableCell>
-                          <div className="flex max-w-72 flex-col gap-1">
-                            <Button
-                              variant="link"
-                              className="h-auto justify-start whitespace-normal text-start"
-                              onClick={() =>
-                                onChange({
-                                  ...resetAwardFilters,
-                                  tab: "award_recognitions",
-                                  organization:
-                                    search.tab === "award_organizations"
-                                      ? text(row, "id")
-                                      : text(row, "organization_id"),
-                                  category:
-                                    search.tab === "award_categories" ? text(row, "id") : "",
-                                  year: search.tab === "award_ceremonies" ? String(row.year) : "",
-                                })
-                              }
-                            >
-                              {awardLabel(row)}
-                            </Button>
-                            {search.tab === "award_ceremonies" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  onChange({
-                                    ...resetAwardFilters,
-                                    tab: "award_recognitions",
-                                    organization: text(row, "organization_id"),
-                                    year: String(row.year),
-                                  })
-                                }
-                              >
-                                جوائز سنة {String(row.year)}
-                              </Button>
-                            )}
-                            <span className="text-xs text-muted-foreground" dir="auto">
-                              {recognition
-                                ? text(row, "installment_name") || "العمل كاملاً"
-                                : text(row, "name_en") || text(row, "held_on") || text(row, "slug")}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex max-w-64 flex-col gap-1">
-                            <span dir="auto">
-                              {recognition
-                                ? text(row, "category")
-                                : search.tab === "award_ceremonies"
-                                  ? `الدورة ${row.edition ?? "—"}`
-                                  : text(row, "slug")}
-                            </span>
-                            <span className="line-clamp-2 text-xs text-muted-foreground">
-                              {recognition
-                                ? `${text(row, "organization_name")} · ${row.year ?? "سنة غير محددة"}`
-                                : text(row, "description") || text(row, "source_url") || "—"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge
-                              variant={
-                                row.result === "winner" || row.is_active ? "secondary" : "outline"
-                              }
-                            >
-                              {recognition
-                                ? row.result === "winner"
-                                  ? "فائز"
-                                  : "مرشح"
-                                : search.tab === "award_ceremonies"
-                                  ? String(row.year)
-                                  : row.is_active
-                                    ? "نشط"
-                                    : "غير نشط"}
-                            </Badge>
-                            <Badge variant="outline">
-                              {String(row.recognition_count ?? 0)} جائزة وترشيح
-                            </Badge>
-                            <Badge variant="outline">{String(row.work_count ?? 0)} عمل</Badge>
-                            <Badge variant="secondary">{String(row.winner_count ?? 0)} فوز</Badge>
-                            {row.is_featured && <Badge variant="outline">بارزة</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => setDetail(row)}>
-                              التفاصيل
-                            </Button>
-                            {recognition ? (
-                              <a
-                                href={`#/admin/works/${text(row, "title_id")}?section=awards`}
-                                className={buttonVariants({ variant: "outline", size: "sm" })}
-                              >
-                                تحرير الجوائز
-                              </a>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (search.tab !== "award_recognitions")
-                                    setEditor({ table: search.tab, id: text(row, "id") });
-                                }}
-                              >
-                                <Pencil data-icon="inline-start" />
-                                تحرير
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <AwardDefinitions
+              rows={records.data.rows}
+              table={search.tab}
+              onBrowse={onChange}
+              onDetail={setDetail}
+              onEdit={(table, id) => setEditor({ table, id })}
+            />
           )}
           <nav className="flex items-center justify-between gap-3" aria-label="صفحات الجوائز">
             <Button
@@ -608,22 +523,29 @@ export function AwardsPage({
             </div>
           )}
           {detail && (
-            <dl className="grid gap-4 sm:grid-cols-2">
-              {Object.entries(detail).map(([key, value]) => (
-                <div key={key} className="flex min-w-0 flex-col gap-1">
-                  <dt className="text-sm text-muted-foreground" dir="ltr">
-                    {key}
-                  </dt>
-                  <dd className="break-words text-sm" dir="auto">
-                    {value == null
-                      ? "—"
-                      : z.string().safeParse(value).success
-                        ? z.string().parse(value)
-                        : JSON.stringify(value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <Collapsible defaultOpen={!text(detail, "work_name")}>
+              <CollapsibleTrigger render={<Button variant="outline" />}>
+                جميع بيانات السجل <ChevronDown data-icon="inline-end" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4">
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  {Object.entries(detail).map(([key, value]) => (
+                    <div key={key} className="flex min-w-0 flex-col gap-1">
+                      <dt className="text-sm text-muted-foreground" dir="ltr">
+                        {key}
+                      </dt>
+                      <dd className="break-words text-sm" dir="auto">
+                        {value == null
+                          ? "—"
+                          : z.string().safeParse(value).success
+                            ? z.string().parse(value)
+                            : JSON.stringify(value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </DialogContent>
       </Dialog>

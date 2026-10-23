@@ -100,25 +100,24 @@ export function RecognitionResults({
       </Table>
     );
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-3 sm:grid-cols-2 2xl:grid-cols-3">
       {rows.map((row) => (
         <Card key={text(row, "id")} size="sm">
           <CardHeader>
-            <div className="flex items-start gap-4">
-              <button
-                type="button"
-                className="shrink-0 overflow-hidden rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={`تفاصيل جائزة ${text(row, "work_name")}`}
-                onClick={() => onDetail(row)}
+            <div className="flex items-start gap-3">
+              <a
+                href={`#/titles/${text(row, "title_id")}`}
+                className="shrink-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`صفحة ${text(row, "work_name")}`}
               >
                 <Artwork
                   id={text(row, "poster_id") || null}
                   alt={text(row, "work_name")}
-                  className="h-48 w-32 object-cover"
+                  className="h-28 w-20 rounded-lg object-cover"
                 />
-              </button>
-              <div className="flex min-w-0 flex-1 flex-col gap-3">
-                <div className="flex flex-wrap gap-2">
+              </a>
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Outcome row={row} />
                   {row.is_featured && (
                     <Badge variant="outline">
@@ -126,60 +125,44 @@ export function RecognitionResults({
                       بارزة
                     </Badge>
                   )}
-                </div>
-                <CardTitle>
-                  <button
-                    type="button"
-                    className="text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => onDetail(row)}
-                  >
-                    {text(row, "work_name")}
-                  </button>
-                </CardTitle>
-                <CardDescription>
-                  <span dir="auto">{text(row, "work_english_name")}</span>
-                  {row.work_year ? ` (${row.work_year})` : ""}
-                </CardDescription>
-                <span className="text-xs text-muted-foreground">
-                  {text(row, "organization_name")}
-                </span>
-                <Button
-                  variant="link"
-                  className="h-auto justify-start whitespace-normal text-start"
-                  onClick={() => category(row)}
-                >
-                  {text(row, "category")}
-                </Button>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!row.year}
-                    onClick={() => year(row)}
-                  >
+                  <Button variant="ghost" size="sm" disabled={!row.year} onClick={() => year(row)}>
                     {String(row.year ?? "بدون سنة")}
                   </Button>
-                  <span className="text-xs text-muted-foreground">
-                    {text(row, "installment_name") || "العمل كاملاً"}
-                  </span>
                 </div>
+                <CardTitle>
+                  <a
+                    href={`#/titles/${text(row, "title_id")}`}
+                    className="line-clamp-2 underline-offset-4 hover:underline"
+                  >
+                    {text(row, "work_name")}
+                  </a>
+                </CardTitle>
+                <CardDescription>
+                  <bdi>{text(row, "work_english_name")}</bdi>
+                </CardDescription>
+                <p className="line-clamp-2 text-xs text-muted-foreground">
+                  {text(row, "installment_name") || "العمل كاملاً"}
+                  {row.work_year ? ` · ${row.work_year}` : ""}
+                </p>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {text(row, "notes") && <p className="line-clamp-2 text-sm">{text(row, "notes")}</p>}
-            <div className="flex items-center justify-between gap-2">
-              <Source row={row} />
-              <a
-                href={`#/titles/${text(row, "title_id")}`}
-                className={buttonVariants({ variant: "link", size: "sm" })}
-              >
-                صفحة العمل
-              </a>
-            </div>
+          <CardContent className="flex flex-col gap-1">
+            <Button
+              variant="link"
+              className="h-auto justify-start whitespace-normal text-start"
+              onClick={() => category(row)}
+            >
+              {text(row, "category") || "فئة غير محددة"}
+            </Button>
+            <p className="text-xs text-muted-foreground">{text(row, "organization_name")}</p>
+            {text(row, "notes") && (
+              <p className="line-clamp-2 text-xs text-muted-foreground">{text(row, "notes")}</p>
+            )}
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-wrap items-center justify-between gap-2">
             <Actions row={row} onDetail={onDetail} />
+            <Source row={row} />
           </CardFooter>
         </Card>
       ))}
