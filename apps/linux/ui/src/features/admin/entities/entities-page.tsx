@@ -3,7 +3,6 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { cn } from "cn";
 import {
   Users,
-  Building2,
   Plus,
   Grid2X2,
   List,
@@ -12,7 +11,6 @@ import {
   RefreshCw,
   Trash2,
   X,
-  SlidersHorizontal,
   CheckCheck,
   ImageOff,
   Unlink,
@@ -32,21 +30,13 @@ import {
   EmptyDescription,
   EmptyMedia,
 } from "@/components/ui/empty";
-import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupInput,
   InputGroupAddon,
   InputGroupButton,
 } from "@/components/ui/input-group";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverDescription,
-} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -63,8 +53,9 @@ import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit
 import { gateway } from "@/lib/bridge";
 import { languageName } from "@/lib/languages";
 
-import { AdminPageHeader, AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
+import { AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
 import { useCatalogSelection, CatalogSelectionActions } from "../catalog-selection";
+import { CatalogWorkspaceHeader } from "../catalog-workspace-header";
 import { useMatchingSelection } from "../use-matching-selection";
 import {
   entityListOptions,
@@ -75,8 +66,8 @@ import {
 } from "./entities.queries";
 import { EntityDelete } from "./entity-delete";
 import { EntityDrawer } from "./entity-editor";
+import { EntityFilters } from "./entity-filters";
 
-const number = new Intl.NumberFormat("ar-u-nu-latn");
 const date = new Intl.DateTimeFormat("ar-u-nu-latn", { dateStyle: "medium" });
 
 export function EntitiesPage({
@@ -193,191 +184,85 @@ export function EntitiesPage({
       )}
       aria-label={`إدارة ${title}`}
     >
-      <AdminPageHeader
+      <CatalogWorkspaceHeader
         title={title}
-        description={
-          people
-            ? "الأسماء والصور والأدوار. افتح شخصًا لتحرير ملفه ومساهماته في الأعمال."
-            : "الاستوديوهات وشركات الإنتاج والدبلجة. حرّر الملفات واربطها بأعمال المكتبة."
-        }
-        icon={people ? Users : Building2}
         count={result.data?.total}
         unit={people ? "شخص" : "استوديو"}
+        filtered={!!search.q || activeFilters > 0}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`تحديث ${title}`}
+              disabled={result.isFetching}
+              onClick={() => void result.refetch()}
+            >
+              {result.isFetching ? <Spinner /> : <RefreshCw />}
+            </Button>
+            <Button onClick={() => open("new")}>
+              <Plus data-icon="inline-start" />
+              {people ? "شخص جديد" : "استوديو جديد"}
+            </Button>
+          </>
+        }
       >
-        <Button onClick={() => open("new")}>
-          <Plus data-icon="inline-start" />
-          {people ? "شخص جديد" : "استوديو جديد"}
-        </Button>
-      </AdminPageHeader>
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-3">
           <EntitySearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
-          <Popover>
-            <PopoverTrigger render={<Button variant="outline" />}>
-              <SlidersHorizontal data-icon="inline-start" /> المرشحات
-              {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="max-h-120 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto scroll-fade-y"
-            >
-              <PopoverHeader>
-                <PopoverTitle>مرشحات {title}</PopoverTitle>
-                <PopoverDescription>تُطبّق اختياراتك مباشرة على النتائج.</PopoverDescription>
-              </PopoverHeader>
-              <FieldGroup className="grid grid-cols-2 gap-3">
-                <Field>
-                  <FieldLabel htmlFor="entity-role">الدور</FieldLabel>
-                  <Choice
-                    id="entity-role"
-                    label="الدور"
-                    value={search.role}
-                    options={[
-                      { value: "", label: "جميع الأدوار" },
-                      ...(options.data?.roles ?? []).map((role) => ({
-                        value: role.slug,
-                        label: role.label,
-                      })),
-                    ]}
-                    onChange={(role) => onChange({ role })}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="entity-language">لغة المساهمة</FieldLabel>
-                  <Choice
-                    id="entity-language"
-                    label="لغة المساهمة"
-                    value={search.language}
-                    options={[
-                      { value: "", label: "جميع اللغات" },
-                      { value: "ar", label: "العربية" },
-                      { value: "en", label: "الإنجليزية" },
-                      { value: "es", label: "الإسبانية" },
-                      { value: "ja", label: "اليابانية" },
-                    ]}
-                    onChange={(language) => onChange({ language })}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="entity-filter-image">توفر الصورة</FieldLabel>
-                  <Choice
-                    id="entity-filter-image"
-                    label="توفر الصورة"
-                    value={search.image}
-                    options={[
-                      { value: "all", label: "كل الصور" },
-                      { value: "with", label: "بصورة" },
-                      { value: "without", label: "بدون صورة" },
-                    ]}
-                    onChange={(image) =>
-                      onChange({ image: image === "with" || image === "without" ? image : "all" })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="entity-filter-usage">عدد الأعمال</FieldLabel>
-                  <Choice
-                    id="entity-filter-usage"
-                    label="عدد الأعمال"
-                    value={search.usage}
-                    options={[
-                      { value: "all", label: "كل السجلات" },
-                      { value: "one", label: "عمل واحد فقط" },
-                      { value: "linked", label: "لها أعمال" },
-                      { value: "unlinked", label: "بدون أعمال" },
-                    ]}
-                    onChange={(usage) =>
-                      onChange({
-                        usage:
-                          usage === "linked" || usage === "unlinked" || usage === "one"
-                            ? usage
-                            : "all",
-                      })
-                    }
-                  />
-                </Field>
-              </FieldGroup>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!activeFilters}
-                onClick={() => onChange({ image: "all", usage: "all", role: "", language: "" })}
-              >
-                <X data-icon="inline-start" /> إعادة ضبط المرشحات
-              </Button>
-            </PopoverContent>
-          </Popover>
-          <div className="w-full sm:w-48">
-            <Choice
-              label={`ترتيب ${title}`}
-              value={search.sort}
-              options={[
-                { value: "works", label: "الأكثر أعمالًا" },
-                { value: "name", label: "الاسم" },
-                { value: "updated", label: "آخر تعديل" },
-              ]}
-              onChange={(sort) =>
-                onChange({ sort: sort === "works" || sort === "updated" ? sort : "name" })
-              }
-            />
-          </div>
-          <Button
+          <EntityFilters
+            title={title}
+            search={search}
+            roles={options.data?.roles}
+            onChange={onChange}
+          />
+
+          <ToggleGroup
+            multiple
             variant="outline"
-            size="icon"
-            aria-label={`تحديث ${title}`}
-            disabled={result.isFetching}
-            onClick={() => void result.refetch()}
+            spacing={2}
+            size="sm"
+            aria-label="مرشحات صيانة سريعة"
+            value={[
+              search.image === "without" ? "missing-image" : "",
+              search.usage === "unlinked" ? "unlinked" : "",
+            ].filter(Boolean)}
+            onValueChange={(values) =>
+              onChange({
+                image: values.includes("missing-image")
+                  ? "without"
+                  : search.image === "without"
+                    ? "all"
+                    : search.image,
+                usage: values.includes("unlinked")
+                  ? "unlinked"
+                  : search.usage === "unlinked"
+                    ? "all"
+                    : search.usage,
+              })
+            }
           >
-            {result.isFetching ? <Spinner /> : <RefreshCw />}
-          </Button>
+            <ToggleGroupItem value="missing-image">
+              <ImageOff data-icon="inline-start" />
+              بدون صورة
+            </ToggleGroupItem>
+            <ToggleGroupItem value="unlinked">
+              <Unlink data-icon="inline-start" />
+              بدون أعمال
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
-        <ToggleGroup
-          multiple
-          variant="outline"
-          spacing={2}
-          size="sm"
-          aria-label="مرشحات صيانة سريعة"
-          value={[
-            search.image === "without" ? "missing-image" : "",
-            search.usage === "unlinked" ? "unlinked" : "",
-          ].filter(Boolean)}
-          onValueChange={(values) =>
-            onChange({
-              image: values.includes("missing-image")
-                ? "without"
-                : search.image === "without"
-                  ? "all"
-                  : search.image,
-              usage: values.includes("unlinked")
-                ? "unlinked"
-                : search.usage === "unlinked"
-                  ? "all"
-                  : search.usage,
-            })
-          }
-        >
-          <ToggleGroupItem value="missing-image">
-            <ImageOff data-icon="inline-start" />
-            بدون صورة
-          </ToggleGroupItem>
-          <ToggleGroupItem value="unlinked">
-            <Unlink data-icon="inline-start" />
-            بدون أعمال
-          </ToggleGroupItem>
-        </ToggleGroup>
         <AdminFilterChips filters={filterChips} reset={resetFilters} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <Checkbox
+              id="entity-select-page"
               checked={allSelected}
               indeterminate={items.some((item) => selected.has(item.id)) && !allSelected}
               disabled={!items.length || result.isFetching}
               aria-label="تحديد سجلات الصفحة"
               onCheckedChange={(checked) => selectPage(checked === true)}
             />
-            <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-              {result.data ? number.format(result.data.total) : "…"} سجل
-            </p>
+            <FieldLabel htmlFor="entity-select-page">تحديد الصفحة</FieldLabel>
             <Button
               variant="ghost"
               size="sm"
@@ -394,25 +279,41 @@ export function EntitiesPage({
               {selectAll.allSelected ? "إلغاء تحديد النتائج" : "تحديد كل النتائج"}
             </Button>
           </div>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            value={[search.view]}
-            aria-label="طريقة العرض"
-            onValueChange={(values) => {
-              const view = values[0];
-              if (view === "grid" || view === "table") onChange({ view }, false);
-            }}
-          >
-            <ToggleGroupItem value="grid" aria-label="بطاقات">
-              <Grid2X2 />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="جدول">
-              <List />
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <div className="w-full sm:w-48">
+              <Choice
+                label={`ترتيب ${title}`}
+                value={search.sort}
+                options={[
+                  { value: "works", label: "الأكثر أعمالًا" },
+                  { value: "name", label: "الاسم" },
+                  { value: "updated", label: "آخر تعديل" },
+                ]}
+                onChange={(sort) =>
+                  onChange({ sort: sort === "works" || sort === "updated" ? sort : "name" })
+                }
+              />
+            </div>
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              value={[search.view]}
+              aria-label="طريقة العرض"
+              onValueChange={(values) => {
+                const view = values[0];
+                if (view === "grid" || view === "table") onChange({ view }, false);
+              }}
+            >
+              <ToggleGroupItem value="grid" aria-label="بطاقات">
+                <Grid2X2 />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="جدول">
+                <List />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
-      </div>
+      </CatalogWorkspaceHeader>
       {selectAll.error && (
         <Alert variant="destructive">
           <AlertTitle>تعذّر تحديد السجلات</AlertTitle>

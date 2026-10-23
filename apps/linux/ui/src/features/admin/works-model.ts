@@ -18,6 +18,11 @@ export const worksSearchSchema = z.object({
     .catch("all")
     .default("all"),
   visibility: z.enum(["all", "public", "private"]).catch("all").default("all"),
+  language: z.enum(["all", "ar", "en"]).catch("all").default("all"),
+  status: z
+    .enum(["all", "completed", "ongoing", "announced", "unknown"])
+    .catch("all")
+    .default("all"),
   gap: z
     .enum([
       "all",
@@ -94,6 +99,26 @@ export const worksFilterChoices = [
     ],
   },
   {
+    key: "language",
+    label: "لغة المشاهدة",
+    items: [
+      { value: "all", label: "الكل" },
+      { value: "ar", label: "العربية" },
+      { value: "en", label: "English (الافتراضية)" },
+    ],
+  },
+  {
+    key: "status",
+    label: "حالة الإصدار",
+    items: [
+      { value: "all", label: "الكل" },
+      { value: "completed", label: "مكتمل" },
+      { value: "ongoing", label: "مستمر" },
+      { value: "announced", label: "قادم" },
+      { value: "unknown", label: "غير معروف" },
+    ],
+  },
+  {
     key: "gap",
     label: "بيانات ناقصة",
     items: [
@@ -135,6 +160,8 @@ export function adminWorksQuery(search: WorksSearch): AdminWorksQuery {
     workflow: search.workflow === "all" ? undefined : search.workflow,
     visibility: search.visibility === "all" ? undefined : search.visibility,
     gap: search.gap === "all" ? undefined : search.gap,
+    language: search.language === "all" ? undefined : search.language,
+    status: search.status === "all" ? undefined : search.status,
     sort: search.sort,
   };
 }
