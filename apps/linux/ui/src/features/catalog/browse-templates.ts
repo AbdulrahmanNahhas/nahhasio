@@ -14,6 +14,7 @@ type Template = {
   sort: SortOrder;
   group?: BrowseGroup;
   facet?: { key: string; value: string };
+  facets?: BrowseFilters["facets"];
   minimumRating?: number;
   display?: Partial<DisplayPreferences>;
 };
@@ -66,6 +67,40 @@ export const browseTemplates: readonly Template[] = [
     section: "explore",
     icon: Library,
     sort: "added-desc",
+  },
+  {
+    id: "arabic-cartoon",
+    title: "كرتون عربي",
+    description: "كل أفلام ومسلسلات الرسوم المتحركة المدبلجة بالعربية، القديمة والجديدة.",
+    section: "explore",
+    icon: Library,
+    sort: "year-desc",
+    facets: [
+      { key: "dubLanguages", include: ["ar"], exclude: [] },
+      { key: "kinds", include: ["animated-series", "animated-movie"], exclude: [] },
+    ],
+  },
+  {
+    id: "anime",
+    title: "أنمي",
+    description: "مسلسلات الأنمي بلا كلاسيكيات الطفولة والأنمي الرومانسي، بملصقات صغيرة وصور فقط.",
+    section: "explore",
+    icon: BookOpen,
+    sort: "year-desc",
+    facets: [
+      {
+        key: "tags",
+        include: ["anime-series"],
+        exclude: ["childhood-classic", "romance-focused-anime"],
+      },
+    ],
+    display: {
+      layout: "poster",
+      size: "compact",
+      minimal: true,
+      showScore: false,
+      showStatus: false,
+    },
   },
   {
     id: "top",
@@ -121,6 +156,8 @@ export function templateSettings(template: Template, privacy: string | null) {
   const filters: BrowseFilters = emptyFilters();
   if (template.facet)
     filters.facets.push({ key: template.facet.key, include: [template.facet.value], exclude: [] });
+  for (const facet of template.facets ?? [])
+    filters.facets.push({ ...facet, include: [...facet.include], exclude: [...facet.exclude] });
   filters.minimumRating = template.minimumRating ?? 0;
   const params = new URLSearchParams({
     view: "works",
