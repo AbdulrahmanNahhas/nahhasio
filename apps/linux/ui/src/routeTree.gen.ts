@@ -21,6 +21,7 @@ import { Route as ProfileRouteImport } from "./routes/profile";
 import { Route as ReleasesRouteImport } from "./routes/releases";
 import { Route as SearchRouteImport } from "./routes/search";
 import { Route as StudiosRouteImport } from "./routes/studios";
+import { Route as TrailersRouteImport } from "./routes/trailers";
 import { Route as WatchRouteImport } from "./routes/watch";
 import { Route as AdminIndexRouteImport } from "./routes/admin.index";
 import { Route as AdminSectionRouteImport } from "./routes/admin.$section";
@@ -102,6 +103,11 @@ const SearchRoute = SearchRouteImport.update({
 const StudiosRoute = StudiosRouteImport.update({
   id: "/studios",
   path: "/studios",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const TrailersRoute = TrailersRouteImport.update({
+  id: "/trailers",
+  path: "/trailers",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WatchRoute = WatchRouteImport.update({
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
   "/studios": typeof StudiosRoute;
+  "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/awards": typeof AdminAwardsRoute;
@@ -263,6 +270,7 @@ export interface FileRoutesByTo {
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
   "/studios": typeof StudiosRoute;
+  "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/awards": typeof AdminAwardsRoute;
@@ -300,6 +308,7 @@ export interface FileRoutesById {
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
   "/studios": typeof StudiosRoute;
+  "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
   "/admin/$section": typeof AdminSectionRoute;
   "/admin/awards": typeof AdminAwardsRoute;
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | "/releases"
     | "/search"
     | "/studios"
+    | "/trailers"
     | "/watch"
     | "/admin/$section"
     | "/admin/awards"
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | "/releases"
     | "/search"
     | "/studios"
+    | "/trailers"
     | "/watch"
     | "/admin/$section"
     | "/admin/awards"
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | "/releases"
     | "/search"
     | "/studios"
+    | "/trailers"
     | "/watch"
     | "/admin/$section"
     | "/admin/awards"
@@ -446,6 +458,7 @@ export interface RootRouteChildren {
   ReleasesRoute: typeof ReleasesRoute;
   SearchRoute: typeof SearchRoute;
   StudiosRoute: typeof StudiosRoute;
+  TrailersRoute: typeof TrailersRoute;
   WatchRoute: typeof WatchRoute;
   PeopleIdRoute: typeof PeopleIdRoute;
   PlanetsIdRoute: typeof PlanetsIdRoute;
@@ -538,6 +551,13 @@ declare module "@tanstack/react-router" {
       path: "/studios";
       fullPath: "/studios";
       preLoaderRoute: typeof StudiosRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/trailers": {
+      id: "/trailers";
+      path: "/trailers";
+      fullPath: "/trailers";
+      preLoaderRoute: typeof TrailersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/watch": {
@@ -750,6 +770,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReleasesRoute: ReleasesRoute,
   SearchRoute: SearchRoute,
   StudiosRoute: StudiosRoute,
+  TrailersRoute: TrailersRoute,
   WatchRoute: WatchRoute,
   PeopleIdRoute: PeopleIdRoute,
   PlanetsIdRoute: PlanetsIdRoute,

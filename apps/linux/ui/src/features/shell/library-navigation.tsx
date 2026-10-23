@@ -11,6 +11,7 @@ import {
   Orbit,
   Search,
   Users,
+  Film,
 } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
@@ -60,6 +61,12 @@ const pages = [
     label: "مشاهدة مباشرة",
     description: "افتح عملًا للمشاهدة أو التنزيل",
     icon: MonitorPlay,
+  },
+  {
+    path: "trailers",
+    label: "الإعلانات التشويقية",
+    description: "شاهد إعلانات الأعمال على YouTube",
+    icon: Film,
   },
   {
     path: "studios",

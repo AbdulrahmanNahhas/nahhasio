@@ -32,6 +32,7 @@ import {
   HomeFeedSchema,
   RecommendationPageSchema,
   EpisodesPageSchema,
+  TrailersPageSchema,
   ReleasesPageSchema,
   SessionSchema,
   WorkDetailSchema,
@@ -57,6 +58,7 @@ export type WatchedSelection = Pick<WatchedRequest, "isPlayed"> & {
 import { z } from "zod";
 export type AdminWorksQuery = NonNullable<Parameters<ApiClient["getAdminWorks"]>[0]>;
 export type CatalogQuery = NonNullable<Parameters<ApiClient["browseCatalog"]>[0]>;
+export type TrailersQuery = NonNullable<Parameters<ApiClient["getTrailers"]>[0]>;
 export type EpisodesQuery = NonNullable<Parameters<ApiClient["getEpisodes"]>[0]>;
 export type ReleasesQuery = NonNullable<Parameters<ApiClient["getReleases"]>[0]>;
 export type LibraryQuery = NonNullable<Parameters<ApiClient["listWorks"]>[0]>;
@@ -263,6 +265,8 @@ export const gateway = {
 
   releases: async (query: ReleasesQuery, signal?: AbortSignal) =>
     ReleasesPageSchema.parse(await call("releases", query, signal)),
+  trailers: async (query: TrailersQuery, signal?: AbortSignal) =>
+    TrailersPageSchema.parse(await call("trailers", query, signal)),
   episodes: async (query: EpisodesQuery, signal?: AbortSignal) =>
     EpisodesPageSchema.parse(await call("episodes", query, signal)),
   recommendations: async (id: string, signal?: AbortSignal) =>

@@ -1,7 +1,6 @@
 import type { CatalogEntry, WorkSummary } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { MediaCard } from "../../components/media-card";
@@ -10,7 +9,8 @@ import { Progress } from "../../components/ui/progress";
 import { Skeleton } from "../../components/ui/skeleton";
 import { gateway } from "../../lib/bridge";
 import type { CatalogQuery, LibraryQuery } from "../../lib/bridge";
-import { FittedRow } from "./fitted-row";
+import { HomeSectionHeading } from "./home-section";
+import { ScrollShelf } from "./scroll-shelf";
 export function Shelf({
   title,
   description,
@@ -50,22 +50,15 @@ export function Shelf({
   if (hideEmpty && result.data?.length === 0) return null;
   return (
     <section className={cn("min-w-0", className)}>
-      <header className="mb-5 flex items-center justify-between gap-4.5">
-        <div>
-          {heading ?? (
-            <h2 className="text-[21px] leading-[1.6] font-semibold max-[520px]:text-lg">{title}</h2>
-          )}
-          {description && <p className="mt-1.25 text-xs text-muted-foreground">{description}</p>}
-        </div>
-        {href && (
-          <a
-            className="inline-flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
-            href={href}
-          >
-            عرض الكل <ArrowLeft size={16} />
-          </a>
-        )}
-      </header>
+      {heading ? (
+        <header className="mb-5">{heading}</header>
+      ) : (
+        <HomeSectionHeading
+          title={title ?? "أعمال المكتبة"}
+          description={description}
+          href={href}
+        />
+      )}
       {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
       {result.isLoading && (
         <div
@@ -78,11 +71,11 @@ export function Shelf({
           <Skeleton className="aspect-2/3" />
         </div>
       )}
-      <FittedRow
+      <ScrollShelf
         layout={layout}
         items={result.data ?? []}
         render={({ work, entry }) => (
-          <div key={work.id} className={cn("min-w-0", showProgress)}>
+          <div key={entry?.installment?.id ?? work.id} className="min-w-0">
             <MediaCard
               work={work}
               entry={entry}
