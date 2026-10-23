@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Grid2X2, List, Search, RefreshCw, ArrowRight, ArrowLeft, Images } from "lucide-react";
 import { useState } from "react";
 
@@ -50,6 +51,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { databaseKeys } from "@/features/database/data/database.queries";
 import { RegisteredImage } from "@/features/editor/registered-image";
 
+import { CatalogWorkspaceHeader } from "../catalog-workspace-header";
 import { ImageDelete } from "./image-delete";
 import { ImageDetail } from "./image-detail";
 import { ImageRename } from "./image-rename";
@@ -108,106 +110,124 @@ export function ImagesPage({
       className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 sm:p-6"
       aria-label="مكتبة الصور"
     >
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">مكتبة الصور</h1>
-          <p className="text-sm text-muted-foreground">
-            الملصقات والخلفيات والشعارات وصور المساهمين، وروابطها بالسجلات.
-          </p>
+      <CatalogWorkspaceHeader
+        title="مكتبة الصور"
+        count={images.data?.total}
+        unit="صورة"
+        filtered={
+          !!search.q || search.usage !== "all" || search.role !== "all" || search.health !== "all"
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="تحديث الصور"
+              disabled={images.isFetching}
+              onClick={() => {
+                void client.invalidateQueries({ queryKey: ["admin", "editor-image"] });
+                void images.refetch();
+              }}
+            >
+              <RefreshCw />
+            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <ImageRename
+                ids={images.data?.items.map((asset) => asset.id) ?? []}
+                onRenamed={changed}
+              />
+              <ImageUpload
+                onUploaded={async (id) => {
+                  await changed();
+                  toast.add({
+                    type: "success",
+                    title: "الصورة جاهزة في المكتبة",
+                    description: "اختر سجلاً لربطها به.",
+                  });
+                  openImage(id);
+                }}
+              />
+            </div>
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              label="الروابط"
+              value={search.usage}
+              items={[
+                { value: "all", label: "كل الصور" },
+                { value: "assigned", label: "مرتبطة بسجلات" },
+                { value: "unassigned", label: "غير مرتبطة" },
+              ]}
+              onChange={(usage) => onChange({ usage })}
+            />
+            <FilterSelect
+              label="حالة الملف"
+              value={search.health}
+              items={[
+                { value: "all", label: "كل الملفات" },
+                { value: "problems", label: "ملفات بها مشاكل" },
+                { value: "missing", label: "ملفات مفقودة" },
+                { value: "healthy", label: "ملفات متاحة" },
+              ]}
+              onChange={(health) => onChange({ health })}
+            />
+            <FilterSelect
+              label="الترتيب"
+              value={search.sort}
+              items={[
+                { value: "newest", label: "الأحدث إضافة" },
+                { value: "oldest", label: "الأقدم إضافة" },
+                { value: "name", label: "اسم الملف" },
+                { value: "size", label: "الأكبر حجماً" },
+              ]}
+              onChange={(sort) => onChange({ sort })}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              value={[search.view]}
+              onValueChange={(values) => {
+                const view = values[0];
+                if (view === "grid" || view === "table") onChange({ view }, false);
+              }}
+              aria-label="طريقة عرض الصور"
+            >
+              <ToggleGroupItem value="grid" aria-label="شبكة الصور">
+                <Grid2X2 />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="جدول الصور">
+                <List />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ImageRename
-            ids={images.data?.items.map((asset) => asset.id) ?? []}
-            onRenamed={changed}
-          />
-          <ImageUpload
-            onUploaded={async (id) => {
-              await changed();
-              toast.add({
-                type: "success",
-                title: "الصورة جاهزة في المكتبة",
-                description: "اختر سجلاً لربطها به.",
-              });
-              openImage(id);
-            }}
-          />
-        </div>
-      </header>
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterSelect
-            label="الروابط"
-            value={search.usage}
-            items={[
-              { value: "all", label: "كل الصور" },
-              { value: "assigned", label: "مرتبطة بسجلات" },
-              { value: "unassigned", label: "غير مرتبطة" },
-            ]}
-            onChange={(usage) => onChange({ usage })}
-          />
-          <FilterSelect
-            label="نوع الاستخدام"
-            value={search.role}
-            items={[{ value: "all", label: "كل الأنواع" }, ...imageRoles]}
-            onChange={(role) => onChange({ role })}
-          />
-          <FilterSelect
-            label="حالة الملف"
-            value={search.health}
-            items={[
-              { value: "all", label: "كل الملفات" },
-              { value: "problems", label: "ملفات بها مشاكل" },
-              { value: "missing", label: "ملفات مفقودة" },
-              { value: "healthy", label: "ملفات متاحة" },
-            ]}
-            onChange={(health) => onChange({ health })}
-          />
-          <FilterSelect
-            label="الترتيب"
-            value={search.sort}
-            items={[
-              { value: "newest", label: "الأحدث إضافة" },
-              { value: "oldest", label: "الأقدم إضافة" },
-              { value: "name", label: "اسم الملف" },
-              { value: "size", label: "الأكبر حجماً" },
-            ]}
-            onChange={(sort) => onChange({ sort })}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">
-            {images.data ? new Intl.NumberFormat("ar").format(images.data.total) : "…"} صورة
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="تحديث الصور"
-            disabled={images.isFetching}
-            onClick={() => {
-              void client.invalidateQueries({ queryKey: ["admin", "editor-image"] });
-              void images.refetch();
-            }}
-          >
-            <RefreshCw data-icon="inline-start" />
-          </Button>
-          <ToggleGroup
-            value={[search.view]}
-            onValueChange={(values) => {
-              const view = values[0];
-              if (view === "grid" || view === "table") onChange({ view }, false);
-            }}
-            aria-label="طريقة عرض الصور"
-          >
-            <ToggleGroupItem value="grid" aria-label="شبكة الصور">
-              <Grid2X2 />
+        <ToggleGroup
+          aria-label="نوع الصورة"
+          variant="outline"
+          size="sm"
+          spacing={1}
+          className="flex-wrap"
+          value={[search.role]}
+          onValueChange={(values) => {
+            const role = values[0] ?? "all";
+            if (role === "all" || imageRoles.some((item) => item.value === role))
+              onChange({ role: imageRoles.find((item) => item.value === role)?.value ?? "all" });
+          }}
+        >
+          <ToggleGroupItem value="all">كل الصور</ToggleGroupItem>
+          {imageRoles.map((role) => (
+            <ToggleGroupItem key={role.value} value={role.value}>
+              {role.label}
             </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="جدول الصور">
-              <List />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </div>
+          ))}
+        </ToggleGroup>
+      </CatalogWorkspaceHeader>
       {images.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -239,9 +259,9 @@ export function ImagesPage({
           </Button>
         </Empty>
       ) : search.view === "grid" ? (
-        <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
           {images.data.items.map((asset) => (
-            <Card key={asset.id} size="sm">
+            <Card key={asset.id} size="sm" className="mb-4 break-inside-avoid">
               <CardContent>
                 <Button
                   variant="ghost"
@@ -254,7 +274,10 @@ export function ImagesPage({
                   <RegisteredImage
                     assetId={asset.id}
                     alt={asset.fileName}
-                    className="h-52 w-full rounded-lg bg-muted"
+                    className={cn(
+                      "w-full rounded-lg bg-muted",
+                      imagePreviewLayout(asset, search.role),
+                    )}
                   />
                 </Button>
               </CardContent>
@@ -428,7 +451,7 @@ function SearchForm({ value, onSearch }: { value: string; onSearch: (q: string) 
   const [draft, setDraft] = useState(value);
   return (
     <form
-      className="w-full sm:max-w-md"
+      className="min-w-0 flex-1 basis-full lg:basis-auto"
       onSubmit={(event) => {
         event.preventDefault();
         onSearch(draft);
@@ -498,4 +521,19 @@ function FilterSelect<T extends string>({
       </SelectContent>
     </Select>
   );
+}
+
+function imagePreviewLayout(asset: ImageAsset, selected: ImageSearch["role"]) {
+  const role = selected !== "all" ? selected : asset.roles[0];
+  if (role === "logo") return "aspect-3/2 p-4";
+  if (role === "poster") return "aspect-2/3";
+  if (role === "profile") return "aspect-4/5";
+  if (role === "banner") return "aspect-21/9";
+  if (role === "still") return "aspect-video";
+  const ratio = asset.width / Math.max(1, asset.height);
+  if (ratio < 0.75) return "aspect-2/3";
+  if (ratio < 0.95) return "aspect-4/5";
+  if (ratio > 2) return "aspect-21/9";
+  if (ratio > 1.3) return "aspect-video";
+  return "aspect-square";
 }
