@@ -99,13 +99,31 @@ in Rust. `pnpm typecheck` checks schema drift; regenerate with
 
 ```sh
 devenv processes list
-devenv up postgres server
-devenv shell -- nahhasio-client
 devenv up
+devenv --profile dev up
+devenv up client
 ```
 
-`devenv up` starts PostgreSQL, the Rust API and the Linux client. No website or Node API
-process is started. Avoid duplicate processes.
+`devenv up` starts PostgreSQL and the Rust API only. For everyday UI development, use
+`devenv --profile dev up` (short form: `devenv -P dev up`). The native process manager starts
+Vite alongside the backend, waits for both HTTP readiness probes, then builds and launches
+the GTK client with `NAHHASIO_UI_URL=http://127.0.0.1:23110/`. React/CSS edits update through
+Vite HMR without rebuilding the UI bundle. The native launcher retains the same process-local
+graphics compatibility settings as the built client.
+Both modes explicitly share the existing `.devenv/state/postgres` catalog; the dev profile
+does not create a separate empty database.
+
+Rust changes still require a rebuild/restart: use `devenv --profile dev processes restart client`
+for the shell or `devenv --profile dev processes restart server` for the API. Fully quit any
+separately launched GTK instance first so single-instance activation cannot retain an old shell.
+Use `devenv up client` for the backend plus the built UI, or
+`devenv shell -- nahhasio-client` for the built desktop alone.
+
+When switching modes or changing `devenv.nix`, stop the old manager first with `devenv down`
+(use `devenv --profile dev down` if it was started with that profile), then run the new command.
+An existing manager retains its original process definitions. Avoid running the two modes
+simultaneously against the same PostgreSQL data directory and fixed ports. Startup never
+migrates or seeds the catalog; no website or Node API process is started.
 
 | Service                          | Port  |
 | -------------------------------- | ----- |

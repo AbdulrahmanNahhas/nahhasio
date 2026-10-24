@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   languages.javascript = {
@@ -25,6 +30,8 @@
     port = 23102;
   };
   env.DATABASE_URL = "postgresql://127.0.0.1:23102/arcadia";
+  # Profiles isolate DEVENV_STATE; both modes must keep using the existing catalog.
+  env.PGDATA = lib.mkForce "${config.devenv.root}/.devenv/state/postgres";
   env.NAHHASIO_BIND = "127.0.0.1:23103";
   env.NAHHASIO_CONFIG_ROOT = "${config.devenv.root}/data/server-config";
 
@@ -73,15 +80,42 @@
     exec "${config.devenv.root}/bin/nahhasio-client"
   '';
   processes.client = {
-    exec = "nahhasio-client";
+    exec = lib.mkDefault "nahhasio-client";
     after = [ "devenv:processes:server" ];
+    start.enable = lib.mkDefault false;
+  };
+
+  profiles.dev.module = {
+    scripts.nahhasio-client-dev.exec = ''
+      set -euo pipefail
+      cd "${config.devenv.root}"
+      export NAHHASIO_UI_URL=http://127.0.0.1:23110/
+      cargo build --locked -p nahhasio-linux -j 2
+      exec bash "${config.devenv.root}/bin/nahhasio-native-runtime" "''${CARGO_TARGET_DIR:-target}/debug/nahhasio-linux" "$@"
+    '';
+    processes.ui = {
+      exec = "pnpm --filter @nahhasio/linux-ui dev";
+      ready = {
+        http.get = {
+          port = 23110;
+          path = "/";
+        };
+        period = 1;
+        timeout = 120;
+      };
+    };
+    processes.client = {
+      exec = "nahhasio-client-dev";
+      after = [ "devenv:processes:ui" ];
+      start.enable = true;
+    };
   };
 
   enterShell = ''
     echo "Nahhasio environment ready"
-    echo "Run: devenv up (PostgreSQL -> Rust API -> GTK desktop)"
-    echo "Desktop only: devenv shell -- nahhasio-client"
-    echo "Backend only: devenv up postgres server"
+    echo "Backend: devenv up (PostgreSQL -> Rust API)"
+    echo "Live development: devenv --profile dev up (backend + Vite + GTK desktop)"
+    echo "Built desktop: devenv up client"
   '';
 
   enterTest = ''

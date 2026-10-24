@@ -42,11 +42,13 @@ Overview/Settings services and verified server/AppImage updates.
 
 ```sh
 devenv processes list
-devenv up postgres server
-devenv shell -- nahhasio-client
+devenv --profile dev up
 ```
 
-`devenv up` starts PostgreSQL, the Rust API and the Linux desktop.
+`devenv --profile dev up` (or `devenv -P dev up`) starts PostgreSQL, the Rust API,
+Vite and the GTK client with live UI updates. Plain `devenv up` starts only PostgreSQL
+and the API; `devenv up client` also builds and launches the desktop bundle.
+Stop the previous manager before switching modes; see the [development guide](docs/DEVELOPMENT.md#runbuild).
 Ports: database 23102, Rust 23103, desktop Vite 23110.
 Use the repository devenv environment. Build/static and runtime verification commands are in
 the development/testing guides; avoid duplicate processes.
