@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
+import { AnimeSource } from "./anime-source";
 import { ProviderBrowser } from "./provider-browser";
 import { TorrentSources } from "./source-controls";
 import {
@@ -27,7 +29,13 @@ export function SourceControls(props: {
   onPlaybackStarted?: () => void;
 }) {
   const sessionId = props.player.snapshot?.sessionId ?? "";
-  return <SessionSelection key={sessionId} {...props} sessionId={sessionId} />;
+  return (
+    <SessionSelection
+      key={`${sessionId}:${props.target?.installmentId}:${props.target?.episodeId}`}
+      {...props}
+      sessionId={sessionId}
+    />
+  );
 }
 function SessionSelection({
   sessionId,
@@ -78,8 +86,8 @@ function SessionSelection({
         <AlertDescription>المشاهدة من الملفات المرتبطة أو من الجهاز.</AlertDescription>
       </Alert>
     );
-  return (
-    <section className="flex min-w-0 flex-col gap-4" aria-label="اختيار طريقة المشاهدة">
+  const options = (
+    <div className="flex min-w-0 flex-col gap-4">
       <ToggleGroup
         aria-label="طريقة المشاهدة"
         value={[mode]}
@@ -159,6 +167,28 @@ function SessionSelection({
             </p>
           </details>
         </div>
+      )}
+    </div>
+  );
+  return (
+    <section className="flex min-w-0 flex-col gap-4" aria-label="اختيار طريقة المشاهدة">
+      {listing.data?.anime && target ? (
+        <>
+          <AnimeSource
+            sessionId={sessionId}
+            target={target}
+            query={listing.data.animeQuery ?? target.title}
+            onPlaybackStarted={onPlaybackStarted}
+          />
+          <Collapsible>
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+              تريد المزيد؟ التورنت وخوادم الفيديو
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">{options}</CollapsibleContent>
+          </Collapsible>
+        </>
+      ) : (
+        options
       )}
     </section>
   );

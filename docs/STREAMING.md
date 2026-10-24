@@ -1,8 +1,10 @@
 # Streaming provider checkpoint
 
-Nahhasio offers an explicit choice between a provider-hosted embed and Torrentio. Direct-stream
-delivery remains a future option; ani-cli and Cloudstream are not integrated in this stage. Opening a catalog work does not contact either online
-provider; Torrentio discovery starts when selected, and an embed starts only after selecting a provider and pressing its Play action.
+Nahhasio offers provider-hosted embeds and Torrentio, plus a separate English-dub anime flow
+using anipy-api and the native player. See [the anime checkpoint](ANIME-DIRECT.md) for ownership,
+quality/subtitle limits and checks. ani-cli and Cloudstream are not integrated. Opening a catalog
+work does not contact online providers; anime search is explicit, Torrentio discovery starts
+when selected, and an embed starts only after selecting a provider and pressing its Play action.
 The capability listing reads the authorized catalog only; it does not probe all providers.
 Saved device video still takes precedence when available. Download remains a separate torrent
 workflow and never opens an embed or starts playback.

@@ -17,7 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { AccountAvatar } from "@/features/account/account-avatar";
 import { dateLabel } from "@/features/work/format";
@@ -110,15 +112,12 @@ export function WatchDiscussion({
         <h2 className="text-xl font-semibold">نقاش العائلة</h2>
         {feed.data && <Badge variant="secondary">{feed.data.pages[0]?.total}</Badge>}
       </header>
-      <p className="text-sm text-muted-foreground">
-        نقاش العمل كاملًا. علّم التعليق إذا كان يحوي حرقًا للأحداث.
-      </p>
       {offline ? (
         <p className="text-sm text-muted-foreground">نقاش العائلة يحتاج اتصالًا بالخادم.</p>
       ) : (
         <>
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-3 rounded-2xl bg-card p-4"
             onSubmit={(event) => {
               event.preventDefault();
               if (body.trim() && !change.isPending) change.mutate();
@@ -154,7 +153,7 @@ export function WatchDiscussion({
                 ref={input}
                 value={body}
                 maxLength={1200}
-                rows={3}
+                rows={body || mode ? 3 : 2}
                 disabled={change.isPending}
                 dir="auto"
                 placeholder="شارك العائلة رأيك…"
@@ -171,7 +170,7 @@ export function WatchDiscussion({
                 يحوي حرقًا للأحداث
               </label>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="text-xs text-muted-foreground tabular-nums" aria-live="off">
                   {body.length}/1200
                 </span>
                 <Button type="submit" disabled={!body.trim() || change.isPending}>
@@ -185,12 +184,20 @@ export function WatchDiscussion({
             </div>
             {change.isError && <Failure error={change.error} />}
           </form>
-          {feed.isPending && <p role="status">جارٍ تحميل النقاش…</p>}
+          {feed.isPending && (
+            <div role="status" aria-label="جارٍ تحميل النقاش" className="flex flex-col gap-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          )}
           {feed.isError && <Failure error={feed.error} retry={() => void feed.refetch()} />}
           {feed.isSuccess && !items.length && (
-            <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-              لا توجد تعليقات بعد. ابدأ نقاش العائلة.
-            </p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>ابدأ نقاش العائلة</EmptyTitle>
+                <EmptyDescription>شارك رأيك، وعلّم أي تعليق يحوي حرقًا للأحداث.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
           {[...threads].map(([rootId, thread]) => (
             <div key={rootId} className="flex flex-col gap-4 border-b border-border pb-5">

@@ -124,15 +124,16 @@ pub(super) struct Engine {
 impl Engine {
     pub(super) fn new(area: &gtk::GLArea, path: &Path) -> Result<Self, String> {
         let path = path.to_str().ok_or("Local path must be valid UTF-8")?;
-        Self::create(area, path, false, true)
+        Self::create(area, path, false, true, false)
     }
 
     pub(super) fn playback(
         area: &gtk::GLArea,
         source: &str,
         network: bool,
+        hls: bool,
     ) -> Result<Self, String> {
-        Self::create(area, source, network, false)
+        Self::create(area, source, network, false, hls)
     }
 
     fn create(
@@ -140,6 +141,7 @@ impl Engine {
         source: &str,
         network: bool,
         diagnostic: bool,
+        hls: bool,
     ) -> Result<Self, String> {
         let context = area.context().ok_or("No GLArea context")?;
         context.make_current();
@@ -169,7 +171,9 @@ impl Engine {
             (c"ytdl", c"no"),
             (c"sub-auto", c"no"),
             (c"audio-file-auto", c"no"),
-            (c"access-references", c"no"),
+            // HLS references are rewritten to private native capabilities before
+            // this mode is used. Ordinary local/torrent files retain no references.
+            (c"access-references", if hls { c"yes" } else { c"no" }),
             (c"vo", c"libmpv"),
             (c"hwdec", if diagnostic { c"no" } else { c"auto-safe" }),
             (c"terminal", c"no"),
@@ -183,7 +187,7 @@ impl Engine {
                 mpv::mpv_set_option_string(core.as_ptr(), key.as_ptr(), value.as_ptr())
             })?;
         }
-        lavf_options(core, network)?;
+        lavf_options(core, network, hls)?;
         // SAFETY: valid configured core, no active playback/render dependency.
         check(unsafe { mpv::mpv_initialize(core.as_ptr()) })?;
         engine.observe()?;
@@ -546,9 +550,9 @@ impl Engine {
     }
 }
 
-fn lavf_options(core: NonNull<mpv::mpv_handle>, network: bool) -> Result<(), String> {
+fn lavf_options(core: NonNull<mpv::mpv_handle>, network: bool, hls: bool) -> Result<(), String> {
     // Node-map input avoids comma/escape ambiguities in mpv's string-map parser.
-    // Block HLS/DASH/concat/image playlists even when disguised as a video.
+    // Ordinary sources reject playlists. HLS is limited to the guarded native gateway.
     let mut keys = [
         c"protocol_whitelist".as_ptr().cast_mut(),
         c"format_whitelist".as_ptr().cast_mut(),
@@ -557,18 +561,25 @@ fn lavf_options(core: NonNull<mpv::mpv_handle>, network: bool) -> Result<(), Str
         mpv::mpv_node {
             format: mpv::mpv_format_MPV_FORMAT_STRING,
             u: mpv::mpv_node__bindgen_ty_1 {
-                string: if network { c"file,http,tcp" } else { c"file" }
-                    .as_ptr()
-                    .cast_mut(),
+                string: if hls {
+                    c"http,tcp,crypto"
+                } else if network {
+                    c"file,http,tcp"
+                } else {
+                    c"file"
+                }
+                .as_ptr()
+                .cast_mut(),
             },
         },
         mpv::mpv_node {
             format: mpv::mpv_format_MPV_FORMAT_STRING,
             u: mpv::mpv_node__bindgen_ty_1 {
-                string:
+                string: if hls {
+                    c"hls,matroska,webm,mov,mp4,m4a,3gp,3g2,mj2,avi,mpegts,mpeg,ogg,flv,ass,srt,webvtt"
+                } else {
                     c"matroska,webm,mov,mp4,m4a,3gp,3g2,mj2,avi,mpegts,mpeg,ogg,flv,ass,srt,webvtt"
-                        .as_ptr()
-                        .cast_mut(),
+                }.as_ptr().cast_mut(),
             },
         },
     ];

@@ -5,6 +5,9 @@ import type { ProviderOffer } from "../../src/features/player/stream-providers";
 
 type TestRequest =
   | PlayerRequest
+  | { command: "anime.search"; payload: { sessionId: string; provider: string; query: string } }
+  | { command: "anime.resolve"; payload: { sessionId: string; candidateId: string } }
+  | { command: "anime.play"; payload: { sessionId: string; streamId: string } }
   | { command: "stream.providers"; payload: { sessionId: string } }
   | { command: "stream.status" | "stream.close" | "stream.present"; payload: { sessionId: string } }
   | {
@@ -104,7 +107,9 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
             requests.push(request);
             switch (request.command) {
               case "stream.providers": {
-                const anime = window.location.search.includes("scenario=embed-anime");
+                const anime =
+                  window.location.search.includes("scenario=embed-anime") ||
+                  window.location.search.includes("scenario=anime-direct");
                 const filesOnly = window.location.search.includes("scenario=files-only");
                 const offers: Omit<ProviderOffer, "tier" | "notes" | "preferred">[] = anime
                   ? [
@@ -189,6 +194,7 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                   ok: true,
                   result: {
                     anime,
+                    animeQuery: anime ? "Synthetic anime" : null,
                     filesOnly,
                     providers: filesOnly
                       ? []
@@ -215,6 +221,59 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                 });
                 return;
               }
+              case "anime.search":
+                window["__nahhasioReply"]?.({
+                  id: request.id,
+                  ok: true,
+                  result: {
+                    candidates: [
+                      {
+                        id: "candidate-fixture",
+                        name: "Synthetic anime Season 1",
+                        dubListed: true,
+                      },
+                    ],
+                  },
+                });
+                return;
+              case "anime.resolve":
+                if (window.location.search.includes("scenario=anime-direct-no-dub")) {
+                  window["__nahhasioReply"]?.({
+                    id: request.id,
+                    ok: false,
+                    error: {
+                      code: "no_dub",
+                      message: "الدبلجة الإنجليزية غير متاحة لدى هذا المصدر.",
+                    },
+                  });
+                } else {
+                  window["__nahhasioReply"]?.({
+                    id: request.id,
+                    ok: true,
+                    result: {
+                      streams: [
+                        {
+                          id: "stream-fixture",
+                          resolution: 720,
+                          hasArabic: false,
+                          subtitleCount: 0,
+                        },
+                      ],
+                    },
+                  });
+                }
+                return;
+              case "anime.play":
+                state = {
+                  ...state,
+                  sourceKind: "direct",
+                  duration: 1500,
+                  seekable: true,
+                  buffering: false,
+                  tracks: [],
+                };
+                window["__nahhasioReply"]?.({ id: request.id, ok: true, result: state });
+                return;
               case "stream.open":
               case "stream.status":
               case "stream.present":
@@ -1014,7 +1073,10 @@ test("anime prioritizes explicit dub, keeps uncertain audio secondary and switch
   await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
-  await expect(drawer.getByText("English DUB", { exact: true })).toBeVisible();
+  await drawer
+    .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
+    .click();
+  await expect(drawer.getByText("English DUB", { exact: true }).last()).toBeVisible();
   await expect(drawer.locator('[data-provider-choice="vidhawk:dub"]')).toHaveCount(0);
   await expect(drawer.locator('[data-provider-choice="vidsrc:original"]')).toHaveCount(0);
   await expect(
@@ -1023,7 +1085,7 @@ test("anime prioritizes explicit dub, keeps uncertain audio secondary and switch
   await expect(
     drawer.getByText("في الاختبار: ترجمة إنجليزية فقط؛ لا عربية أو رفع ملف.", { exact: true }),
   ).toBeVisible();
-  await drawer.getByRole("button", { name: /تريد المزيد؟/u }).click();
+  await drawer.getByRole("button", { name: /^تريد المزيد؟ \(/u }).click();
   await drawer
     .locator('[data-provider-choice="cinezo:dub"]')
     .getByText("Cinezo", { exact: true })
@@ -1059,6 +1121,9 @@ test("confirmed dub and Arabic subtitles get a star and outrank requested dub", 
   await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime-star");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await drawer
+    .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
+    .click();
   await expect(drawer.getByText("دبلجة إنجليزية + ترجمة عربية", { exact: true })).toBeVisible();
   await expect(
     drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
@@ -1078,4 +1143,40 @@ test("files-only work offers no online source modes or provider launches", async
   await expect(drawer.getByRole("button", { name: /المشاهدة عبر/u })).toHaveCount(0);
   expect(await calls(page, "stream.open")).toHaveLength(0);
   expect(await calls(page, "media.search")).toHaveLength(0);
+});
+
+for (const width of [1440, 520]) {
+  test(`anime direct flow keeps identity and quality explicit at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await mock(page, { ...initial, active: false, sessionId: null }, "anime-direct");
+    await page.getByRole("button", { name: "Watch test work" }).click();
+    const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+    await expect(drawer.getByRole("heading", { name: "الأنمي، بمشغّل نحّاسيو" })).toBeVisible();
+    await expect(drawer.getByLabel("اسم الأنمي", { exact: true })).toHaveValue("Synthetic anime");
+    expect(await calls(page, "anime.search")).toHaveLength(0);
+    await expect(
+      drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true }),
+    ).toBeDisabled();
+    await drawer.getByRole("button", { name: "بحث", exact: true }).click();
+    await drawer.getByText("Synthetic anime Season 1", { exact: true }).click();
+    await expect(drawer.getByText("720p", { exact: true })).toBeVisible();
+    expect(await calls(page, "anime.play")).toHaveLength(0);
+    await page.screenshot({ path: `test-results/anime-direct-${width}.png` });
+    await drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true }).click();
+    expect(await calls(page, "anime.play")).toHaveLength(1);
+    expect(await calls(page, "stream.open")).toHaveLength(0);
+    expect(await calls(page, "media.search")).toHaveLength(0);
+  });
+}
+
+test("anime direct missing dub stays recoverable without sub fallback", async ({ page }) => {
+  await mock(page, { ...initial, active: false, sessionId: null }, "anime-direct-no-dub");
+  await page.getByRole("button", { name: "Watch test work" }).click();
+  const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await drawer.getByRole("button", { name: "بحث", exact: true }).click();
+  await drawer.getByText("Synthetic anime Season 1", { exact: true }).click();
+  await expect(drawer.getByRole("alert")).toContainText("الدبلجة الإنجليزية غير متاحة");
+  await expect(drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true })).toBeDisabled();
+  await expect(drawer.getByRole("button", { name: "AniDBApp", exact: true })).toBeEnabled();
+  expect(await calls(page, "anime.play")).toHaveLength(0);
 });

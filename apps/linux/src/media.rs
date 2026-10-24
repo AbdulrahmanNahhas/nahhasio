@@ -594,6 +594,44 @@ impl Media {
         let context = crate::stream_provider::CatalogTarget::from_catalog(&work, &resolved);
         Ok((resolved, context))
     }
+    pub(crate) async fn anime_context(
+        &self,
+        target: &Target,
+    ) -> Result<(ResolvedTarget, f64, bool), Error> {
+        let work = self.source_catalog(target).await?;
+        let resolved = resolve_target_for(&work, target, true)?;
+        let context = crate::stream_provider::CatalogTarget::from_catalog(&work, &resolved);
+        if context.files_only {
+            return Err(Error::new("files_only", "هذا العمل يُشغّل من الملفات فقط."));
+        }
+        if !context.anime {
+            return Err(Error::new("anime_only", "هذا المصدر مخصّص للأنمي."));
+        }
+        let part = work["installments"]
+            .as_array()
+            .and_then(|parts| {
+                parts
+                    .iter()
+                    .find(|part| part["id"] == resolved.installment_id)
+            })
+            .ok_or_else(transfer_error)?;
+        let film = part["kind"] != "season";
+        let episode = if film {
+            1.0
+        } else {
+            part["episodes"]
+                .as_array()
+                .and_then(|episodes| {
+                    episodes
+                        .iter()
+                        .find(|episode| episode["id"].as_str() == resolved.episode_id.as_deref())
+                })
+                .and_then(|episode| episode["number"].as_str()?.parse::<f64>().ok())
+                .filter(|n| n.is_finite() && *n > 0.0 && *n <= 100000.0)
+                .ok_or_else(|| Error::new("source_mapping", "تعذّر تحديد رقم الحلقة لهذا المصدر."))?
+        };
+        Ok((resolved, episode, film))
+    }
     async fn source_catalog(&self, target: &Target) -> Result<Value, Error> {
         if !valid_id(&target.work_id)
             || target

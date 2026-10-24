@@ -43,6 +43,7 @@
     ffmpeg
     chromium
     python3
+    (import ./packaging/linux/anipy-resolver.nix { inherit pkgs; })
     noto-fonts-color-emoji
     gtk4
     libadwaita
@@ -71,6 +72,7 @@
     pkgs.gst_all_1.gst-libav
   ];
   env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
+  env.NAHHASIO_ANIPY_HELPER = "${import ./packaging/linux/anipy-resolver.nix { inherit pkgs; }}/bin/nahhasio-anime-resolver";
 
   # SQLx uses the system account database for its default user; the local Node CLI uses USER.
   # Make the development role explicit so both drivers reach the same existing catalog.

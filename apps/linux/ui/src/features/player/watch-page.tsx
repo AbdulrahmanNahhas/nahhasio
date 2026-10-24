@@ -17,19 +17,21 @@ import { Failure } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Item, ItemGroup } from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SelectField } from "@/features/editor/fields/work-fields";
-import { workLink } from "@/features/shell/navigation";
 import { episodeNumberLabel, pickArtwork } from "@/features/work/format";
 import { useWorkTracking } from "@/features/work/use-work-tracking";
-import { WatchedControl } from "@/features/work/watched-control";
 
+import { MovieInfo } from "./movie-info";
+import { MovieInstallments } from "./movie-installments";
 import { PlayerHost } from "./player-host";
 import { savedDownloadOptions } from "./saved-downloads";
 import { SourceControls } from "./source-selection";
 import type { PlayerController } from "./use-player-snapshot";
 import { useVideoViewport, VideoBackdrop } from "./use-video-viewport";
+import { WatchDetails } from "./watch-details";
 import { WatchDiscussion } from "./watch-discussion";
 import type { WatchTarget } from "./watch-request";
 
@@ -77,9 +79,41 @@ export function WatchPage({
   const playingPart =
     work?.installments.find((unit) => unit.id === (target?.installmentId ?? s.installmentId)) ??
     work?.installments[0];
-  const isMovie = playingPart?.kind === "movie";
-  const hasEpisodeNavigation = !isMovie && Boolean(work) && s.sourceKind !== "local";
+  const isStandalone = playingPart?.kind === "movie" || playingPart?.kind === "special";
+  const singleStandalone = isStandalone && work?.installments.length === 1;
+  const mixedWork = Boolean(
+    work?.installments.some((item) => item.kind === "season") &&
+    work.installments.some((item) => item.kind !== "season"),
+  );
+  const movieCollection =
+    isStandalone && !mixedWork && Boolean(work && work.installments.length > 1);
+  const hasEpisodeNavigation = !isStandalone && Boolean(work) && s.sourceKind !== "local";
+  const hasSidebar = hasEpisodeNavigation || singleStandalone || movieCollection || mixedWork;
   const part = work?.installments.find((unit) => unit.id === browsePart) ?? playingPart;
+  const partStatus =
+    part?.id === playingPart?.id ? (s.sourceKind ? "playing" : "selected") : "browsing";
+  const mixedStandalone = mixedWork && Boolean(part && part.kind !== "season");
+  const showEpisodeSidebar = !mixedStandalone && (hasEpisodeNavigation || mixedWork);
+  const parts = work?.installments.toSorted((a, b) => a.position - b.position) ?? [];
+  const partIndex = parts.findIndex((item) => item.id === part?.id);
+  const beforePart = parts[partIndex - 1];
+  const afterPart = parts[partIndex + 1];
+  function browse(id: string) {
+    setBrowsePart(id);
+    setSearch("");
+  }
+  const partSelector = work && part && (
+    <SelectField
+      alignItemWithTrigger={false}
+      label="الأجزاء والمواسم"
+      value={part.id}
+      items={parts.map((item) => ({
+        value: item.id,
+        label: `${item.title} · ${item.kind === "movie" ? "فيلم" : item.kind === "special" ? "عرض خاص" : item.episodes.length ? `${item.episodes.length} حلقة` : item.kind === "season" ? "موسم" : "عرض خاص"}`,
+      }))}
+      onChange={browse}
+    />
+  );
   const episode = playingPart?.episodes.find(
     (item) => item.id === (target?.episodeId ?? s.episodeId),
   );
@@ -90,9 +124,11 @@ export function WatchPage({
     if (
       !work ||
       selectedEpisode?.releaseState === "upcoming" ||
-      selectedPart.status === "announced"
+      selectedPart.status === "announced" ||
+      selectedPart.releaseState === "upcoming"
     )
       return;
+    setBrowsePart(selectedPart.id);
     onWatch({
       workId: work.id,
       installmentId: selectedPart.id,
@@ -146,7 +182,7 @@ export function WatchPage({
         hideEpisodes={!hasEpisodeNavigation}
         sourceTarget={sourceReady ? target : null}
         installmentTitle={playingPart?.title}
-        episodes={(isMovie ? [] : ordered).map((item) => ({
+        episodes={(isStandalone ? [] : ordered).map((item) => ({
           id: item.id,
           title: item.title || `الحلقة ${episodeNumberLabel(item.number)}`,
           number: item.number,
@@ -210,11 +246,19 @@ export function WatchPage({
             <ArrowLeft data-icon="inline-start" />
             العودة
           </Button>
-          {hasEpisodeNavigation && (
+          {hasSidebar && (
             <Button
               variant="ghost"
               size="icon"
-              aria-label={theater ? "إظهار قائمة الحلقات" : "توسيع الفيديو"}
+              aria-label={
+                theater
+                  ? singleStandalone || mixedStandalone
+                    ? "إظهار معلومات الفيلم"
+                    : movieCollection
+                      ? "إظهار قائمة الأفلام"
+                      : "إظهار قائمة الحلقات"
+                  : "توسيع الفيديو"
+              }
               title="وضع المسرح"
               onClick={() => setTheater(!theater)}
             >
@@ -225,127 +269,113 @@ export function WatchPage({
       )}
       <div
         className={
-          theater || !hasEpisodeNavigation
+          theater || !hasSidebar
             ? "mx-auto flex max-w-screen-2xl flex-col gap-6 px-4 pb-8 sm:px-6"
             : "mx-auto grid max-w-screen-2xl items-start gap-6 px-4 pb-8 sm:px-6 xl:grid-cols-[minmax(0,1fr)_22rem]"
         }
       >
-        <div className="flex min-w-0 flex-col gap-6  xl:mt-4">
+        <div className="flex min-w-0 flex-col gap-5 xl:mt-4">
           {actualVideo}
-          <section
-            className="flex flex-col gap-4 rounded-2xl bg-background py-2"
-            aria-label="تفاصيل المشاهدة"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-2">
-                <h1 className="text-xl font-semibold sm:text-2xl" dir="auto">
-                  {title}
-                </h1>
-                {work && (
-                  <a
-                    href={workLink(work.id)}
-                    className="text-sm text-primary"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      close();
-                      window.location.hash = workLink(work.id);
-                    }}
-                  >
-                    {work.titleAr || work.canonicalTitle}
-                  </a>
-                )}
-              </div>
-              {hasEpisodeNavigation && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!previous || previous.releaseState === "upcoming"}
-                    onClick={() => {
-                      if (previous && playingPart) choose(playingPart, previous);
-                    }}
-                  >
-                    <ChevronRight />
-                    السابقة
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!next || next.releaseState === "upcoming"}
-                    onClick={() => {
-                      if (next && playingPart) choose(playingPart, next);
-                    }}
-                  >
-                    التالية
-                    <ChevronLeft />
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {!isMovie && playingPart && (
-                <Badge variant="outline" className="h-9 px-3">
-                  {playingPart.title}
-                </Badge>
-              )}
-              {episode && (
-                <Badge variant="secondary" className="h-9 px-3">
-                  الحلقة {episodeNumberLabel(episode.number)}
-                </Badge>
-              )}
-              {(episode?.runtimeMinutes ?? playingPart?.runtimeMinutes) && (
-                <Badge variant="outline" className="h-9 px-3">
-                  {episode?.runtimeMinutes ?? playingPart?.runtimeMinutes} دقيقة
-                </Badge>
-              )}
-              <Badge variant="outline" className="h-9 px-3">
-                {s.sourceKind ? "المصدر متصل" : "لم يبدأ التشغيل"}
-              </Badge>
-              {work && playingPart && (
-                <WatchedControl
-                  tracking={tracking}
-                  installmentId={playingPart.id}
-                  episodeId={episode?.id}
-                  label={title}
-                  compact
-                />
-              )}
-              {isMovie && work && playingPart && (
-                <div className="ms-auto w-full sm:w-64">
-                  <SelectField
-                    label="الإصدار"
-                    hideLabel
-                    value={playingPart.id}
-                    alignItemWithTrigger={false}
-                    items={work.installments.map((item) => ({ value: item.id, label: item.title }))}
-                    onChange={(id) => {
-                      const selected = work.installments.find((item) => item.id === id);
-                      if (selected)
-                        choose(
-                          selected,
-                          selected.kind === "movie" ? undefined : selected.episodes[0],
-                        );
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            {(episode?.summary || playingPart?.summary || work?.summary) && (
-              <details className="rounded-xl border border-border bg-card p-4" open>
-                <summary className="cursor-pointer text-sm font-medium">
-                  عن {episode ? "الحلقة" : "الإصدار"}
-                </summary>
-                <p dir="auto" className="mt-3 text-sm leading-loose whitespace-pre-line">
-                  {episode?.summary || playingPart?.summary || work?.summary}
-                </p>
-              </details>
-            )}
-            {error && <Failure error={error} retry={onRetry} />}
-          </section>
+          <WatchDetails
+            work={work}
+            part={playingPart}
+            episode={episode}
+            title={title}
+            tracking={tracking}
+            onLeave={close}
+            onPrevious={
+              hasEpisodeNavigation && previous && previous.releaseState !== "upcoming"
+                ? () => {
+                    if (playingPart) choose(playingPart, previous);
+                  }
+                : undefined
+            }
+            onNext={
+              hasEpisodeNavigation && next && next.releaseState !== "upcoming"
+                ? () => {
+                    if (playingPart) choose(playingPart, next);
+                  }
+                : undefined
+            }
+          />
+          {error && <Failure error={error} retry={onRetry} />}
         </div>
-        {hasEpisodeNavigation && !theater && (
+        {singleStandalone && work && playingPart && !theater && (
+          <MovieInfo
+            work={work}
+            installment={playingPart}
+            offline={offline}
+            onLeave={close}
+            status={s.sourceKind ? "playing" : "selected"}
+          />
+        )}
+        {movieCollection && work && playingPart && !theater && (
+          <MovieInstallments
+            work={work}
+            selectedId={playingPart.id}
+            playing={Boolean(s.sourceKind)}
+            pending={player.pending}
+            tracking={tracking}
+            offline={offline}
+            onLeave={close}
+            onSelect={(item) => choose(item, item.kind === "season" ? item.episodes[0] : undefined)}
+          />
+        )}
+        {mixedStandalone && work && part && !theater && (
+          <MovieInfo
+            work={work}
+            installment={part}
+            status={partStatus}
+            offline={offline}
+            onLeave={close}
+            selector={partSelector}
+            showRecommendations={false}
+            navigation={
+              <>
+                <Button
+                  disabled={
+                    player.pending ||
+                    (part.id === playingPart?.id && Boolean(s.sourceKind)) ||
+                    part.status === "announced" ||
+                    part.releaseState === "upcoming"
+                  }
+                  onClick={() => choose(part)}
+                >
+                  {part.id === playingPart?.id && s.sourceKind
+                    ? "قيد التشغيل"
+                    : part.kind === "special"
+                      ? "مشاهدة العرض الخاص"
+                      : "مشاهدة الفيلم"}
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!beforePart}
+                    onClick={() => {
+                      if (beforePart) browse(beforePart.id);
+                    }}
+                  >
+                    <ChevronRight data-icon="inline-start" />
+                    الجزء السابق
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!afterPart}
+                    onClick={() => {
+                      if (afterPart) browse(afterPart.id);
+                    }}
+                  >
+                    الجزء التالي
+                    <ChevronLeft data-icon="inline-end" />
+                  </Button>
+                </div>
+              </>
+            }
+          />
+        )}
+        {showEpisodeSidebar && !theater && (
           <aside
-            className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-card p-4 pb-0 xl:row-span-2 xl:sticky xl:top-4 max-h-[90vh]!"
+            className="flex max-h-[calc(100dvh-6rem)] min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 xl:sticky xl:top-4 xl:row-span-2"
             aria-label="حلقات العمل"
           >
             <Button
@@ -359,25 +389,28 @@ export function WatchPage({
             <div
               className={
                 episodesOpen
-                  ? "flex min-h-0 flex-col gap-4"
-                  : "hidden min-h-0 flex-col gap-4 xl:flex"
+                  ? "flex min-h-0 flex-1 flex-col gap-4"
+                  : "hidden min-h-0 flex-1 flex-col gap-4 xl:flex"
               }
             >
               {work && part ? (
                 <>
-                  <SelectField
-                    alignItemWithTrigger={false}
-                    label="الأجزاء والمواسم"
-                    value={part.id}
-                    items={work.installments.map((item) => ({
-                      value: item.id,
-                      label: `${item.title} · ${item.episodes.length} حلقة`,
-                    }))}
-                    onChange={(id) => {
-                      setBrowsePart(id);
-                      setSearch("");
-                    }}
-                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold">الحلقات</h2>
+                    <Badge variant="outline">{part.episodes.length}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {partStatus === "playing"
+                      ? "قيد التشغيل"
+                      : partStatus === "selected"
+                        ? "المحدد للمشاهدة"
+                        : "تستعرض هذا الجزء"}
+                  </p>
+                  {work.installments.length > 1 ? (
+                    partSelector
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{part.title}</p>
+                  )}
                   <InputGroup>
                     <InputGroupAddon>
                       <Search />
@@ -393,88 +426,99 @@ export function WatchPage({
                     <span className="text-xs text-muted-foreground">{episodes.length} حلقة</span>
                     <Button
                       variant={unwatched ? "secondary" : "ghost"}
-                      size="icon-sm"
+                      size="sm"
                       aria-label="إظهار غير المشاهدة فقط"
                       title="غير المشاهدة فقط"
                       aria-pressed={unwatched}
                       onClick={() => setUnwatched(!unwatched)}
                     >
-                      <Eye />
+                      <Eye data-icon="inline-start" />
+                      غير المشاهدة
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setDescending(!descending)}>
                       <ArrowDownUp />
                       {descending ? "الأحدث أولًا" : "الأقدم أولًا"}
                     </Button>
                   </div>
-                  <div className="flex max-h-160 flex-col gap-2 scroll-fade-y overflow-y-auto">
+                  <ItemGroup
+                    className="min-h-0 flex-1 scroll-fade-y overflow-y-auto"
+                    aria-label="قائمة الحلقات"
+                  >
                     {episodes.map((item) => (
-                      <button
-                        key={item.id}
-                        disabled={item.releaseState === "upcoming" || part.status === "announced"}
-                        aria-current={item.id === episode?.id ? "true" : undefined}
-                        onClick={() => choose(part, item)}
-                        className="flex min-w-0 items-start gap-3 rounded-xl border border-transparent p-2 text-start outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 aria-current:border-border aria-current:bg-muted"
-                      >
-                        <div className="relative w-28 shrink-0">
-                          <Artwork
-                            id={
-                              (
-                                item.still ??
-                                pickArtwork(item.artwork, "still") ??
-                                pickArtwork(part.artwork, "banner") ??
-                                work.banner
-                              )?.id
-                            }
-                            alt=""
-                            className="aspect-video w-full rounded-lg object-cover"
-                          />
-                          <span className="absolute start-1 top-1">
-                            <Badge variant="secondary">{episodeNumberLabel(item.number)}</Badge>
-                          </span>
-                        </div>
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <strong className="line-clamp-2 text-sm" dir="auto">
-                            {item.title || `الحلقة ${episodeNumberLabel(item.number)}`}
-                          </strong>
-                          <span className="text-xs text-muted-foreground">
-                            {item.runtimeMinutes ? `${item.runtimeMinutes} دقيقة` : ""}
-                          </span>
-                          {item.id === episode?.id && (
-                            <span className="text-xs text-primary">
-                              {s.sourceKind ? "قيد التشغيل" : "الحلقة المحددة"}
-                            </span>
-                          )}
-                          {tracking.unitByEpisode.get(item.id)?.isPlayed && (
-                            <span className="text-xs text-muted-foreground">تمّت المشاهدة</span>
-                          )}
-                          {episodeProgress(item) > 0 && (
-                            <Progress
-                              value={episodeProgress(item)}
-                              aria-label={`تقدم الحلقة ${episodeNumberLabel(item.number)}`}
+                      <div role="listitem" key={item.id}>
+                        <Item
+                          size="xs"
+                          variant={item.id === episode?.id ? "muted" : "default"}
+                          className="flex-nowrap items-start text-start"
+                          render={
+                            <button
+                              type="button"
+                              disabled={
+                                player.pending ||
+                                item.releaseState === "upcoming" ||
+                                part.status === "announced"
+                              }
+                              aria-current={item.id === episode?.id ? "true" : undefined}
+                              onClick={() => choose(part, item)}
                             />
-                          )}
-                          {item.releaseState === "upcoming" && (
-                            <span className="text-xs text-muted-foreground">قادم</span>
-                          )}
-                          {saved.data?.some(
-                            (file) => file.available && file.target.episodeId === item.id,
-                          ) && (
-                            <span className="text-xs text-muted-foreground">محمّلة على الجهاز</span>
-                          )}
-                        </div>
-                      </button>
+                          }
+                        >
+                          <div className="relative w-24 shrink-0">
+                            <Artwork
+                              id={
+                                (
+                                  item.still ??
+                                  pickArtwork(item.artwork, "still") ??
+                                  pickArtwork(part.artwork, "banner") ??
+                                  work.banner
+                                )?.id
+                              }
+                              alt=""
+                              className="aspect-video w-full rounded-lg object-cover"
+                            />
+                            <span className="absolute start-1 top-1">
+                              <Badge variant="secondary">{episodeNumberLabel(item.number)}</Badge>
+                            </span>
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <strong className="line-clamp-2 text-sm font-medium" dir="auto">
+                              {item.title || `الحلقة ${episodeNumberLabel(item.number)}`}
+                            </strong>
+                            <span className="text-xs text-muted-foreground">
+                              {item.runtimeMinutes ? `${item.runtimeMinutes} دقيقة` : ""}
+                            </span>
+                            {item.id === episode?.id && (
+                              <span className="text-xs text-primary">
+                                {s.sourceKind ? "قيد التشغيل" : "الحلقة المحددة"}
+                              </span>
+                            )}
+                            {tracking.unitByEpisode.get(item.id)?.isPlayed && (
+                              <span className="text-xs text-muted-foreground">تمّت المشاهدة</span>
+                            )}
+                            {episodeProgress(item) > 0 && (
+                              <Progress
+                                value={episodeProgress(item)}
+                                aria-label={`تقدم الحلقة ${episodeNumberLabel(item.number)}`}
+                              />
+                            )}
+                            {item.releaseState === "upcoming" && (
+                              <span className="text-xs text-muted-foreground">قادم</span>
+                            )}
+                            {saved.data?.some(
+                              (file) => file.available && file.target.episodeId === item.id,
+                            ) && (
+                              <span className="text-xs text-muted-foreground">
+                                محمّلة على الجهاز
+                              </span>
+                            )}
+                          </div>
+                        </Item>
+                      </div>
                     ))}
                     {!episodes.length && (
-                      <p className="p-3 text-sm text-muted-foreground">
-                        {part.kind === "movie" ? "هذا الإصدار فيلم مستقل." : "لا توجد حلقات مطابقة."}
-                      </p>
+                      <p className="p-3 text-sm text-muted-foreground">لا توجد حلقات مطابقة.</p>
                     )}
-                    {part.kind === "movie" && (
-                      <Button variant="outline" onClick={() => choose(part)}>
-                        مشاهدة الفيلم
-                      </Button>
-                    )}
-                  </div>
+                  </ItemGroup>
                 </>
               ) : (
                 <Skeleton className="h-64" />
@@ -483,7 +527,7 @@ export function WatchPage({
           </aside>
         )}
         {work ? (
-          <div className="rounded-2xl bg-background py-3">
+          <div className="min-w-0 border-t border-border pt-6 xl:col-start-1">
             <WatchDiscussion key={work.id} id={work.id} accountId={accountId} offline={offline} />
           </div>
         ) : error || !catalogVideo ? null : (

@@ -1,8 +1,13 @@
 //! Native shell bootstrap. Client Rust exercises begin after this baseline is reviewed.
+mod anime;
+mod anime_bridge;
+#[cfg(feature = "native-diagnostics")]
+mod anime_smoke;
 mod assets;
 mod bridge;
 mod browse_preferences;
 mod connections;
+mod direct_gateway;
 mod display;
 mod embed;
 mod embed_privacy;
@@ -106,6 +111,10 @@ fn main() -> glib::ExitCode {
     // libmpv requires C numeric parsing. Establish this before GTK and workers;
     // never mutate process-global locale from an active player.
     gtk::disable_setlocale();
+    #[cfg(feature = "native-diagnostics")]
+    if std::env::args().any(|arg| arg == "--anime-smoke") {
+        return anime_smoke::run();
+    }
     #[cfg(feature = "native-diagnostics")]
     if std::env::args().any(|arg| arg == "--embed-smoke") {
         return embed_smoke::run();
@@ -303,6 +312,7 @@ fn build_window(
     let bridge_player = player_handle.clone();
     let embed_host = std::rc::Rc::new(embed::Host::default());
     let bridge_embed = embed_host.clone();
+    let anime_resolver = std::sync::Arc::new(anime::Resolver::default());
     manager.connect_script_message_received(Some("nahhasio"), move |_, value| {
         let Some(view) = weak_view.upgrade() else {
             return;
@@ -324,6 +334,56 @@ fn build_window(
         let id = request.id.clone();
         let revision = services.revision();
         let boundary = services.clone();
+        if request.command.starts_with("anime.") {
+            let command = anime::Command::parse(&request);
+            let resolver = anime_resolver.clone();
+            let player = bridge_player.borrow().clone();
+            let media = media.clone();
+            let runtime = runtime.clone();
+            let embed = bridge_embed.clone();
+            let operations = services.operations.clone();
+            let permit = services.permits.clone().try_acquire_owned();
+            let weak = view.downgrade();
+            glib::MainContext::default().spawn_local(async move {
+                let result = match (command, player, media, permit) {
+                    (Ok(command), Some(player), Some(media), Ok(_permit)) => {
+                        let _operation = operations.read_owned().await;
+                        match boundary.check_revision(revision) {
+                            Ok(()) => {
+                                anime_bridge::execute(
+                                    resolver, player, media, runtime, embed, command,
+                                )
+                                .await
+                            }
+                            Err(error) => Err(error),
+                        }
+                    }
+                    (Err(error), _, _, _) => Err(error),
+                    (_, _, _, Err(_)) => Err(Error::new("busy", "طلبات المصادر مشغولة.")),
+                    _ => Err(Error::new("playback", "المشغّل غير جاهز.")),
+                };
+                if let Some(view) = weak.upgrade() {
+                    send_reply(&view, reply(&id, result));
+                }
+            });
+            return;
+        }
+        if matches!(
+            request.command.as_str(),
+            "stream.open"
+                | "media.play"
+                | "media.openSaved"
+                | "player.preview"
+                | "player.close"
+                | "player.pickVideo"
+                | "servers.select"
+                | "offline.open"
+                | "offline.close"
+                | "login"
+                | "logout"
+        ) {
+            anime_resolver.cancel();
+        }
         if request.command.starts_with("stream.") {
             let command = stream_bridge::Command::parse(&request);
             let host = bridge_embed.clone();

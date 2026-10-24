@@ -46,6 +46,7 @@ export type ProviderOffer = z.infer<typeof ProviderOfferSchema>;
 const ProviderListingSchema = z.object({
   filesOnly: z.boolean(),
   anime: z.boolean(),
+  animeQuery: z.string().max(640).nullable().optional(),
   providers: z.array(ProviderOfferSchema).max(30),
 });
 export type ProviderListing = z.infer<typeof ProviderListingSchema>;

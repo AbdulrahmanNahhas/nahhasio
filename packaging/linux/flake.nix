@@ -23,6 +23,13 @@
         path = builtins.getEnv "NAHHASIO_PACKAGE_LAUNCHER";
         name = "nahhasio-native-runtime";
       };
+      animeResolver = import ./anipy-resolver.nix {
+        inherit pkgs;
+        resolverScript = builtins.path {
+          path = builtins.getEnv "NAHHASIO_PACKAGE_ANIME_RESOLVER";
+          name = "nahhasio-anime-resolver.py";
+        };
+      };
       runtimePaths = map builtins.storePath (
         lib.splitString ":" (builtins.getEnv "NAHHASIO_PACKAGE_RUNTIME")
       );
@@ -70,6 +77,7 @@
               } \
               --unset LD_LIBRARY_PATH \
               --set NAHHASIO_UI_DIR $out/share/nahhasio/ui \
+              --set NAHHASIO_ANIPY_HELPER ${animeResolver}/bin/nahhasio-anime-resolver \
               --set FONTCONFIG_FILE ${fonts} \
               --set-default SSL_CERT_FILE ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
               --prefix XDG_DATA_DIRS : ${

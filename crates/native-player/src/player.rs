@@ -70,6 +70,7 @@ struct State {
     source: Option<glib::SourceId>,
     playback: PlaybackState,
     diagnostics: Diagnostics,
+    pending_subtitles: Vec<(String, String, String)>,
 }
 
 /// A GTK-main-thread player. Callers receive copied properties, never raw mpv handles.
@@ -91,11 +92,19 @@ impl NativePlayer {
                 .ok_or("Video path must be valid UTF-8")?
                 .to_owned(),
             false,
+            false,
         )
     }
 
     /// Only a native-owned loopback gateway is allowed, never arbitrary network URLs.
     pub fn loopback(source: &str) -> Result<Self, String> {
+        Self::gateway(source, false)
+    }
+    /// Only sanitized HLS resources served by the native capability gateway.
+    pub fn loopback_hls(source: &str) -> Result<Self, String> {
+        Self::gateway(source, true)
+    }
+    fn gateway(source: &str, hls: bool) -> Result<Self, String> {
         let url = url::Url::parse(source).map_err(|_| "Invalid native stream endpoint")?;
         if url.scheme() != "http"
             || url.host_str() != Some("127.0.0.1")
@@ -108,10 +117,10 @@ impl NativePlayer {
         {
             return Err("Only the native loopback media gateway is allowed".into());
         }
-        Self::create(url.to_string(), true)
+        Self::create(url.to_string(), true, hls)
     }
 
-    fn create(source: String, network: bool) -> Result<Self, String> {
+    fn create(source: String, network: bool, hls: bool) -> Result<Self, String> {
         if !gtk::is_initialized_main_thread() {
             return Err("GTK must be initialized on its main thread".into());
         }
@@ -127,6 +136,7 @@ impl NativePlayer {
             source: None,
             playback: PlaybackState::default(),
             diagnostics: Diagnostics::default(),
+            pending_subtitles: Vec::new(),
         }));
         area.connect_realize({
             let state = state.clone();
@@ -141,7 +151,7 @@ impl NativePlayer {
                 let result = if let Some(engine) = state_ref.engine.as_mut() {
                     engine.reattach(area)
                 } else {
-                    backend::Engine::playback(area, &source, network).map(|engine| {
+                    backend::Engine::playback(area, &source, network, hls).map(|engine| {
                         state_ref.engine = Some(engine);
                     })
                 };
@@ -163,10 +173,17 @@ impl NativePlayer {
                         let State {
                             engine,
                             diagnostics,
+                            pending_subtitles,
                             ..
                         } = &mut *state;
                         if let Some(engine) = engine {
                             engine.poll(diagnostics);
+                            if engine.playback_state().duration > 0.0 {
+                                for (url, label, language) in pending_subtitles.drain(..) {
+                                    let _ = engine
+                                        .command(&["sub-add", &url, "auto", &label, &language]);
+                                }
+                            }
                             if engine.take_update() {
                                 area.queue_render();
                             }
@@ -323,6 +340,34 @@ impl NativePlayer {
             path.to_str().ok_or("Subtitle path must be valid UTF-8")?,
             "select",
         ])
+    }
+    /// Only app-owned loopback subtitle capabilities, never provider URLs.
+    pub fn add_loopback_subtitle(
+        &self,
+        source: &str,
+        label: &str,
+        language: &str,
+    ) -> Result<(), String> {
+        let url = url::Url::parse(source).map_err(|_| "Invalid subtitle capability")?;
+        if url.scheme() != "http"
+            || url.host_str() != Some("127.0.0.1")
+            || url.port().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || !url.path().starts_with("/video/")
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || label.len() > 200
+            || language.len() > 50
+        {
+            return Err("Invalid subtitle capability".into());
+        }
+        self.state.borrow_mut().pending_subtitles.push((
+            source.into(),
+            label.into(),
+            language.into(),
+        ));
+        Ok(())
     }
 
     pub fn delay(&self, kind: TrackKind, seconds: f64) -> Result<(), String> {

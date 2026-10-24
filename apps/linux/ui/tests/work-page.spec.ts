@@ -358,7 +358,7 @@ declare global {
   }
 }
 
-async function installBridge(page: Page) {
+async function installBridge(page: Page, testWork: WorkDetail = work) {
   // Fail closed: these journeys must never fall through to a real catalog API.
   await page.route("**/api/**", (route) => route.abort());
   await page.addInitScript(
@@ -674,7 +674,7 @@ async function installBridge(page: Page) {
       };
     },
     {
-      fixtureWork: work,
+      fixtureWork: testWork,
       fixtureState: initialState,
       fixtureActivity: activity,
       fixturePlayer: inactivePlayer,
@@ -1572,7 +1572,13 @@ for (const width of [520, 1440]) {
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
-    await sources.getByRole("button", { name: /تريد المزيد؟/u }).click();
+    await sources
+      .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
+      .click();
+    await sources
+      .getByRole("button", { name: /تريد المزيد؟/u })
+      .last()
+      .click();
     await expect(
       sources.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
     ).toBeVisible();
@@ -1603,11 +1609,31 @@ for (const width of [520, 1440]) {
     await expect(
       watch.getByLabel("حلقات العمل", { exact: true }).getByRole("button").first(),
     ).toBeVisible();
+    if (width === 520)
+      await watch
+        .getByLabel("حلقات العمل", { exact: true })
+        .getByRole("button", { name: /^إظهار الحلقات/u })
+        .click();
+    const selector = watch
+      .getByLabel("حلقات العمل", { exact: true })
+      .getByRole("combobox", { name: "الأجزاء والمواسم", exact: true });
+    await selector.scrollIntoViewIfNeeded();
+    await selector.click();
+    await page.getByRole("option", { name: "فيلم المكتبة · فيلم", exact: true }).click();
+    const filmInfo = watch.getByLabel("معلومات الفيلم", { exact: true });
+    await expect(
+      filmInfo.getByRole("heading", { name: "فيلم المكتبة", exact: true }),
+    ).toBeVisible();
+    await expect(
+      filmInfo.getByRole("button", { name: "مشاهدة الفيلم", exact: true }),
+    ).toBeEnabled();
+    await expect(filmInfo).not.toContainText("0 حلقة");
+    await expect(watch.getByLabel("بحث في الحلقات", { exact: true })).toHaveCount(0);
   });
 }
 
 for (const width of [520, 1440]) {
-  test(`watch page movie ${width}: no episode sidebar and installment choices below video`, async ({
+  test(`watch page movie ${width}: mixed film details and installment navigation`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -1631,24 +1657,70 @@ for (const width of [520, 1440]) {
     await expect(watch).toBeVisible();
     await watch
       .getByLabel("مصادر الفيديو", { exact: true })
+      .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
+      .click();
+    await watch
+      .getByLabel("مصادر الفيديو", { exact: true })
       .getByRole("button", { name: "تورنت", exact: true })
       .click();
     await expect(watch.getByLabel("مصادر الفيديو", { exact: true })).toContainText(
       "تعذّر الوصول إلى Torrentio",
     );
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
-    await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toHaveCount(0);
+    await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toBeVisible();
     await expect(watch.getByRole("button", { name: "التالية", exact: true })).toHaveCount(0);
-    const selector = watch.getByRole("combobox", { name: "الإصدار", exact: true });
-    await selector.scrollIntoViewIfNeeded();
-    await expect(selector).toContainText("فيلم المكتبة");
-    await selector.click();
-    await expect(page.getByRole("option", { name: "الموسم الأول", exact: true })).toBeVisible();
-    await page.keyboard.press("Escape");
+    const info = watch.getByLabel("معلومات الفيلم", { exact: true });
+    await info.scrollIntoViewIfNeeded();
+    await expect(info.getByRole("heading", { name: "فيلم المكتبة", exact: true })).toBeVisible();
+    await expect(info).not.toContainText("0 حلقة");
+    await expect(info.getByRole("link", { name: /استوديو المكتبة/u })).toBeVisible();
+    await expect(info.getByLabel("أعمال مقترحة للمشاهدة")).toHaveCount(0);
+    await expect(info.getByRole("button", { name: "الجزء السابق", exact: true })).toBeEnabled();
+    await expect(watch.getByLabel("تفاصيل المشاهدة").locator("details")).toHaveCount(0);
+    await expect(
+      watch.getByLabel("تفاصيل المشاهدة").getByRole("heading", { name: "عن الفيلم" }),
+    ).toBeAttached();
     await expectNoOverflow(page);
     await page.screenshot({ path: `/tmp/nahhasio-watch-movie-${width}.png`, fullPage: true });
+    await info.getByRole("combobox", { name: "الأجزاء والمواسم", exact: true }).click();
+    await page.getByRole("option", { name: "الموسم الأول · 9 حلقة", exact: true }).click();
+    await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeAttached();
   });
 }
+
+test("watch page special: film-style sidebar distinguishes browsing and selected state", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await installBridge(page, {
+    ...work,
+    installments: work.installments.map((item) =>
+      item.id === movieId ? { ...item, kind: "special", title: "عرض المكتبة" } : item,
+    ),
+  });
+  await openWork(page);
+  await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+  const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
+  await watch
+    .getByLabel("حلقات العمل", { exact: true })
+    .getByRole("combobox", { name: "الأجزاء والمواسم", exact: true })
+    .click();
+  await page.getByRole("option", { name: "عرض المكتبة · عرض خاص", exact: true }).click();
+  const info = watch.getByLabel("معلومات العرض الخاص", { exact: true });
+  await expect(info.getByText("تستعرض هذا الجزء", { exact: true })).toBeVisible();
+  await expect(info).not.toContainText("0 حلقة");
+  await expect(info.getByLabel("أعمال مقترحة للمشاهدة")).toHaveCount(0);
+  await info.getByRole("button", { name: "مشاهدة العرض الخاص", exact: true }).click();
+  await expect(info.getByText("المحدد للمشاهدة", { exact: true })).toBeVisible();
+  await expect(
+    watch
+      .getByLabel("تفاصيل المشاهدة")
+      .getByRole("heading", { name: "عن العرض الخاص", exact: true }),
+  ).toBeVisible();
+  await info.getByRole("button", { name: "الجزء السابق", exact: true }).click();
+  await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
+  await expectNoOverflow(page);
+});
 
 test("watch page local file: no sidebar, one filename and fullscreen in bottom controls", async ({
   page,

@@ -20,6 +20,7 @@ struct Session {
     title: String,
     player: Option<NativePlayer>,
     gateway: Option<Gateway>,
+    direct_gateway: Option<crate::direct_gateway::DirectGateway>,
     target: Option<ResolvedTarget>,
     pending: bool,
     error: Option<String>,
@@ -97,6 +98,7 @@ impl Player {
             ),
             player: Some(player),
             gateway: None,
+            direct_gateway: None,
             target: None,
             pending: false,
             error: None,
@@ -168,7 +170,9 @@ impl Player {
                 .as_ref()
                 .and_then(|target| target.episode_id.clone()),
             title: session.title.clone(),
-            source_kind: Some(if session.gateway.is_some() {
+            source_kind: Some(if session.direct_gateway.is_some() {
+                SourceKind::Direct
+            } else if session.gateway.is_some() {
                 SourceKind::Torrent
             } else {
                 SourceKind::Local
@@ -244,6 +248,7 @@ impl Player {
                     title,
                     player: None,
                     gateway: None,
+                    direct_gateway: None,
                     target: None,
                     pending: false,
                     error: None,
@@ -338,6 +343,7 @@ impl Player {
     fn cancel_stream(&self) {
         if let Some(session) = self.session.borrow_mut().as_mut() {
             drop(session.gateway.take());
+            drop(session.direct_gateway.take());
         }
     }
     pub fn loading(&self, id: &str, pending: bool, error: Option<String>) -> Result<(), Error> {
@@ -386,6 +392,32 @@ impl Player {
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
             session.gateway = None;
+            session.title = target.title.clone();
+            session.target = Some(target);
+            session.pending = false;
+            session.error = None;
+        }
+        Ok(())
+    }
+    pub fn play_direct(
+        &self,
+        id: &str,
+        target: ResolvedTarget,
+        gateway: crate::direct_gateway::DirectGateway,
+        subtitles: Vec<(String, String, String)>,
+    ) -> Result<(), Error> {
+        self.require_session(id)?;
+        let player = NativePlayer::loopback_hls(gateway.endpoint()).map_err(playback_error)?;
+        for (url, label, language) in subtitles.into_iter().take(8) {
+            player
+                .add_loopback_subtitle(&url, &label, &language)
+                .map_err(playback_error)?;
+        }
+        self.cancel_stream();
+        self.attach_surface(player.area())?;
+        if let Some(session) = self.session.borrow_mut().as_mut() {
+            session.player = Some(player);
+            session.direct_gateway = Some(gateway);
             session.title = target.title.clone();
             session.target = Some(target);
             session.pending = false;

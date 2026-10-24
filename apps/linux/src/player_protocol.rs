@@ -170,6 +170,7 @@ pub struct Track {
 pub enum SourceKind {
     Local,
     Torrent,
+    Direct,
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -36,6 +36,7 @@ pub enum Audio {
 pub struct CatalogTarget {
     pub files_only: bool,
     pub anime: bool,
+    query: String,
     imdb: Option<String>,
     tmdb: Option<u64>,
     mal: Option<u64>,
@@ -69,6 +70,7 @@ pub enum Tier {
 pub struct Listing {
     pub files_only: bool,
     pub anime: bool,
+    pub anime_query: Option<String>,
     pub providers: Vec<Offer>,
 }
 const PROVIDERS: [Provider; 17] = [
@@ -150,6 +152,12 @@ impl CatalogTarget {
         Self {
             files_only: work["playbackPolicy"] == "files-only",
             anime,
+            query: work["canonicalTitle"]
+                .as_str()
+                .unwrap_or("")
+                .chars()
+                .take(160)
+                .collect(),
             imdb: imdb(&generic_id("imdbId")),
             tmdb: numeric(&generic_id("tmdbId")),
             mal: anime_id("malId"),
@@ -207,6 +215,7 @@ impl CatalogTarget {
         Listing {
             files_only: self.files_only,
             anime: self.anime,
+            anime_query: self.anime.then(|| self.query.clone()),
             providers,
         }
     }
@@ -527,6 +536,7 @@ mod tests {
         CatalogTarget {
             files_only: false,
             anime: false,
+            query: "Fixture".into(),
             imdb: Some("tt1300854".into()),
             tmdb: Some(68721),
             mal: Some(52991),
