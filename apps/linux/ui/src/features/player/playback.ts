@@ -20,6 +20,7 @@ const FileSchema = z.object({
 });
 export const CandidateSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),
+  provider: z.enum(["Torrentio", "Comet"]).default("Torrentio"),
   label: z.string(),
   release: z.string(),
   resolution: z.number().int().nullable(),
@@ -34,7 +35,17 @@ export type SourceCandidate = z.infer<typeof CandidateSchema>;
 
 export const SourcesSchema = z.object({
   target: TargetSchema,
-  candidates: z.array(CandidateSchema).max(200),
+  candidates: z.array(CandidateSchema).max(400),
+  providers: z
+    .array(
+      z.object({
+        id: z.enum(["Torrentio", "Comet"]),
+        count: z.number().int().nonnegative(),
+        error: z.object({ code: z.string(), message: z.string() }).nullable(),
+      }),
+    )
+    .max(2)
+    .default([]),
 });
 const PlaySchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("playing"), snapshot: PlayerSnapshotSchema }),

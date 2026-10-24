@@ -172,7 +172,11 @@ export function WatchPage({
     <div
       ref={video}
       className={
-        s.fullscreen ? "fixed inset-0" : "relative aspect-video w-full overflow-hidden rounded-2xl"
+        s.fullscreen
+          ? "fixed inset-0"
+          : s.sourceKind
+            ? "relative aspect-video w-full overflow-hidden rounded-2xl"
+            : "relative min-h-112 w-full overflow-hidden rounded-2xl sm:aspect-video"
       }
       aria-label="منطقة الفيديو"
     >
@@ -200,20 +204,11 @@ export function WatchPage({
       />
       {!s.sourceKind && !s.fullscreen && (
         <div
-          className="absolute inset-0 overflow-y-auto rounded-2xl border border-border bg-card p-4 sm:p-6"
+          className="absolute inset-0 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card p-4 sm:p-6"
           aria-label="مصادر الفيديو"
         >
           {target && sourceReady ? (
-            <div className="flex min-w-0 flex-col gap-4">
-              <SourceControls target={target} player={player} />
-              <Button
-                variant="outline"
-                disabled={player.pending}
-                onClick={() => player.command({ command: "player.pickVideo", payload: {} })}
-              >
-                فتح فيديو من الجهاز
-              </Button>
-            </div>
+            <SourceControls target={target} player={player} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4">
               <p>

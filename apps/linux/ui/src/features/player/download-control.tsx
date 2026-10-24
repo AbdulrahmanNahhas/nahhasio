@@ -3,24 +3,16 @@ import { Check, Download, LoaderCircle } from "lucide-react";
 import { z } from "zod";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { nativeCall } from "@/lib/bridge";
 
 import type { PlayerSnapshot } from "./bridge";
 import { DownloadQueue } from "./download-queue";
-import { PlayerPopover } from "./player-panels";
 
 const KeepReplySchema = z.object({ ok: z.literal(true) });
 
-export function DownloadControl({
-  snapshot,
-  open,
-  onOpenChange,
-}: {
-  snapshot: PlayerSnapshot;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function DownloadPanel({ snapshot }: { snapshot: PlayerSnapshot }) {
   const client = useQueryClient();
   const sessionId = snapshot.sessionId;
   const keep = useMutation({
@@ -35,52 +27,59 @@ export function DownloadControl({
     networkMode: "always",
   });
   return (
-    <PlayerPopover
-      title="تنزيل الفيديو"
-      icon={<Download data-icon="inline-start" />}
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {snapshot.sourceKind === "torrent"
-            ? "احتفظ بملف الفيديو على هذا الجهاز. يتابع التنزيل من التورنت الجاري دون بدء نقل جديد، ويستمر بعد إغلاق المشغّل ما دام التطبيق مفتوحًا."
-            : snapshot.sourceKind === "local"
-              ? "هذا الفيديو موجود على جهازك بالفعل؛ لا يحتاج إلى تنزيل."
-              : "اختر مصدر تورنت أولًا، ثم يمكنك الاحتفاظ بتنزيله على جهازك."}
+    <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <p className="line-clamp-2 text-sm font-medium" dir="auto">
+          {snapshot.title}
         </p>
-        {snapshot.sourceKind === "torrent" && (
-          <Button disabled={keep.isPending || keep.isSuccess} onClick={() => keep.mutate()}>
-            {keep.isPending ? (
-              <LoaderCircle
-                data-icon="inline-start"
-                className="animate-spin motion-reduce:animate-none"
-              />
-            ) : keep.isSuccess ? (
-              <Check data-icon="inline-start" />
-            ) : (
-              <Download data-icon="inline-start" />
-            )}
-            {keep.isPending
-              ? "جارٍ تثبيت التنزيل…"
-              : keep.isSuccess
-                ? "أُضيف إلى قائمة التنزيل"
-                : "الاحتفاظ بتنزيل الفيديو"}
-          </Button>
-        )}
-        {keep.isSuccess && (
-          <p role="status" className="text-sm">
-            يتابع التطبيق تنزيل الفيديو على هذا الجهاز.
-          </p>
-        )}
-        {keep.isSuccess && <DownloadQueue />}
-        {keep.error && (
-          <Alert variant="destructive">
-            <AlertTitle>تعذّر الاحتفاظ بالتنزيل</AlertTitle>
-            <AlertDescription>{keep.error.message}</AlertDescription>
-          </Alert>
+        {snapshot.sourceKind && (
+          <Badge variant="outline">
+            {snapshot.sourceKind === "torrent"
+              ? "تورنت"
+              : snapshot.sourceKind === "local"
+                ? "على الجهاز"
+                : "بث مباشر"}
+          </Badge>
         )}
       </div>
-    </PlayerPopover>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        {snapshot.sourceKind === "torrent"
+          ? "احتفظ بالفيديو على جهازك من التورنت الجاري."
+          : snapshot.sourceKind === "local"
+            ? "هذا الفيديو موجود على جهازك بالفعل؛ لا يحتاج إلى تنزيل."
+            : "التنزيل متاح لمصادر التورنت."}
+      </p>
+      {snapshot.sourceKind === "torrent" && (
+        <Button disabled={keep.isPending || keep.isSuccess} onClick={() => keep.mutate()}>
+          {keep.isPending ? (
+            <LoaderCircle
+              data-icon="inline-start"
+              className="animate-spin motion-reduce:animate-none"
+            />
+          ) : keep.isSuccess ? (
+            <Check data-icon="inline-start" />
+          ) : (
+            <Download data-icon="inline-start" />
+          )}
+          {keep.isPending
+            ? "جارٍ تثبيت التنزيل…"
+            : keep.isSuccess
+              ? "أُضيف إلى قائمة التنزيل"
+              : "الاحتفاظ بتنزيل الفيديو"}
+        </Button>
+      )}
+      {keep.isSuccess && (
+        <p role="status" className="text-sm">
+          يتابع التطبيق تنزيل الفيديو على هذا الجهاز.
+        </p>
+      )}
+      {keep.isSuccess && <DownloadQueue />}
+      {keep.error && (
+        <Alert variant="destructive">
+          <AlertTitle>تعذّر الاحتفاظ بالتنزيل</AlertTitle>
+          <AlertDescription>{keep.error.message}</AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }

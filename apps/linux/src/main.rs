@@ -34,6 +34,7 @@ mod stream_provider;
 mod stream_registry;
 #[cfg(feature = "native-diagnostics")]
 mod torrent_smoke;
+mod torrent_sources;
 mod torrentio;
 
 use adw::prelude::*;

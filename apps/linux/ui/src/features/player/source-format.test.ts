@@ -5,6 +5,7 @@ import { formatSource, formatSourceSize, sourceLanguageLabel } from "./source-fo
 
 const candidate: SourceCandidate = {
   id: "a".repeat(64),
+  provider: "Torrentio",
   label: "Torrentio",
   release: "A release",
   resolution: null,

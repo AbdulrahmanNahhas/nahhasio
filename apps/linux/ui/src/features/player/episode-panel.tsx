@@ -120,7 +120,7 @@ export function EpisodePanel({
       </header>
       <ul
         id={shelfId}
-        className="flex min-w-0 snap-x snap-proximity gap-4 overflow-x-auto overscroll-x-contain p-1 pb-3"
+        className="flex min-w-0 snap-x snap-proximity gap-4 scroll-fade-x overflow-x-auto overscroll-x-contain p-1 pb-3"
       >
         {episodes.map((episode) => (
           <EpisodeCard

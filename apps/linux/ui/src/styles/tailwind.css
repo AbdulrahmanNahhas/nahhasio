@@ -29,6 +29,8 @@
   --font-heading: var(--font-sans);
   --font-display: "Plex Arabic", var(--font-sans);
   --color-background: var(--background);
+  --color-player-chrome: var(--player-chrome);
+  --color-player-panel: var(--player-panel);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -73,6 +75,8 @@
 }
 
 :root {
+  --player-chrome: oklch(0 0 0 / 92%);
+  --player-panel: oklch(0.13 0 0);
   --success: #6dd4a0;
   --warning: #e7c369;
   --rail: var(--sidebar);

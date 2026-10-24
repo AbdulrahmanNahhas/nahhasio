@@ -2,6 +2,55 @@ import type { PlayerTrack } from "./bridge";
 
 const languageNames = new Intl.DisplayNames(["ar"], { type: "language" });
 
+/** Decorative language markers, never evidence of a dub's country or origin. */
+export function trackFlag(language?: string | null) {
+  if (!language) return null;
+  const tag = language.trim().replace(/_/gu, "-");
+  try {
+    const region = new Intl.Locale(tag).region;
+    if (region && /^[A-Z]{2}$/u.test(region)) {
+      return String.fromCodePoint(...[...region].map((letter) => 127397 + letter.charCodeAt(0)));
+    }
+  } catch {
+    // Preserve unknown native tags without inventing a language.
+  }
+  const flags: Record<string, string> = {
+    en: "🇬🇧",
+    eng: "🇬🇧",
+    ja: "🇯🇵",
+    jpn: "🇯🇵",
+    ar: "🌐",
+    ara: "🌐",
+    fr: "🇫🇷",
+    fra: "🇫🇷",
+    fre: "🇫🇷",
+    de: "🇩🇪",
+    deu: "🇩🇪",
+    ger: "🇩🇪",
+    es: "🇪🇸",
+    spa: "🇪🇸",
+    it: "🇮🇹",
+    ita: "🇮🇹",
+    pt: "🇵🇹",
+    por: "🇵🇹",
+    ru: "🇷🇺",
+    rus: "🇷🇺",
+    ko: "🇰🇷",
+    kor: "🇰🇷",
+    zh: "🇨🇳",
+    zho: "🇨🇳",
+    chi: "🇨🇳",
+    hi: "🇮🇳",
+    hin: "🇮🇳",
+    tr: "🇹🇷",
+    tur: "🇹🇷",
+    fa: "🇮🇷",
+    fas: "🇮🇷",
+    per: "🇮🇷",
+  };
+  return flags[tag.toLowerCase().split("-", 1)[0]] ?? null;
+}
+
 export function trackLanguage(track: PlayerTrack) {
   const code = track.language?.trim();
   if (!code) return "لغة غير محددة";

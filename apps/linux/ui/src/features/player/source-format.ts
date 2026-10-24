@@ -68,6 +68,25 @@ function reportedHdr(text: string, hdr: boolean) {
   return formats.length ? formats.join(" · ") : hdr ? "HDR" : null;
 }
 
+function audioHint(text: string, languages: Set<string>) {
+  const normalized = text.replace(/[._-]+/gu, " ");
+  const dual = /\bdual\s+audio\b/iu.test(normalized);
+  const dubbed = /\b(?:dubbed|dub)\b/iu.test(normalized);
+  const negated =
+    /\b(?:no|not|without)\s+(?:english\s+)?(?:dub(?:bed)?|dual\s+audio)\b|\bdub(?:bed)?\s+(?:not\s+available|unavailable)\b/iu.test(
+      normalized,
+    );
+  const foreignDub =
+    /\b(?:arabic|french|german|spanish|italian|portuguese|russian|korean|chinese|hindi|tamil|telugu|turkish|persian)\s+dub(?:bed)?\b|\bdub(?:bed)?\s*(?::|in)?\s*(?:arabic|french|german|spanish|italian|portuguese|russian|korean|chinese|hindi|tamil|telugu|turkish|persian)\b/iu.test(
+      normalized,
+    );
+  return {
+    audioTag: !negated && dual ? "Dual Audio" : !negated && dubbed ? "Dubbed" : null,
+    // A release-label heuristic only; native track metadata remains authoritative.
+    englishInferred: !languages.has("en") && !negated && !foreignDub && (dual || dubbed),
+  };
+}
+
 export function sourceLanguageLabel(language: string) {
   try {
     return languageNames.of(language) ?? language;
@@ -123,5 +142,6 @@ export function formatSource(candidate: SourceCandidate) {
     sizeBytes: candidate.sizeBytes ?? reportedSize(release),
     seeders: candidate.seeders ?? reportedSeeders(release),
     reportedLanguages: [...languages],
+    ...audioHint(text, languages),
   };
 }

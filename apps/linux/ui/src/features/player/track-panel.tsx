@@ -1,5 +1,5 @@
 import { Radio } from "@base-ui/react/radio";
-import { Check, ChevronLeft, ChevronRight, SlidersHorizontal, Upload } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Globe, SlidersHorizontal, Upload } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { RadioGroup } from "@/components/ui/radio-group";
 
 import type { PlayerSnapshot, PlayerTrack } from "./bridge";
 import { PlayerSlider } from "./player-slider";
-import { groupTracks, trackLabel, trackLanguage, trackSecondary } from "./track-format";
+import { groupTracks, trackFlag, trackLabel, trackLanguage, trackSecondary } from "./track-format";
 import type { PlayerController } from "./use-player-snapshot";
 
 export { trackLabel } from "./track-format";
@@ -82,7 +82,7 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-3" dir="rtl">
+    <div className="flex min-w-0 flex-col gap-2" dir="rtl">
       {customizing ? (
         <>
           <Button
@@ -195,13 +195,14 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
             >
               {kind === "subtitle" && <TrackOption value={null} primary="إيقاف الترجمة" />}
               {!overview && (
-                <div className="flex max-h-64 min-w-0 flex-col gap-1 overflow-y-auto overscroll-contain p-1">
+                <div className="flex min-w-0 flex-col gap-1 p-1">
                   {visibleTracks.map((track) => (
                     <TrackOption
                       key={track.id}
                       value={track.id}
                       primary={trackLanguage(track)}
                       secondary={trackSecondary(track)}
+                      languageTag={track.language}
                       buttonRef={(button) => {
                         if (button) trackButtons.current.set(track.id, button);
                         else trackButtons.current.delete(track.id);
@@ -213,10 +214,7 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
             </RadioGroup>
           )}
           {overview && (
-            <div
-              className="flex max-h-64 min-w-0 flex-col gap-1 overflow-y-auto overscroll-contain p-1"
-              aria-label="لغات المسارات"
-            >
+            <div className="flex min-w-0 flex-col gap-1 p-1" aria-label="لغات المسارات">
               {visibleGroups.map((group) => (
                 <Button
                   key={group.language}
@@ -224,10 +222,16 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
                     if (button) groupButtons.current.set(group.language, button);
                     else groupButtons.current.delete(group.language);
                   }}
-                  variant="ghost"
-                  className="h-auto w-full justify-start gap-3"
+                  variant={group.tracks.some((track) => track.selected) ? "secondary" : "ghost"}
+                  size="lg"
+                  className="h-auto min-h-12 w-full justify-start gap-3"
+                  disabled={disabled}
                   aria-label={`${group.language} · ${group.tracks.length} مسارات${group.tracks.some((track) => track.selected) ? " · تضم المسار الحالي" : ""}`}
                   onClick={() => {
+                    if (group.tracks.length === 1) {
+                      select(group.tracks[0].id);
+                      return;
+                    }
                     setLanguage(group.language);
                     const matches = group.tracks.filter(matchesSearch);
                     const first = matches.find((track) => track.selected) ?? matches[0];
@@ -236,17 +240,27 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
                     });
                   }}
                 >
+                  <LanguageMark language={group.tracks[0].language} />
                   <span
-                    className="min-w-0 flex-1 text-start whitespace-normal wrap-anywhere"
+                    className="flex min-w-0 flex-1 flex-col gap-1 text-start whitespace-normal wrap-anywhere"
                     dir="auto"
                   >
-                    {group.language}
+                    <span>{group.language}</span>
+                    {group.tracks.length === 1 && (
+                      <span className="line-clamp-2 text-xs text-muted-foreground">
+                        {trackSecondary(group.tracks[0])}
+                      </span>
+                    )}
                   </span>
                   {group.tracks.some((track) => track.selected) && (
                     <Check data-icon="inline-end" aria-hidden="true" />
                   )}
-                  <Badge variant="secondary">{group.tracks.length}</Badge>
-                  <ChevronLeft data-icon="inline-end" />
+                  {group.tracks.length > 1 && (
+                    <>
+                      <Badge variant="secondary">{group.tracks.length}</Badge>
+                      <ChevronLeft data-icon="inline-end" />
+                    </>
+                  )}
                 </Button>
               ))}
             </div>
@@ -279,7 +293,6 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
             size="sm"
             variant="ghost"
             className="w-full"
-
             onClick={() => showCustomization(true)}
           >
             <SlidersHorizontal data-icon="inline-start" />
@@ -296,26 +309,29 @@ function TrackOption({
   primary,
   secondary,
   buttonRef,
+  languageTag,
 }: {
   value: number | null;
   primary: string;
   secondary?: string;
   buttonRef?: (button: HTMLElement | null) => void;
+  languageTag?: string | null;
 }) {
   return (
     <Radio.Root
       value={value}
-      render={<Button variant="ghost" type="button" />}
+      render={<Button variant="ghost" size="lg" type="button" />}
       nativeButton
       ref={buttonRef}
-      className="player-track-option flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+      className="player-track-option flex h-auto min-h-12 w-full items-center gap-3 whitespace-normal text-start data-checked:bg-accent"
     >
+      {value !== null && <LanguageMark language={languageTag} />}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="font-medium wrap-anywhere" dir="auto">
           {primary}
         </span>
         {secondary && (
-          <span className="text-xs text-muted-foreground wrap-anywhere" dir="auto">
+          <span className="line-clamp-2 text-xs text-muted-foreground wrap-anywhere" dir="auto">
             {secondary}
           </span>
         )}
@@ -326,6 +342,18 @@ function TrackOption({
         </Radio.Indicator>
       </span>
     </Radio.Root>
+  );
+}
+
+function LanguageMark({ language }: { language?: string | null }) {
+  const flag = trackFlag(language);
+  return (
+    <span
+      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted font-emoji text-lg"
+      aria-hidden="true"
+    >
+      {flag ?? <Globe className="size-4" />}
+    </span>
   );
 }
 

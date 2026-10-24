@@ -52,6 +52,7 @@ impl Search {
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
     pub id: String,
+    pub provider: &'static str,
     pub label: String,
     pub release: String,
     pub resolution: Option<u16>,
@@ -85,10 +86,20 @@ struct Envelope {
 }
 
 pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
-    let identifier = input.identifier()?;
     let base = setting("NAHHASIO_TORRENTIO_URL", "NAHHASIO_STREAM_ADDON_URL")
         .unwrap_or_else(|| "https://torrentio.strem.fun".into());
-    let mut url = url::Url::parse(&base).map_err(|_| configuration_error())?;
+    let config = setting("NAHHASIO_TORRENTIO_CONFIG", "NAHHASIO_STREAM_ADDON_CONFIG");
+    search_addon(input, &base, config.as_deref(), "Torrentio").await
+}
+
+pub async fn search_addon(
+    input: Search,
+    base: &str,
+    config: Option<&str>,
+    provider: &'static str,
+) -> Result<Vec<Candidate>, Error> {
+    let identifier = input.identifier()?;
+    let mut url = url::Url::parse(base).map_err(|_| configuration_error())?;
     if url.scheme() != "https" && !(url.scheme() == "http" && url.host_str() == Some("127.0.0.1")) {
         return Err(configuration_error());
     }
@@ -99,7 +110,6 @@ pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
     {
         return Err(configuration_error());
     }
-    let config = setting("NAHHASIO_TORRENTIO_CONFIG", "NAHHASIO_STREAM_ADDON_CONFIG");
     let kind = match input.kind {
         Kind::Movie => "movie",
         Kind::Series => "series",
@@ -108,7 +118,7 @@ pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
         let mut segments = url.path_segments_mut().map_err(|_| configuration_error())?;
         segments.pop_if_empty();
         if let Some(config) = config {
-            segments.push(&config);
+            segments.push(config);
         }
         segments.extend(["stream", kind, &format!("{identifier}.json")]);
     }
@@ -147,7 +157,11 @@ pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
         }
         bytes.extend_from_slice(&chunk);
     }
-    parse(&bytes)
+    if provider == "Torrentio" {
+        parse(&bytes)
+    } else {
+        parse_provider(&bytes, provider)
+    }
 }
 
 fn setting(primary: &str, legacy: &str) -> Option<String> {
@@ -169,20 +183,21 @@ fn setting(primary: &str, legacy: &str) -> Option<String> {
 }
 
 pub fn parse(bytes: &[u8]) -> Result<Vec<Candidate>, Error> {
+    parse_provider(bytes, "Torrentio")
+}
+
+fn parse_provider(bytes: &[u8], provider: &'static str) -> Result<Vec<Candidate>, Error> {
     if bytes.len() > BODY_LIMIT {
         return Err(malformed());
     }
     let envelope: Envelope = serde_json::from_slice(bytes).map_err(|_| malformed())?;
-    if envelope.streams.len() > 200 {
-        return Err(malformed());
-    }
     let mut candidates = Vec::new();
     let mut seen = BTreeSet::new();
-    for stream in envelope.streams {
+    for stream in envelope.streams.into_iter().take(200) {
         let Some(object) = stream.as_object() else {
             return Err(malformed());
         };
-        let label = bounded(object.get("name"), 512).unwrap_or_else(|| "Torrentio".into());
+        let label = bounded(object.get("name"), 512).unwrap_or_else(|| provider.into());
         let release = bounded(
             object.get("title").or_else(|| object.get("description")),
             4096,
@@ -210,7 +225,7 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<Candidate>, Error> {
         }
         // Direct/debrid sources are displayed, but never handed to mpv as an untrusted URL.
         let identity = format!(
-            "{}:{file_index:?}",
+            "{provider}:{}:{file_index:?}",
             info_hash.as_deref().or(direct).unwrap_or("")
         );
         let id = hex::encode(Sha256::digest(identity.as_bytes()));
@@ -265,6 +280,7 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<Candidate>, Error> {
             .or_else(|| size(&release));
         candidates.push(Candidate {
             id,
+            provider,
             label,
             release,
             resolution,

@@ -894,11 +894,11 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
   await expect(drawer).toBeVisible();
-  await expect(
-    drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }),
-  ).toBeVisible();
-  expect(await calls(page, "media.search")).toHaveLength(0);
-  await drawer.getByRole("button", { name: "تورنت", exact: true }).click();
+  await expect(drawer.getByRole("tab").first()).toHaveText("تورنت");
+  await expect(drawer.getByRole("tab", { name: "تورنت", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(
     drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
   ).toBeVisible();
@@ -909,8 +909,32 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   // The approved floating Drawer has an 8px inset, rather than the old flush Sheet.
   expect(bounds!.x + bounds!.width).toBeCloseTo(viewport.width - 8, 0);
   await expect(drawer.getByText("AV1", { exact: true })).toBeVisible();
+  await drawer
+    .getByRole("group", { name: "جودة التورنت", exact: true })
+    .getByRole("button", { name: "720p", exact: true })
+    .click();
+  await expect(
+    drawer.getByRole("heading", { name: "Synthetic alternative", exact: true }),
+  ).toBeVisible();
+  await expect(
+    drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
+  ).toHaveCount(0);
+  await drawer
+    .getByRole("group", { name: "جودة التورنت", exact: true })
+    .getByRole("button", { name: "الكل", exact: true })
+    .click();
+  await drawer.getByRole("combobox", { name: "ترتيب المصادر", exact: true }).click();
+  await page.getByRole("option", { name: "الأصغر حجمًا", exact: true }).click();
+  await expect(drawer.getByLabel("مصادر التورنت").getByRole("heading").first()).toHaveText(
+    "Synthetic alternative",
+  );
+  await drawer.getByRole("button", { name: "خيارات المصدر", exact: true }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "فتح فيديو من الجهاز", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await drawer.getByRole("searchbox", { name: "البحث في المصادر" }).fill("1080");
-  await expect(drawer.getByText("1 من 2 مصدر")).toBeVisible();
+  await expect(drawer.getByText("1 مصدر")).toBeVisible();
   await page.screenshot({ path: "test-results/player-sources.png" });
   await drawer.getByRole("button", { name: "تشغيل هذا المصدر", exact: true }).click();
   await expect(drawer).toHaveCount(0);
@@ -927,20 +951,15 @@ for (const width of [1440, 520]) {
     await mock(page, { ...initial, active: false, sessionId: null });
     await page.getByRole("button", { name: "Watch test work" }).click();
     const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
-    await drawer
-      .getByRole("radiogroup", { name: "مزوّد الفيديو" })
-      .getByText("VidSrc", { exact: true })
-      .click();
+    await drawer.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
     const start = drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true });
     await expect(start).toBeVisible();
 
     expect(await calls(page, "stream.open")).toHaveLength(0);
-    expect(await calls(page, "media.search")).toHaveLength(0);
+    expect(await calls(page, "media.search")).toHaveLength(1);
     await page.screenshot({ path: `test-results/embed-selection-${width}.png` });
     await start.click();
-    await expect(
-      drawer.getByText("صفحة المشغّل مفتوحة؛ لم يُتحقّق من تشغيل الفيديو.", { exact: true }),
-    ).toBeVisible();
+    await expect(drawer.getByText("المشغّل مفتوح", { exact: true })).toBeVisible();
     expect(await calls(page, "stream.open")).toEqual([
       expect.objectContaining({
         payload: {
@@ -957,10 +976,8 @@ for (const width of [1440, 520]) {
     ]);
     await drawer.getByRole("button", { name: "إظهار المشغّل", exact: true }).click();
     expect(await calls(page, "stream.present")).toHaveLength(1);
-    await drawer.getByText("حالة الحماية والمزوّد", { exact: true }).click();
-    await expect(drawer.getByText(/تقدم المشاهدة غير متصل/u)).toBeVisible();
     await page.screenshot({ path: `test-results/embed-loaded-${width}.png` });
-    await drawer.getByRole("button", { name: "تورنت", exact: true }).click();
+    await drawer.getByRole("tab", { name: "تورنت", exact: true }).click();
     await expect(
       drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
     ).toBeVisible();
@@ -976,12 +993,13 @@ test("embed mapping failure remains recoverable without starting a torrent", asy
   await mock(page, { ...initial, active: false, sessionId: null }, "embed-error");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await drawer.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
   await drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }).click();
   await expect(drawer.getByRole("alert")).toContainText("تعذّر مطابقة");
   await drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }).click();
   await expect(drawer.getByRole("button", { name: "إظهار المشغّل", exact: true })).toBeVisible();
   expect(await calls(page, "media.play")).toHaveLength(0);
-  expect(await calls(page, "media.search")).toHaveLength(0);
+  expect(await calls(page, "media.search")).toHaveLength(1);
 });
 
 test("grouped subtitles search and customization use actual tracks and bounded commands", async ({
@@ -1042,7 +1060,7 @@ test("speed presets, bottom fullscreen control and torrent keep-download remain 
   ).toBeVisible();
   await expect(
     page.locator(".player-tools").getByRole("button", { name: "البث إلى جهاز آخر غير متاح" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "إعدادات التشغيل", exact: true }).click();
   await page.getByRole("button", { name: "السرعة 1.5×", exact: true }).click();
   await expect
@@ -1073,45 +1091,29 @@ test("anime prioritizes explicit dub, keeps uncertain audio secondary and switch
   await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
-  await drawer
-    .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
-    .click();
-  await expect(drawer.getByText("English DUB", { exact: true }).last()).toBeVisible();
+  await drawer.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
+  await expect(drawer.getByText("غير معروف", { exact: true })).toHaveCount(0);
   await expect(drawer.locator('[data-provider-choice="vidhawk:dub"]')).toHaveCount(0);
   await expect(drawer.locator('[data-provider-choice="vidsrc:original"]')).toHaveCount(0);
   await expect(
     drawer.getByRole("button", { name: "المشاهدة عبر VidNest", exact: true }),
   ).toBeVisible();
+
+  await drawer.getByRole("button", { name: /^خيارات إضافية/u }).click();
   await expect(
-    drawer.getByText("في الاختبار: ترجمة إنجليزية فقط؛ لا عربية أو رفع ملف.", { exact: true }),
-  ).toBeVisible();
-  await drawer.getByRole("button", { name: /^تريد المزيد؟ \(/u }).click();
-  await drawer
-    .locator('[data-provider-choice="cinezo:dub"]')
-    .getByText("Cinezo", { exact: true })
-    .click();
-  await expect(
-    drawer.getByRole("button", { name: "المشاهدة عبر Cinezo", exact: true }),
+    drawer.locator('[data-provider-choice="cinezo:dub"]').getByRole("button"),
   ).toBeDisabled();
-  await drawer
-    .locator('[data-provider-choice="vidnest:dub"]')
-    .getByText("VidNest", { exact: true })
-    .click();
   await drawer.getByRole("button", { name: "المشاهدة عبر VidNest", exact: true }).click();
   expect(await calls(page, "stream.open")).toEqual([
     expect.objectContaining({
       payload: expect.objectContaining({ provider: "vidnest", audio: "dub" }),
     }),
   ]);
-  await drawer
-    .getByRole("radiogroup", { name: "مزوّد الفيديو" })
-    .getByText("VidSrc", { exact: true })
-    .click();
   await drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }).click();
   expect((await calls(page, "stream.open"))[1]).toMatchObject({
     payload: { provider: "vidsrc", audio: "original" },
   });
-  expect(await calls(page, "media.search")).toHaveLength(0);
+  expect(await calls(page, "media.search")).toHaveLength(1);
   await page.screenshot({ path: "test-results/embed-anime.png" });
 });
 
@@ -1121,10 +1123,10 @@ test("confirmed dub and Arabic subtitles get a star and outrank requested dub", 
   await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime-star");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
-  await drawer
-    .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
-    .click();
-  await expect(drawer.getByText("دبلجة إنجليزية + ترجمة عربية", { exact: true })).toBeVisible();
+  await drawer.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
+  await expect(drawer.locator('[data-provider-choice="vidsrc:original"]')).toContainText(
+    "DUB + عربي",
+  );
   await expect(
     drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
   ).toBeVisible();
@@ -1139,7 +1141,7 @@ test("files-only work offers no online source modes or provider launches", async
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
   await expect(drawer.getByRole("alert")).toContainText("ملفات فقط");
-  await expect(drawer.getByRole("button", { name: "تورنت", exact: true })).toHaveCount(0);
+  await expect(drawer.getByRole("tab", { name: "تورنت", exact: true })).toHaveCount(0);
   await expect(drawer.getByRole("button", { name: /المشاهدة عبر/u })).toHaveCount(0);
   expect(await calls(page, "stream.open")).toHaveLength(0);
   expect(await calls(page, "media.search")).toHaveLength(0);
@@ -1151,12 +1153,12 @@ for (const width of [1440, 520]) {
     await mock(page, { ...initial, active: false, sessionId: null }, "anime-direct");
     await page.getByRole("button", { name: "Watch test work" }).click();
     const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
-    await expect(drawer.getByRole("heading", { name: "الأنمي، بمشغّل نحّاسيو" })).toBeVisible();
+    await drawer.getByRole("tab", { name: "بث الأنمي", exact: true }).click();
     await expect(drawer.getByLabel("اسم الأنمي", { exact: true })).toHaveValue("Synthetic anime");
     expect(await calls(page, "anime.search")).toHaveLength(0);
-    await expect(
-      drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true }),
-    ).toBeDisabled();
+    await expect(drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true })).toHaveCount(
+      0,
+    );
     await drawer.getByRole("button", { name: "بحث", exact: true }).click();
     await drawer.getByText("Synthetic anime Season 1", { exact: true }).click();
     await expect(drawer.getByText("720p", { exact: true })).toBeVisible();
@@ -1165,7 +1167,7 @@ for (const width of [1440, 520]) {
     await drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true }).click();
     expect(await calls(page, "anime.play")).toHaveLength(1);
     expect(await calls(page, "stream.open")).toHaveLength(0);
-    expect(await calls(page, "media.search")).toHaveLength(0);
+    expect(await calls(page, "media.search")).toHaveLength(1);
   });
 }
 
@@ -1173,10 +1175,11 @@ test("anime direct missing dub stays recoverable without sub fallback", async ({
   await mock(page, { ...initial, active: false, sessionId: null }, "anime-direct-no-dub");
   await page.getByRole("button", { name: "Watch test work" }).click();
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await drawer.getByRole("tab", { name: "بث الأنمي", exact: true }).click();
   await drawer.getByRole("button", { name: "بحث", exact: true }).click();
   await drawer.getByText("Synthetic anime Season 1", { exact: true }).click();
   await expect(drawer.getByRole("alert")).toContainText("الدبلجة الإنجليزية غير متاحة");
-  await expect(drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true })).toBeDisabled();
+  await expect(drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true })).toHaveCount(0);
   await expect(drawer.getByRole("button", { name: "AniDBApp", exact: true })).toBeEnabled();
   expect(await calls(page, "anime.play")).toHaveLength(0);
 });

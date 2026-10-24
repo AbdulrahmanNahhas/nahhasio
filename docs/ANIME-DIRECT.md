@@ -1,49 +1,29 @@
 # Anime direct playback checkpoint
 
-Anime series and anime films use a separate source desk: one English-dub native flow, followed
-by a deliberately secondary disclosure for the existing torrent and embed choices. Western
-animation such as Arcane keeps the film/TV flow. Whole-work files-only policy excludes both.
+The source picker opens on Torrents for every online work. Anime series/films also offer a
+separate English-dub direct-stream tab; video servers remain a peer option. Whole-work files-only
+policy excludes all online modes. The source overflow menu opens a device file; files-only works
+expose that action directly.
 
-## Design plan
+## Source picker redesign
 
-Keep the reviewed semantic palette (background #0a0a0a, card #171717, secondary #252525,
-foreground #fafafa, muted #a3a3a3, primary #6149f7) and current Noto/Plex Arabic typography.
-Feature code uses theme tokens. The distinguishing element is a clear vertical sequence,
-not another provider gallery: anime identity first, quality second, one Play action last.
+Retain the reviewed charcoal palette (#0a0a0a background, #171717 card, #252525 secondary), pale
+text (#fafafa), muted text (#a3a3a3), violet accent (#6149f7), and Noto/Plex Arabic typography.
+Keep RTL alignment and keyboard selection. Use the video space as a practical source desk:
 
-    [English DUB]                         [our player]
-    [source: AnimeHub / AniDBApp]
-    [editable anime title] [Search]
-    [matching anime/season choices]
-    [available qualities + subtitle availability]
-    [Play in Nahhasio]
-    [Want more?] -> existing torrent/embed choices
+    [Torrents (default)] [Anime streams, when applicable] [Video servers] [⋯]
+    [search / sort]                                    [result count]
+    [Torrentio / Comet] [quality] [language]
+    [compact source rows: quality, release, size, peers, languages, Play]
 
-No first-result autoplay or automatic Japanese fallback. Search is explicit; matching a season
-is a user choice, not a fuzzy title guess. Candidate and quality selection do not start playback.
-The subtitle note says only that an Arabic file can be added through the native controls. It
-must not imply a subtitle was found. Preferred stars still require separately reviewed evidence.
-
-Quick UI review pass: retain the same palette/type and RTL alignment, use a compact provider row,
-bounded full-row season choices, quality tiles and a separated footer with the selected source
-beside Play. Keep the play sequence above; remove the standing instructions and show subtitle
-guidance only after qualities arrive. One panel, no extra nested cards or decorative motion.
-
-Watch-page review: keep charcoal background/card/secondary (#0a0a0a/#171717/#252525), pale
-foreground (#fafafa), muted text (#a3a3a3) and violet accent (#6149f7), with the existing Noto/Plex
-type. A shared right-aligned title/action/description area sits below every video, then family
-discussion in the same column. The companion sidebar is a compact queue for movies/episodes or
-brief film facts for a single movie. Poster/still shapes distinguish the queues; only the current
-item gets a filled surface. Use explicit catalog rating, never an invented rank, and recorded
-external IDs only. No extra provider requests or automatic playback are introduced.
-
-Reviewed watch sidebar behavior now distinguishes movie collections from mixed season/film/special
-works. Movies and specials in mixed works share a detail sidebar with the installment selector,
-explicit Watch action and adjacent-part navigation; browsing does not switch playback. The sidebar
-labels browsing, selected and playing states separately. Film/special headers keep genres beside
-the poster, and recorded organization credits reuse the directory's 16:9 contained studio-logo
-presentation. Pure movie collections retain their poster queue. Recommendations remain limited
-to the existing work endpoint/cache and are disabled in the mixed installment detail sidebar.
+The modes are visible peers, never nested under an anime card or a Want more disclosure.
+The rare device-file action lives in the overflow menu. Every server is a single click-to-play tile.
+Torrent rows expose supplied metadata and separate English hints inferred from Dubbed/Dual Audio
+release tags, with full original text behind a short details disclosure. Unknown values and repeated
+provider disclaimers are omitted. Quality/language filtering never turns a metadata hint into a
+confirmed audio track. Server choices show positive known capabilities only; source selection
+still requires an explicit Play action. English-dub anime matching remains explicit and does
+not fall back to Japanese. Preferred stars still require separately reviewed evidence.
 
 ## Ownership and runtime
 

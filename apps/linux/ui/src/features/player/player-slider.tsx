@@ -1,10 +1,13 @@
 import { DirectionProvider } from "@base-ui/react/direction-provider";
 import { Slider } from "@base-ui/react/slider";
+import { cn } from "cn";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
 type PlayerSliderProps = {
   label: string;
+  compact?: boolean;
+  expandOnHover?: boolean;
   value: number;
   min?: number;
   max: number;
@@ -37,6 +40,8 @@ function parseSliderValue(payload: SliderPayload, min: number, max: number): Sli
 /** Remote updates never overwrite an unfinished drag. */
 export function PlayerSlider({
   label,
+  compact = false,
+  expandOnHover = false,
   value,
   min = 0,
   max,
@@ -72,7 +77,7 @@ export function PlayerSlider({
         step={validStep ? step : 1}
         disabled={isDisabled}
         thumbAlignment="edge"
-        className="player-slider w-full"
+        className="player-slider group/player-slider w-full"
         onPointerDownCapture={(event) => {
           if (isDisabled || event.button !== 0) return;
           canceled.current = false;
@@ -129,11 +134,16 @@ export function PlayerSlider({
       >
         <Slider.Control
           data-slot="slider-control"
-          className="player-slider-control relative flex h-5 w-full touch-none items-center select-none data-disabled:opacity-50"
+          className="player-slider-control relative flex h-5 w-full cursor-pointer touch-none items-center select-none data-disabled:cursor-default data-disabled:opacity-50"
         >
           <Slider.Track
             data-slot="slider-track"
-            className="player-slider-track relative h-1 w-full grow overflow-hidden rounded-full bg-muted select-none"
+            className={cn(
+              "player-slider-track relative w-full grow overflow-hidden rounded-full bg-muted select-none",
+              compact && !expandOnHover ? "h-0.5" : "h-1",
+              expandOnHover &&
+                "transition-[height] duration-150 group-hover/player-slider:h-1.5 group-focus-within/player-slider:h-1.5 group-data-drafting/player-slider:h-1.5 motion-reduce:transition-none",
+            )}
           >
             <Slider.Indicator
               data-slot="slider-range"
@@ -147,7 +157,12 @@ export function PlayerSlider({
             aria-valuetext={format ? format(shown) : String(shown)}
             disabled={isDisabled}
             onBlur={cancelDraft}
-            className="player-slider-thumb relative block size-3 shrink-0 rounded-full border border-ring bg-foreground ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 has-focus-visible:ring-3 has-focus-visible:outline-hidden data-dragging:ring-3 data-disabled:pointer-events-none data-disabled:opacity-50 motion-reduce:transition-none"
+            className={cn(
+              "player-slider-thumb relative block shrink-0 cursor-pointer rounded-full border border-ring bg-foreground ring-ring/50 transition-[color,box-shadow,scale] select-none after:absolute after:-inset-2 hover:ring-3 has-focus-visible:ring-3 has-focus-visible:outline-hidden data-dragging:ring-3 data-disabled:pointer-events-none data-disabled:opacity-50 motion-reduce:transition-none",
+              compact ? "size-2.5" : "size-3",
+              expandOnHover &&
+                "group-hover/player-slider:scale-125 group-focus-within/player-slider:scale-125 data-dragging:scale-125",
+            )}
           />
         </Slider.Control>
       </Slider.Root>

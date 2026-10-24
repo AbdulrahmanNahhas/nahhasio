@@ -1572,17 +1572,15 @@ for (const width of [520, 1440]) {
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
+    await sources.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
     await sources
-      .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
-      .click();
-    await sources
-      .getByRole("button", { name: /تريد المزيد؟/u })
+      .getByRole("button", { name: /^خيارات إضافية/u })
       .last()
       .click();
     await expect(
       sources.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
     ).toBeVisible();
-    await sources.getByRole("button", { name: "تورنت", exact: true }).click();
+    await sources.getByRole("tab", { name: "تورنت", exact: true }).click();
     await expect(sources).toContainText("تعذّر الوصول إلى Torrentio");
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
     const composer = watch.getByLabel("اكتب تعليقًا للعائلة", { exact: true });
@@ -1657,11 +1655,11 @@ for (const width of [520, 1440]) {
     await expect(watch).toBeVisible();
     await watch
       .getByLabel("مصادر الفيديو", { exact: true })
-      .getByRole("button", { name: "تريد المزيد؟ التورنت وخوادم الفيديو", exact: true })
+      .getByRole("tab", { name: "خوادم الفيديو", exact: true })
       .click();
     await watch
       .getByLabel("مصادر الفيديو", { exact: true })
-      .getByRole("button", { name: "تورنت", exact: true })
+      .getByRole("tab", { name: "تورنت", exact: true })
       .click();
     await expect(watch.getByLabel("مصادر الفيديو", { exact: true })).toContainText(
       "تعذّر الوصول إلى Torrentio",

@@ -4,7 +4,7 @@ use crate::{
     media_gateway::Gateway,
     media_storage::Roots,
     services::Services,
-    torrentio,
+    torrent_sources, torrentio,
 };
 use media_transfer::{Engine, File, TorrentId};
 use serde::{Deserialize, Serialize};
@@ -175,6 +175,7 @@ pub enum Ready {
 pub struct Sources {
     pub target: ResolvedTarget,
     pub candidates: Vec<Value>,
+    pub providers: Vec<torrent_sources::ProviderStatus>,
 }
 impl Media {
     pub async fn reset_sources(&self) {
@@ -295,7 +296,8 @@ impl Media {
             return Err(Error::new("bad_request", "Invalid source session"));
         }
         let resolved = self.resolve(&target).await?;
-        let candidates = torrentio::search(resolved.search.clone()).await?;
+        let discovery = torrent_sources::search(resolved.search.clone()).await;
+        let candidates = discovery.candidates;
         let views = candidates
             .iter()
             .map(torrentio::Candidate::public_value)
@@ -330,6 +332,7 @@ impl Media {
         Ok(Sources {
             target: resolved,
             candidates: views,
+            providers: discovery.providers,
         })
     }
     pub async fn prepare(

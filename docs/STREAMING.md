@@ -1,13 +1,85 @@
 # Streaming provider checkpoint
 
-Nahhasio offers provider-hosted embeds and Torrentio, plus a separate English-dub anime flow
+Nahhasio offers provider-hosted embeds, Torrentio and Comet, plus a separate English-dub anime flow
 using anipy-api and the native player. See [the anime checkpoint](ANIME-DIRECT.md) for ownership,
 quality/subtitle limits and checks. ani-cli and Cloudstream are not integrated. Opening a catalog
-work does not contact online providers; anime search is explicit, Torrentio discovery starts
-when selected, and an embed starts only after selecting a provider and pressing its Play action.
+work does not contact online providers; anime search is explicit, torrent discovery starts
+when the torrent tab is selected (the default on opening the source picker), and an embed starts
+only after clicking a provider. Torrent, anime-direct and server
+modes are visible peer tabs; each server is a single Play action, and opening a device file
+lives in the source overflow menu (directly available for files-only works). Unknown capabilities and
+repeated provider-request notes are omitted from the picker.
 The capability listing reads the authorized catalog only; it does not probe all providers.
 Saved device video still takes precedence when available. Download remains a separate torrent
 workflow and never opens an embed or starts playback.
+
+Torrent language filters include reported languages and a separate English hint for generic
+Dubbed/Dual Audio release tags. Inferred English uses an approximation mark and a short tooltip;
+it does not modify native track metadata. Explicit foreign-dub and negated-dub tags are excluded
+from that inference. Search, quality and language filters combine; sorting supports provider order,
+peer count and size. Provider, quality and language controls share one wrapping filter row.
+
+## Torrent discovery and future debrid configuration
+
+The native `torrent_sources.rs` coordinator queries Torrentio and Comet concurrently, with
+independent eight-second timeouts and provider error/status replies. A failure never discards
+the other provider's results. Results retain provider identity, including when the same torrent
+appears in both; source IDs are namespaced by provider. The picker defaults to both and can filter
+each provider. Refresh retries discovery; selecting a torrent remains explicit.
+
+Comet uses Aqua's supplied English/Arabic preset: English required, Arabic/English allowed and
+preferred, trash removal enabled, no debrid credentials, and sub-720p resolutions excluded.
+The preset is encoded in native code, never sent through the JavaScript bridge. Upstream
+[Comet configuration normalization](https://github.com/g0ldyy/comet/blob/main/comet/core/config_validation.py)
+enables torrents without a debrid account even with the supplied `enableTorrent: false` value.
+The shared response parser bounds each provider to 2 MiB and 200 candidates. Provider redirects
+remain disabled, request URLs are not logged, and untrusted direct/debrid URLs stay unplayable.
+
+Future debrid configuration links (recorded for a later checkpoint):
+
+- [Torrentio configuration](https://torrentio.strem.fun/configure)
+- [Comet configuration](https://comet.elfhosted.com/configure)
+- [Jackettio configuration](https://jackettio.elfhosted.com/configure)
+
+All three expose debrid configuration, but this checkpoint only adds Comet torrent discovery;
+Jackettio is not integrated. Later debrid support needs explicit private configuration ownership,
+credential storage/redaction and guarded HTTPS playback. Adding credentials to an addon URL alone
+does not enable debrid playback. Never put a configured URL containing tokens into Git or the UI.
+The Comet-enabled native client was rebuilt and fully relaunched after an older process was
+found still running. Live provider/playback acceptance has not been performed for this checkpoint.
+
+## Player controls
+
+The seek bar is a thin track above compact black pills for transport, volume, time and tools,
+following the AniLight/AnimeX references. It has no separate large background. Volume expands
+on hover or keyboard focus when the player is wide enough; the settings menu always provides
+a volume slider. Container queries use the player's width, with fewer shortcuts in narrow mode.
+Embedded controls are absolutely anchored to the video frame,
+so they cannot contribute extra height to its aspect-ratio layout. Seek buttons retain their
+ten-second accessible names without independently positioned number labels. Pointer interaction
+wakes the controls temporarily; visible keyboard focus and open panels keep them available.
+Ten-second seeks sit beside Play/Pause. Episodes and Download have direct shortcuts beside the
+other tools when the player has room, and remain available through Settings in narrow layouts.
+Audio/subtitle panels use a wider, opaque surface, taller rows, scroll fades, language markers,
+actual track details and explicit selection. A language with one track selects it immediately;
+multi-track languages open their track list. Flags are decorative language markers only, never
+evidence of a dub's country or origin; generic Arabic uses a globe.
+A compact settings menu shows current values and
+submenus for speed, tracks, subtitles and volume; source selection, episode navigation and keeping
+a torrent download live there too. Back restores focus to its setting row; closing an episode
+shelf or source drawer returns to the gear control. Unavailable casting controls are omitted.
+Aspect ratio, automatic intro skipping, automatic next episode and picture-in-picture appear as
+disabled future settings, with no implemented behavior or persisted preferences. The source sheet
+has rounded corners, a visible border and no header separator. Visual/native playback acceptance
+remains for review.
+
+The timeline rests at 4 px and grows to 6 px on hover, keyboard focus and active dragging,
+with a pointer cursor and without changing its hit area
+or shifting nearby controls. Player popovers use the actual video frame as their collision
+boundary; their width/height follow the available space inside it, including embedded playback.
+Track panels have slightly denser rows and spacing, and the episode shelf fades horizontally
+at its scroll edges. Track/language lists use the dialog's single vertical scrollbar instead
+of nested list scrolling.
 
 ## Ownership and extension points
 
@@ -22,8 +94,9 @@ workflow and never opens an embed or starts playback.
 | `apps/linux/src/display.rs`                              | Episode-number display formatting, including retained playback titles.                           |
 | `apps/linux/ui/src/features/player/stream-providers.ts`  | Typed native replies, query keys and provider actions.                                           |
 | `apps/linux/ui/src/features/player/source-selection.tsx` | Source-mode coordination, status, retry and switching.                                           |
-| `apps/linux/ui/src/features/player/provider-browser.tsx` | Searchable provider selection, audio filters, capability details and explicit Play action.       |
-| `apps/linux/ui/src/features/player/source-controls.tsx`  | Existing Torrentio candidates and explicit file selection, including downloads.                  |
+| `apps/linux/src/torrent_sources.rs`                      | Parallel Torrentio/Comet discovery, default Comet preset and independent provider status.        |
+| `apps/linux/ui/src/features/player/provider-browser.tsx` | Searchable provider actions, positive capabilities and direct click-to-play.                     |
+| `apps/linux/ui/src/features/player/source-controls.tsx`  | Torrent candidates, provider/quality/language filters and explicit file selection/downloads.     |
 
 Adding another provider requires a reviewed provider identity/URL mapper and capability entry
 in the Rust registry, with mapping and native acceptance. `stream.providers` returns typed
