@@ -22,7 +22,7 @@ import { formatSource, formatSourceSize, sourceLanguageLabel } from "./source-fo
 import type { PlayerController } from "./use-player-snapshot";
 import type { WatchTarget } from "./watch-request";
 
-export function SourceControls({
+export function TorrentSources({
   target,
   player,
   onPlaybackStarted,

@@ -2,7 +2,7 @@ import type { WorkDetail } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDownUp,
-  ArrowRight,
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   PanelLeftClose,
@@ -10,7 +10,7 @@ import {
   Search,
   Eye,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { Failure } from "@/components/status";
@@ -25,10 +25,9 @@ import { episodeNumberLabel, pickArtwork } from "@/features/work/format";
 import { useWorkTracking } from "@/features/work/use-work-tracking";
 import { WatchedControl } from "@/features/work/watched-control";
 
-import { sourceOptions } from "./playback";
 import { PlayerHost } from "./player-host";
 import { savedDownloadOptions } from "./saved-downloads";
-import { SourceControls } from "./source-controls";
+import { SourceControls } from "./source-selection";
 import type { PlayerController } from "./use-player-snapshot";
 import { useVideoViewport, VideoBackdrop } from "./use-video-viewport";
 import { WatchDiscussion } from "./watch-discussion";
@@ -58,7 +57,13 @@ export function WatchPage({
   onRetry: () => void;
 }) {
   const s = player.snapshot!;
+  const nativeHeader = document.documentElement.hasAttribute("data-native-shell");
   const [theater, setTheater] = useState(false);
+  useEffect(() => {
+    const toggle = () => setTheater((value) => !value);
+    window.addEventListener("nahhasio:toggle-episodes", toggle);
+    return () => window.removeEventListener("nahhasio:toggle-episodes", toggle);
+  }, []);
   const [episodesOpen, setEpisodesOpen] = useState(false);
   const catalogVideo = Boolean(work || target?.workId || s.workId);
   const [browsePart, setBrowsePart] = useState("");
@@ -163,7 +168,16 @@ export function WatchPage({
           aria-label="مصادر الفيديو"
         >
           {target && sourceReady ? (
-            <WatchSources target={target} player={player} />
+            <div className="flex min-w-0 flex-col gap-4">
+              <SourceControls target={target} player={player} />
+              <Button
+                variant="outline"
+                disabled={player.pending}
+                onClick={() => player.command({ command: "player.pickVideo", payload: {} })}
+              >
+                فتح فيديو من الجهاز
+              </Button>
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4">
               <p>
@@ -190,23 +204,25 @@ export function WatchPage({
       aria-label="صفحة المشاهدة"
     >
       <VideoBackdrop viewport={viewport} />
-      <header className="flex items-center justify-between gap-4 bg-background px-4 py-3 sm:px-6">
-        <Button variant="ghost" onClick={close}>
-          <ArrowRight />
-          العودة
-        </Button>
-        {hasEpisodeNavigation && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={theater ? "إظهار قائمة الحلقات" : "توسيع الفيديو"}
-            title="وضع المسرح"
-            onClick={() => setTheater(!theater)}
-          >
-            {theater ? <PanelLeftOpen /> : <PanelLeftClose />}
+      {!nativeHeader && (
+        <header className="flex items-center justify-between gap-4 bg-background px-4 py-3 sm:px-6">
+          <Button variant="ghost" onClick={close}>
+            <ArrowLeft data-icon="inline-start" />
+            العودة
           </Button>
-        )}
-      </header>
+          {hasEpisodeNavigation && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={theater ? "إظهار قائمة الحلقات" : "توسيع الفيديو"}
+              title="وضع المسرح"
+              onClick={() => setTheater(!theater)}
+            >
+              {theater ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </Button>
+          )}
+        </header>
+      )}
       <div
         className={
           theater || !hasEpisodeNavigation
@@ -214,7 +230,7 @@ export function WatchPage({
             : "mx-auto grid max-w-screen-2xl items-start gap-6 px-4 pb-8 sm:px-6 xl:grid-cols-[minmax(0,1fr)_22rem]"
         }
       >
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6  xl:mt-4">
           {actualVideo}
           <section
             className="flex flex-col gap-4 rounded-2xl bg-background py-2"
@@ -476,33 +492,4 @@ export function WatchPage({
       </div>
     </main>
   );
-}
-
-function WatchSources({ target, player }: { target: WatchTarget; player: PlayerController }) {
-  const sources = useQuery(sourceOptions(player.snapshot?.sessionId ?? "", target));
-  if (sources.isError)
-    return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-4 text-center">
-        <h2 className="text-lg font-semibold">تعذّر البحث عن المصادر</h2>
-        <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-          {sources.error.message}
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button onClick={() => void sources.refetch()}>إعادة المحاولة</Button>
-          <Button
-            variant="outline"
-            onClick={() => player.command({ command: "player.pickVideo", payload: {} })}
-          >
-            فتح فيديو من الجهاز
-          </Button>
-        </div>
-      </div>
-    );
-  if (sources.isPending)
-    return (
-      <div className="flex min-h-full items-center justify-center" role="status">
-        جارٍ البحث عن مصادر الفيديو…
-      </div>
-    );
-  return <SourceControls target={target} player={player} />;
 }

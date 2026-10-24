@@ -73,6 +73,7 @@ const ReplySchema = z.discriminatedUnion("ok", [
 type Reply = z.infer<typeof ReplySchema>;
 declare global {
   interface Window {
+    __NAHHASIO_NATIVE__?: boolean;
     webkit?: { messageHandlers?: { nahhasio?: { postMessage(message: string): void } } };
     __nahhasioReply?: (reply: Reply) => void;
   }

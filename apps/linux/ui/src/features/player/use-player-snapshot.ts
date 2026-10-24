@@ -37,7 +37,8 @@ export function usePlayerSnapshot() {
       }
       return next;
     },
-    refetchInterval: (value) => (value.state.data?.active ? 250 : 1000),
+    refetchInterval: (value) =>
+      value.state.data?.active && value.state.data.sourceKind ? 250 : 1000,
     refetchIntervalInBackground: false,
     staleTime: 0,
     retry: false,

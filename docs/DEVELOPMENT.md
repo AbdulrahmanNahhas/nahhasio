@@ -160,6 +160,11 @@ deployment decision rather than disabling TLS/session checks.
 
 ## Current media behavior and limits
 
+The embed provider registry has explicit source selection alongside Torrentio, with a disposable
+same-window WebKit surface and provider-owned playback controls. Direct-stream APIs remain
+disabled. See [STREAMING.md](STREAMING.md) for module ownership, diagnostics, runtime requirements
+and the separate native playback acceptance boundary.
+
 The existing player accepts local files and Nahhasio's contained loopback media gateway. It has
 actual audio/subtitle track selection and manual external SRT/ASS/SSA/VTT subtitles. Automatic
 provider retrieval and a completed server-file library workflow are pending.

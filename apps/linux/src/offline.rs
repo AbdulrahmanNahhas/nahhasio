@@ -418,7 +418,7 @@ impl Store {
                     let device=find_unit(&pack.state,change)?;let server=find_unit(&fresh,change)?;
                     let installment=array(&pack.work["installments"])?.iter().find(|item|item["id"]==change.installment_id).ok_or_else(bad)?;
                     let episode=change.episode_id.as_ref().and_then(|id|installment["episodes"].as_array()?.iter().find(|item|item["id"]==*id));
-                    let label=episode.map_or_else(||installment["title"].as_str().unwrap_or("إصدار").to_owned(),|item|format!("{} · الحلقة {}",installment["title"].as_str().unwrap_or("جزء"),item["number"].as_str().unwrap_or("")));
+                    let label=episode.map_or_else(||installment["title"].as_str().unwrap_or("إصدار").to_owned(),|item|format!("{} · الحلقة {}",installment["title"].as_str().unwrap_or("جزء"),crate::display::episode_number(item["number"].as_str().unwrap_or(""))));
                     Ok::<Value,Error>(json!({"key":format!("{}:{}",change.installment_id,change.episode_id.as_deref().unwrap_or("film")),"label":label,"devicePlayed":device["isPlayed"],"serverPlayed":server["isPlayed"],"devicePosition":device["positionSeconds"],"serverPosition":server["positionSeconds"]}))
                 }).collect::<Result<_,_>>()?;
                 Ok(json!({"revision":hash(&fresh.to_string()),"changes":changes}))

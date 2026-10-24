@@ -3,12 +3,18 @@ mod assets;
 mod bridge;
 mod browse_preferences;
 mod connections;
+mod display;
+mod embed;
+mod embed_privacy;
+#[cfg(feature = "native-diagnostics")]
+mod embed_smoke;
 mod media;
 mod media_bridge;
 mod media_gateway;
 mod media_range;
 mod media_storage;
 mod offline;
+mod playback_header;
 mod player;
 mod player_protocol;
 mod player_smoke;
@@ -17,6 +23,10 @@ mod server_trust;
 mod services;
 mod session_store;
 mod smoke;
+mod stream_bridge;
+mod stream_capabilities;
+mod stream_provider;
+mod stream_registry;
 #[cfg(feature = "native-diagnostics")]
 mod torrent_smoke;
 mod torrentio;
@@ -96,6 +106,14 @@ fn main() -> glib::ExitCode {
     // libmpv requires C numeric parsing. Establish this before GTK and workers;
     // never mutate process-global locale from an active player.
     gtk::disable_setlocale();
+    #[cfg(feature = "native-diagnostics")]
+    if std::env::args().any(|arg| arg == "--embed-smoke") {
+        return embed_smoke::run();
+    }
+    #[cfg(feature = "native-diagnostics")]
+    if std::env::args().any(|arg| arg == "--embed-filter-smoke") {
+        return embed_privacy::smoke();
+    }
     let services = match Services::new_persistent(
         &std::env::var("NAHHASIO_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:23103/".into()),
     ) {
@@ -283,6 +301,8 @@ fn build_window(
     let player_handle =
         std::rc::Rc::new(std::cell::RefCell::new(None::<std::rc::Rc<player::Player>>));
     let bridge_player = player_handle.clone();
+    let embed_host = std::rc::Rc::new(embed::Host::default());
+    let bridge_embed = embed_host.clone();
     manager.connect_script_message_received(Some("nahhasio"), move |_, value| {
         let Some(view) = weak_view.upgrade() else {
             return;
@@ -304,6 +324,40 @@ fn build_window(
         let id = request.id.clone();
         let revision = services.revision();
         let boundary = services.clone();
+        if request.command.starts_with("stream.") {
+            let command = stream_bridge::Command::parse(&request);
+            let host = bridge_embed.clone();
+            let player = bridge_player.borrow().clone();
+            let parent = view.root().and_downcast::<adw::ApplicationWindow>();
+            let media = media.clone();
+            let runtime = runtime.clone();
+            let operations = services.operations.clone();
+            let permit = services.permits.clone().try_acquire_owned();
+            let weak = view.downgrade();
+            glib::MainContext::default().spawn_local(async move {
+                let result = match (command, player, media, parent, permit) {
+                    (Ok(command), Some(player), Some(media), Some(parent), Ok(_permit)) => {
+                        let _operation = operations.read_owned().await;
+                        match boundary.check_revision(revision) {
+                            Ok(()) => {
+                                stream_bridge::execute(
+                                    host, player, media, runtime, parent, command,
+                                )
+                                .await
+                            }
+                            Err(error) => Err(error),
+                        }
+                    }
+                    (Err(error), _, _, _, _) => Err(error),
+                    (_, _, _, _, Err(_)) => Err(Error::new("busy", "طلبات المشغّل مشغولة.")),
+                    _ => Err(Error::new("playback", "مشغّل الفيديو غير جاهز.")),
+                };
+                if let Some(view) = weak.upgrade() {
+                    send_reply(&view, reply(&id, result));
+                }
+            });
+            return;
+        }
         if matches!(
             request.command.as_str(),
             "servers.select" | "offline.open" | "offline.close" | "login" | "logout"
@@ -387,6 +441,9 @@ fn build_window(
             return;
         }
         if request.command.starts_with("media.") {
+            if matches!(request.command.as_str(), "media.play" | "media.openSaved") {
+                bridge_embed.close();
+            }
             let player = bridge_player.borrow().clone();
             let media = media.clone();
             let runtime = runtime.clone();
@@ -443,6 +500,12 @@ fn build_window(
             return;
         }
         if request.command.starts_with("player.") {
+            if matches!(
+                request.command.as_str(),
+                "player.preview" | "player.close" | "player.pickVideo"
+            ) {
+                bridge_embed.close();
+            }
             let player = bridge_player.borrow().clone();
             let command = player_protocol::Command::parse(&request);
             let operations = services.operations.clone();
@@ -502,7 +565,7 @@ fn build_window(
     header.set_show_title(false);
     header.add_css_class("flat");
     let content = adw::ToolbarView::new();
-    content.set_extend_content_to_top_edge(true);
+    content.set_extend_content_to_top_edge(false);
     content.add_top_bar(&header);
     let overlay = gtk::Overlay::new();
     overlay.set_hexpand(true);
@@ -515,7 +578,18 @@ fn build_window(
     overlay.set_clip_overlay(&video_surface, true);
     overlay.add_overlay(&view);
     overlay.set_measure_overlay(&view, true);
-    content.set_content(Some(&overlay));
+    let pages = gtk::Stack::new();
+    pages.set_transition_type(gtk::StackTransitionType::Crossfade);
+    pages.set_transition_duration(
+        if gtk::Settings::default().is_some_and(|settings| settings.is_gtk_enable_animations()) {
+            180
+        } else {
+            0
+        },
+    );
+    pages.add_named(&overlay, Some("catalog"));
+    embed_host.attach(&pages);
+    content.set_content(Some(&pages));
     let recovery = adw::StatusPage::builder()
         .title("تعذّر عرض واجهة نحّاسيو")
         .description("أعد تحميل الواجهة دون إغلاق التطبيق.")
@@ -600,7 +674,9 @@ fn build_window(
     open.set_tooltip_text(Some("فتح فيديو (Ctrl+O)"));
     open.connect_clicked({
         let player = player.clone();
+        let host = embed_host.clone();
         move |_| {
+            host.close();
             let player = player.clone();
             glib::MainContext::default().spawn_local(async move {
                 if let Err(error) = player.execute(player_protocol::Command::PickVideo {}).await {
@@ -610,17 +686,26 @@ fn build_window(
         }
     });
     header.pack_start(&open);
+    playback_header::install(
+        &window,
+        &header,
+        &content,
+        &view,
+        &player,
+        &embed_host,
+        &open,
+    );
     window.connect_close_request({
+        let embed_host = embed_host.clone();
         let player = player.clone();
         move |_| {
+            embed_host.close();
             player.close();
             glib::Propagation::Proceed
         }
     });
-    let fullscreen_header = header.clone();
     let fullscreen_view = view.downgrade();
     window.connect_fullscreened_notify(move |window| {
-        fullscreen_header.set_visible(!window.is_fullscreen());
         if let Some(view) = fullscreen_view.upgrade() {
             publish_window_state(&view, window.is_fullscreen());
         }
@@ -637,12 +722,15 @@ fn build_window(
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak_window = window.downgrade();
     let reload_view = view.downgrade();
+    let key_embed = embed_host.clone();
     keys.connect_key_pressed(move |_, key, _, modifiers| {
         if key == gtk::gdk::Key::F5
             || ((key == gtk::gdk::Key::r || key == gtk::gdk::Key::R)
                 && modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK))
         {
-            if let Some(view) = reload_view.upgrade() {
+            if !key_embed.reload()
+                && let Some(view) = reload_view.upgrade()
+            {
                 view.reload_bypass_cache();
             }
             return glib::Propagation::Stop;
@@ -650,6 +738,7 @@ fn build_window(
         if (key == gtk::gdk::Key::o || key == gtk::gdk::Key::O)
             && modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK)
         {
+            key_embed.close();
             let player = player.clone();
             glib::MainContext::default().spawn_local(async move {
                 if let Err(error) = player.execute(player_protocol::Command::PickVideo {}).await {
@@ -727,6 +816,14 @@ fn smoke(runtime: &tokio::runtime::Runtime, service: &Services) -> glib::ExitCod
     }
     glib::ExitCode::SUCCESS
 }
+// Chrome visibility follows the compositor's window state, including Niri fullscreen.
+fn publish_window_state(view: &webkit6::WebView, fullscreen: bool) {
+    let script = format!(
+        "document.documentElement.setAttribute('data-native-shell', '');document.documentElement.toggleAttribute('data-native-fullscreen', {fullscreen});window.dispatchEvent(new Event('nahhasio:window-state'));"
+    );
+    view.evaluate_javascript(&script, None, None, None::<&gio::Cancellable>, |_| {});
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -743,12 +840,4 @@ mod tests {
         assert!(!config.permits("http://127.0.0.1:23110/evil"));
         assert!(!config.permits("https://example.com/"));
     }
-}
-
-// Chrome visibility follows the compositor's window state, including Niri fullscreen.
-fn publish_window_state(view: &webkit6::WebView, fullscreen: bool) {
-    let script = format!(
-        "document.documentElement.toggleAttribute('data-native-fullscreen', {fullscreen});window.dispatchEvent(new Event('nahhasio:window-state'));"
-    );
-    view.evaluate_javascript(&script, None, None, None::<&gio::Cancellable>, |_| {});
 }

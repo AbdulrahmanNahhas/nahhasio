@@ -76,7 +76,7 @@ fn rows(section: &str) -> String {
         }
         "watched" => {
             let units=tracking::units("t.id","i.id");
-            work_rows(&format!("account_playback_states x join installments i on i.id=x.installment_id join titles t on t.id=i.title_id left join episodes e on e.id=x.episode_id join lateral ({units}) units on units.installment_id=x.installment_id and units.episode_id is not distinct from x.episode_id"),"x.account_id=$1::uuid and x.is_played and units.is_released",("null::text","coalesce(x.played_at,x.updated_at)","i.title || case when e.id is null then '' else ' — ' || coalesce(e.title,'الحلقة '||e.number::text) end","null","false","'watched'"))
+            work_rows(&format!("account_playback_states x join installments i on i.id=x.installment_id join titles t on t.id=i.title_id left join episodes e on e.id=x.episode_id join lateral ({units}) units on units.installment_id=x.installment_id and units.episode_id is not distinct from x.episode_id"),"x.account_id=$1::uuid and x.is_played and units.is_released",("null::text","coalesce(x.played_at,x.updated_at)","i.title || case when e.id is null then '' else ' — ' || coalesce(e.title,'الحلقة '||trim_scale(e.number)::text) end","null","false","'watched'"))
         }
         "favorites" | "ratings" | "notes" | "saved" => {
             let condition=match section {"favorites"=>"x.is_favorite","ratings"=>"x.personal_rating is not null","notes"=>"btrim(x.notes)<>''",_=>"x.saved_offline"};

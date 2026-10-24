@@ -580,7 +580,21 @@ impl Media {
         .map_err(|_| transfer_error())?
         .map_err(|_| transfer_error())
     }
-    async fn resolve(&self, target: &Target) -> Result<ResolvedTarget, Error> {
+    pub(crate) async fn resolve(&self, target: &Target) -> Result<ResolvedTarget, Error> {
+        let work = self.source_catalog(target).await?;
+        resolve_target(&work, target)
+    }
+    pub(crate) async fn embed_context(
+        &self,
+        target: &Target,
+    ) -> Result<(ResolvedTarget, crate::stream_provider::CatalogTarget), Error> {
+        let work = self.source_catalog(target).await?;
+        // Resolve catalog membership/release eligibility without requiring Torrentio's IMDb ID.
+        let resolved = resolve_target_for(&work, target, true)?;
+        let context = crate::stream_provider::CatalogTarget::from_catalog(&work, &resolved);
+        Ok((resolved, context))
+    }
+    async fn source_catalog(&self, target: &Target) -> Result<Value, Error> {
         if !valid_id(&target.work_id)
             || target
                 .installment_id
@@ -590,15 +604,13 @@ impl Media {
         {
             return Err(Error::new("bad_request", "Invalid playback target"));
         }
-        let work = self
-            .services
+        self.services
             .execute(Request {
                 id: "source-catalog".into(),
                 command: "work".into(),
                 payload: json!({"id":target.work_id}),
             })
-            .await?;
-        resolve_target(&work, target)
+            .await
     }
     pub async fn library(&self) -> Result<Value, Error> {
         use gtk::gio::prelude::*;
@@ -626,7 +638,7 @@ impl Media {
                 .find(|entry| entry.id == id && entry.file == file && entry.available)
                 .ok_or_else(|| media_transfer::Error::Invalid("saved video unavailable".into()))?;
             let title = saved_record(&saved.target)
-                .map(|record| record.title)
+                .map(|record| crate::display::episode_title(&record.title))
                 .filter(|title| !title.is_empty())
                 .unwrap_or_else(|| {
                     saved
@@ -690,7 +702,7 @@ fn saved_json(file: &media_transfer::SavedFile, scope: Option<&str>) -> Value {
     let owned = record
         .as_ref()
         .filter(|record| scope.is_some() && record.scope.as_deref() == scope);
-    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":owned.map(|record|&record.target),"title":record.as_ref().map(|record|&record.title),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":owned.and_then(|record|record.poster_id.as_ref())})
+    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":owned.map(|record|&record.target),"title":record.as_ref().map(|record|crate::display::episode_title(&record.title)),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":owned.and_then(|record|record.poster_id.as_ref())})
 }
 async fn pause_unowned(engine: Engine, id: TorrentId) {
     let _ = tokio::task::spawn_blocking(move || engine.pause_if_unowned(&id)).await;
@@ -714,7 +726,7 @@ fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<Reso
     if !local && work["playbackPolicy"].as_str() == Some("files-only") {
         return Err(Error::new(
             "files_only",
-            "هذا العمل يُشغّل من الملفات فقط. لا تتوفر له مصادر تورنت.",
+            "هذا العمل يُشغّل من الملفات فقط. لا تتوفر له مصادر عبر الإنترنت.",
         ));
     }
 
@@ -790,7 +802,7 @@ fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<Reso
             },
             format!(
                 "{title} · الحلقة {}",
-                episode["number"].as_str().unwrap_or("")
+                crate::display::episode_number(episode["number"].as_str().unwrap_or(""))
             ),
         )
     } else {
@@ -953,6 +965,34 @@ mod tests {
                 {"id":"special","number":"12.50","releaseState":"released"}]}
         ]});
         assert!(resolve_target(&work, &target()).is_err());
+    }
+    #[test]
+    fn embed_mapping_does_not_require_imdb_or_reuse_first_season_anime_ids() {
+        use crate::stream_provider::{Audio, CatalogTarget, Provider};
+        let work = json!({"canonicalTitle":"Fixture","externalIds":{"tmdbId":94605,"malId":52991},"installments":[
+            {"id":"one","kind":"season","position":0,"status":"completed","episodes":[{"id":"ep-one","number":"1.00"}]},
+            {"id":"two","kind":"season","position":1,"status":"completed","episodes":[{"id":"ep-two","number":"1.00"}]}
+        ]});
+        let mut selected = target();
+        let resolved = resolve_target_for(&work, &selected, true).unwrap();
+        let context = CatalogTarget::from_catalog(&work, &resolved);
+        assert!(Provider::Vidnest.embed_url(&context, Audio::Dub).is_err());
+        assert!(
+            Provider::Vidhawk
+                .embed_url(&context, Audio::Dub)
+                .unwrap()
+                .contains("/mal/52991/1/dub")
+        );
+        assert!(
+            Provider::Vidfast
+                .embed_url(&context, Audio::Original)
+                .unwrap()
+                .contains("/tv/94605/1/1")
+        );
+        selected.installment_id = Some("two".into());
+        let resolved = resolve_target_for(&work, &selected, true).unwrap();
+        let context = CatalogTarget::from_catalog(&work, &resolved);
+        assert!(Provider::Vidhawk.embed_url(&context, Audio::Dub).is_err());
     }
     #[test]
     fn non_video_payloads_are_never_player_candidates() {

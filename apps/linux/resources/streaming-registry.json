@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "provider": "vidlink",
+      "enabled": true,
+      "mediaTypes": ["series", "film"]
+    },
+    {
+      "provider": "vidnest",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidsrc",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidfast",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidsrcto",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidrock",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vixsrc",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidcore",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidzee",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "cinextream",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "nontongo",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidapi",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "primesrc",
+      "enabled": true,
+      "mediaTypes": ["anime-film", "film"]
+    },
+    {
+      "provider": "vidhawk",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film"]
+    },
+    {
+      "provider": "cinezo",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "superembed",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "mapple",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    }
+  ],
+  "results": []
+}

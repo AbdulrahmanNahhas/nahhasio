@@ -25,6 +25,7 @@ import type { z } from "zod";
 
 import type { PlayerSnapshot } from "../src/features/player/bridge";
 import { offlineStatusSchema } from "../src/features/player/saved-works-data";
+import type { EmbedStatus, ProviderListing } from "../src/features/player/stream-providers";
 
 const inactivePlayer: PlayerSnapshot = {
   active: false,
@@ -403,6 +404,8 @@ async function installBridge(page: Page) {
               const success = (
                 result:
                   | PlayerSnapshot
+                  | EmbedStatus
+                  | ProviderListing
                   | CommentChanged
                   | { found: false }
                   | []
@@ -463,6 +466,34 @@ async function installBridge(page: Page) {
                   return;
                 case "media.saved":
                   success([]);
+                  return;
+                case "stream.status":
+                  success({
+                    provider: "vidsrc",
+                    audio: "original",
+                    sessionId: null,
+                    phase: "closed",
+                    blockedPopups: 0,
+                    error: null,
+                  });
+                  return;
+                case "stream.providers":
+                  success({
+                    filesOnly: fixtureWork.playbackPolicy === "files-only",
+                    anime: true,
+                    providers: [
+                      {
+                        provider: "vidsrc",
+                        name: "VidSrc",
+                        audio: "original",
+                        available: true,
+                        reason: null,
+                        tier: "tested",
+                        preferred: false,
+                        notes: [],
+                      },
+                    ],
+                  });
                   return;
                 case "media.search":
                   playback = {
@@ -1541,6 +1572,11 @@ for (const width of [520, 1440]) {
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
+    await sources.getByRole("button", { name: /تريد المزيد؟/u }).click();
+    await expect(
+      sources.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
+    ).toBeVisible();
+    await sources.getByRole("button", { name: "تورنت", exact: true }).click();
     await expect(sources).toContainText("تعذّر الوصول إلى Torrentio");
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
     const composer = watch.getByLabel("اكتب تعليقًا للعائلة", { exact: true });
@@ -1593,6 +1629,10 @@ for (const width of [520, 1440]) {
     );
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
+    await watch
+      .getByLabel("مصادر الفيديو", { exact: true })
+      .getByRole("button", { name: "تورنت", exact: true })
+      .click();
     await expect(watch.getByLabel("مصادر الفيديو", { exact: true })).toContainText(
       "تعذّر الوصول إلى Torrentio",
     );

@@ -29,7 +29,7 @@ fn owner(kind: &str) -> Result<Owner> {
             table: "episodes",
             column: "episode_id",
             from: "episodes t join installments i on i.id=t.installment_id join titles w on w.id=i.title_id",
-            label: "coalesce(nullif(t.title,''),'الحلقة '||t.number::text)",
+            label: "coalesce(nullif(t.title,''),'الحلقة '||trim_scale(t.number)::text)",
             context: "concat_ws(' / ',coalesce(w.title_ar,w.canonical_title),i.title)",
         },
         "entity" => Owner {
@@ -105,7 +105,7 @@ async fn audit(
     exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.artwork.'||($1->>'action'),$1->>'table',$1->>'id','Artwork editor',$1->'changes')",json!({"actor":actor,"action":action,"table":table,"id":id,"changes":changes})).await
 }
 async fn proposal(c: &mut PgConnection, asset: &Value) -> Result<Value> {
-    let owners=rows(c,"select jsonb_build_object('name',concat_ws('-',coalesce(t.canonical_title,w.canonical_title,n.name),case when i.id is not null then 'installment-'||i.position::text when e.id is not null then 'installment-'||p.position::text||'-episode-'||e.number::text end),'role',x.role::text) from media_asset_assignments x left join titles t on t.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments p on p.id=e.installment_id left join titles w on w.id=coalesce(i.title_id,p.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.id",json!({"id":asset["id"]})).await?;
+    let owners=rows(c,"select jsonb_build_object('name',concat_ws('-',coalesce(t.canonical_title,w.canonical_title,n.name),case when i.id is not null then 'installment-'||i.position::text when e.id is not null then 'installment-'||p.position::text||'-episode-'||trim_scale(e.number)::text end),'role',x.role::text) from media_asset_assignments x left join titles t on t.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments p on p.id=e.installment_id left join titles w on w.id=coalesce(i.title_id,p.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.id",json!({"id":asset["id"]})).await?;
     let names: std::collections::BTreeSet<_> = owners
         .iter()
         .map(|o| {
@@ -220,7 +220,7 @@ pub(super) async fn execute(
         "assetDetail" => {
             let mut asset = asset(c, text(input, "id"), false).await?;
             asset["health"] = json!(storage::health(&asset).await);
-            let assignments=rows(c,"select jsonb_build_object('id',x.id,'ownerId',coalesce(x.title_id,x.installment_id,x.episode_id,x.entity_id),'ownerKind',case when x.title_id is not null then 'title' when x.installment_id is not null then 'installment' when x.episode_id is not null then 'episode' else 'entity' end,'ownerLabel',coalesce(w.title_ar,w.canonical_title,i.title,nullif(e.title,''),case when e.id is not null then 'الحلقة '||e.number::text end,n.name),'ownerContext',concat_ws(' / ',coalesce(pw.title_ar,pw.canonical_title),coalesce(i.title,ep.title)),'workId',coalesce(w.id,i.title_id,ep.title_id),'entityKind',n.kind::text,'role',x.role::text,'isPrimary',x.is_primary) from media_asset_assignments x left join titles w on w.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments ep on ep.id=e.installment_id left join titles pw on pw.id=coalesce(i.title_id,ep.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.is_primary desc,x.created_at desc,x.id",input.clone()).await?;
+            let assignments=rows(c,"select jsonb_build_object('id',x.id,'ownerId',coalesce(x.title_id,x.installment_id,x.episode_id,x.entity_id),'ownerKind',case when x.title_id is not null then 'title' when x.installment_id is not null then 'installment' when x.episode_id is not null then 'episode' else 'entity' end,'ownerLabel',coalesce(w.title_ar,w.canonical_title,i.title,nullif(e.title,''),case when e.id is not null then 'الحلقة '||trim_scale(e.number)::text end,n.name),'ownerContext',concat_ws(' / ',coalesce(pw.title_ar,pw.canonical_title),coalesce(i.title,ep.title)),'workId',coalesce(w.id,i.title_id,ep.title_id),'entityKind',n.kind::text,'role',x.role::text,'isPrimary',x.is_primary) from media_asset_assignments x left join titles w on w.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments ep on ep.id=e.installment_id left join titles pw on pw.id=coalesce(i.title_id,ep.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.is_primary desc,x.created_at desc,x.id",input.clone()).await?;
             Ok(
                 json!({"asset":asset,"assignments":assignments,"deleteBlockedReason":blocked(c,text(input,"id")).await?}),
             )

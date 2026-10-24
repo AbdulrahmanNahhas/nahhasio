@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import {
   Building2,
   CalendarDays,
@@ -81,12 +80,10 @@ const navigationItemClass =
 
 export function LibraryNavigation({
   path,
-  overlayControls = false,
   footer,
   onDialogChange,
 }: {
   path: string;
-  overlayControls?: boolean;
   footer: ReactNode;
   onDialogChange: (open: boolean) => void;
 }) {
@@ -122,10 +119,9 @@ export function LibraryNavigation({
   };
   return (
     <nav
-      className={cn(
-        "flex w-20 shrink-0 flex-col items-center gap-4 border-e border-border bg-sidebar px-2 pb-4 max-sm:w-16 max-sm:px-1",
-        overlayControls ? "pt-14" : "pt-5",
-      )}
+      className={
+        "flex w-20 shrink-0 flex-col items-center gap-4 border-e border-border bg-sidebar px-2 pb-4 max-sm:w-16 max-sm:px-1 pt-3"
+      }
       aria-label="التنقل الرئيسي"
       onKeyDown={(event) => {
         if (open) return;

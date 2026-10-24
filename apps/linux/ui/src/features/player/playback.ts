@@ -158,7 +158,6 @@ export async function openWatch(
       return;
     }
   }
-  await client.fetchQuery(sourceOptions(sessionId, target));
-  if (client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.sessionId !== sessionId) return;
-  // Opening a work only previews it. media.play requires an explicit source/file choice.
+  // Discovery is lazy: opening a work must not depend on Torrentio or contact an embed provider.
+  // Each provider starts only after the viewer chooses its source type.
 }

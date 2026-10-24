@@ -106,8 +106,22 @@ impl Player {
     pub fn open_download(&self, path: &Path, title: String) -> Result<(), Error> {
         self.open_local(path)?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
-            session.title = title;
+            session.title = crate::display::episode_title(&title);
         }
+        Ok(())
+    }
+
+    /// Stop native media before handing playback to an isolated provider window.
+    pub fn stop_source(&self, session_id: &str) -> Result<(), Error> {
+        self.require_session(session_id)?;
+        self.cancel_stream();
+        if let Some(session) = self.session.borrow_mut().as_mut() {
+            session.player = None;
+            session.gateway = None;
+            session.pending = false;
+            session.error = None;
+        }
+        self.clear_surface();
         Ok(())
     }
 

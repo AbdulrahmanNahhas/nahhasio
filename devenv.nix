@@ -50,15 +50,26 @@
     gtk4.dev
     libadwaita.dev
     webkitgtk_6_0.dev
+    glib-networking
     gst_all_1.gstreamer
     gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
+    gst_all_1.gst-libav
     libtorrent-rasterbar
     libtorrent-rasterbar.dev
     boost.dev
     cmake
     stdenv.cc
   ];
-  env.GST_PLUGIN_SYSTEM_PATH_1_0 = "${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0";
+  # Remote WebKit playback needs HTTPS plus HLS/MP4 demuxers and audio/video decoders.
+  env.GIO_EXTRA_MODULES = "${pkgs.glib-networking}/lib/gio/modules";
+  env.GST_PLUGIN_SYSTEM_PATH_1_0 = pkgs.lib.makeSearchPath "lib/gstreamer-1.0" [
+    pkgs.gst_all_1.gst-plugins-base
+    pkgs.gst_all_1.gst-plugins-good
+    pkgs.gst_all_1.gst-plugins-bad
+    pkgs.gst_all_1.gst-libav
+  ];
   env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
 
   # SQLx uses the system account database for its default user; the local Node CLI uses USER.

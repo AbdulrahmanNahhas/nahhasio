@@ -41,7 +41,7 @@ import { DownloadControl } from "./download-control";
 import { EpisodePanel, type PlayerEpisode } from "./episode-panel";
 import { PlayerControl, PlayerPopover } from "./player-panels";
 import { PlayerSlider } from "./player-slider";
-import { SourceControls } from "./source-controls";
+import { SourceControls } from "./source-selection";
 import { PlayerSetting, TrackPanel } from "./track-panel";
 import type { PlayerController } from "./use-player-snapshot";
 import type { WatchTarget } from "./watch-request";
@@ -402,7 +402,7 @@ function ActivePlayer({
                 </DrawerTrigger>
                 <DrawerContent
                   finalFocus={sourceTrigger}
-                  className="player-source-drawer font-sans w-[calc(100vw_-_1rem)] max-w-lg sm:max-w-lg [--drawer-inset:--spacing(2)] [--drawer-bleed-background:transparent] rounded-none border shadow-xl"
+                  className="player-source-drawer font-sans w-[calc(100vw_-_1rem)] max-w-2xl sm:max-w-2xl [--drawer-inset:--spacing(2)] [--drawer-bleed-background:transparent] rounded-none border shadow-xl"
                   dir="ltr"
                 >
                   <DirectionProvider direction="rtl">

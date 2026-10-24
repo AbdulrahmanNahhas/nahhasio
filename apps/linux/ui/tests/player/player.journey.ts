@@ -1,9 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import type { PlayerRequest, PlayerSnapshot } from "../../src/features/player/bridge";
+import type { ProviderOffer } from "../../src/features/player/stream-providers";
 
 type TestRequest =
   | PlayerRequest
+  | { command: "stream.providers"; payload: { sessionId: string } }
+  | { command: "stream.status" | "stream.close" | "stream.present"; payload: { sessionId: string } }
+  | {
+      command: "stream.open";
+      payload: {
+        sessionId: string;
+        provider: ProviderOffer["provider"];
+        audio: ProviderOffer["audio"];
+        target: { workId: string; installmentId: string | null; episodeId: string | null };
+      };
+    }
   | { command: "media.search" | "media.downloadSearch"; payload: { sessionId: string } }
   | {
       command: "media.play" | "media.download";
@@ -71,6 +83,10 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
     let state = fixture;
     let staleAfterClose: PlayerSnapshot | null = null;
     const requests: TestRequest[] = [];
+    let embedPhase = "closed";
+    let embedAttempts = 0;
+    let embedProvider: ProviderOffer["provider"] = "vidsrc";
+    let embedAudio: ProviderOffer["audio"] = "original";
     Object.assign(window, {
       playerTest: {
         calls: requests,
@@ -87,6 +103,159 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
             const request = JSON.parse(message) as { id: string } & TestRequest;
             requests.push(request);
             switch (request.command) {
+              case "stream.providers": {
+                const anime = window.location.search.includes("scenario=embed-anime");
+                const filesOnly = window.location.search.includes("scenario=files-only");
+                const offers: Omit<ProviderOffer, "tier" | "notes" | "preferred">[] = anime
+                  ? [
+                      {
+                        provider: "vidnest",
+                        name: "VidNest",
+                        audio: "dub",
+                        available: true,
+                        reason: null,
+                      },
+                      {
+                        provider: "vixsrc",
+                        name: "VixSrc",
+                        audio: "dub",
+                        available: true,
+                        reason: null,
+                      },
+                      {
+                        provider: "vidhawk",
+                        name: "VidHawk",
+                        audio: "dub",
+                        available: true,
+                        reason: null,
+                      },
+                      {
+                        provider: "cinezo",
+                        name: "Cinezo",
+                        audio: "dub",
+                        available: false,
+                        reason: "معرّف AniList لهذا الموسم غير مسجّل.",
+                      },
+                      {
+                        provider: "vidhawk",
+                        name: "VidHawk",
+                        audio: "sub",
+                        available: true,
+                        reason: null,
+                      },
+                      {
+                        provider: "vidsrc",
+                        name: "VidSrc",
+                        audio: "original",
+                        available: true,
+                        reason: null,
+                      },
+                    ]
+                  : [
+                      {
+                        provider: "vidlink",
+                        name: "VidLink",
+                        audio: "original",
+                        available: true,
+                        reason: null,
+                      },
+                      {
+                        provider: "vidsrc",
+                        name: "VidSrc",
+                        audio: "original",
+                        available: true,
+                        reason: null,
+                      },
+                      ...(
+                        [
+                          "vidfast",
+                          "vidrock",
+                          "vidnest",
+                          "cinezo",
+                          "vidsrcto",
+                          "superembed",
+                          "mapple",
+                        ] as const
+                      ).map((provider) => ({
+                        provider,
+                        name: provider,
+                        audio: "original" as const,
+                        available: true,
+                        reason: null,
+                      })),
+                    ];
+                window["__nahhasioReply"]?.({
+                  id: request.id,
+                  ok: true,
+                  result: {
+                    anime,
+                    filesOnly,
+                    providers: filesOnly
+                      ? []
+                      : offers.map((offer) => ({
+                          ...offer,
+                          preferred:
+                            window.location.search.includes("scenario=embed-anime-star") &&
+                            offer.provider === "vidsrc",
+                          tier: ["vidhawk", "cinezo", "superembed", "mapple"].includes(
+                            offer.provider,
+                          )
+                            ? "issues"
+                            : offer.provider === "vixsrc"
+                              ? "trial"
+                              : "tested",
+                          notes:
+                            offer.provider === "vidnest"
+                              ? ["في الاختبار: ترجمة إنجليزية فقط؛ لا عربية أو رفع ملف."]
+                              : offer.provider === "vidsrc"
+                                ? ["نجح على Toy Story؛ ترجمة عربية عبر OpenSubtitles."]
+                                : ["ملاحظات الاختبار"],
+                        })),
+                  },
+                });
+                return;
+              }
+              case "stream.open":
+              case "stream.status":
+              case "stream.present":
+              case "stream.close": {
+                if (request.command === "stream.open") {
+                  embedAttempts++;
+                  embedProvider = request.payload.provider;
+                  embedAudio = request.payload.audio;
+                  if (
+                    window.location.search.includes("scenario=embed-error") &&
+                    embedAttempts === 1
+                  ) {
+                    window["__nahhasioReply"]?.({
+                      id: request.id,
+                      ok: false,
+                      error: {
+                        code: "source_mapping",
+                        message: "تعذّر مطابقة هذا الإصدار مع مشغّل VidSrc.",
+                      },
+                    });
+                    return;
+                  }
+                  state = { ...state, sourceKind: null, position: 0, duration: 0, tracks: [] };
+                  embedPhase = "loading";
+                } else if (request.command === "stream.close") embedPhase = "closed";
+                else if (request.command === "stream.status" && embedPhase === "loading")
+                  embedPhase = "loaded";
+                window["__nahhasioReply"]?.({
+                  id: request.id,
+                  ok: true,
+                  result: {
+                    provider: embedProvider,
+                    audio: embedAudio,
+                    sessionId: embedPhase === "closed" ? null : request.payload.sessionId,
+                    phase: embedPhase,
+                    blockedPopups: 0,
+                    error: null,
+                  },
+                });
+                return;
+              }
               case "artwork": {
                 const canvas = document.createElement("canvas");
                 canvas.width = 320;
@@ -667,6 +836,11 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
   await expect(drawer).toBeVisible();
   await expect(
+    drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }),
+  ).toBeVisible();
+  expect(await calls(page, "media.search")).toHaveLength(0);
+  await drawer.getByRole("button", { name: "تورنت", exact: true }).click();
+  await expect(
     drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
   ).toBeVisible();
   await page.waitForTimeout(700);
@@ -683,6 +857,72 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   await expect(drawer).toHaveCount(0);
   expect(await calls(page, "media.play")).toHaveLength(1);
   await expect(page.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeFocused();
+});
+
+for (const width of [1440, 520]) {
+  test(`embed selection opens explicitly and switches to torrents at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await mock(page, { ...initial, active: false, sessionId: null });
+    await page.getByRole("button", { name: "Watch test work" }).click();
+    const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+    await drawer
+      .getByRole("radiogroup", { name: "مزوّد الفيديو" })
+      .getByText("VidSrc", { exact: true })
+      .click();
+    const start = drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true });
+    await expect(start).toBeVisible();
+
+    expect(await calls(page, "stream.open")).toHaveLength(0);
+    expect(await calls(page, "media.search")).toHaveLength(0);
+    await page.screenshot({ path: `test-results/embed-selection-${width}.png` });
+    await start.click();
+    await expect(
+      drawer.getByText("صفحة المشغّل مفتوحة؛ لم يُتحقّق من تشغيل الفيديو.", { exact: true }),
+    ).toBeVisible();
+    expect(await calls(page, "stream.open")).toEqual([
+      expect.objectContaining({
+        payload: {
+          sessionId: "preview-1",
+          provider: "vidsrc",
+          audio: "original",
+          target: {
+            workId: "00000000-0000-4000-8000-000000000001",
+            installmentId: "00000000-0000-4000-8000-000000000002",
+            episodeId: null,
+          },
+        },
+      }),
+    ]);
+    await drawer.getByRole("button", { name: "إظهار المشغّل", exact: true }).click();
+    expect(await calls(page, "stream.present")).toHaveLength(1);
+    await drawer.getByText("حالة الحماية والمزوّد", { exact: true }).click();
+    await expect(drawer.getByText(/تقدم المشاهدة غير متصل/u)).toBeVisible();
+    await page.screenshot({ path: `test-results/embed-loaded-${width}.png` });
+    await drawer.getByRole("button", { name: "تورنت", exact: true }).click();
+    await expect(
+      drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
+    ).toBeVisible();
+    expect(await calls(page, "stream.close")).toHaveLength(1);
+    expect(await calls(page, "media.search")).toHaveLength(1);
+    expect(await calls(page, "media.play")).toHaveLength(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeFocused();
+  });
+}
+
+test("embed mapping failure remains recoverable without starting a torrent", async ({ page }) => {
+  await mock(page, { ...initial, active: false, sessionId: null }, "embed-error");
+  await page.getByRole("button", { name: "Watch test work" }).click();
+  const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }).click();
+  await expect(drawer.getByRole("alert")).toContainText("تعذّر مطابقة");
+  await drawer.getByRole("button", { name: "المشاهدة عبر VidLink", exact: true }).click();
+  await expect(drawer.getByRole("button", { name: "إظهار المشغّل", exact: true })).toBeVisible();
+  expect(await calls(page, "media.play")).toHaveLength(0);
+  expect(await calls(page, "media.search")).toHaveLength(0);
 });
 
 test("grouped subtitles search and customization use actual tracks and bounded commands", async ({
@@ -766,4 +1006,76 @@ test("native-closed sessions stay closed even without a UI close command", async
   await update(page, { active: true, sessionId: "test-1" });
   await page.waitForTimeout(1300);
   await expect(page.locator(".player-host")).toHaveCount(0);
+});
+
+test("anime prioritizes explicit dub, keeps uncertain audio secondary and switches providers", async ({
+  page,
+}) => {
+  await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime");
+  await page.getByRole("button", { name: "Watch test work" }).click();
+  const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await expect(drawer.getByText("English DUB", { exact: true })).toBeVisible();
+  await expect(drawer.locator('[data-provider-choice="vidhawk:dub"]')).toHaveCount(0);
+  await expect(drawer.locator('[data-provider-choice="vidsrc:original"]')).toHaveCount(0);
+  await expect(
+    drawer.getByRole("button", { name: "المشاهدة عبر VidNest", exact: true }),
+  ).toBeVisible();
+  await expect(
+    drawer.getByText("في الاختبار: ترجمة إنجليزية فقط؛ لا عربية أو رفع ملف.", { exact: true }),
+  ).toBeVisible();
+  await drawer.getByRole("button", { name: /تريد المزيد؟/u }).click();
+  await drawer
+    .locator('[data-provider-choice="cinezo:dub"]')
+    .getByText("Cinezo", { exact: true })
+    .click();
+  await expect(
+    drawer.getByRole("button", { name: "المشاهدة عبر Cinezo", exact: true }),
+  ).toBeDisabled();
+  await drawer
+    .locator('[data-provider-choice="vidnest:dub"]')
+    .getByText("VidNest", { exact: true })
+    .click();
+  await drawer.getByRole("button", { name: "المشاهدة عبر VidNest", exact: true }).click();
+  expect(await calls(page, "stream.open")).toEqual([
+    expect.objectContaining({
+      payload: expect.objectContaining({ provider: "vidnest", audio: "dub" }),
+    }),
+  ]);
+  await drawer
+    .getByRole("radiogroup", { name: "مزوّد الفيديو" })
+    .getByText("VidSrc", { exact: true })
+    .click();
+  await drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }).click();
+  expect((await calls(page, "stream.open"))[1]).toMatchObject({
+    payload: { provider: "vidsrc", audio: "original" },
+  });
+  expect(await calls(page, "media.search")).toHaveLength(0);
+  await page.screenshot({ path: "test-results/embed-anime.png" });
+});
+
+test("confirmed dub and Arabic subtitles get a star and outrank requested dub", async ({
+  page,
+}) => {
+  await mock(page, { ...initial, active: false, sessionId: null }, "embed-anime-star");
+  await page.getByRole("button", { name: "Watch test work" }).click();
+  const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await expect(drawer.getByText("دبلجة إنجليزية + ترجمة عربية", { exact: true })).toBeVisible();
+  await expect(
+    drawer.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
+  ).toBeVisible();
+  await expect(drawer.locator('[data-provider-choice="vidsrc:original"]')).toContainText(
+    "DUB + عربي",
+  );
+  expect(await calls(page, "stream.open")).toHaveLength(0);
+});
+
+test("files-only work offers no online source modes or provider launches", async ({ page }) => {
+  await mock(page, { ...initial, active: false, sessionId: null }, "files-only");
+  await page.getByRole("button", { name: "Watch test work" }).click();
+  const drawer = page.getByRole("dialog", { name: "مصدر الفيديو", exact: true });
+  await expect(drawer.getByRole("alert")).toContainText("ملفات فقط");
+  await expect(drawer.getByRole("button", { name: "تورنت", exact: true })).toHaveCount(0);
+  await expect(drawer.getByRole("button", { name: /المشاهدة عبر/u })).toHaveCount(0);
+  expect(await calls(page, "stream.open")).toHaveLength(0);
+  expect(await calls(page, "media.search")).toHaveLength(0);
 });
