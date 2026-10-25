@@ -6,6 +6,20 @@ files-only video playback and the remaining catalog administration tools are out
 The reviewed desktop design stays in place. No family-PC installation, transfer, release publication,
 automatic-update activation or runtime acceptance has happened merely because this code exists.
 
+## Release preparation status
+
+[Run 40210314390](https://github.com/AbdulrahmanNahhas/nahhasio/actions/runs/40210314390) passed
+for commit `e536d4776348766939382e9082df7289872a2c06`: server image, offline client sources,
+complete GNOME SDK client compilation, signing and draft creation for 0.1.0. The draft's manifest
+and installer signatures were independently verified against the retained trusted public key;
+the downloaded client bundle matches its signed size/hash. Anonymous manifest access to the
+exact server-image digest also succeeded, so installation does not require private registry login. This does not establish runtime
+installation, repository publication, reboot behavior or backup/update recovery.
+
+Push CI on the same commit failed because Ubuntu packaged libtorrent 2.0.10 while the bridge
+requires 2.0.12. The local workflow correction uses the release manifest's verified source and
+independent interface/backend/native jobs; its hosted result must be checked after push.
+
 ## Deployment shape
 
 The Fedora Atomic family PC owns the authoritative PostgreSQL catalog, artwork, provider settings

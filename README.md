@@ -23,8 +23,8 @@ The retired web dashboard and Hono API are removed. React/TypeScript remains the
 with Node/pnpm required only for development/build and recovery/reference tooling.
 
 Current delivery: rootless Podman hosting/recovery and signed Flatpak client distribution.
-The source/static checkpoint is implemented; complete SDK builds and installed Fedora acceptance
-remain separate. See [the deployment guide](docs/DEPLOYMENT.md).
+Release preparation for 0.1.0 passed, including the complete Flatpak SDK build and signed draft
+artifacts. Publication and installed Fedora acceptance remain pending. See [the deployment guide](docs/DEPLOYMENT.md).
 
 ## Guides
 

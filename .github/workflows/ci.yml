@@ -4,27 +4,36 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  DATABASE_URL: postgresql://postgres:postgres@localhost:23102/arcadia
-  ARCADIA_SEED_DEMO_ACCOUNTS: "true"
-  NODE_ENV: test
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_BUILD_JOBS: "2"
 
 jobs:
-  quality:
-    name: Lint, typecheck, test, build
-    runs-on: ubuntu-latest
+  interface:
+    name: Interface, contracts and database fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:23102/nahhasio_ci
+      ARCADIA_SEED_DEMO_ACCOUNTS: "true"
+      NODE_ENV: test
     services:
       postgres:
         image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: arcadia
+          POSTGRES_DB: nahhasio_ci
         ports:
           - 23102:5432
         options: >-
@@ -33,61 +42,106 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12.9.0
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
-
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint and formatting
+        run: pnpm lint && pnpm format:check
+      - name: Contract drift and TypeScript
+        run: pnpm typecheck
+      - name: Bootstrap disposable database fixtures
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+      - name: TypeScript and contract tests
+        run: pnpm -r test
+      - name: Build interface and shared tooling
+        run: pnpm -r build
+      - name: Install browser fixture runtime
+        run: pnpm --filter @nahhasio/linux-ui exec playwright install --with-deps chromium
+      - name: Fixture-backed interface journeys
+        run: pnpm --filter @nahhasio/linux-ui test:e2e
+      - name: Keep failed browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
         with:
+          name: interface-test-results
+          path: apps/linux/ui/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  server:
+    name: Rust server and operator CLI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.94.0
           components: clippy, rustfmt
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
-          workspaces: .
+          shared-key: server-ubuntu24-rust1.94
+      - name: Install backend build libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake openssl
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Server and CLI lint
+        run: cargo clippy --locked -p nahhasio-server -p nahhasio-cli -p nahhasio-catalog --all-targets -- -D warnings
+      - name: Server and CLI unit tests
+        run: cargo test --locked -p nahhasio-server -p nahhasio-cli -p nahhasio-catalog
+      - name: Build installed Rust binaries
+        run: cargo build --locked -p nahhasio-server -p nahhasio-cli
+      - name: Release trust and archive checks
+        run: python3 -m unittest discover -s packaging/release -p test_release.py -v
 
+  native:
+    name: Rust Linux client and media core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NAHHASIO_CI_NATIVE_ROOT: /home/runner/.cache/nahhasio-ci/native
+      PKG_CONFIG_PATH: /home/runner/.cache/nahhasio-ci/native/lib/pkgconfig
+      LD_LIBRARY_PATH: /home/runner/.cache/nahhasio-ci/native/lib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.94.0
+          components: clippy, rustfmt
       - name: Install native development libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libmpv-dev libtorrent-rasterbar-dev libboost-dev cmake
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run database migrations
-        run: pnpm db:migrate
-
-      # Database fixtures use demo accounts and seeded vocabularies.
-      # (ARCADIA_SEED_DEMO_ACCOUNTS=true above). Local `devenv up` never seeds the catalog.
-      - name: Seed the test database
-        run: pnpm db:seed
-
-      # New source is checked with Oxlint, shadcn rules, and Oxfmt.
-      - name: Lint
-        run: pnpm lint && pnpm format:check
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Rust format + clippy
-        run: pnpm check:rust
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-      - name: Install browser test runtime
-        run: pnpm --filter @nahhasio/linux-ui exec playwright install --with-deps chromium
-
-      - name: Linux browser journeys
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libmpv-dev libboost-dev cmake ninja-build
+      - name: Cache release-compatible libtorrent
+        id: native-cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: /home/runner/.cache/nahhasio-ci/native
+          key: native-ubuntu24-${{ runner.arch }}-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', '.github/scripts/build-ci-libtorrent.sh') }}
+      - name: Build verified libtorrent when not cached
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: bash .github/scripts/build-ci-libtorrent.sh
+      - name: Verify native dependency selection
         run: |
-          pnpm --filter @nahhasio/linux-ui test:e2e
-          pnpm --filter @nahhasio/linux-ui test:e2e:player
+          pkg-config --atleast-version=2.0.12 libtorrent-rasterbar
+          pkg-config --modversion libtorrent-rasterbar gtk4 libadwaita-1 webkitgtk-6.0 mpv
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: native-ubuntu24-rust1.94-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', '.github/scripts/build-ci-libtorrent.sh') }}
+      - name: Native Rust lint
+        run: cargo clippy --locked -p nahhasio-linux -p nahhasio-native-player -p media-transfer --all-targets -- -D warnings
+      - name: Native and media-core unit tests
+        run: cargo test --locked -p nahhasio-linux -p nahhasio-native-player -p media-transfer
+      - name: Build Linux shell
+        run: cargo build --locked -p nahhasio-linux

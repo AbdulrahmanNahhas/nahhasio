@@ -230,3 +230,19 @@ devenv shell -- python3 -m unittest discover -s packaging/release -p test_releas
 These offline tests cover signature integrity, source-private exclusions, archive tampering/path
 containment and retained repository objects. They do not install a client or contact the family PC.
 Release build, publication and installation details are in [DEPLOYMENT](DEPLOYMENT.md).
+
+## Push and pull-request CI
+
+`.github/workflows/ci.yml` runs independent jobs on Ubuntu 24.04 for interface/contracts/database
+fixtures, server/operator Rust, and native Linux/media-core Rust. Rust is pinned to 1.94.0; actions
+are pinned to commits. Native libtorrent uses the same SHA-256-verified source as the Flatpak
+manifest, cached separately from Cargo. Ubuntu's packaged 2.0.10 is too old for the bridge.
+
+Only the interface job receives the disposable PostgreSQL service URL. It migrates/seeds that
+empty CI database, runs TypeScript/contract tests and fixture-backed browser journeys. Backend
+and native Rust jobs run ordinary unit tests without production database credentials. Explicit
+disposable operator/API integration suites remain separate acceptance commands above.
+
+The standalone player journey suite and live provider tests are outside default push CI for this
+hosting release. Native unit tests do not launch GTK or establish physical playback acceptance.
+CI does not rebuild/publish the Flatpak or server image; the release workflow owns those artifacts.

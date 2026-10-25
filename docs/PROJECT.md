@@ -17,7 +17,8 @@ tools. There is no shipped website. Linux is the only client through v1.0.
 
 The current release covers rootless hosting, coordinated backup/restore, catalog transfer,
 independent laptop development, signed server/Flatpak delivery and app maintenance controls.
-The code checkpoint exists; complete SDK builds and installed Fedora acceptance remain pending.
+The 0.1.0 server/Flatpak build and signed draft preparation passed. Publication and installed
+Fedora acceptance remain pending.
 Player/provider testing, Jellyfin and files-only playback are outside this release. Remaining
 catalog/admin improvements can follow installation.
 

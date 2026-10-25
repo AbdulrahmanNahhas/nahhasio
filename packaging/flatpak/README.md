@@ -133,5 +133,5 @@ io.nahhasio.Linux`; binary rollback does not undo newer device-state format chan
 Run `devenv shell -- python3 -m unittest discover -s packaging/release -p test_release.py` for
 offline release-boundary fixtures. Python/JSON/XML/shell validation and application static checks
 do not prove a complete SDK build, Fedora portal behavior, GPU playback or installed updates.
-The first complete Flatpak workflow and Fedora install/update remain acceptance steps. No live
+The complete SDK build passed in [release preparation run 40210314390](https://github.com/AbdulrahmanNahhas/nahhasio/actions/runs/40210314390). Fedora installation and updates remain acceptance steps. No live
 catalog mutation, client-state import or family-PC installation occurs during source validation.
