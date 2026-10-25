@@ -75,26 +75,14 @@ functions/triggers, back up, rehearse on a restored copy, verify preservation/co
 apply the approved migration explicitly. Source snapshots alone do not include every database
 function/trigger; preserve those SQL definitions in the same history.
 
-`packages/database/scripts/baseline-checkpoint.ts` is an explicit development maintenance tool
-for this initial adoption, not an installed server service or normal update command. It requires a
-new private project backup directory and explicit database selection:
+The one-time baseline-adoption helper and its private rehearsal helper are retired from the
+checkout after completed adoption; Git retains their exact sources. Do not repeat adoption on an
+already-baselined catalog. Restore the original pre-baseline dump only into a separate instance;
+it has the original ledger and needs its matching source archive. Never overwrite newer family
+edits with that checkpoint as an ordinary rollback.
 
-```sh
-# Historical operation shape; do not repeat adoption on the already-baselined catalog.
-pnpm --filter @arcadia/database exec tsx scripts/baseline-checkpoint.ts prepare /absolute/project/data/backups/new-checkpoint
-pnpm --filter @arcadia/database exec tsx scripts/baseline-checkpoint.ts rehearse /absolute/project/data/backups/new-checkpoint
-NAHHASIO_APPLY_BASELINE=1 pnpm --filter @arcadia/database exec tsx scripts/baseline-checkpoint.ts apply /absolute/project/data/backups/new-checkpoint
-```
+## Deployment boundary
 
-The old `foundation-checkpoint.ts` helper is retired. Restore the original dump only into a separate
-instance first; do not overwrite the current database or newer family edits as a casual rollback.
-Restoring the original pre-baseline dump also restores its old ledger, so keep the matching old
-source archive and this adoption record. Recovery must account for that difference explicitly.
-
-## Remaining work
-
-This closes the migration-provenance finding from [the pre-deployment review](PREDEPLOYMENT-REVIEW.md).
-Transaction-level authorization, production roles/storage/readiness, Podman installation, verified
-updates and real Linux/Fedora acceptance remain separate work. Overview and Settings should
-control those actual services, with unfinished actions visibly disabled. No Jellyfin metadata or
-tracking authority is introduced by this baseline.
+Baseline adoption was a local preservation checkpoint. Hosting, transfer, updates and installed
+acceptance follow [DEPLOYMENT](DEPLOYMENT.md). The retained original dump has an older ledger;
+recovery must keep its matching source history and must never overwrite newer family edits.

@@ -31,7 +31,8 @@ devenv shell -- cargo run -p nahhasio-native-player --example gtk_local --locked
 
 `gtk_local` accepts diagnostic `--smoke` and `--web-overlay`; inspect its actual result/window.
 Use synthetic/private fixture media, not a public transfer. `examples/run-on-shadow.sh` is a
-process-local development graphics-loader workaround; it is not an AppImage packaging solution.
+process-local NixOS development graphics-loader workaround. Installed client delivery uses
+the GNOME Flatpak SDK; see [packaging](../../packaging/flatpak/README.md).
 The application launcher uses `bin/nahhasio-native-runtime`. Never change system configuration
 or relax WebKit sandbox/CSP to make a diagnostic pass. Inspect dependency/source licenses before
 reusing upstream implementation. libmpv render FFI is isolated here; do not reintroduce the

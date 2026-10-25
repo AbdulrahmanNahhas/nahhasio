@@ -139,24 +139,16 @@ The complete work editor is committed, but its current transactional saves/uploa
 permission paths and native UX still need consolidated acceptance. Older native/browser checks
 cover particular artifacts only. Historical transfer fixtures encountered a peer/seed timeout;
 public torrent-transfer success is not established. Report current facts instead of repeating old
-pass/fail statements as current results. AppImage/cross-machine deployment and server-file playback
+pass/fail statements as current results. Flatpak/cross-machine deployment and server-file playback
 need dedicated acceptance once implemented.
 
 ## Desktop renderer compatibility
 
-The native entry point defaults `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1` before GTK or
-worker threads start. On Shadow with WebKitGTK 2.54.1, Aqua confirmed that CPU
-rasterization resolves posters turning partly/completely black during hover and scrolling.
-This controls WebKit UI painting; libmpv playback configuration is unchanged.
-The existing shared-memory presentation workaround remains in place.
-
-Ordinary `devenv shell -- nahhasio-client` launches need no extra renderer variable.
-For a deliberate GPU-painting comparison, fully quit the client first, then run
-`WEBKIT_SKIA_ENABLE_CPU_RENDERING=0 devenv shell -- nahhasio-client`.
-The entry point respects explicit renderer overrides. A running single instance cannot
-adopt a new renderer setting through interface reload; quit/relaunch for comparisons.
-CPU/GPU performance has not been benchmarked; the compatibility default is based on
-confirmed visual correctness with the affected works.
+CPU rendering and shared-memory presentation default only on NixOS outside Flatpak, where the
+WebKit compatibility issue was observed. Fedora/Flatpak uses normal rendering. Explicit renderer
+overrides are respected; `NAHHASIO_WEBKIT_COMPAT_SHM=1` requests the compatibility path. Fully
+quit/relaunch before comparing settings. Record actual GPU/software rendering and do not equate
+synthetic scroll timing with physical input or compositor smoothness.
 
 ### Focused device-root regression
 
@@ -167,9 +159,8 @@ physical input and playback remain separate acceptance.
 
 For an explicitly requested live read-only provider search, run the isolated catalog fixture with
 `NAHHASIO_LIVE_PROVIDER_ACCEPTANCE=1`. It uses existing environment keys and reports only candidate
-counts and warnings; it neither ingests images nor changes the live catalog. TMDB and Fanart
-returned candidates at the 2026-10-20 local checkpoint; that does not establish AniList, every
-provider endpoint or production connectivity acceptance.
+counts and warnings; it neither ingests images nor changes the live catalog. A successful
+provider search does not establish playback, other endpoints or production connectivity.
 
 ### Retired runtime boundaries
 
@@ -205,41 +196,7 @@ family database or calls real providers.
 checks the typed native-gateway fixture, name/key controls, secret input clearing, failure/retry,
 disabled unconfigured storage and 1440/520-pixel layouts. Build the bundle before starting preview;
 do not rebuild the same output while browser tests run. Browser captures remain separate from GTK,
-physical keyboard, real credentials, AppImage installation and Fedora acceptance.
-
-2026-10-20 acceptance: `pnpm check`, workspace build, all 24 server unit tests, private provider-file
-unit checks and the extended disposable API fixture passed. Both new administration browser tests
-passed; sidebar/selection regressions passed, including a separate rerun of the one navigation case
-interrupted by a concurrent bundle rebuild. Browser captures were inspected at 1440×900 and 520×900.
-A fresh copied native binary (`8f65ca976112d701b89244573c271ce7c8e8ecefb38cb791569044c1866d9984`)
-and production bundle also rendered Overview/Settings through real GTK/WebKit and native HTTP
-against an isolated mock. Private captures/receipt are in `data/previews/admin-server-native`.
-The compositor initially selected a 708×793 CSS viewport; its own test window was then narrowed to
-520 requested width and captured again. This was an intentionally terminated rendering probe,
-not a completed built-in smoke journey or physical-input/real-provider/AppImage/Fedora acceptance.
-The probe required synthetic login/device registration; it never contacted the family API/database.
-
-2026-10-21 authorization follow-up: the extended profile fixture runs HTTP requests as a non-superuser
-runtime role, while setup/revocation/snapshots use a separate operator connection in its own temporary
-socket-only cluster. Runtime has DML but no public-schema CREATE or migration-ledger INSERT. Fifty-three
-deterministic races wait for an actual blocked PostgreSQL request, commit revocation/visibility/role
-changes, then require rejection and equal fingerprints for state, identities, credentials, devices and
-audit. Positive viewer/profile/password/device flows remain required. The test's 15-second barrier
-allows actual scrypt work before the write lock; production lock/request timeouts are unchanged.
-`admin-server.spec.ts` adds the deployment signals and stale-name reload case. A migration unit fixture
-now uses synthetic ordered entries instead of assuming two or more real baseline migrations.
-
-Final 2026-10-21 checks: `pnpm check`, server/native builds, all 12 catalog + 24 server unit tests,
-`bin/test-rust-catalog`, the runtime-role 53-race profile/Settings fixture, and all three focused
-Overview/Settings browser scenarios passed. Documentation links and `git diff --check` passed.
-Today's isolated native rendering probe timed out before issuing any API requests and produced no
-new captures; the 2026-10-20 native result is historical, not acceptance of today's small UI additions.
-No live catalog/account/artwork/grant change or deployment/release activation was performed.
-
-After those passing checks, concurrent development-environment changes appeared in the worktree
-(pnpm/Nix/CI and related files). They were preserved. A later repository-wide format check flags the
-concurrently edited root `package.json`; it is outside this authorization/Overview checkpoint.
-Reconcile that environment checkpoint before treating a new repository-wide run as accepted.
+physical keyboard, real credentials, Flatpak installation and Fedora acceptance.
 
 ## Home-server HTTPS trust acceptance
 
@@ -258,3 +215,18 @@ permissions. No GTK, database, real provider or real session is involved. Browse
 connection form and saved fingerprint at desktop/narrow sizes; their captures are private under
 `data/previews/server-trust`. Neither proves a deployed HTTPS server or physical GTK behavior.
 The existing disposable profile suite also verifies shared diagnostics against owner/runtime roles.
+
+## Hosting and release acceptance
+
+The current release excludes player/provider testing. Use isolated data to verify rootless Fedora
+mounts/SELinux, localhost/LAN TLS/login, reboot persistence, backup/restore equality and interruption
+recovery, failed updates, schema compatibility and signed-artifact rejection. Then accept the
+installed Flatpak and host update path. Static/source checks do not prove the complete SDK build.
+
+```sh
+devenv shell -- python3 -m unittest discover -s packaging/release -p test_release.py -v
+```
+
+These offline tests cover signature integrity, source-private exclusions, archive tampering/path
+containment and retained repository objects. They do not install a client or contact the family PC.
+Release build, publication and installation details are in [DEPLOYMENT](DEPLOYMENT.md).

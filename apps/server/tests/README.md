@@ -32,10 +32,6 @@ A process forcibly killed by the OS cannot run teardown. In that case the unique
 printed by the harness identifies the leftover; inspect that exact database before removing it.
 Never sweep or remove other `*_test` databases.
 
-The first restore test caught pg_dump's session `search_path` leaking into subsequent fixture
-queries. The harness now resets the restore connection's settings before returning it to the pool.
-No production endpoint fix was needed for the verified cases.
-
 ## Read-only detail payload report
 
 ```sh
@@ -48,17 +44,8 @@ compact UTF-8 JSON (the API serializer form) for that candidate and Oshi No Ko, 
 longest episode work at this checkpoint, Black Clover. It prints names/counts/byte sizes only,
 not detail bodies, credentials or connection strings. No login/session is needed.
 
-2026-10-09 measurements:
-
-| Work                          | Episodes | Installments | Compact detail bytes |
-| ----------------------------- | -------: | -----------: | -------------------: |
-| Black Clover                  |      170 |            2 |               92,055 |
-| Frieren: Beyond Journey's End |       38 |            3 |               32,307 |
-| Oshi No Ko                    |       35 |            4 |               31,463 |
-
-Black Clover was also the largest JSONB detail candidate. All measured payloads were below the
-native 2,097,152-byte response limit. These are metadata payload measurements, not artwork bytes,
-native rendering performance or a permanent upper bound as the catalog grows.
+Measurements are metadata payload sizes, not artwork bytes or native rendering performance.
+Rerun the explicit report for current values rather than relying on historical catalog snapshots.
 
 ## Account/authentication checkpoint
 

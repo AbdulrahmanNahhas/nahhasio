@@ -1,12 +1,12 @@
 # Nahhasio roadmap and task inventory
 
 Current delivery order (2026-10-25): [the four-phase deployment checkpoint](DEPLOYMENT.md)
-supersedes the older sequence below. Complete the code for rootless installation, recovery/transfer,
-server/client updates and app maintenance controls before consolidated installation testing.
+owns the rootless installation, recovery/transfer, signed updates and maintenance checkpoint.
+The code is implemented; complete build and installation acceptance remains pending.
 Jellyfin/files-only playback and the wider admin backlog follow this release. Player/provider
 testing is not a release phase. Historical unchecked entries are not an implementation audit.
 
-Updated 2026-10-18. **Current milestone: 0.1 Alpha, a reliable base.**
+Updated 2026-10-25. **Current milestone: 0.1 Alpha, a reliable base.**
 [PROJECT.md](PROJECT.md) owns confirmed scope. This is the long-term inventory, not a promise
 that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;
 other platforms follow later. No website ships in the delivered product.
@@ -44,30 +44,15 @@ checkpoints; detailed implementation order stays subject to review.
 - [ ] **A11** Define explicit Alpha installation/update/backup steps and known limitations.
 - [ ] **A12** Run the consolidated Alpha acceptance on isolated data and the target environment.
 
-## Approved three-phase transition — 2026-10-18
+## Current hosting priority
 
-The review decisions and execution checklist are in [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md):
-schema/preservation → API and whole client → Nahhasio agent tools/skills. Each phase returns for
-review. Phase 1 is committed as `990b704`; the 2026-10-19 existing-screen integration and remaining
-Phase 2 runtime items are recorded there. No runtime feature is complete merely because its table
-or basic read view exists.
+Follow [DEPLOYMENT](DEPLOYMENT.md): build and accept signed artifacts, install rootless Fedora
+services, rehearse recovery, transfer the verified catalog, then verify reboot/LAN/updates. Schema
+and Rust-service foundations are implemented; their historical phase plan is in Git. No playback
+or provider test phase is required for this release. Remaining administration work follows hosting.
 
-## Required review before Podman deployment
-
-After server connection/login and Saved Works/offline use, complete a detailed schema and logic
-review. Cover catalog/work/part/episode identity, relationships, constraints/indexes, vocabularies,
-images/assignments and filesystem paths, accounts/profiles/devices/sessions, tracking/offline sync,
-media versions/tracks, download/job ownership, editorial revisions and deletion/recovery behavior.
-Inspect actual consumers, obsolete/duplicate concepts, performance and migration history. Present
-proposed changes with rationale, compatibility/backfill/recovery impact and priorities; retain
-catalog UUIDs, user history and artwork. No speculative live cleanup is implicit approval.
-
-Deployment review must cover trusted container/Flatpak sources, pinned base images/actions,
-release provenance/signatures/digests, least privilege and secrets, persistent volumes, verified
-independent backup/restore, explicit migrations, compatibility checks and upgrade health gates.
-Define rollback honestly: an older binary may not support a migrated database. Keep an approved
-recovery path and stage upgrades against restored data before the family server. Initial Alpha
-updates are explicit/confirmed; automatic updates wait for these safeguards and approval.
+The future remote operator CLI uses a server URL and API key from Shadow, backed by authorized
+HTTPS catalog operations. It is deferred; the existing CLI is still a direct-database operator.
 
 ## Saved-work and playback requirements clarified by Aqua
 
@@ -88,25 +73,9 @@ These clarify intended behavior; Alpha checkpoint sizing remains to be agreed. C
 and progress/watched/unwatched offline updates are confirmed. There are no per-part/episode
 source-policy overrides or offline ratings/notes mutations in the initial scope.
 
-## Saved Works implementation checkpoint — 2026-10-18
-
-Server connection/login is committed as `626d3ef`. The next approved checkpoint implements
-native account/server-scoped work snapshots and referenced artwork, explicit local library access
-from login/account menu, saved work browsing/search, existing work-page reuse, client torrent
-resolution from saved identities, device-file playback, position/resume and a persistent
-progress/watched queue. Reconnect uses owner-scoped compare-and-write with a reviewed conflict
-choice. This original checkpoint did not add a schema migration, server acquisition job, Jellyfin
-adapter or automatic completion policy; the approved three-phase schema transition supersedes that limit. See DEVELOPMENT.md for ownership, limits and recovery boundaries.
-
-Implementation/static checks and consolidated runtime acceptance are separate: restart/offline,
-interrupted writes, cross-account switching, real peer resolution and concurrent sync need the
-agreed acceptance pass. Whole-work torrent/files-only policy is now stored/projected and enforced before client torrent lookup;
-legacy unscoped videos remain explicitly playable rather than silently claimed. The detailed
-the approved schema/API transition and trusted-update/recovery review precede Podman.
-
 ## Future work: promote selectively
 
-Complete remaining catalog/admin pages and website retirement; provider imports and asset tools;
+Complete remaining catalog/admin pages; provider imports and asset tools;
 advanced maintenance/revisions/restoration; durable server acquisition; offline sync; automatic
 subtitle retrieval; optional Jellyfin/transcoding; richer profiles/policies; statistics/graphs;
 production update automation and mature release compatibility. These are valuable backlog items,

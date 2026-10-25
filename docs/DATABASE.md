@@ -4,50 +4,13 @@ The database/catalog, images and tracking are Nahhasio's primary product. Playba
 selection, server retention, device downloads and saved metadata build on stable catalog IDs.
 Read [PROJECT](PROJECT.md) for intent and [ROADMAP](ROADMAP.md) for current/future tasks.
 
-## Current pre-deployment review — 2026-10-20
+## Schema and inspection
 
-See [PREDEPLOYMENT-REVIEW](PREDEPLOYMENT-REVIEW.md) for current read-only evidence, ownership,
-relationships/indexes, deletion rules, storage, jobs and required deployment gates.
-The current preserved snapshot has 75 tables, 252 works, 421 installments, 1,879 episodes,
-1,626 playback states and 1,055 artwork assets. All artwork hashes matched. The historical
-migration-checksum mismatch is resolved by the approved [current-database baseline](BASELINE.md):
-one applied entry, no pending migrations, and every public table unchanged. The old chain is
-retired, preserved in Git and the private database/artwork recovery checkpoint. Inventories below
-are dated historical records.
-
-## Applied foundation — 2026-10-18
-
-The live development database now has **75 public tables** and **30 applied migrations**.
-The four additions are `server_instance`, `devices`, `library_roots` and `title_trailers`.
-Current preserved catalog counts: 226 works, 375 installments, 1,879 episodes, 843 images and
-1,626 playback-state rows. All original column values/rows in the backed-up 71 tables survived;
-TVDB recovery values remain on five works. Three legacy device IDs were registered without
-changing existing download ownership or paths. No existing table was deleted.
-
-See [SCHEMA-FOUNDATION.md](SCHEMA-FOUNDATION.md) for the full change list, 75-table service-owner
-inventory, backup/rehearsal/apply commands, verification evidence and the two remaining phases.
-The new schemas do not imply implemented playback/import/admin services. Episode stills, dub
-fields and YouTube trailers now have Rust/API/client consumers verified in isolated fixtures;
-installed acceptance remains separate. Authentication and
-internal records need protected projections, not raw secret-bearing table views.
-
-## Inspected live inventory — 2026-10-13
-
-Read-only `./bin/nahhasio schema`, `stats` and targeted schema inspection reported:
-
-| Measure                 | Count |
-| ----------------------- | ----- |
-| Public base tables      | 71    |
-| Works                   | 226   |
-| Installments            | 369   |
-| Episodes                | 1,852 |
-| People                  | 339   |
-| Organizations           | 167   |
-| Award recognitions      | 141   |
-| Planets                 | 11    |
-| Registered image assets | 836   |
-
-This is a dated snapshot, not a permanently current count. No data/schema was changed.
+The active schema is defined in `packages/database` and the sole migration history in
+`packages/database/drizzle`. The [current baseline](BASELINE.md) preserves the catalog and its
+ledger. Historical row counts are in Git; use explicit read-only CLI inspection for current counts.
+[Schema service ownership](SCHEMA-FOUNDATION.md) maps the tables to their consumers. A basic table
+view does not imply implemented writes, jobs or stored-media delivery.
 
 ## Existing concepts to reuse
 

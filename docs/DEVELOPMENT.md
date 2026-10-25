@@ -1,8 +1,9 @@
 # Development guide
 
-Read [PROJECT.md](PROJECT.md) for scope and [ROADMAP.md](ROADMAP.md) for current priorities.
-Use the repository's Nix/devenv environment: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
-WebKitGTK6, mpv, libtorrent and Chromium. Never inspect `/saved/nixos-config` without permission.
+Read [PROJECT](PROJECT.md) for scope and [DEPLOYMENT](DEPLOYMENT.md) for hosting. Use the
+repository Nix/devenv environment on Shadow: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
+WebKitGTK6, mpv, libtorrent and Chromium. Nix is not required by installed clients or servers.
+Do not inspect `/saved/nixos-config` without Aqua's permission.
 
 ## Repository map
 
@@ -26,7 +27,58 @@ The installed Rust server executes all editor, provider and artwork operations t
 Node worker has been removed. Only isolated export/report comparison helpers remain under `tools/catalog-reference`. Node/pnpm are still development/build dependencies for React.
 Schema ownership does not move from Drizzle to a second SQLx tree.
 
-### Rust operator CLI checkpoint
+## Run/build
+
+```sh
+devenv processes list
+devenv up
+devenv --profile dev up
+devenv up client
+```
+
+`devenv up` starts PostgreSQL and the Rust API only. For everyday UI development, use
+`devenv --profile dev up` (short form: `devenv -P dev up`). The native process manager starts
+Vite alongside the backend, waits for both HTTP readiness probes, then builds and launches
+the GTK client with `NAHHASIO_UI_URL=http://127.0.0.1:23110/`. React/CSS edits update through
+Vite HMR without rebuilding the UI bundle. The native launcher retains the same process-local
+graphics compatibility settings as the built client.
+Both modes explicitly share the existing `.devenv/state/postgres` catalog; the dev profile
+does not create a separate empty database.
+
+Rust changes still require a rebuild/restart: use `devenv --profile dev processes restart client`
+for the shell or `devenv --profile dev processes restart server` for the API. Fully quit any
+separately launched GTK instance first so single-instance activation cannot retain an old shell.
+Use `devenv up client` for the backend plus the built UI, or
+`devenv shell -- nahhasio-client` for the built desktop alone.
+
+When switching modes or changing `devenv.nix`, stop the old manager first with `devenv down`
+(use `devenv --profile dev down` if it was started with that profile), then run the new command.
+An existing manager retains its original process definitions. Avoid running the two modes
+simultaneously against the same PostgreSQL data directory and fixed ports. Startup never
+migrates or seeds the catalog; no website or Node API process is started.
+
+| Service                          | Port  |
+| -------------------------------- | ----- |
+| PostgreSQL                       | 23102 |
+| Rust API                         | 23103 |
+| Desktop Vite                     | 23110 |
+| Isolated player browser fixtures | 23112 |
+
+```sh
+devenv shell -- pnpm --filter @nahhasio/linux-ui dev
+devenv shell -- pnpm --filter @nahhasio/linux-ui build
+devenv shell -- cargo build --locked -p nahhasio-linux
+devenv shell -- cargo build --locked -p nahhasio-server
+devenv shell -- pnpm client:generate
+```
+
+Native production serves contained `nahhasio://app/` assets. Development origin is exactly
+`http://127.0.0.1:23110/`. `NAHHASIO_UI_URL` selects development UI; `NAHHASIO_UI_DIR` selects
+an explicit packaged bundle directory. A production build is not proof that a running GTK
+instance loaded it: fully quit/relaunch after bridge changes. Restart only the affected server
+with `devenv processes restart server` when an endpoint change needs activation.
+
+## Direct-database operator CLI
 
 Build with `devenv shell -- cargo build --locked -p nahhasio-cli`; the executable is
 `target/debug/nahhasio`. It runs outside the checkout and needs no Node process. To install a
@@ -95,634 +147,105 @@ Input schemas are checked-in generated data from the existing Zod contracts, wit
 in Rust. `pnpm typecheck` checks schema drift; regenerate with
 `pnpm --filter @arcadia/contracts generate:rust-editor`. Old open reviews must reload after this transition.
 
-## Run/build
+## Native and interface boundary
+
+Rust owns HTTP/session secrets, server trust, player and storage. React calls typed, bounded
+native operations; it never receives session tokens or arbitrary native command access. The
+packaged origin is `nahhasio://app/`; development allows exactly `http://127.0.0.1:23110/`.
+Hash routes preserve native packaging. Generate `routeTree.gen.ts` and API types through their
+owning scripts; never edit them manually. The server enforces current permissions.
+
+Private native state binds sessions to server/account identities. Saved server connections retain
+trusted CA/fingerprint and normal HTTPS chain/hostname checks. Loopback HTTP is development-only.
+Switching server/account scopes query caches, snapshots, downloads and queued tracking updates.
+Stored state is not a proof that cached artwork or video bytes remain available.
+
+The interface uses TanStack Router/Query and shadcn Base UI Maia/Mist. Preserve the reviewed design,
+RTL, keyboard behavior, reduced motion, semantic tokens and typed boundaries. Follow the applicable
+repository skills for interface work. [CLIENT](CLIENT.md) owns current feature behavior;
+[design-rules](design-rules.md) owns composition rules.
+
+## Catalog and authorization
+
+Shared Rust editor/provider/artwork services live in `crates/catalog-core/src/editor`; the server
+and compiled CLI do not spawn Node workers. Whole-work review/save validates ancestry, references,
+dependencies and revision fingerprints. Saves revalidate authorization in their transaction and
+write audit/revision records atomically. Reviews loaded before incompatible changes must reload.
+
+`apps/server/src/auth/write.rs` owns consistent identity/account/session/device write locks.
+Viewer visibility/policies and device revocation are checked under those locks. Login issuance
+also locks identity/account so password rotation cannot race into a surviving stale session.
+Read requests retain their middleware/snapshot model. Future writers must follow this lock order.
+
+Artwork uses bounded signatures/dimensions, hashes and exclusive files. Rename preserves old
+paths/hard links. PostgreSQL rollback cannot remove newly created bytes: failed imports or dry
+runs can leave recoverable unassigned files. Purging unused records retains physical recovery files.
+Never rewrite asset IDs or delete files merely to resolve root selection.
+
+Input schemas are generated from shared Zod contracts. `pnpm typecheck` checks drift; regenerate
+with `pnpm --filter @arcadia/contracts generate:rust-editor` and, for network contracts,
+`pnpm client:generate`. `packages/api-contract/openapi.json` is the single network definition.
+
+## Storage, accounts and offline use
+
+`NAHHASIO_MEDIA_ROOT` and `NAHHASIO_PUBLIC_MEDIA_ROOT` configure server artwork. Client video uses
+only `NAHHASIO_VIDEO_ROOT`, normally `~/Videos/nahhasio`; do not let server artwork variables change
+it. Native durable state belongs to XDG storage. Root mismatches must stay recoverable errors,
+not trigger automatic moves or transfer-state resets. Flatpak maps these locations to its sandbox;
+see [packaging](../packaging/flatpak/README.md) before importing old device state.
+
+Saved Works retains server/account-scoped work snapshots/artwork and durable source identities.
+Metadata readiness, downloaded-video readiness and account saved intent are distinct. Offline
+mutations are progress and watched/unwatched only. Reconnection resolves current ownership and
+conflicts; never silently overwrite newer tracking or claim an unrelated account's local files.
+
+Profiles and avatars use authorized account services and native artwork transport. Preserve
+account/identity links. Member activity projections must omit passwords, sessions, private paths,
+invite secrets and raw settings. Broader account/device management remains a separate feature.
+
+[Operations](OPERATIONS.md) owns private provider settings, LAN trust and preflight.
+[Database](DATABASE.md) and [baseline](BASELINE.md) own preservation and migration rules.
+
+## Media runtime
+
+Source selection is explicit; browsing a work does not initiate playback/download. Torrent,
+anime-direct and provider embeds have separate native adapters. The media core is UI-independent.
+Download must not attach mpv as a side effect. Device retained files, engine cache, saved metadata
+and server library storage are distinct. Unknown mappings and failed transfers remain errors.
+
+[Streaming](STREAMING.md) documents provider isolation/diagnostics and [anime direct](ANIME-DIRECT.md)
+documents the bounded Python helper. These client features do not imply server acquisition or
+stored-file delivery. Player/provider testing and Jellyfin/files-only playback are outside the
+current hosting release. Do not relax protocol/CSP/TLS/auth restrictions for a provider failure.
+
+## Build and verification
 
 ```sh
-devenv processes list
-devenv up
-devenv --profile dev up
-devenv up client
+devenv shell -- pnpm check
+devenv shell -- pnpm build
+devenv shell -- cargo test --workspace --locked
 ```
 
-`devenv up` starts PostgreSQL and the Rust API only. For everyday UI development, use
-`devenv --profile dev up` (short form: `devenv -P dev up`). The native process manager starts
-Vite alongside the backend, waits for both HTTP readiness probes, then builds and launches
-the GTK client with `NAHHASIO_UI_URL=http://127.0.0.1:23110/`. React/CSS edits update through
-Vite HMR without rebuilding the UI bundle. The native launcher retains the same process-local
-graphics compatibility settings as the built client.
-Both modes explicitly share the existing `.devenv/state/postgres` catalog; the dev profile
-does not create a separate empty database.
+Use focused disposable checks for relevant risks and consolidated installation acceptance after
+implementation. Documentation-only changes need format/link checks. [TESTING](TESTING.md) owns
+commands and native/browser distinctions. No mutation test may use the family catalog.
 
-Rust changes still require a rebuild/restart: use `devenv --profile dev processes restart client`
-for the shell or `devenv --profile dev processes restart server` for the API. Fully quit any
-separately launched GTK instance first so single-instance activation cannot retain an old shell.
-Use `devenv up client` for the backend plus the built UI, or
-`devenv shell -- nahhasio-client` for the built desktop alone.
+The conventional release pipeline builds the client in the pinned GNOME Flatpak SDK and the server
+as a Rust-only OCI image. Use `bin/nahhasio-flatpak` for a local client build; build/sign/publication
+instructions are in [packaging/flatpak](../packaging/flatpak/README.md). The Python utilities in
+`packaging` are active build/install/recovery tools, not a second web runtime.
 
-When switching modes or changing `devenv.nix`, stop the old manager first with `devenv down`
-(use `devenv --profile dev down` if it was started with that profile), then run the new command.
-An existing manager retains its original process definitions. Avoid running the two modes
-simultaneously against the same PostgreSQL data directory and fixed ports. Startup never
-migrates or seeds the catalog; no website or Node API process is started.
+## Development after transfer and learning
 
-| Service                          | Port  |
-| -------------------------------- | ----- |
-| PostgreSQL                       | 23102 |
-| Rust API                         | 23103 |
-| Desktop Vite                     | 23110 |
-| Isolated player browser fixtures | 23112 |
-
-```sh
-devenv shell -- pnpm --filter @nahhasio/linux-ui dev
-devenv shell -- pnpm --filter @nahhasio/linux-ui build
-devenv shell -- cargo build --locked -p nahhasio-linux
-devenv shell -- cargo build --locked -p nahhasio-server
-devenv shell -- pnpm client:generate
-```
-
-Native production serves contained `nahhasio://app/` assets. Development origin is exactly
-`http://127.0.0.1:23110/`. `NAHHASIO_UI_URL` selects development UI; `NAHHASIO_UI_DIR` selects
-an explicit packaged bundle directory. A production build is not proof that a running GTK
-instance loaded it: fully quit/relaunch after bridge changes. Restart only the affected server
-with `devenv processes restart server` when an endpoint change needs activation.
-
-## Client/UI boundary
-
-Rust owns HTTP/session secrets, player and storage. UI calls typed bounded native operations;
-no bearer/private admin token, arbitrary native command, browser server fetch or remote UI.
-Hash routes retain native packaging semantics. Never hand-edit `routeTree.gen.ts` or generated
-API code; regenerate through the owning scripts. Server enforces permissions on every operation.
-
-Native session credentials persist in private, server-bound native storage. The login and account
-menu provide saved-server selection and connection checks (see the checkpoint below). Native
-configuration accepts HTTPS or loopback HTTP; home-server certificate provisioning remains a
-deployment decision rather than disabling TLS/session checks.
-
-## Current media behavior and limits
-
-The embed provider registry has explicit source selection alongside Torrentio, with a disposable
-same-window WebKit surface and provider-owned playback controls. Direct-stream APIs remain
-disabled. See [STREAMING.md](STREAMING.md) for module ownership, diagnostics, runtime requirements
-and the separate native playback acceptance boundary.
-
-The existing player accepts local files and Nahhasio's contained loopback media gateway. It has
-actual audio/subtitle track selection and manual external SRT/ASS/SSA/VTT subtitles. Automatic
-provider retrieval and a completed server-file library workflow are pending.
-
-Existing Torrentio source configuration uses `NAHHASIO_TORRENTIO_URL`/`NAHHASIO_TORRENTIO_CONFIG`,
-falling back to `NAHHASIO_STREAM_ADDON_URL`/`NAHHASIO_STREAM_ADDON_CONFIG`. Keep private configuration
-in ignored server/native environment, never UI/argv/logs. Source selection is explicit; download
-must not attach mpv or call play/preview as a side effect. Source availability is not guaranteed.
-
-Source matching preserves season ordinal semantics, excludes movies/specials, and does not round
-fractional episode numbers to another episode. Supplied server files need an independent import
-path; IMDb/Torrentio identifiers are not required for them.
-
-Device state uses XDG state storage; retained videos normally use `~/Videos/nahhasio` (see
-OPERATIONS.md). Transfer/source caches, retained videos and future server files are distinct.
-The media core must not depend on UI/GTK types. Unknown mappings/failed transfers stay errors;
-never simulate completion. Do not execute downloaded files.
-
-Keep native script/config/ytdl and protocol/format restrictions. HLS/DASH are not established
-by the current contained-file/gateway path; any future streaming/transcoding adapter needs its
-own validated integration. Synthetic/native render checks do not establish hardware/input/HDR
-or public torrent-transfer reliability.
-
-## Data and learning
-
-PostgreSQL is canonical. Preserve catalog IDs and user/media links. Startup does not migrate,
-seed, import or clean data. CLI is `./bin/nahhasio`; apply the nahhasio-db skill for catalog data
-operations. Mutation/migration verification uses restored disposable databases.
+Keep the checkout and a small independent local database/artwork sample on Shadow.
+[Development packs](../packaging/development/README.md) omit production passwords, sessions,
+provider keys, devices and personal tracking. They never replace the current laptop catalog
+automatically. Retain the original full private recovery copy through verified cutover.
 
 Aqua owns selected Rust-learning exercises. Supply stable exercise IDs, interfaces, hints and
-acceptance criteria; do not wire todo/panic/fake success into a working flow or implement an
-exercise without the required request. Technical UI/API/setup work remains within approval.
-
-Checks and isolation are in [TESTING.md](TESTING.md); runtime operations in
-[OPERATIONS.md](OPERATIONS.md). Report implementation/build/activation/acceptance distinctly.
-
-## Admin image library checkpoint
-
-The Linux `/admin/images` route uses server pagination and typed editor RPC for asset lists,
-details, bounded owner lookup, upload, primary assignment, unlink and protected record deletion.
-Admin/session authorization is rechecked inside mutation transactions; audit records retain the
-before state. Assignment compares the previously selected primary assignment and asset IDs.
-Deleting an unused record retains its physical file for recovery and refuses current assignments,
-derived variants and saved editorial-revision references. There is no automatic file purge.
-
-File health checks use the configured server artwork directory, enforce canonical path containment
-and inspect existence/readability/size, not image decoding or hash integrity. Ordinary lists check
-only their page. Explicit health filters scan matching candidates before pagination with bounded
-concurrency; more than 10,000 candidates require narrowing the filters. No schema migration is
-introduced. Desktop visual/keyboard acceptance and isolated mutation verification remain pending;
-static/build results do not establish those behaviors.
-
-Artwork name cleanup reviews the current page (24 candidates, RPC ceiling 50). Clear owner/role
-links produce a Unicode-safe work/entity slug, optional installment position/episode number,
-role and short asset UUID. Ambiguous/unlinked/problem files are skipped. Confirmation recomputes
-names and checks the reviewed path/hash, then verifies file SHA-256 and serializes rename batches.
-The new filename is a hard link in the same folder; the registered path/name changes atomically
-in PostgreSQL. Old hard links remain for revisions, saved paths and recovery without duplicate
-image bytes. Editor/reference resolution recognizes those aliases through rename audit records.
-Legacy assignment cleanup and CLI orphan purge retain renamed assets for explicit future cleanup.
-Filesystems without hard-link support fail without falling back to copying or overwriting.
-A failed/interrupted batch may leave unregistered new hard links, but the database transaction
-rolls back and original files stay intact; retry can reuse the same inode. No automatic unlink job
-runs. Permanent removal of old filenames is intentionally deferred until reference-safe cleanup.
-
-Shared overlay compatibility rules preserve official primitives and focus behavior, replace
-Dialog/AlertDialog zoom keyframes with lifecycle-driven opacity transitions, remove modal
-backdrop blur, disable drawer height interpolation and honor reduced motion. Image details retain
-content while closing and use a stable three-column desktop loading layout with the already listed
-asset preview, stacking preview first on narrow screens. Upload/rename success uses the shared
-Base UI toaster at the logical end (bottom left in Arabic RTL).
-Native smoothness remains a physical GTK/WebKit review item, not a build claim.
-
-The Tailwind base layer assigns uncolored borders to `--border`; official primitives such as
-TableRow and Toast rely on that default. Explicit semantic border/focus utilities still win.
-Do not fix recurring bright outlines by editing individual registry components.
-
-The JSON reference schema uses coalesced PostgreSQL generation metadata: ordinary columns have
-null identity_generation, so boolean OR must not leak null into the typed generated flag.
-Schema-response parsing stays strict but reports readable errors. The reference panel mounts
-only when expanded. JSON drafts retain same-route protection when selected IDs change. Works
-selection survives search, filters, paging and admin route changes in a session-only query cache
-scoped by server/user. Page selection adds/removes only the visible records, without the old 30-work cap. Select-all returns IDs/names for all matching results from
-a single read-only API snapshot. Floating actions stay available for empty/error results; a searchable review dialog
-shows selected names incrementally and permits individual removal. Logout/server switching clears this
-state. Editors consume the full session selection through `selection=works`, avoiding truncated
-UUID URLs. Work read/review contracts no longer cap record count; request-byte limits and
-review/revision/transaction guards remain in force. The compact bottom bar has clear, review
-and one direct JSON editing action. Select-all toggles to deselect-all and removes only the
-current matching results. Filters use a popover, and pagination shows the visible range with direct page entry. This is a UI/introspection correction, with no database migration/write.
-
-## People and Studios administration checkpoint
-
-`/admin/people` and `/admin/studios` use one paginated typed entity service and editing Drawer.
-Both are enabled; Planets/Awards stay disabled pending their reviewed steps. Lists default to
-most linked works. Studios use square logos and organization roles; People use portraits and
-person roles.
-The single Drawer covers existing entity fields, aliases/languages, portrait selection/upload,
-direct work/role editing, contribution order/primary state and new-role creation. Up/down arrows
-reorder contribution cards and persist their numeric positions. This uses the existing contribution
-position, which also orders contributors inside work details; it is not a separate viewer-library
-sort setting. People, Organizations and Works share compact two-row controls, a filters popover,
-selection review and one direct JSON action. Selection is scoped by server/account and entity kind,
-survives search/page/route changes, and remains session-only. Explicit select-all loads only IDs/names
-from the same SQL predicates as the paginated list; normal browsing makes no extra membership request.
-People/Organizations have no selection/JSON record-count cap; request/ticket-byte limits, revisions,
-authorization and transactional reconciliation still apply. Deletion retains its 50-record batch
-limit and existing impact/count review, behind a separate menu. JSON handoff reads the session
-selection instead of long UUID URLs. Loading skeletons match portrait/logo/table views; search
-has a clear action, and date/number formatters are reused. Filters include exactly one linked
-work. No schema is added. External identities currently belong to titles/installments, not
-entities; no entity identity model or birth/country data is invented.
-
-Mutations recheck admin sessions, lock work roots before entities, preserve retained alias IDs and
-old artwork assignments, and record audit/editorial snapshots. Individual/batch deletion reviews
-dependencies and revisions, requires typed-count confirmation and explicit credit-removal consent,
-and blocks other incoming FK/polymorphic evidence references. Deletion is atomic and removes
-entity records, aliases, credits and artwork links; works and physical assets/files remain.
-
-The typed JSON adapter uses canonical English work names and role names, with completion,
-reference lists and readable previews. Missing/ambiguous names, duplicate credits and foreign
-aliases are rejected. Account-bound signed review plans expire after 15 minutes; saves recheck
-revisions inside one transaction. People and Studios are active consumers, while Planets/Awards
-need separate typed adapters. Reference cards show searchable value chips, per-group copy and
-whole-reference copy. Options fetch only names/IDs and
-years, bounded at 5,000 works. Read-only list/options/JSON/dependency/review calls have been
-exercised on the live catalog without writes; mutation and native UI acceptance remain pending.
-
-Work/entity/JSON saves and entity deletion share catalog cache invalidation, including entity
-details and artwork ownership. Retired standalone linked-work/delete operations were removed;
-the Drawer reads credits with entity details, and single deletion uses the batch deletion service.
-JSON import catches file-read failures, and unsaved alias rows retain stable session identities.
-
-## Planet membership movement checkpoint
-
-`/admin/planets` provides a source/selection/destination workflow, including works with no planet,
-poster cards, source search and pagination. Selection spans pages, up to 50 works per batch.
-The review shows each work's current and resulting memberships. Moving removes only the source
-membership and adds the destination; removing from the source preserves all other memberships.
-Existing destination ranks are preserved, new memberships have no featured rank, and no work,
-artwork or other catalog data is deleted. Source changes reset selection with confirmation.
-
-The existing schema supports multiple planets per work. `planets.display_order` orders planet
-choices, while `title_planets.featured_rank` is optional per-membership ranking. This checkpoint
-does not add ordering controls or planet-definition create/edit/delete. Mutations recheck admin
-sessions and expected work/membership revisions, lock work roots in UUID order, verify the active
-destination and save the whole batch in a serializable transaction with audit/revision snapshots.
-No schema migration or live mutation test is required for implementation; isolated mutation and
-native acceptance remain pending.
-
-## Planet definitions checkpoint
-
-The movement page's “تعريف الكواكب” button opens a definition list and a single editing Drawer.
-Create/edit covers Arabic/English names, slug, description, emoji icon, primary/secondary colors,
-planet display order and active status. Existing planets own icons/colors, not image assignments;
-this checkpoint does not invent a planet artwork model. Numeric display order concerns planets,
-not featured work ranks. Saves have a local before/after review and server revision comparison,
-preserve the planet UUID and all work memberships, and record audit/editorial snapshots.
-
-Deleting an empty planet requires its exact saved slug. Server checks all incoming FK references
-and polymorphic evidence in the same serializable transaction, refusing linked planets. Users
-can move works away or deactivate instead. Unsaved close/back/navigation guards and explicit
-reload support conflict recovery. Planet membership ordering remains a future task. This stage
-uses static/build and read-only definition checks; no live catalog mutations are used for testing.
-
-## Downloads/device-video library checkpoint
-
-Downloads has transfer and device-library tabs with search, status counts/filters, incremental
-display and work grouping. Transfer rows expose progress, rate, peers, ETA, destination and
-pause/resume/cancel actions. Completed exports remain visible in the library after queue removal
-or torrent-cache cleanup. The storage section shows the configured native video root, registered
-available-video bytes and filesystem free space, plus the existing guarded cache cleaner.
-
-New exports retain a versioned local descriptor (catalog target, display title, work title and
-poster asset reference) inside the existing transfer `target` field; legacy target-only records
-remain readable. This is not a full saved-work snapshot or offline artwork cache. Work-page
-metadata/artwork still depend on the server; cold offline application startup/account isolation
-and progress sync belong to the later Saved Works checkpoint.
-
-Native actions accept registered torrent/file identities, never arbitrary caller paths. Direct
-saved-video playback does not request the catalog or search torrents. It participates in the
-player command/poll ordering guard. Folder opening resolves an available registered file.
-Queue cancellation retains published videos; removing a library record retains its physical file.
-Physical deletion has a separate typed confirmation and refuses unsafe/size-mismatched paths;
-local playback must be closed first. Recovery never overwrites a destination, and can reselect
-a source when a missing/blocked job cannot resume. Export publication and these mutations share
-a gate so a canceled intent cannot publish concurrently. Saved-record removal also supports
-exports whose old torrent job was already removed by cache cleanup.
-
-Changes require a freshly built/relaunched native client; UI hot reload cannot add Rust bridge
-commands to an old process. Static checks/builds are used at this stage; live download/deletion,
-native input/animation and offline-startup acceptance remain separate.
-
-## Client persistence and Flatpak delivery
-
-The supported installed client is Flatpak (`io.nahhasio.Linux`, alpha branch). See
-[Flatpak packaging](../packaging/flatpak/README.md) for the conventional SDK build, signed
-repository, installation and runtime permissions. Nix/devenv remains the development environment
-on Shadow and is not part of the release pipeline or installed runtime. The AppImage prototype
-and custom downloader/store-mount launcher have been retired in Git.
-
-Native sessions remain private, server/account-bound files with atomic replacement and expiry
-checking. Inside Flatpak, XDG state belongs to the app-private directory beneath
-`~/.var/app/io.nahhasio.Linux`; host development uses the existing XDG state root. No automatic
-copy of credentials, tracking caches or transfer state occurs between those installations.
-Retained videos remain in the configured Videos/nahhasio directory, separately from metadata.
-The sandbox permits that directory and portal-selected media/subtitle files, not the whole home.
-
-Preserve the complete private state directory and video root together. Existing video roots
-cannot be moved by merely changing environment variables; the transfer engine retains its
-recorded-root checks. Server PostgreSQL/artwork backups have independent ownership.
-
-The installed client uses the GNOME runtime's normal renderer and loader. Shadow's process-local
-WebKit compatibility path applies only outside Flatpak on NixOS; an explicit
-`NAHHASIO_WEBKIT_COMPAT_SHM=1` remains available for diagnostics. No sandbox is disabled.
-
-The release preparation workflow creates a draft server/Flatpak release with signed metadata.
-Only approved release publication promotes the static client repository and server update
-channel. Software/Flatpak owns client updates; the app reports its running version and manager
-without pretending to know host policy. Source builds and installed builds require separate
-restart/installation acceptance.
-
-## Server connection and login checkpoint
-
-The client stores up to eight canonical root URLs and aliases in private versioned
-`connections.json` under the existing device state root. User selection persists across launches;
-an explicit `NAHHASIO_SERVER_URL` overrides it for that launch. URL validation accepts HTTPS or
-loopback HTTP only, never embedded credentials, paths, fragments or queries. A missing scheme
-means HTTPS. TLS verification stays enabled; this checkpoint does not add self-signed certificate
-bypass/import or settle the later deployment certificate provisioning decision.
-
-`GET /api/v1/server/info` exposes bounded product/name/version/API metadata only. Set
-`NAHHASIO_SERVER_NAME` for the display name. Native probes verify protocol compatibility and
-readiness without sending credentials. Login probes again before credentials are sent. This
-endpoint requires the new API build; old servers report an actionable compatibility error.
-The connection address is the current session boundary, not a new durable server UUID.
-
-Native sessions now use `session-<sha256-of-canonical-url>.json` per server with atomic private
-writes. The previous `session.json` remains readable; a successful new login replaces only its
-matching legacy session. Logout/remove clears only that server's credentials. Connections and
-sessions remain native-owned; passwords are never saved. Saved videos/jobs are not deleted by
-switching. Full per-account/server offline cache ownership remains the next checkpoint.
-
-Connection switching takes an exclusive shell operation guard, waits at most eight seconds for
-in-flight catalog/media work, refuses active playback and clears native source candidates. Each
-request snapshots an immutable transport, preventing token/base mixing. The UI cancels queries,
-clears all private/native query data, rejects old-connection replies, resets media selections and
-restores the new server's session. Renaming connections works offline; removing an inactive
-connection has an explicit local confirmation. Choose another server before removing the active
-one. To change an address, add a new connection rather than transferring credentials to a new URL.
-
-The sign-in screen uses original bundled SVG cinema artwork rather than exposing catalog posters
-before authentication. It supports Arabic/RTL, narrow/short windows, live connection status and
-changing servers during session restoration. The account menu also exposes connection management.
-Static checks, production UI/native builds and the live metadata/readiness endpoint passed.
-The refreshed AppImage and visual design still need Aqua's review; consolidated cross-server
-mutation, offline and deployment acceptance remain separate. No catalog migration or live
-mutation suite is part of this checkpoint.
-
-## Saved Works and offline checkpoint
-
-Server connection/login is committed as `626d3ef`. Saved work data lives beneath
-`$XDG_STATE_HOME/nahhasio/saved/<server-url-hash>/<account-id-hash>/` (the default state root
-remains `~/.local/state/nahhasio`). Keep that state directory and the separately configured
-video directory persistent. No browser storage, credentials in snapshots or second database
-is introduced. URL identity is the current connection boundary; a durable server identity and
-address-change/certificate recovery belong to the forthcoming database/deployment review.
-
-Saving is an explicit native background operation. It reads the authorized full work projection,
-tracking snapshot and referenced artwork through fixed endpoints, with six bounded image requests
-at a time. A private versioned work document and catalog entry are published after image writes
-complete. A failed refresh retains the prior snapshot; partial image files can remain for retry.
-Limits are 1,000 works per account/server namespace, 2,000 referenced images and 512 MiB of image
-data per save, with bounded individual documents. These are safety limits, not storage targets.
-The original metadata projection retains linked display data, parts/episodes and source identities;
-private provider configuration and session tokens are excluded. Refresh is explicit and retains
-pending viewing changes. Saving never downloads video or changes favorites/server retention.
-
-The login screen offers explicit local library selection for the selected server's known accounts.
-This is access to private files on the current OS user's device, not an offline authentication
-grant. The offline shell exposes saved works and device downloads, not administration/account
-mutation screens. No server token is sent while reading offline data. Normal HTTPS/auth guards
-remain in force after reconnecting. Library/profile transitions use the same exclusive operation
-guard as server switching and clear UI caches/source candidates.
-Login/logout also take the exclusive guard. A native revision captured when a bridge request
-arrives rejects queued work after an account/server/library transition; progress writes carry
-their originating account/server scope as well. Late requests cannot inherit the new transport.
-
-Downloads separates saved work data, transfer jobs and device videos. The saved work page reuses
-the viewing UI, hides uncached discussion and disables favorites; watched/unwatched remains
-available. Local source lookup uses stable work/part/episode IDs without requiring an IMDb ID or
-integer torrent episode number. Permitted torrent resolution still runs on the client and needs
-internet plus an available provider mapping. Whole-work source-policy storage/projection is still
-a pre-existing roadmap gap; this checkpoint does not invent per-part policy or a Jellyfin adapter.
-
-New download records carry a server/account namespace for automatic work/file matching. Legacy
-unscoped records and videos remain on disk and can be played explicitly from device videos;
-they are not silently attributed to a server/account. Catalog-linked local playback retains its
-identity when its saved metadata and download record match. The device-video list remains a
-device-level file management view; it is not an account authorization boundary.
-
-Saved works record playback position roughly every ten seconds and before an ordinary player
-close. Resume uses the local snapshot, avoiding a server dependency. Watched edits and progress
-are absolute per-unit entries in the private work document; ratings/notes/favorite edits are not
-queued offline. Bulk watched applies to the units in the saved snapshot. Playback does not
-automatically mark completion. Pending edits survive metadata refresh and prevent accidental
-snapshot removal. Removal confirms local metadata/artwork deletion and retains videos/server data.
-
-`PATCH /api/v1/works/{id}/tracking` reuses existing account playback tables with owner-scoped
-transactions and target validation. It preserves unrelated progress/manual/subtitle fields and
-uses the cached server `updatedAt` for optimistic concurrency. Identical retries are idempotent;
-changed server state produces a conflict. Native sync sends at most five units per request batch,
-retains unacknowledged edits and runs after a verified login to the same owning account/server.
-Conflict flags persist. The review compares device/server watched and progress values, requires
-explicit confirmation, and binds resolution to the reviewed server-state fingerprint. A later
-server edit needs a fresh review. Server-deleted/restructured targets and corrupt local documents
-remain explicit recovery errors; they are never silently discarded.
-
-Implementation checks use formatting/lint/type checks and native/production builds. Full native
-offline/reconnect, filesystem-failure and concurrent-account acceptance remains for the agreed
-consolidated acceptance; no live family-catalog mutation tests run during this checkpoint.
-
-## Browse preferences and membership grouping
-
-Browse remembers applied filters, year range, sorting, grouping, works/installments and display
-options through native `browsePreferences.load/save`. Rust owns version-1 private atomic files
-under the existing device state root, scoped by hashes of the canonical server URL and account.
-Eight named presets share that scope. Search text is temporary; an explicit navigation query
-takes precedence over the last view. A bare Browse entry restores it. Reset restores Browse
-defaults without deleting named presets. Invalid versions/data and storage failures surface
-in the page; browser localStorage remains disabled. No database migration is required.
-
-The filter drawer has labelled desktop categories and horizontal category navigation in narrow
-windows. Selected facet values sort first; closing discards the draft and applying remembers it.
-Planet, genre, country and studio grouping expands all matching memberships before pagination.
-An entry carries its server-assigned `groupKey`, so a work can appear once in each applicable
-group. Totals count grouped results; absent memberships have an explicit unassigned group.
-Planet groups follow planet display order, with unassigned works last.
-
-Focused checks cover preference parsing, native file round-trips/account-server isolation and
-synthetic SQL membership totals and page boundaries without catalog reads or mutations. Fresh
-server and desktop processes are required for the new API grouping and native preferences;
-UI hot reload alone cannot add these capabilities. GTK appearance and hands-on restart review
-remain separate from static/build and fixture checks.
-
-### Browse refresh and loading follow-up
-
-Packaged entry reloads accept local hash-route fragments while retaining scheme/host/path and
-query guards; successful document commits clear the native recovery overlay. The native Browse
-validator now accepts the four membership grouping modes as well as the server/API contract.
-Regression tests cover refreshing a packaged hash URL and new groups reaching authorization
-rather than being rejected as invalid input.
-
-Results and skeletons share one responsive grid definition. Poster, banner and logo loading
-placeholders follow the selected layout/size; table view uses placeholder rows and reduced
-motion is respected. Presets live inside the Browse toolbar, show view summaries, support
-updating an existing name and show pending/error/success feedback. Saved Works adds a clear
-search action, result count and compact card placeholders. Hands-on GTK refresh remains a
-separate acceptance check after relaunching the freshly built native process.
-
-## Schema integration checkpoint — 2026-10-19
-
-Phase 1 is committed as `990b704`; see SCHEMA-FOUNDATION.md for the Phase 2 checklist and limits.
-The canonical contract includes policy/dubs/trailers, episode stills, contribution languages, playback
-revisions, stable server identity and native installation registration. Regenerate editor-operation
-schemas with `pnpm --filter @arcadia/contracts generate:editor-api`, then `pnpm client:generate`.
-Never edit the generated client directly.
-
-Production administrator sessions may read `/api/v1/admin/database/schema` and bounded
-`/api/v1/admin/database/{table}` pages. This replaces a client-side need for the private development
-SQL token. Protected columns are projected as `[protected]`; secret-shaped nested payload keys and
-connection parameters are scrubbed. Existing admin routes host the inspector; specialized editors
-retain transactional/reviewed writes. No arbitrary SQL/write operation is exposed through this view.
-
-`POST /api/v1/me/device` registers a private installation UUID and associates the current session.
-`installation.json` and `server-identities.json` live under the existing private native state root.
-Address aliases of the same verified server retain the original catalog/download/preferences scope;
-URL-scoped session credentials are not copied between addresses. Replaced identities or two
-independent cache roots require review instead of an automatic merge. Preserve the entire existing
-`XDG_STATE_HOME/nahhasio` directory, not individual new files.
-
-Unsaved-work playback uses a bounded tracking-only pack. It is excluded from the Saved Works list,
-and it contains no proactively fetched artwork. Its progress queue/conflicts use the same owner
-and revision rules as saved works. Manual flags win over automatic completion at 90 percent.
-Episode stills are ordinary server media assets with episode assignments and source evidence.
-YouTube links open the system browser after explicit activation; external pages never load in the
-privileged WebView.
-
-After native/API changes, restart only the managed server and fully quit/relaunch the desktop.
-UI hot reload cannot install new bridge commands. Existing AppImages are unchanged by a local
-source build and must be rebuilt separately. Physical GTK input, external-browser launch, real TMDB
-credentials, cross-address/restart acceptance and Jellyfin/file playback remain distinct checks.
-
-### Focused verification result
-
-The disposable restored-catalog API run passed 276 assertions, including all 75 table reads and
-member tracking. Browser fixture captures at 1440×1000 and 520×900 were inspected. The fresh native
-executable and packaged bundle passed nine focused checks at 1440×793 CSS pixels, DPR 2, including
-login/new admin controls/logout, with no JS/CSP errors or unexpected mock routes. The private
-artifact manifest and captures are under `data/previews/work-review/phase2-complete-episodes-1440`
-and `phase2-manifest.json`; browser captures are under `data/previews/phase2-schema`. They are
-ignored and have no production credentials. The old broad driver used stale screen assumptions;
-its failed runs do not replace this final focused result.
-
-The UI deduplicates Zod and initializes its interpreter before importing the application. Official
-overlays receive the existing document style nonce. ScoreComparison passes labels to ChartConfig
-and uses its existing theme colors directly; it no longer requests redundant inline styles from
-the vendored chart. These fixes preserve CSP and reviewed presentation. The native environment
-still reported an unavailable accessibility bus and a Vulkan surface warning; no physical-input,
-compositor smoothness, real-provider import, cross-address/restart or playback claim follows.
-
-### Agent CLI
-
-Run `./bin/nahhasio help --json`, `./bin/nahhasio work schema --json` and
-`./bin/nahhasio schema <table> --json` for command/input/live database discovery.
-Skills are `nahhasio-db` and `nahhasio-cataloging`. The old executable is a compatibility alias;
-internal `@arcadia/*` workspace dependencies and the PostgreSQL database name remain unchanged.
-List pages default to 50 with a maximum of 500; use `--offset` and `--count` for complete reads.
-`NAHHASIO_CLI_ACTOR`, `NAHHASIO_MEDIA_ROOT` and `NAHHASIO_PUBLIC_MEDIA_ROOT` are preferred;
-legacy environment variables remain fallbacks. This trusted local CLI does not provide remote
-user authorization. See `docs/SCHEMA-FOUNDATION.md` for deferred runtime work.
-
-### Device video storage — 2026-10-20
-
-`NAHHASIO_MEDIA_ROOT` is server artwork configuration. The native client's retained video override
-is now `NAHHASIO_VIDEO_ROOT`; its default remains the XDG Videos directory plus `nahhasio`.
-The variables must not share ownership: inheriting server artwork configuration previously made
-Downloads fail the transfer store's recorded-root check. Existing transfer records/files are not
-reset or moved. If an older installation deliberately used a custom video root through the old
-variable, set `NAHHASIO_VIDEO_ROOT` to that same directory. The transfer engine still refuses an
-unreviewed root change. A fresh client process is required after this Rust change.
-
-## Member profiles and account avatars
-
-The desktop account menu links to `/profile` and its separate settings drawer. `/profiles/<account-id>`
-is the shared member profile with a single edit action shown only to its owner; comment/review authors link there. The authenticated Rust endpoint
-`GET /api/v1/profiles/{id}` returns only account ID, display name, bio, curated avatar key and join
-date. It requires an active session and respects `accounts.is_discoverable`; owners can still read
-their own hidden profile. It never returns email, roles, sessions, device state or viewing history.
-Profile writes retain existing session revalidation and optimistic revision checks.
-
-Curated account images live in `assets/avatars`, shared by the bundled UI and embedded server.
-See `assets/avatars/README.md` for adding/rebuilding choices. These are application assets rather
-than catalog artwork or a path beneath the current user's Pictures folder. The 111 supplied PNGs
-are the only selectable images; the two legacy SVG keys display a current PNG for compatibility. No migration or live catalog write is needed.
-
-Verify synthetic profile/auth/avatar behavior with `devenv shell -- bash bin/test-account-profile`.
-This owns a fresh socket-only PostgreSQL database, applies the existing migration history there,
-and deletes it afterward. UI fixture coverage is `tests/account-profile.spec.ts` in the Linux UI.
-New bridge/server capabilities require restarting the server and fully relaunching the freshly
-built GTK client; existing AppImages require a separate rebuild. Browser fixtures do not establish
-native GTK acceptance or deployment.
-
-## Repository launchers
-
-`bin/` contains small entry scripts, not compiled executables. Compiled development executables
-live in `target/debug`, release builds in `target/release`, and Flatpak artifacts in `dist`.
-
-| Entry                         | Purpose                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| `bin/nahhasio`                | Quiet launcher for the compiled Rust catalog/operator CLI                 |
-| `bin/nahhasio-client`         | Build desktop assets/binary and launch the development client             |
-| `bin/nahhasio-native-runtime` | Development-only native library/graphics compatibility wrapper            |
-| `bin/nahhasio-flatpak`        | Prepare offline sources and build the Linux Flatpak through the GNOME SDK |
-| `bin/test-rust-catalog`       | Own a disposable PostgreSQL cluster for Rust catalog/migration acceptance |
-
-The old `bin/arcadia` alias is retired. Use `bin/nahhasio` directly. Test/generation helpers are
-development tools and do not run as installed services. Keep wrappers that supply actual packaging
-or process setup; ordinary catalog operations belong in the Rust CLI rather than more scripts.
-
-### Expanded member profile activity
-
-The shared profile now has viewing, discussion/lists, personal-library, social activity,
-account information and statistics sections. `GET /api/v1/profiles/{id}/overview` returns
-counts and owner-only completed-work/movie/episode totals. Recorded playback seconds are
-current stored positions, not cumulative watch time or replay duration. `entries` takes a
-validated `section` and `page`, returns 20 rows with a stable date/ID ordering and a total,
-and never exposes arbitrary table access.
-
-Published comments/reviews and family-visible collection summaries are available to other
-signed-in members of discoverable profiles. Viewing, favorites, ratings, follows, saved flags,
-notes, page visits, saved views, download records, recommendations, events/votes, reactions,
-notifications, preferences, session-linked device summaries and content-policy summaries are
-owner-only, including when the caller is an administrator. The server enforces this boundary;
-UI visibility is additional presentation. Content activity retains the existing fail-closed
-restricted-viewer guard. Private/unpublished works are excluded for every profile reader, including administrators.
-The watching section uses the same whole-work released-unit tracking rollup as Browse; a
-partially completed series remains in progress even without a partially played episode. Public collection counts include public published works only.
-
-The profile is read-only apart from the existing self-service editor. It excludes passwords,
-session tokens, filesystem/download paths, invite secrets and raw settings/layout documents.
-Saved flags/download records are server database records, not evidence that this device has
-an offline file. Device records describe linked sessions rather than device ownership. Policy
-and account administration remain in the next separately reviewed admin users checkpoint.
-
-## Current catalog baseline
-
-The active migration chain starts at `0000_current_catalog`, adopted on 2026-10-20 after a
-consistent dump, configured artwork backup and restored preservation rehearsal. See
-[BASELINE](BASELINE.md) for receipts, recovery sources and normal additive update commands.
-The old 31-file chain and original ledger remain in Git/private archives. Neither application
-startup nor release replacement performs baseline adoption. Both migration runners reject altered
-history and populated databases without a matching ledger. The one-time baseline helper remains
-under `packages/database/scripts`; it is not a shipped service or another public CLI.
-
-## Server Overview and Settings
-
-The desktop administration landing page now reads real aggregate catalog/account/session counts,
-registered artwork bytes, database size, server identity, uptime and migration compatibility through
-`GET /api/v1/admin/server/overview`. It polls every 30 seconds while mounted. Counts are bounded
-server queries, not a catalog download; artwork totals do not certify filesystem health. Session
-counts do not imply online devices. Jellyfin delivery, backup scheduling and automatic updates
-remain future services, clearly identified in the interface.
-
-`GET /api/v1/admin/server/settings` returns identity and masked provider status. The PATCH operation
-changes only the server display name, checks the previous revision, revalidates/locks the administrator
-session and writes an audit record in the same transaction. Server UUIDs and catalog data are unchanged.
-`PUT /api/v1/admin/server/providers` accepts a single provider/action and expected revision. Keys are
-write-only; set, disable (including environment fallback), and return-to-environment are distinct actions.
-The shared Rust provider implementation reads current credentials for each request, without restart.
-Configuration means a key is present, not that its provider has accepted it. AniList requires no key.
-
-Credential persistence belongs to the installed server, outside PostgreSQL and generic table inspection.
-`NAHHASIO_CONFIG_ROOT` must be an absolute, server-private persistent directory. Devenv selects
-`data/server-config`; no source-relative installed fallback is guessed. If unset, status remains readable
-and environment credentials work, but dashboard writes are disabled. The directory is created on the
-first authorized write with mode 0700; JSON and lock files use 0600. Existing symlinks/public permissions
-are refused. The small JSON document uses an optimistic revision and last-changing account UUID;
-it is replaced atomically under a cross-process file lock and synced to disk. That replacement is the
-credential commit boundary, independent of PostgreSQL; no credential is written to database audit logs.
-An admin authorization transaction holds session/identity/device locks through the replacement, even
-if the HTTP request is cancelled. Provider keys never enter Query mutation variables, query keys,
-local storage or status replies; input fields are cleared before submitting to the native gateway.
-
-The shared admin write guard now locks and rechecks the current device against revocation. The 2026-10-21 follow-up below
-closes the other implemented viewer/device/profile transaction authorization paths.
-Readiness now requires the bundled migration history to match, no pending migration and an existing
-server identity; startup still never migrates or repairs anything. This does not replace storage/role/
-HTTPS installation preflight, provider acceptance, or a restore rehearsal.
-
-`bin/test-account-profile` also exercises these services using its disposable socket database and
-private temporary config root: authorization, revision conflicts, durable key reload, masked responses,
-disable, revoked-device rejection and incompatible-schema readiness. `tests/admin-server.spec.ts`
-covers fixture-backed desktop/narrow UI and failure states. Neither suite changes family data or
-contacts providers. Native GTK/AppImage and Fedora acceptance must be reported separately.
-
-## Transactional authorization follow-up — 2026-10-21
-
-`apps/server/src/auth/write.rs` now owns write authorization. All implemented viewer mutations,
-profile/password/device writes and admin mutations use its consistent identity/account/session/device
-locks. Ordinary viewer policy and work visibility are rechecked under locks using current permissions.
-Login issuance locks identity/account too, so a password rotation cannot race old verified credentials
-into a new surviving session. No auth schema or family data changed. A session's installation binding
-is immutable; another installation signs in separately. Read-only requests retain their middleware/
-snapshot model. Future management writers must use this lock order.
-
-Overview includes preliminary deployment-role/artwork/config checks. Shared `catalog-core::storage`
-root selection preserves the current uploads/public and legacy environment semantics across delivery,
-editing and diagnostics. Settings can reload a stale name conflict. `providers.json` format version 1
-accepts existing unversioned documents and refuses an unknown future format without rewriting it.
-The full gate analysis and boundaries are in PREDEPLOYMENT-REVIEW's 2026-10-21 follow-up.
+acceptance criteria. Preserve the working app; do not wire `todo!`, panics or fake success into
+normal paths or complete exercises without the requested authorization.
+
+The future remote operator CLI will use a server URL and API key over HTTPS from Shadow. It is
+not implemented by the current direct-database CLI or installed host wrapper. See the deferred
+boundary in [PROJECT](PROJECT.md).

@@ -131,3 +131,10 @@ operations, failed update recovery, permission boundaries and signed-artifact re
 verify Fedora mounts/SELinux, trusted LAN/local login, reboot persistence and installed Flatpak
 updates. These checks concern delivery/recovery; no player/provider test phase is required
 for this release. No live cutover or remote release publication is implied by this checklist.
+
+## Deferred remote operator CLI
+
+Aqua chose a CLI on Shadow configured with the server HTTPS address and an API key for routine
+catalog editing. Implement this later using scoped/revocable keys, explicit server authorization,
+auditing and existing catalog validation/dry-run semantics. PostgreSQL stays private. The current
+host `operator` command is local maintenance, not this remote API client.

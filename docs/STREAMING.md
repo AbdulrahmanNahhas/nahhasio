@@ -1,4 +1,4 @@
-# Streaming provider checkpoint
+# Streaming providers
 
 Nahhasio offers provider-hosted embeds, Torrentio and Comet, plus a separate English-dub anime flow
 using anipy-api and the native player. See [the anime checkpoint](ANIME-DIRECT.md) for ownership,
@@ -250,17 +250,12 @@ to native sources. Automatic provider progress/watched synchronization, subtitle
 download, dubbed-language guarantees and continuity of playback position when switching source
 types are not implemented. Nahhasio still owns manual catalog watched state.
 
-## Review and playback test stage
+## Selection and diagnostics
 
-[Design plan](STREAMING-DESIGN.md) records the selection layout. Search and audio filters are
-local and do not contact providers. Selecting a row does not launch it. English-dub requests
-are the main anime list; secondary audio remains explicitly selectable behind the More disclosure. Capability evidence
-is separate from exact-work audio availability. There is no persisted preference or new database state.
-
-[Playback matrix](STREAMING-TEST-MATRIX.md) and its [CSV](STREAMING-TEST-MATRIX.csv) contain
-17 providers by 7 requested works (136 empty result rows including the Witch Hat Atelier E13 regression). The current preparation stage does
-not fill playback results from endpoint documentation or previous observations. Manual testing
-must record actual video, audio, subtitles, controls and errors in the freshly relaunched client.
+Search/audio filters are local and do not probe providers. Selecting a row does not launch it.
+Capability evidence is separate from exact-work availability. Current hosting acceptance excludes
+player/provider testing; a future playback check must record actual video, audio, subtitle,
+control and error behavior in a freshly relaunched client. Page load is not playback acceptance.
 
 Provider status polls once per second while loading, every five seconds after page load, and
 stops when closed or failed. Closing through the native Back action invalidates UI status.
@@ -300,15 +295,3 @@ The probe bounds its lifetime and reports page status, bridge absence, codec cap
 read-only frame diagnostics. Captures remain private/ignored. It does not prove successful video,
 Arabic subtitle upload, seeking, physical keyboard input or GPU smoothness. Inspect its screenshot
 and test those behaviors separately before claiming provider playback acceptance.
-
-## Preparation verification — 2026-10-24
-
-- Seven focused Rust adapter/bridge/policy tests passed; six Chromium source-picker fixtures passed
-  at the checked desktop/narrow layouts, including the synthetic preferred-star case.
-- Repository lint, formatter, contract generation and workspace TypeScript checks passed.
-- Linux UI production build and native `nahhasio-linux` build with `native-diagnostics` passed.
-  Client-only Clippy (`--no-deps --all-targets -D warnings`) passed.
-- Full `pnpm check` stops at the pre-existing deprecated `fetch_update` call in
-  `crates/media-transfer/src/lib.rs:461`; no unrelated transfer-engine edit was made.
-- Native content-filter compilation passed separately. No live catalog mutation or provider
-  playback acceptance is claimed. Fully relaunch the updated app before Phase 1.

@@ -8,11 +8,11 @@ Read [PROJECT](../../../docs/PROJECT.md), [design rules](../../../docs/design-ru
 
 Native Rust owns sessions, network, player and storage. UI uses typed `src/lib/bridge.ts` calls
 and generated OpenAPI validation; no tokens, direct browser server fetch or arbitrary native
-operations. Native session persistence/server selection are pending work.
+operations. Native sessions and selected-server trust persist in private server-bound storage.
 
 Small `src/routes` entries use hash history and one QueryClient. Never hand-edit the generated
 route tree. Feature queries are bounded/cancellable and caches belong to server/account identity.
-Desktop uses Vite/Router/Query, not Start. The transitional website is a separate migration surface.
+Desktop uses Vite/Router/Query, not Start. There is no website runtime.
 
 `src/styles/tailwind.css` owns fonts/tokens/global rules; feature layouts use static utilities.
 Official primitives stay generated; CSPProvider disables Base UI injected styles, while the

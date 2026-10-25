@@ -29,11 +29,11 @@ remain separate. See [the deployment guide](docs/DEPLOYMENT.md).
 ## Guides
 
 - [PROJECT](docs/PROJECT.md): product, decisions, architecture, current status and unresolved choices.
-- [FEATURES](docs/FEATURES.md): short page-by-page feature and UI/UX checklist.
+- [FEATURES](docs/FEATURES.md): page-by-page feature and UI/UX backlog.
 - [ROADMAP](docs/ROADMAP.md): Alpha shortlist and technical delivery tasks.
 - [DATABASE](docs/DATABASE.md): inspected catalog inventory and storage/source ownership.
 - [Current database baseline](docs/BASELINE.md): verified preservation and future migration procedure.
-- [Pre-deployment review](docs/PREDEPLOYMENT-REVIEW.md): current findings and deployment gates.
+- [Client behavior](docs/CLIENT.md): reviewed viewer/admin contracts and current coverage.
 - [DEVELOPMENT](docs/DEVELOPMENT.md): repository map, commands and native/media boundaries.
 - [TESTING](docs/TESTING.md): lean checkpoints and isolated consolidated acceptance.
 - [OPERATIONS](docs/OPERATIONS.md): configuration, storage, planned deployment and recovery.

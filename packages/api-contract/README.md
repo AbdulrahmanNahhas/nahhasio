@@ -22,8 +22,8 @@ credential belongs in the client. The server enforces current account/admin acce
 - `hasMediaFile` is a recorded mapping, not proof that a file exists or is currently playable.
 - Work/part/episode ancestry and account ownership remain server-enforced.
 - Viewing progress, manually watched state and offline/job state are distinct records.
-- Full-document editor operations use the authenticated Rust facade/private worker; do not
-  describe its runtime as Rust-only until that dependency is replaced.
+- Full-document editor operations use authenticated Rust services shared with the local operator
+  CLI; no private Node worker is installed.
 
 Detailed current models and endpoints are in OpenAPI/source rather than repeated field tables.
 Read [PROJECT](../../docs/PROJECT.md), [DEVELOPMENT](../../docs/DEVELOPMENT.md) and

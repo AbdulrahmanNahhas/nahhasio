@@ -1,128 +1,55 @@
 # AGENTS.md
 
-## Installed client correction — 2026-10-25
+## Current work and authorization — 2026-10-25
 
-Aqua approved replacing AppImage with Flatpak for Fedora Atomic and other Linux hosts. Nix/devenv
-remains development-only. Preserve the rootless server/recovery work. Flatpak/Software owns client
-updates; no custom client executable downloader or host-command escape. Use packaging/flatpak/README.md
-for current delivery. Historical AppImage requirements below are superseded for this checkpoint.
-Aqua subsequently required continuing without agents; do the remaining work in the main chat.
+Aqua authorized all four code phases in docs/DEPLOYMENT.md before consolidated runtime acceptance.
+Player/provider testing, Jellyfin and files-only playback are outside this release. Preserve the
+reviewed UI. Aqua subsequently required working without sub-agents; continue in the main chat.
 
-## Active delivery authorization — 2026-10-25
+Aqua authorized committing the Flatpak checkpoint, revising Markdown and removing obsolete
+material. Do not alter unrelated edits or private data. This does not authorize pushing, release
+publication, family-PC installation or live catalog mutation. Keep development independent on
+Shadow after transfer. Future remote catalog administration should use a local CLI with server URL
+and API key over HTTPS; defer implementation. SSH is not the routine catalog-editing target.
 
-Aqua authorized merging the current branch into local main and implementing all four phases
-in docs/DEPLOYMENT.md before consolidated runtime tests. Parallel agents are explicitly authorized.
-For this checkpoint the older per-phase/visible-change review stops below are superseded; retain
-compile/static checks during coding and defer runtime installation acceptance until code is ready.
-Jellyfin/files-only playback and player/provider testing are outside this release. Do not mutate
-the live catalog, install on the family PC, publish/push releases or create new implementation
-commits merely from this authorization. Development stays independent on Shadow after transfer.
+## Project boundaries
 
-## Project and review boundary
+Read docs/PROJECT.md, docs/ROADMAP.md and docs/DEVELOPMENT.md. Current milestone is 0.1 Alpha;
+the future roadmap is not a release checklist. Fedora Atomic/rootless Podman is the server target;
+Linux Flatpak is the client through v1.0. Nix/devenv is development-only. No website ships.
+GitHub repository: AbdulrahmanNahhas/nahhasio; historical @arcadia workspace and database names
+remain compatible. Treat unresolved decisions as unresolved.
 
-Nahhasio is a private Arabic-first family media server, administration dashboard, and playback
-client project. The GitHub repository is AbdulrahmanNahhas/nahhasio; historical @arcadia workspace and database names remain compatible.
-Read `docs/PROJECT.md` for the current Alpha direction and long-term target and `docs/ROADMAP.md` for the proposed
-task inventory, then `docs/DEVELOPMENT.md` for implementation context.
-Current milestone is 0.1 Alpha; not all future roadmap tasks are Alpha requirements.
-The target is Fedora Atomic/Podman server + Linux Flatpak client only, with no shipped website.
-Approximately 70 Arabic-dubbed works use existing/server-stored files, independently of torrents.
-Treat tasks marked DECISION as unresolved until Aqua answers; future client platforms follow v1.0.
-Complete one phase, report verification and limits, and stop for Aqua's review. Do not begin
-another phase until Aqua asks to continue. The old v0.3.5 plans are historical references.
+The server is Rust/Axum/SQLx. Shared catalog/editor/provider/artwork services live in
+crates/catalog-core; crates/cli provides the compiled direct-database operator. No Node worker is
+installed. PostgreSQL is canonical. Preserve UUIDs, account ownership, notes/scores, tracking,
+artwork paths and the sole packages/database/drizzle history. Application startup never migrates,
+seeds, imports or cleans. Future migrations are additive and rehearsed on restored disposable data.
 
-## Current Linux direction and approval checkpoints
+Read docs/BASELINE.md before recovery: the approved baseline preserves all existing data and
+replaces only the old migration ledger. Its private data/backups/current-baseline-2026-10-20
+checkpoint retains original dump, artwork and exact old/new sources. Never rerun retired creation
+SQL against populated data or rehash a ledger to bypass validation. Keep independent recovery
+before production cutover. Private backups and retained SQLite recovery candidates are not caches.
 
-Read `docs/PROJECT.md`, `docs/ROADMAP.md` and `docs/design-rules.md` for current decisions.
-The Linux client uses Rust GTK4/libadwaita, WebKitGTK, React/Vite/TypeScript and libmpv.
-Preserve Aqua's reviewed desktop design. The retired web dashboard and Hono API are removed;
-there is no website runtime. Initial access is LAN,
-with admin/family-user accounts. Nahhasio owns catalog/images/tracking; Jellyfin supplies stored
-media for native playback. Existing folders are scanned/linked without moving originals.
+The client is GTK4/libadwaita/WebKitGTK, React/Vite and libmpv. Flatpak/Software owns client
+updates; no custom executable downloader or host-command escape. Use packaging/flatpak/README.md.
+The server uses signed manifests, compatibility/backup/readiness gates and explicit schema
+maintenance. PostgreSQL major upgrades are separately owned. Report source/static, SDK-build and
+installed/native acceptance separately.
 
-For this transition, Aqua explicitly requires confirmation after each step or visible change.
-Work only within the approved step, show the concrete result and actual checks, then stop.
-If Aqua rejects a design, discuss the direction before another implementation pass. Do not
-continue polishing, propagate changes, delete a client, or start another milestone silently.
-Permission already given for the current step covers its necessary implementation and checks.
-Do not create commits without Aqua's explicit confirmation for that checkpoint. Include the actual
-command in command-approval requests so Aqua can see what will run.
+Provider keys stay server-owned, write-only through authenticated settings and masked on reads.
+Catalog, images and tracking belong to Nahhasio. Stored-media integration is deferred; Jellyfin
+must never replace its metadata/artwork or synchronize tracking. Save work, client playback,
+Download to server and Download to device remain separate. Client torrents run on the client;
+server acquisition needs an explicit request. Files-only policy is whole-work. Offline mutations
+are progress and watched/unwatched only. Keep one planet per work, whole-work dub metadata,
+dubbing contributions, episode-owned stills and YouTube trailers. No edition/version system.
 
-Earlier checkpoints: image-library checkpoint committed as `d787dd9`; JSON/selection polish
-committed as `83f94b0`. People Drawer/credits/selection/JSON/deletion,
-then the shared Studios editor, with most-works sort and contribution/reference UX improvements.
-Aqua authorized code-quality cleanup and committed People/Studios as `7363237`.
-Planet membership movement/assignment was committed as `e439b66`; planet definitions were
-committed as `080948b`. Downloads provides queue UX and a grouped local-video library, native
-play/folder/recovery/removal actions and storage information. Aqua approved the Downloads design
-and authorized fixing its old-process bridge error, committing the changes, private login
-persistence, and an early downloadable AppImage/release pipeline. Update documentation with
-actual artifact/runtime/CI limits; no release publication or push has been requested.
-Aqua committed current card/watched design as `3d12c96` and approved the server connection/login
-checkpoint with a cinematic desktop login redesign, committed as `626d3ef`. The approved transition is now three phases, specified in docs/SCHEMA-FOUNDATION.md:
-(1) preserved schema migration with backup/restored rehearsal, (2) API/whole-client integration
-and Rust runtime administration parity, (3) Nahhasio agent CLI/database/cataloging skills.
-Aqua authorized committing the current Phase 2 integration and proceeding directly with Phase 3
-CLI/skills, then committing Phase 3. Other phase transitions and commits still require confirmation.
-Aqua explicitly chose a local backup under this persistent project's data/backups for the local
-schema checkpoint. Independent recovery remains required before production deployment.
-Podman foundation and then admin overview follow these phases.
-Preserve Aqua's current design.
-
-Current Rust runtime checkpoint (2026-10-19): `crates/catalog-core` shares bounded read-only
-pool setup, schema discovery, redaction, guarded operator operations and explicit migrations;
-`crates/cli` builds the compiled `nahhasio` binary. All six Planets editor operations now use
-shared Rust through the existing authenticated API, with transactional session revalidation,
-revision/dependency checks and atomic audit/revision writes. CLI/database and API fixtures passed
-on disposable PostgreSQL, including continuation of all 31 migrations with Drizzle in both
-directions and Planets operations with the Node worker unavailable. The transfer engine now
-enforces the desktop video-filename policy for selection, reads and export; valid video content
-and decoder/network safety still need separate validation. No live catalog mutation occurred.
-Aqua approved committing this checkpoint and updating these instructions/skills. This does not
-authorize publishing/pushing releases or claim Fedora/AppImage installation acceptance.
-
-The installed Nahhasio server runtime is now Rust-only: People/Studios, whole-work reconciliation,
-artwork and providers use `crates/catalog-core/src/editor`; the Node subprocess is removed.
-The compiled CLI has whole-work schema/template/export/apply and shared `editor` operations,
-with guarded writes. The public `bin/nahhasio` launcher now runs the compiled Rust CLI. It supports catalog report
-presets/aggregations, media convenience commands, explicit missing-reference imports and JSON
-discovery. Keep explicit database selection and write guards; purge retains physical artwork. Preserve API/client
-design. Continue isolated PostgreSQL/artwork checks via `bin/test-rust-catalog`; provider credentials,
-real Fedora installation and native UI acceptance remain separate. No live catalog writes occurred.
-Node/pnpm may remain on development/build machines for React. Jellyfin is playback/streaming
-only, with the minimum media identity/track information needed for delivery; never import its
-metadata/artwork as catalog authority or synchronize tracking. Provider keys stay server-owned,
-managed through authenticated desktop administration with write-only updates and masked status.
-Automatic server updates and host-managed Flatpak client updates are the approved target; implement verified artifacts,
-compatibility, recovery and state preservation before enabling them. Schema maintenance remains
-explicit, never application startup; PostgreSQL/Jellyfin upgrades have separate ownership.
-Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;
-server and device video downloads remain separate. Torrent streaming is the main online source;
-linked files support completed downloads and deliberately non-torrent works. Torrent streaming
-runs on the client only; the server runs acquisition jobs only after explicit Download to server
-requests. Files-only/torrent policy is whole-work, with no part/episode overrides initially.
-Offline mutations are progress and watched/unwatched only. Jellyfin is the confirmed stored-media backend, with no Jellyfin tracking synchronization.
-Whole-work dub metadata, a dubbing-studio organization role, one planet per work, server-owned
-episode stills and YouTube trailer links are approved. Do not add edition/version systems,
-alternate episode listings or extra availability-label UI.
-Use focused compile/static checks during implementation and consolidated acceptance later;
-no repeated full suites for small changes, and no mutation tests on the live family catalog.
-
-## Current database baseline — 2026-10-20
-
-Aqua explicitly approved replacing the old migration chain with a baseline of the current database.
-`packages/database/drizzle/0000_current_catalog.sql` plus its single snapshot/journal is now the only
-active starting point; future changes are additive. The old chain is retained in Git and the private
-`data/backups/current-baseline-2026-10-20` recovery checkpoint, not a second migration tree.
-A consistent full dump, configured artwork archive and exact old/new migration sources were saved.
-Restored rehearsal preserved all 75 public tables and schema, verified all 1,055 artwork hashes and
-23 rolled-back constraint assertions; both migration runners and editor fixtures passed. Live adoption
-changed only the Drizzle ledger, with locked before/after public-data equality checks. Native status
-reports one applied baseline and no pending migrations. Do not rerun the retired creation SQL on the
-populated catalog or rehash a ledger to bypass validation. Follow `docs/BASELINE.md`.
-The earlier 31-migration fixture results above are historical. Independent recovery, remaining
-transactional authorization/readiness fixes and Fedora/native acceptance are still separate gates.
-No commit, release publication or push is authorized merely by the baseline adoption.
+Do not inspect /saved/nixos-config without asking Aqua. Use persistent project locations for
+retained work. Use compile/static checks while coding and focused disposable runtime checks when
+needed; do not run mutation tests on the family catalog. New work/visible redesigns outside the
+approved scope and new commits need explicit authorization. Historical receipts remain in Git.
 
 ## Rust learning ownership
 
@@ -160,7 +87,8 @@ contracts through the existing single generated OpenAPI definition.
 ## Development and checks
 
 Use the repository's Nix/devenv environment: Node 24, pnpm 12.9.0, and Rust.
-`devenv up` starts PostgreSQL, the Rust API and GTK desktop with dependency ordering. Do not inspect `/saved/nixos-config` without Aqua's permission.
+`devenv up` starts PostgreSQL and the Rust API. `devenv -P dev up` adds Vite and GTK with
+dependency ordering. Do not inspect `/saved/nixos-config` without Aqua's permission.
 
 - `pnpm lint`: Oxlint, the generic anti-slop plugin, and six shadcn design-system rules.
 - `pnpm format` / `pnpm format:check`: Oxfmt, the authoritative formatter and import sorter.
@@ -255,7 +183,8 @@ The debug-only local HTTP administration surface requires the private server tok
 CLI is a trusted local PostgreSQL operator and uses database credentials, not that HTTP token.
 Test it with `devenv shell -- bash bin/test-rust-catalog`; this owns a disposable socket-only
 cluster and never uses family data. Its fixtures do not prove live cutover or desktop acceptance.
-Production setup/auth and device, sync, and job authorization remain future work.
+Production auth, device and implemented mutation paths revalidate current authorization; future
+writers must follow the same transaction locks. Installed acceptance remains pending.
 Keep user identity, viewing profile, device, and library policy as distinct concepts.
 
 ## Rust and playback

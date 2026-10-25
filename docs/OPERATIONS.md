@@ -1,14 +1,15 @@
-# Operations and deployment boundary
+# Operations
 
-The current 2026-10-25 implementation and delivery sequence is [DEPLOYMENT.md](DEPLOYMENT.md).
-Rootless installer, host maintenance worker and managed client updater now have implementation
-sources under `packaging/`; installed Fedora/transfer/update acceptance remains deferred.
-Jellyfin/files-only video playback is outside this release. Older readiness statements below
-record earlier checkpoints; use the new guide for current installation commands and boundaries.
+Current implementation: rootless Podman server/PostgreSQL, signed server releases, Flatpak client,
+coordinated backup/restore and app maintenance controls. Installed Fedora/transfer/update acceptance
+is pending. [DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
+[server installer](../packaging/server/README.md), [maintenance tools](../packaging/operations/README.md)
+and [Flatpak guide](../packaging/flatpak/README.md).
 
-Read [PROJECT.md](PROJECT.md) for confirmed product decisions. **Fedora deployment and release
-installation are not implemented/accepted yet.** This guide distinguishes existing development
-configuration from the installation/update procedures still to be delivered.
+The family PC inventory supplied on 2026-10-25 is Fedora Silverblue 44, Podman 5.8.9, Python 3.14.8,
+x86_64 Dell OptiPlex 3070, with approximately 100 GB free on the shared `/var`/`/var/home` filesystem.
+SSH connectivity and user lingering were confirmed by Aqua. Nahhasio installation, catalog transfer
+and reboot acceptance have not occurred. Recheck capacity immediately before transfer.
 
 ## Current runtime configuration
 
@@ -30,7 +31,7 @@ of committed files and do not print connection strings, hashes or tokens. Do not
 ## Storage ownership
 
 PostgreSQL owns identities/metadata/links/state. Artwork/video/subtitle bytes live in persistent
-filesystem roots. Future Podman mounts must account for service ownership, read/write needs and
+filesystem roots. Podman mounts account for service ownership, read/write needs and
 Fedora SELinux labels. Never treat all data/ directories as disposable caches.
 
 `data/nahhasio.db` is a retained SQLite recovery candidate. Recovery tooling requires an explicit
@@ -41,71 +42,39 @@ Device caches, completed device downloads and server library originals are separ
 device copy must not delete server originals. Missing paths or space should produce recoverable
 errors. Cleanup only verified disposable files and respect active reader/job ownership.
 
-## Planned Alpha delivery
+## Backup, migration and recovery
 
-Build a versioned server container and Linux Flatpak, connect them on the home network, and
-provide documented persistent mounts/HTTPS trust/owner setup. No website belongs to the delivered
-product. Exact host hardware remains unverified. Jellyfin is the confirmed stored-media backend, with no
-catalog metadata/artwork or tracking synchronization. Rootless Quadlets, service boot
-ordering and certificate/setup mechanics will be chosen and verified during implementation.
+Before cutover or destructive maintenance: take a coordinated PostgreSQL/artwork/private-config
+backup, verify checksums, restore separately, and compare identities/content/constraints and artwork.
+Retain Shadow's original catalog until the family installation is verified. Local server backups
+satisfy the initial app workflow; same-disk copies do not cover disk failure.
 
-The approved target includes automatic updates for both Nahhasio and its Linux Flatpak.
-Implementation must verify artifact provenance/integrity and compatibility, preserve private
-state, handle failed downloads/activation and provide recovery. No updater is enabled by this
-checkpoint. Server schema maintenance remains explicit and coordinated; restarting a service
-never implicitly migrates/seeds/imports/cleans the catalog. PostgreSQL/Jellyfin upgrades are
-managed separately from Nahhasio application updates.
+Daily backups retain seven daily copies plus protected recovery checkpoints. Restore stages a
+separate database/artwork/config set, backs up the current state, validates, then switches while the
+application is stopped. Host credentials/TLS recovery is separate from normal app restoration.
+See the [maintenance guide](../packaging/operations/README.md) for journal and recovery commands.
 
-### Rust-only runtime delivery order — 2026-10-19
+The [baseline](BASELINE.md) plus future additive migrations is the sole schema history. Startup
+never migrates or seeds. An application image rollback cannot undo a schema migration or safely
+restore an old catalog over newer edits. Keep matching source history for old recovery archives.
+Retained TVDB recovery identifiers are not an active provider integration; their original recovery
+checkpoint is `data/backups/tvdb-removal-20261008`. Git retains the old rehearsal instructions.
 
-1. Shared Rust catalog services and compiled operator tooling. Initial database/migration CLI,
-   common schema discovery/redaction/pool setup and transfer-engine video selection restrictions
-   are implemented; see [DEVELOPMENT.md](DEVELOPMENT.md#rust-operator-cli-checkpoint). Planets
-   definition/membership workflows have also moved to shared Rust services behind the existing API.
-2. Whole-work reconciliation/review/save, entity editors, artwork and providers now run in shared
-   Rust, with native operator CLI parity. Isolated checks preserve contracts, UUIDs, transactions,
-   authorization and artwork paths. Installed Fedora acceptance remains separate.
-3. Add server-owned provider credential management through authenticated desktop administration.
-   Saved keys are write-only through the API; responses report configured state. Keep secrets out
-   of images, browser storage, logs, raw inspection and ordinary API responses.
-4. Build a Node-free server image, private persistent storage, rootless Fedora Quadlets and
-   trusted LAN HTTPS; deliver explicit install/backup/restore/update commands. Rehearse restoration
-   and schema compatibility before moving family data. No live migration/cutover is implied here.
-5. Complete signed Flatpak delivery and verified server/client automatic updates, then run
-   installed native/LAN/reboot/reconnect/update/recovery acceptance. Jellyfin remains a later,
-   separate media-only service; it supplies no catalog metadata, artwork or tracking authority.
+## Updates and administration
 
-Transfer restrictions currently prevent non-video filenames from being selected, read or exported
-through the Rust engine, including direct callers and restored selections. They do not establish
-that a renamed payload is valid video. Content validation, malicious-content fixtures and packaged
-playback/network isolation acceptance remain outstanding. Torrent piece boundaries can include
-adjacent unselected bytes in private engine storage; only selected eligible files may be exported.
-Do not describe this as a guarantee that every received torrent byte is video or that arbitrary
-media is 100% safe.
+Server maintenance verifies signed artifacts, API/schema compatibility and readiness, taking a
+backup before replacement. Schema-changing releases require explicit maintenance. PostgreSQL
+major upgrades have separate ownership. Client updates are managed by Flatpak/Software and the
+host's policy; the app reports its running version without claiming automatic updates are enabled.
 
-## Backup, migration and recovery requirements
+The app queues fixed authenticated maintenance requests. It has no Podman socket or arbitrary host
+command interface. Recovery tools remain usable if the API cannot start. Full installation and
+failed-update/restore behavior must be accepted on isolated data before production activation.
 
-Before live cutover or destructive data/schema work:
-
-1. Secure independent PostgreSQL and artwork backups; video backup/recovery policy is separate.
-2. Verify checksums and restore to a separate disposable instance.
-3. Verify identities, counts/content/constraints, asset links and viewing state.
-4. Rehearse additive migration/backfill and rollback/recovery; use the sole Drizzle ledger.
-5. Apply only the explicitly approved operation and record outcome/activation.
-
-Application image rollback cannot undo a database migration. Never restore an old whole-database
-backup over a newer catalog as a casual fix. A same-laptop dump is not an independent backup.
-Specific retained TVDB recovery evidence is in [migrations/remove-tvdb.md](migrations/remove-tvdb.md);
-its dated verification must not be assumed to describe today's live schema/data.
-
-## Current migration starting point
-
-The approved [current-database baseline](BASELINE.md) is adopted locally. Its private recovery
-checkpoint contains the original dump/ledger, configured artwork and exact old/new migration
-sources; all public table content was preserved. Installed updates use the new baseline plus
-future additive migrations. Do not restore the old dump over current data or run its retired
-creation migrations automatically. Copy the verified recovery material to independent storage
-before production cutover.
+Routine remote catalog editing will use a future local HTTPS CLI with server address/API key,
+scoped permissions, revocation and audits. It is deferred. Current `operator` tooling is trusted
+host maintenance with direct database credentials; never expose those credentials or PostgreSQL
+as a substitute for the future API.
 
 ## Private provider configuration
 
@@ -132,17 +101,9 @@ access, restricted database roles, HTTPS and recovery/update activation still re
 
 Overview's new deployment checks report privileged-role flags and explicit readable artwork/config
 selection without changing anything. They do not certify write grants, free space, file health or SELinux.
-Use the 2026-10-21 gate table in PREDEPLOYMENT-REVIEW for the Podman implementation. In particular,
-LAN clients require trusted HTTPS; the existing plain-HTTP server listener alone is insufficient.
+LAN clients require the installer-provisioned trusted HTTPS listener.
 The private provider document is format version 1; unversioned existing files remain compatible,
 and a newer unsupported version is refused instead of overwritten. Preserve it with configuration backups.
-
-## Local readiness checkpoint — 2026-10-22
-
-The selected family target is Fedora Silverblue 44 with approximately 300 GB available for now.
-This is Aqua's supplied inventory, not a disk/OS inspection. SSH installation comes later. Initial
-recovery covers PostgreSQL, artwork and private configuration; video storage is outside this pass.
-See [PREDEPLOYMENT-REVIEW](PREDEPLOYMENT-REVIEW.md#local-application-follow-up--2026-10-22).
 
 ### Home-server certificate trust
 
@@ -168,9 +129,7 @@ Saved connection format 2 contains the public CA and normalized fingerprint; exi
 remain readable. Storage is private (0600) and atomic. The UI receives the fingerprint rather than the
 certificate. Changing an existing origin's CA requires switching to another connection, removing the
 old connection (which clears its saved session), then adding it again. Older client binaries cannot
-read format 2; keep a protected state backup before a deliberate downgrade. This checkpoint does
-not provision certificates or change the server's current HTTP listener: the installation must supply
-HTTPS before family LAN acceptance.
+read format 2; keep a protected state backup before a deliberate downgrade. The server installer provisions HTTPS certificates; verify the installed listener before family LAN acceptance.
 
 ### Shared preliminary preflight
 

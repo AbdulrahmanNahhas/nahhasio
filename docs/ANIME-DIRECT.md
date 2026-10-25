@@ -1,4 +1,4 @@
-# Anime direct playback checkpoint
+# Anime direct playback
 
 The source picker opens on Torrents for every online work. Anime series/films also offer a
 separate English-dub direct-stream tab; video servers remain a peer option. Whole-work files-only
@@ -38,7 +38,7 @@ not fall back to Japanese. Preferred stars still require separately reviewed evi
 - `packaging/linux/anipy-resolver.nix`: hash-pinned upstream wheel and Nix dependencies, used by
   development only. Installed Flatpak dependencies are locked in `packaging/flatpak/python-sources.json`;
   no runtime pip installs or remote executable lists are used.
-  The API's own player/download dependencies are omitted because Nahhasio supplies those modules.
+  The Nix development helper omits upstream player/download dependencies; Flatpak locks its complete wheel closure offline. Nahhasio owns playback and downloads.
 
 The Python helper strips inherited app credentials/configuration and disables proxy/environment
 request settings. It validates HTTPS destinations and filters each DNS lookup to public addresses,
@@ -55,27 +55,11 @@ Primary references: [anipy provider API](https://sdaqo.dev/anipy-cli/reference/a
 [current providers](https://sdaqo.dev/anipy-cli/availabilty/) and
 [upstream source](https://github.com/sdaqo/anipy-cli).
 
-## Checked at this checkpoint (2026-10-24)
+## Verification boundary
 
-The freshly built Linux binary decoded AnimeHub's Frieren episode 1 and The Imaginary
-(`Yaneura No Rudger`) through the same resolver/gateway/native-player path. Both advanced past
-two seconds with at least 50 rendered frames. The Imaginary reported 6,486 seconds duration.
-AnimeHub returned **720p only**, with no provider subtitle tracks, for both requests. This is
-the quality returned by that provider, not a client quality cap; no 1080p availability is claimed.
-AniDBApp returned no Frieren search results during this check. Spoken-language correctness and
-subtitle synchronization remain Aqua's review; the helper requests English DUB exclusively.
-
-The initial mpv `-17` failure came from blocking nested HLS reads. Sanitized HLS uses its own
-native mode allowing HLS demuxing and references; local/torrent playback retains its existing
-restriction. Every HLS resource still passes through the checked gateway. Rewritten playlists
-have proper playlist filenames and a complete HTTP 200 response, even if upstream returns 206.
-
-Focused gateway tests and eight browser player journeys passed, including explicit anime
-selection, missing-dub recovery, files-only exclusion and retained embed/torrent alternatives.
-TypeScript, lint and formatting passed. The full `pnpm check` reaches the existing unrelated
-Clippy deprecation at `crates/media-transfer/src/lib.rs:461` (`fetch_update`). AppImage installation,
-automatic subtitle search, physical control input and a wider provider playback matrix are not
-accepted by these checks. No catalog writes or new checkpoint commit were made.
+Provider availability, actual spoken language, subtitles, quality, seeking and physical controls
+need dedicated native acceptance. Historical test receipts remain in Git; they do not certify a
+new Flatpak. These tests are outside the current hosting release.
 
 Reproduce the isolated native checks without family catalog/authentication:
 

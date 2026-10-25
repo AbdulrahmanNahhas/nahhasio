@@ -1,4 +1,9 @@
-# Page Feature Checklist
+# Page feature backlog
+
+Updated 2026-10-25. This is a product backlog, not an installation acceptance report. Checked
+items describe implemented surfaces; installed behavior still requires the checks in
+[DEPLOYMENT](DEPLOYMENT.md). Player/provider testing and stored-media integration are outside
+the current hosting release.
 
 ## Shared UI and Navigation
 
