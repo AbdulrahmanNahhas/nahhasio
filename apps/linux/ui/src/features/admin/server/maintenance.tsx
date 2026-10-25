@@ -281,25 +281,16 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
 }
 
 export function ClientUpdateCard() {
-  const client = useQueryClient();
-  const key = ["device", "client-update"];
   const status = useQuery({
-    queryKey: key,
+    queryKey: ["device", "client-update"],
     queryFn: ({ signal }) => gateway.clientUpdateStatus(signal),
-    staleTime: 30000,
-  });
-  const action = useMutation({
-    mutationFn: (operation: "check" | "stage") =>
-      operation === "check" ? gateway.checkClientUpdate() : gateway.stageClientUpdate(),
-    onSuccess: (next) => client.setQueryData(key, next),
+    staleTime: Infinity,
   });
   return (
     <Card>
       <CardHeader>
         <CardTitle>تحديث تطبيق Linux</CardTitle>
-        <CardDescription>
-          تُنزّل الإصدارات المتوافقة تلقائياً وتُفعّل عند تشغيل التطبيق مرة أخرى.
-        </CardDescription>
+        <CardDescription>تُدار النسخة المثبّتة من خلال نظام البرمجيات على هذا الجهاز.</CardDescription>
       </CardHeader>
       <CardContent>
         {status.isPending ? (
@@ -314,29 +305,11 @@ export function ClientUpdateCard() {
             <p className="text-sm text-muted-foreground">{status.data.message}</p>
           </div>
         )}
-        {action.isError && <Failure error={action.error} />}
       </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          disabled={!status.data?.available || action.isPending}
-          onClick={() => action.mutate("check")}
-        >
-          <RefreshCw data-icon="inline-start" />
-          فحص التحديثات
-        </Button>
-        <Button
-          disabled={
-            !status.data?.available ||
-            !status.data.availableVersion ||
-            status.data.state === "staged" ||
-            action.isPending
-          }
-          onClick={() => action.mutate("stage")}
-        >
-          <Download data-icon="inline-start" />
-          تنزيل التحديث
-        </Button>
+      <CardFooter>
+        <p className="text-sm text-muted-foreground">
+          افتح تطبيق «البرمجيات» في النظام ثم صفحة التحديثات لإدارة إصدار نحّاسيو.
+        </p>
       </CardFooter>
     </Card>
   );

@@ -43,13 +43,13 @@ errors. Cleanup only verified disposable files and respect active reader/job own
 
 ## Planned Alpha delivery
 
-Build a versioned server container and Linux AppImage, connect them on the home network, and
+Build a versioned server container and Linux Flatpak, connect them on the home network, and
 provide documented persistent mounts/HTTPS trust/owner setup. No website belongs to the delivered
 product. Exact host hardware remains unverified. Jellyfin is the confirmed stored-media backend, with no
 catalog metadata/artwork or tracking synchronization. Rootless Quadlets, service boot
 ordering and certificate/setup mechanics will be chosen and verified during implementation.
 
-The approved target includes automatic updates for both Nahhasio and its Linux AppImage.
+The approved target includes automatic updates for both Nahhasio and its Linux Flatpak.
 Implementation must verify artifact provenance/integrity and compatibility, preserve private
 state, handle failed downloads/activation and provide recovery. No updater is enabled by this
 checkpoint. Server schema maintenance remains explicit and coordinated; restarting a service
@@ -71,7 +71,7 @@ managed separately from Nahhasio application updates.
 4. Build a Node-free server image, private persistent storage, rootless Fedora Quadlets and
    trusted LAN HTTPS; deliver explicit install/backup/restore/update commands. Rehearse restoration
    and schema compatibility before moving family data. No live migration/cutover is implied here.
-5. Complete versioned AppImage delivery and verified server/client automatic updates, then run
+5. Complete signed Flatpak delivery and verified server/client automatic updates, then run
    installed native/LAN/reboot/reconnect/update/recovery acceptance. Jellyfin remains a later,
    separate media-only service; it supplies no catalog metadata, artwork or tracking authority.
 
@@ -111,7 +111,7 @@ before production cutover.
 
 Set `NAHHASIO_CONFIG_ROOT` to a dedicated absolute persistent directory owned by the service user.
 The directory must be private (0700); credential files must be private (0600). Do not mount the
-configuration beneath artwork/public content or put it into an image, repository or AppImage.
+configuration beneath artwork/public content or put it into an image, repository or Flatpak.
 The server creates a missing final directory on an authorized dashboard write; its parent must
 already exist. Devenv uses the ignored persistent `data/server-config` directory. Restart an existing
 server once after adding/changing this environment path; subsequent key updates need no restart.

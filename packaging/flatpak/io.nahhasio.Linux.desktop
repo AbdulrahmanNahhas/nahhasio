@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Nahhasio
+Name[ar]=نحّاسيو
+Comment=Family catalog and viewing client
+Comment[ar]=مكتبة العائلة وتتبع المشاهدة
+Exec=nahhasio
+Icon=io.nahhasio.Linux
+Terminal=false
+Categories=AudioVideo;Video;
+StartupNotify=true

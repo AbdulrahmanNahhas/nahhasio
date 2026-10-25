@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# User-owned managed AppImage installation; no sudo and no database changes.
+# Install as the desktop user. Flatpak owns all later application updates.
 set -euo pipefail
 task_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for dependency in python3 openssl; do
-  command -v "$dependency" >/dev/null || { echo "Required installation dependency: $dependency" >&2; exit 1; }
-done
-exec python3 "$task_root/packaging/linux/update-client.py" install "$@"
+exec python3 "$task_root/packaging/flatpak/install.py" "$@"

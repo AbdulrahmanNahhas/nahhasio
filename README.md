@@ -1,7 +1,7 @@
 # Nahhasio
 
 Private Arabic-first family catalog/database, tracking and media system. **Current milestone: 0.1 Alpha, a reliable base.**
-The target is a **Fedora Silverblue/Podman home server and Linux AppImage client**. No website
+The target is a **Fedora Silverblue/Podman home server and Linux Flatpak client**. No website
 ships in the delivered product; Linux is the only client through v1.0.
 
 Start with [the project guide](docs/PROJECT.md) and [the large roadmap](docs/ROADMAP.md).
@@ -22,8 +22,9 @@ for stored-media playback/streaming; Nahhasio owns catalog metadata, artwork and
 The retired web dashboard and Hono API are removed. React/TypeScript remains the desktop UI,
 with Node/pnpm required only for development/build and recovery/reference tooling.
 
-Next: pre-deployment schema/logic review, Podman packaging and recovery, then the remaining
-Overview/Settings services and verified server/AppImage updates.
+Current delivery: rootless Podman hosting/recovery and signed Flatpak client distribution.
+The source/static checkpoint is implemented; complete SDK builds and installed Fedora acceptance
+remain separate. See [the deployment guide](docs/DEPLOYMENT.md).
 
 ## Guides
 

@@ -861,7 +861,7 @@
 
 - [ ] Client version
 - [ ] Connected server version
-- [ ] Check AppImage releases
+- [ ] Show Flatpak update-manager guidance
 - [ ] Release notes
 - [ ] Download/verify update
 - [ ] Confirm restart/update
@@ -901,5 +901,5 @@
 - [ ] Review progress/watched synchronization
 - [ ] Review subtitles/audio selection
 - [ ] Review Fedora installation/update/restore
-- [ ] Review fresh AppImage installation/update
+- [ ] Review fresh Flatpak installation/update
 - [x] Retire the website (approved cleanup, 2026-10-20)

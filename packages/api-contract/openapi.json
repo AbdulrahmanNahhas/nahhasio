@@ -13867,7 +13867,8 @@
           "message",
           "pendingVersion",
           "automatic",
-          "lastCheck"
+          "lastCheck",
+          "manager"
         ],
         "properties": {
           "available": {
@@ -13891,11 +13892,16 @@
             "nullable": true
           },
           "automatic": {
-            "type": "boolean"
+            "type": "boolean",
+            "nullable": true
           },
           "lastCheck": {
             "type": "integer",
             "nullable": true
+          },
+          "manager": {
+            "type": "string",
+            "enum": ["flatpak", "development", "external"]
           }
         }
       }

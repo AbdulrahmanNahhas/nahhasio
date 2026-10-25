@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: nahhasio-alpha-channel
@@ -15,7 +17,11 @@ jobs:
   channel:
     if: startsWith(github.event.release.tag_name, 'nahhasio-v')
     runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify published release and update alpha channel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -25,10 +31,40 @@ jobs:
         run: |
           test -n "$TRUSTED_KEY"
           mkdir release
-          gh release download "$RELEASE_TAG" --pattern 'manifest.json*' --dir release
+          gh release download "$RELEASE_TAG" --pattern 'manifest.json*' --pattern 'flatpak-repository.tar.gz' --dir release
           printf '%s\n' "$TRUSTED_KEY" > release/key.pem
           base64 --decode release/manifest.json.sig > release/signature.bin
           openssl pkeyutl -verify -pubin -inkey release/key.pem -rawin -in release/manifest.json -sigfile release/signature.bin
+      - name: Retain and publish signed client repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if git fetch origin flatpak-repository; then
+            git worktree add --detach published FETCH_HEAD
+          else
+            git worktree add --detach published HEAD
+            git -C published switch --orphan flatpak-repository
+          fi
+          python3 packaging/release/publish-flatpak.py release/manifest.json release/flatpak-repository.tar.gz published/flatpak
+          git -C published config user.name github-actions[bot]
+          git -C published config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -C published add flatpak
+          if ! git -C published diff --cached --quiet; then
+            git -C published commit -m "Publish $RELEASE_TAG Flatpak repository"
+            git -C published push origin HEAD:flatpak-repository
+          fi
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: published
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Promote the server update channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
           if ! gh release view nahhasio-alpha >/dev/null 2>&1; then
             gh release create nahhasio-alpha --title "Nahhasio Alpha update channel" --prerelease --notes "Signed release information for installed Nahhasio clients and servers."
           fi

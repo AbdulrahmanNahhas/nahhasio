@@ -78,61 +78,45 @@ does not recover a failed disk; an optional independent copy can be added later.
 
 ## 3. Signed releases and updates
 
-The release preparation workflow builds a Rust server image and x86_64 AppImage. It uses
-`nahhasio-v<version>` tags, separate from the retired application's historical `v*` tags.
-Versions must match the server, CLI, native client and UI package. Container base digests are
-resolved and recorded at build time. Installed server/PostgreSQL references are digest-qualified.
+The server remains a digest-qualified Rust OCI image; the client is now Flatpak. Nix/devenv is
+only for local development. The supported Flatpak build and publication procedure is in
+[packaging/flatpak/README.md](../packaging/flatpak/README.md). It supersedes the AppImage prototype
+and custom client downloader. The existing Ed25519 server signing key remains valid.
 
-The workflow needs the repository secret `NAHHASIO_RELEASE_SIGNING_KEY`, containing a private
-Ed25519 PEM key. The public counterpart is repository variable `NAHHASIO_RELEASE_PUBLIC_KEY`.
-Generate/store the private key outside the repository and retain its recovery copy:
+The release workflow builds the UI conventionally with Node/pnpm, prepares verified offline
+sources and compiles the native client in the pinned GNOME SDK builder. Cached dependency
+modules reduce repeated compilation. The SDK is deliberately independent from Fedora's host
+libraries, so the same client can be installed on Fedora Atomic and other Flatpak hosts.
 
-```sh
-umask 077
-openssl genpkey -algorithm ED25519 -out release-private.pem
-openssl pkey -in release-private.pem -pubout -out release-key.pem
-```
+The existing `NAHHASIO_RELEASE_SIGNING_KEY` secret and `NAHHASIO_RELEASE_PUBLIC_KEY` variable
+sign/verify the release manifest and installer archive. Flatpak additionally needs the dedicated
+`NAHHASIO_FLATPAK_GPG_KEY` secret and full `NAHHASIO_FLATPAK_GPG_FINGERPRINT` variable for OpenPGP
+commit/summary signatures. The release preflight refuses missing configuration before expensive
+builds. Private signing keys remain outside Git and are never included in artifacts.
 
-Distribute and authenticate the public key independently before installation. A public key
-downloaded beside an untrusted release does not establish publisher trust. No private signing
-key, registry token, database credential or provider key belongs in a committed file.
+Preparation produces a draft release. Approved publication verifies its signed repository
+archive, retains previous objects on the `flatpak-repository` branch and deploys a static package
+feed using GitHub Pages (Actions source). There is no shipped Nahhasio website/runtime. The
+server alpha manifest is promoted only after package-feed deployment succeeds. Initial client
+trust can be bootstrapped through the existing independently trusted Ed25519 key; the manifest
+binds the Flatpak public key, repository URL and artifact hashes.
 
-`packaging/release/manifest.py` signs the exact manifest bytes. Format version 1 binds application
-version, API version, migration-source fingerprint, server image digest and AppImage URL/size/hash.
-The signature is detached base64 text in `manifest.json.sig`. The installation archive has a
-separate detached signature. Verify it before extracting/running installation code:
+Server updates still use the host maintenance worker, with exact schema/API compatibility,
+backup before replacement and readiness rollback. A schema-changing release requires explicit
+maintenance; startup never migrates. PostgreSQL major upgrades remain separately owned.
 
-```sh
-base64 --decode nahhasio-install.tar.gz.sig > installer.sig
-openssl pkeyutl -verify -pubin -inkey /trusted/release-key.pem -rawin \
-  -in nahhasio-install.tar.gz -sigfile installer.sig
-tar -xzf nahhasio-install.tar.gz
-```
-
-Preparation creates a draft prerelease, not a published release. Publishing an approved
-`nahhasio-v*` release promotes its verified manifest to the `nahhasio-alpha` update channel.
-The channel URL is
-`https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-alpha/manifest.json`.
-Release assets must be accessible to installed clients; private registry access is provisioned
-on the service account separately. A checksum alone is not the publisher signature.
-
-Server updates run through the host maintenance worker. Only equal schema fingerprints and
-supported API versions activate automatically, after backup and image verification. Failed
-readiness restores the previous image. A schema-changing release is marked maintenance-required;
-explicit operator maintenance must handle backup, migration, grants and compatible image activation.
-PostgreSQL major upgrades remain separate. Application rollback cannot undo database migration.
-
-[Client installation and updates](../packaging/linux/updates.md) uses a user-owned versioned
-AppImage directory and stable launcher. Background checks stage signed updates; activation happens
-on the next launch. The previous image is retained. Device sessions, caches, progress queues and
-downloaded videos stay outside the installation directory. Development builds never self-update.
+Client updates use Flatpak/Software. Automatic-update policy belongs to the desktop host; the
+app shows its running version and manager and does not claim to know the host's policy. Updates
+preserve sandbox-private state and retained videos. There is no self-writing application or
+custom background updater. Initial import of any pre-Flatpak device state requires review and
+is separate from the server catalog transfer.
 
 ## 4. App controls and recovery
 
 Administration → Maintenance → Backups shows completed sets and submits fixed backup/restore
 requests. Restore requires typing the backup ID and creates a recovery checkpoint first.
 Maintenance → Updates shows server release status and compatible installation controls.
-Profile settings → Device also provides client update status/check/download for ordinary users.
+Profile settings → Device also provides the running client version and update-manager information for ordinary users.
 
 The authenticated API revalidates/locks administrator sessions when it queues host operations.
 The container shares a private operation directory with the host worker, never a Podman socket
@@ -144,6 +128,6 @@ If the API cannot start, use the host maintenance command directly.
 
 After implementation, use isolated data for installation, backup/restore equality, interrupted
 operations, failed update recovery, permission boundaries and signed-artifact rejection. Then
-verify Fedora mounts/SELinux, trusted LAN/local login, reboot persistence and installed AppImage
-activation. These checks concern delivery/recovery; no player/provider test phase is required
+verify Fedora mounts/SELinux, trusted LAN/local login, reboot persistence and installed Flatpak
+updates. These checks concern delivery/recovery; no player/provider test phase is required
 for this release. No live cutover or remote release publication is implied by this checklist.

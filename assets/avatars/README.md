@@ -16,4 +16,4 @@ devenv shell -- pnpm client:generate
 
 Rebuild both server and client after catalog changes. The UI discovers these assets with Vite;
 the server accepts only entries in its generated embedded allowlist. No database migration or
-local image-directory configuration is required. Rebuild AppImages separately for distribution.
+local image-directory configuration is required. Rebuild installed Flatpaks separately for distribution.

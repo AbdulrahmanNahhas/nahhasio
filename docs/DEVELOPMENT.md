@@ -358,62 +358,34 @@ Changes require a freshly built/relaunched native client; UI hot reload cannot a
 commands to an old process. Static checks/builds are used at this stage; live download/deletion,
 native input/animation and offline-startup acceptance remain separate.
 
-## Client persistence and AppImage delivery
+## Client persistence and Flatpak delivery
 
-Login now persists a native-only server-bound token in `session.json`, with a private directory
-(0700), a private file (0600), atomic replacement and expiry checking. Passwords are never saved.
-Logout and unauthorized server replies remove the current server's stored session. Switching
-server addresses does not send an old server's token to the new server. Storage errors surface
-instead of silently claiming login will survive a restart. Sign in once after upgrading the old
-in-memory client; its existing login cannot be recovered from disk.
+The supported installed client is Flatpak (`io.nahhasio.Linux`, alpha branch). See
+[Flatpak packaging](../packaging/flatpak/README.md) for the conventional SDK build, signed
+repository, installation and runtime permissions. Nix/devenv remains the development environment
+on Shadow and is not part of the release pipeline or installed runtime. The AppImage prototype
+and custom downloader/store-mount launcher have been retired in Git.
 
-On an ephemeral NixOS installation, preserve these **whole directories**, using persistent mounts:
+Native sessions remain private, server/account-bound files with atomic replacement and expiry
+checking. Inside Flatpak, XDG state belongs to the app-private directory beneath
+`~/.var/app/io.nahhasio.Linux`; host development uses the existing XDG state root. No automatic
+copy of credentials, tracking caches or transfer state occurs between those installations.
+Retained videos remain in the configured Videos/nahhasio directory, separately from metadata.
+The sandbox permits that directory and portal-selected media/subtitle files, not the whole home.
 
-- `$XDG_STATE_HOME/nahhasio`, normally `~/.local/state/nahhasio`: session, `jobs.sqlite3` and its
-  WAL/SHM companions, torrent metadata/resume/export records, and `payloads/` for partial jobs.
-- The configured Videos directory's `nahhasio/`, normally `~/Videos/nahhasio`: exported videos
-  and legacy torrent payloads. `NAHHASIO_VIDEO_ROOT` overrides this location.
-- The AppImage wherever it is installed, for example `~/Applications/`.
+Preserve the complete private state directory and video root together. Existing video roots
+cannot be moved by merely changing environment variables; the transfer engine retains its
+recorded-root checks. Server PostgreSQL/artwork backups have independent ownership.
 
-Preserve the state and video roots together. Do not move/change an existing video root by changing
-the environment: the engine deliberately refuses a mismatched stored root. Symlink replacements
-are rejected by storage guards; use bind mounts for impermanence. These are client paths; server
-PostgreSQL/artwork backups and future Podman volumes have separate ownership. Full saved-work
-snapshots, offline login/startup and tracking sync remain the later Saved Works checkpoint.
+The installed client uses the GNOME runtime's normal renderer and loader. Shadow's process-local
+WebKit compatibility path applies only outside Flatpak on NixOS; an explicit
+`NAHHASIO_WEBKIT_COMPAT_SHM=1` remains available for diagnostics. No sandbox is disabled.
 
-Build an optimized package with `devenv shell -- bash bin/nahhasio-appimage`. For a quick local
-preview using the dev build, set `NAHHASIO_PACKAGE_PROFILE=dev`. Output is
-`dist/client/Nahhasio-0.1.0-x86_64.AppImage` plus SHA-256. The packaging flake pins Nixpkgs and
-nix-appimage, packages only the binary/UI, gathers the native ELF runtime closure and includes
-GTK schemas, icons, TLS certificates, WebKit helpers and media libraries. The launcher retains
-the development client's NixOS host-loader compatibility handling. No server, catalog, artwork,
-credentials or development `.env` is included.
-
-Run `chmod +x Nahhasio-0.1.0-x86_64.AppImage` then launch it. The current server defaults to
-`http://127.0.0.1:23103/`; `NAHHASIO_SERVER_URL=https://your-server/` overrides it. The server
-chooser/LAN connection checkpoint is still pending; non-loopback HTTP remains disallowed.
-The package embeds the production UI and needs neither the checkout nor Vite to load it.
-
-Shadow's NixOS AppImage handler extracts into `$XDG_CACHE_HOME/appimage-run`, normally
-`~/.cache/appimage-run`. This regenerable runtime cache also needs disk space: the ephemeral
-home was too full for the first extraction. Use a persistent cache directory when launching,
-for example `XDG_CACHE_HOME=/your/persistent/cache ./Nahhasio-0.1.0-x86_64.AppImage`.
-Do not put the extracted runtime into the client state/video directories.
-
-`.github/workflows/nahhasio-release.yml` prepares the server image, AppImage, signed manifest
-and installation bundle on manual dispatch or `nahhasio-v*` tags. It creates a draft prerelease.
-The separate channel workflow promotes the verified manifest only after release publication.
-Managed server/client update implementations and their deferred installation acceptance are
-documented in [DEPLOYMENT.md](DEPLOYMENT.md). Historical `v*` tags belong to the retired release line.
-
-The AppImage uses our own static Bubblewrap AppRun instead of the bundler's chroot launcher.
-It mounts bundled Nix objects read-only, includes the host GPU/loader closure on NixOS to retain runtime
-libraries, and lets WebKit create its own nested sandbox. Fontconfig has an explicit bundled
-configuration and fonts. Neither WebKit sandboxing nor host kernel protections are disabled.
-The launcher requires unprivileged user namespaces. Real object mounts keep WebKit's nested
-sandbox paths resolvable without chroot, overlayfs or links outside its allowed filesystem.
-This remains initially a NixOS preview: Fedora/non-NixOS graphics, audio/video and fresh-install
-acceptance must be reviewed before calling it a generally supported Linux release.
+The release preparation workflow creates a draft server/Flatpak release with signed metadata.
+Only approved release publication promotes the static client repository and server update
+channel. Software/Flatpak owns client updates; the app reports its running version and manager
+without pretending to know host policy. Source builds and installed builds require separate
+restart/installation acceptance.
 
 ## Server connection and login checkpoint
 
@@ -649,15 +621,15 @@ native GTK acceptance or deployment.
 ## Repository launchers
 
 `bin/` contains small entry scripts, not compiled executables. Compiled development executables
-live in `target/debug`, release builds in `target/release`, and AppImages in `dist/client`.
+live in `target/debug`, release builds in `target/release`, and Flatpak artifacts in `dist`.
 
-| Entry                         | Purpose                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------- |
-| `bin/nahhasio`                | Quiet launcher for the compiled Rust catalog/operator CLI                         |
-| `bin/nahhasio-client`         | Build desktop assets/binary and launch the development client                     |
-| `bin/nahhasio-native-runtime` | Native library/graphics compatibility wrapper shared by development and packaging |
-| `bin/nahhasio-appimage`       | Build the Linux AppImage and its runtime closure                                  |
-| `bin/test-rust-catalog`       | Own a disposable PostgreSQL cluster for Rust catalog/migration acceptance         |
+| Entry                         | Purpose                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `bin/nahhasio`                | Quiet launcher for the compiled Rust catalog/operator CLI                 |
+| `bin/nahhasio-client`         | Build desktop assets/binary and launch the development client             |
+| `bin/nahhasio-native-runtime` | Development-only native library/graphics compatibility wrapper            |
+| `bin/nahhasio-flatpak`        | Prepare offline sources and build the Linux Flatpak through the GNOME SDK |
+| `bin/test-rust-catalog`       | Own a disposable PostgreSQL cluster for Rust catalog/migration acceptance |
 
 The old `bin/arcadia` alias is retired. Use `bin/nahhasio` directly. Test/generation helpers are
 development tools and do not run as installed services. Keep wrappers that supply actual packaging

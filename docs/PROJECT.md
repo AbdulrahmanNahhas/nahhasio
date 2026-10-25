@@ -1,10 +1,14 @@
 # Nahhasio project guide
 
+Client delivery correction (2026-10-25): Flatpak replaces AppImage for installed Linux clients.
+Nix is development-only. [The Flatpak guide](../packaging/flatpak/README.md) owns the supported
+build/repository/host-update boundaries; historical AppImage acceptance notes below remain history.
+
 ## Current release checkpoint — 2026-10-25
 
 Aqua authorized the four-phase family-PC delivery in [DEPLOYMENT.md](DEPLOYMENT.md): rootless
 Fedora Atomic Quadlets, backup/restore and catalog transfer with independent laptop development,
-verified server/AppImage updates, then app maintenance controls. Code all four phases before
+verified server/Flatpak delivery, then app maintenance controls. Code all four phases before
 consolidated installation acceptance; there is no per-phase approval stop for this checkpoint.
 Player/provider testing is removed from this release sequence. Jellyfin and files-only playback
 are deferred, as are unrelated catalog/admin tools. This dated scope supersedes older checkpoint
@@ -22,8 +26,7 @@ primary product.** Playback and source/download workflows sit on top of those id
 Not every catalog work needs a video or a download.
 
 The product is one home server and desktop clients. The server target is **Fedora Silverblue 44
-with Podman**; the only client through v1.0 is **Linux**, released as an **AppImage through
-GitHub Releases**. There is no website in the delivered product. Android, Windows, macOS and
+with Podman**; the only client through v1.0 is **Linux**, released as a **Flatpak from a signed repository**. There is no website in the delivered product. Android, Windows, macOS and
 possible Android TV clients are future work after v1.0. Keep portable APIs/media logic without
 building those clients now.
 
@@ -40,7 +43,7 @@ current planning; verify the host before deployment.
 - English audio is the normal preference; Arabic subtitles are preferred. Arabic audio is used
   when available and Spanish audio may also be selected. Language choices belong to playback
   preferences and actual tracks; they do not require separate catalog entries for every language.
-- Aqua wants automatic updates for the installed server and Linux AppImage. Deliver verified
+- Aqua wants automatic updates for the installed server and Linux Flatpak. Deliver verified
   artifacts, compatibility checks, recovery and persistent-state preservation before enabling
   unattended installation. Schema changes still use an explicit coordinated migration operation;
   process startup never migrates. PostgreSQL/Jellyfin version upgrades have separate ownership.
@@ -146,7 +149,7 @@ supplied; they are not blockers to the architectural plan.
 | Server filesystem   | Persistent library videos, image originals/variants, sidecar subtitles and temporary staging/cache roots                             |
 | Linux native shell  | Selected server connection, secure sessions/network, native playback and device storage/downloads                                    |
 | React desktop UI    | Viewing/admin presentation, bounded query cache, typed routes and interactions                                                       |
-| Release tooling     | Containers/AppImages, compatibility, guided updates, explicit migrations, backup/restore                                             |
+| Release tooling     | Containers/Flatpaks, compatibility, guided updates, explicit migrations, backup/restore                                              |
 
 Implementation: Rust/Axum/SQLx server; Rust GTK4/libadwaita/WebKitGTK shell and libmpv;
 React/Vite/TypeScript, TanStack Router/Query, Tailwind and shadcn Base UI. Desktop registry style

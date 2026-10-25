@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.nahhasio.Linux</id>
+  <name>Nahhasio</name>
+  <summary>Browse your family catalog and keep track of viewing</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.AbdulrahmanNahhas"><name>Abdulrahman Nahhas</name></developer>
+  <description>
+    <p>Nahhasio is an Arabic-first family catalog and viewing client. Connect to your home server to browse curated works, manage artwork and track viewing.</p>
+    <p>Saved metadata and retained device videos have separate offline workflows.</p>
+  </description>
+  <launchable type="desktop-id">io.nahhasio.Linux.desktop</launchable>
+  <url type="homepage">https://github.com/AbdulrahmanNahhas/nahhasio</url>
+  <url type="bugtracker">https://github.com/AbdulrahmanNahhas/nahhasio/issues</url>
+  <content_rating type="oars-1.1" />
+  <supports><control>pointing</control><control>keyboard</control></supports>
+  <releases><release version="0.1.0" date="2026-10-25" type="development" /></releases>
+</component>

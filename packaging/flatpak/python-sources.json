@@ -1,0 +1,117 @@
+[
+  {
+    "name": "anipy_api-3.10.1-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/8d/71/e776fba62f96d3265de2c686a611b1ec14151ed055a461cb0dbcd8832886/anipy_api-3.10.1-py3-none-any.whl",
+    "sha256": "135451c19e5a671315a2f6c4e4eedf0cf13964f7223ea68761acf5234abe1604"
+  },
+  {
+    "name": "beautifulsoup4-4.15.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl",
+    "sha256": "d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9"
+  },
+  {
+    "name": "certifi-2026.10.23-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl",
+    "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1"
+  },
+  {
+    "name": "charset_normalizer-3.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+    "url": "https://files.pythonhosted.org/packages/4b/85/41d27f234b82e47c167a5f6c0f62501dc0c640585ff4aba79e08a390336a/charset_normalizer-3.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+    "sha256": "7218e8f32b0956cfcd048fd42d9d5779809745ca1d86113ca56f66e7ae1549c4"
+  },
+  {
+    "name": "dataclasses_json-0.6.7-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/c3/be/d0d44e092656fe7a06b55e6103cbce807cdbdee17884a5367c68c9860853/dataclasses_json-0.6.7-py3-none-any.whl",
+    "sha256": "0dbf33f26c8d5305befd61b39d2b3414e8a407bedc2834dea9b8d642666fb40a"
+  },
+  {
+    "name": "idna-3.20-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl",
+    "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+  },
+  {
+    "name": "levenshtein-0.27.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+    "url": "https://files.pythonhosted.org/packages/c2/a8/74e6f3b73759f6f1bdf44fa43b9d1657ea4dde6e7907abad7376c5831578/levenshtein-0.27.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+    "sha256": "ee1e234479dbd3e5afebf21981356d4bbfbed53b10b08b37eff0d0a9567921cb"
+  },
+  {
+    "name": "m3u8-4.1.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/99/13/a5a6639b2ab7094dce197dec50d10d9baeb27188c58dfeae9cc31d5bca51/m3u8-4.1.0-py3-none-any.whl",
+    "sha256": "981daed09f57b7590721b6437278e49f2c36c1bceaa8fbe48f585e1745571d17"
+  },
+  {
+    "name": "marshmallow-3.26.2-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl",
+    "sha256": "013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73"
+  },
+  {
+    "name": "mypy_extensions-1.1.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl",
+    "sha256": "1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505"
+  },
+  {
+    "name": "packaging-26.3-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+    "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+  },
+  {
+    "name": "pycountry-24.6.1-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/b1/ec/1fb891d8a2660716aadb2143235481d15ed1cbfe3ad669194690b0604492/pycountry-24.6.1-py3-none-any.whl",
+    "sha256": "f1a4fb391cd7214f8eefd39556d740adcc233c778a27f8942c8dca351d6ce06f"
+  },
+  {
+    "name": "pycryptodomex-3.24.1-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "url": "https://files.pythonhosted.org/packages/cf/93/a954b7a8746980e31648943e29772aca0311d0d8a407a3adf5788083b693/pycryptodomex-3.24.1-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "sha256": "9b94a8c647c1f80b4c82c7ac9642dda94a71abbb4efa29ad652c410ad7a39879"
+  },
+  {
+    "name": "pyee-16.0.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/84/c4/eaa0e659b72b0876cc95c656acb66e8b541d84499d6a001d4102a7106c79/pyee-16.0.0-py3-none-any.whl",
+    "sha256": "40253d268c4a18ba9fea94c491d612d7386e9b801221399f4efd437a3d87b829"
+  },
+  {
+    "name": "python_ffmpeg-2.0.12-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/7f/6d/02e817aec661defe148cb9eb0c4eca2444846305f625c2243fb9f92a9045/python_ffmpeg-2.0.12-py3-none-any.whl",
+    "sha256": "d86697da8dfb39335183e336d31baf42fb217468adf5ac97fd743898240faae3"
+  },
+  {
+    "name": "python_mpv-1.0.8-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/22/f3/4c632eaacebfc62ab9414586137aecf6c0ea2a1e99708cf5a4c0dec13ae0/python_mpv-1.0.8-py3-none-any.whl",
+    "sha256": "b5296403e990fb7348df4ca2211937a030f524bf638657bda7e45a00bc2df0cd"
+  },
+  {
+    "name": "rapidfuzz-3.14.6-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "url": "https://files.pythonhosted.org/packages/70/42/4bf9dc905df33bb4515895ff87f777d8df25a3617c0bf8f5d4716813d9ea/rapidfuzz-3.14.6-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "sha256": "6bb896f89a387219c671ebc33c4a636b222010cc3c5c83884a7fc8707bf0bbf9"
+  },
+  {
+    "name": "requests-2.34.2-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl",
+    "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+  },
+  {
+    "name": "simpleeval-1.0.8-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/12/33/d1ecd9f4f5f272b36ad7b268e307ba0a59c109d8ad134a231cda780baac9/simpleeval-1.0.8-py3-none-any.whl",
+    "sha256": "c9c4ff42879ebf0c05f6562cb81031869948916be343bcc950b81fcc081fe9ce"
+  },
+  {
+    "name": "soupsieve-3.0.4-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/07/66/473f7ca0be0b06e38ee8c85ee2db184e3981bd769fac2e7c19c8a8865211/soupsieve-3.0.4-py3-none-any.whl",
+    "sha256": "8412826614f9c632227067d0985aeb9f584bd15efc852955430e097a9fe7afbf"
+  },
+  {
+    "name": "typing_extensions-4.16.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+    "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+  },
+  {
+    "name": "typing_inspect-0.9.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/65/f3/107a22063bf27bdccf2024833d3445f4eea42b2e598abfbd46f6a63b6cb0/typing_inspect-0.9.0-py3-none-any.whl",
+    "sha256": "9ee6fc59062311ef8547596ab6b955e1b8aa46242d854bfc78f4f6b0eff35f9f"
+  },
+  {
+    "name": "urllib3-2.8.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl",
+    "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+  }
+]

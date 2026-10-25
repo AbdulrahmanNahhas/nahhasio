@@ -28,6 +28,10 @@ def main():
     parser.add_argument("--version")
     parser.add_argument("--client", type=Path)
     parser.add_argument("--client-url")
+    parser.add_argument("--flatpak-key", type=Path)
+    parser.add_argument("--flatpak-fingerprint")
+    parser.add_argument("--flatpak-repo", type=Path)
+    parser.add_argument("--repository-url", default="https://abdulrahmannahhas.github.io/nahhasio/flatpak/")
     parser.add_argument("--server-image")
     parser.add_argument("--signing-key", type=Path)
     parser.add_argument("--output", type=Path, default=Path("dist/release"))
@@ -44,6 +48,10 @@ def main():
         parser.error("A GitHub HTTPS --client-url is required")
     if not args.client or not args.signing_key:
         parser.error("--client and --signing-key are required")
+    if not args.flatpak_key or not args.flatpak_repo or not re.fullmatch(r"[A-F0-9]{40,64}", args.flatpak_fingerprint or ""):
+        parser.error("A signed Flatpak repository, exported GPG key and full fingerprint are required")
+    if not args.repository_url.startswith("https://") or not args.repository_url.endswith("/"):
+        parser.error("The Flatpak repository must use an HTTPS directory URL")
     public_der = subprocess.run(["openssl", "pkey", "-in", str(args.signing_key), "-pubout", "-outform", "DER"], check=True, capture_output=True).stdout
     if len(public_der) != 44 or not public_der.startswith(bytes.fromhex("302a300506032b6570032100")):
         raise ValueError("An Ed25519 signing key is required")
@@ -54,7 +62,12 @@ def main():
     manifest = {"formatVersion": 1, "version": args.version, "apiVersion": 1,
                 "schemaVersion": schema,
                 "client": {"url": args.client_url, "sha256": digest.hexdigest(),
-                           "size": args.client.stat().st_size, "architecture": "x86_64"},
+                           "size": args.client.stat().st_size, "architecture": "x86_64",
+                           "format": "flatpak", "appId": "io.nahhasio.Linux", "branch": "alpha",
+                           "repositoryUrl": args.repository_url,
+                           "gpgFingerprint": args.flatpak_fingerprint,
+                           "gpgKey": base64.b64encode(args.flatpak_key.read_bytes()).decode(),
+                           "repositoryArchive": {"sha256": hashlib.sha256(args.flatpak_repo.read_bytes()).hexdigest(), "size": args.flatpak_repo.stat().st_size}},
                 "server": {"image": args.server_image, "schemaVersion": schema}}
     args.output.mkdir(parents=True, exist_ok=True)
     path = args.output / "manifest.json"

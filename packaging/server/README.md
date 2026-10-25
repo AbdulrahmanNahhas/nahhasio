@@ -1,6 +1,6 @@
 # Rootless Fedora Atomic installation
 
-This bundle installs the catalog server and PostgreSQL only. The Linux AppImage runs as a
+This bundle installs the catalog server and PostgreSQL only. The Linux Flatpak runs as a
 normal desktop application on the TV PC or another LAN machine. There is no website, Jellyfin
 service, video scanner or server torrent worker in this release. Installation does not need
 Nix, Cargo, Node or the source checkout once the release installer/operations artifacts exist.

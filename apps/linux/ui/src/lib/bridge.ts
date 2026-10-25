@@ -250,10 +250,6 @@ export const gateway = {
     ),
   clientUpdateStatus: async (signal?: AbortSignal) =>
     ClientUpdateStatusSchema.parse(await call("clientUpdate.status", {}, signal)),
-  checkClientUpdate: async () =>
-    ClientUpdateStatusSchema.parse(await nativeCall("clientUpdate.check", {}, undefined, 120000)),
-  stageClientUpdate: async () =>
-    ClientUpdateStatusSchema.parse(await nativeCall("clientUpdate.stage", {}, undefined, 3600000)),
   serverSettings: async (signal?: AbortSignal) =>
     ServerSettingsSchema.parse(await call("serverSettings", {}, signal)),
   renameServer: async (input: ServerRename) =>

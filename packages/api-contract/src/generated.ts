@@ -3269,8 +3269,9 @@ export const ClientUpdateStatusSchema = z.strictObject({
   availableVersion: z.string().nullable(),
   message: z.string(),
   pendingVersion: z.string().nullable(),
-  automatic: z.boolean(),
+  automatic: z.boolean().nullable(),
   lastCheck: z.number().int().nullable(),
+  manager: z.enum(["flatpak", "development", "external"]),
 });
 export type ClientUpdateStatus = z.infer<typeof ClientUpdateStatusSchema>;
 

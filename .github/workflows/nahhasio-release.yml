@@ -27,9 +27,13 @@ jobs:
       - id: version
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
+          HAS_FLATPAK_KEY: ${{ secrets.NAHHASIO_FLATPAK_GPG_KEY != '' }}
+          FLATPAK_FINGERPRINT: ${{ vars.NAHHASIO_FLATPAK_GPG_FINGERPRINT }}
         run: |
           python3 - <<'PY'
           import json, os, re, tomllib
+          if os.environ.get("HAS_FLATPAK_KEY") != "true" or not re.fullmatch(r"[A-F0-9]{40,64}", os.environ.get("FLATPAK_FINGERPRINT", "")):
+              raise SystemExit("Configure NAHHASIO_FLATPAK_GPG_KEY secret and NAHHASIO_FLATPAK_GPG_FINGERPRINT variable before building")
           version = os.environ.get("REQUESTED_VERSION") or os.environ["GITHUB_REF_NAME"].removeprefix("nahhasio-v")
           if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?", version):
               raise SystemExit("Invalid release version")
@@ -73,24 +77,65 @@ jobs:
         with:
           name: nahhasio-server-release
           path: dist/release/*
-  client:
+  client-sources:
     needs: version
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # 31.11.3
-      - name: Build AppImage
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.9.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.94.0
+      - name: Prepare UI and verified offline sources
         run: |
-          nix profile install github:cachix/devenv/30ef5a2458f270574726efe3574e5eb7e731f647
-          devenv shell -- bash bin/nahhasio-appimage
+          pnpm install --frozen-lockfile
+          pnpm --filter @nahhasio/linux-ui build
+          python3 packaging/flatpak/prepare.py
+          mkdir -p dist
+          tar -I 'zstd -T0' -cf dist/flatpak-sources.tar.zst .flatpak-source
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nahhasio-flatpak-sources
+          path: dist/flatpak-sources.tar.zst
+          compression-level: 0
+  client:
+    needs: [version, client-sources]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions@sha256:1de59efef01a946d9f28f1ec3458bf6f61dcee3507d7fecdd473f8134da4ec77 # gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nahhasio-flatpak-sources
+          path: dist
+      - name: Unpack offline sources
+        run: tar -I zstd -xf dist/flatpak-sources.tar.zst
+      - name: Build client against the GNOME runtime
+        uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6
+        with:
+          manifest-path: packaging/flatpak/io.nahhasio.Linux.json
+          branch: alpha
+          build-bundle: false
+          run-tests: false
+          repo-dir: dist/flatpak-repo
+          cache-key: nahhasio-gnome50-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', 'packaging/flatpak/python-sources.json', 'Cargo.lock') }}
+      - name: Export unsigned repository for the isolated signing job
+        run: tar -czf dist/unsigned-flatpak-repo.tar.gz dist/flatpak-repo
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nahhasio-client-release
-          path: |
-            dist/client/*.AppImage
-            dist/client/*.sha256
-          if-no-files-found: error
+          path: dist/unsigned-flatpak-repo.tar.gz
+          compression-level: 0
   draft:
     needs: [version, server, client]
     runs-on: ubuntu-24.04
@@ -102,24 +147,30 @@ jobs:
         with:
           pattern: nahhasio-*-release
           merge-multiple: true
-          path: dist/release
+          path: dist
       - name: Sign release and prepare install bundle
         env:
           SIGNING_KEY: ${{ secrets.NAHHASIO_RELEASE_SIGNING_KEY }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          NAHHASIO_FLATPAK_GPG_KEY: ${{ secrets.NAHHASIO_FLATPAK_GPG_KEY }}
+          NAHHASIO_FLATPAK_GPG_FINGERPRINT: ${{ vars.NAHHASIO_FLATPAK_GPG_FINGERPRINT }}
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes flatpak ostree
+          bash packaging/release/sign-flatpak.sh
+          mv dist/server-image.txt dist/build-bases.txt dist/server.digest dist/release/
           test -n "$SIGNING_KEY"
           umask 077
           key="$RUNNER_TEMP/nahhasio-release-key.pem"
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$SIGNING_KEY" > "$key"
-          image="dist/release/Nahhasio-$RELEASE_VERSION-x86_64.AppImage"
-          python3 packaging/release/manifest.py --version "$RELEASE_VERSION" --client "$image" --client-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/$(basename "$image")" --server-image "$(cat dist/release/server-image.txt)" --signing-key "$key"
-          tar -czf dist/release/nahhasio-install.tar.gz bin/nahhasio-server-install bin/nahhasio-client-install bin/nahhasio-transfer packaging/server packaging/operations packaging/linux/update-client.py packaging/linux/updates.md packaging/release/manifest.py docs/DEPLOYMENT.md
+          image="dist/release/Nahhasio-$RELEASE_VERSION-x86_64.flatpak"
+          python3 packaging/release/manifest.py --version "$RELEASE_VERSION" --client "$image" --client-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/$(basename "$image")" --server-image "$(cat dist/release/server-image.txt)" --signing-key "$key" --flatpak-key dist/release/flatpak-key.gpg --flatpak-fingerprint "$NAHHASIO_FLATPAK_GPG_FINGERPRINT" --flatpak-repo dist/release/flatpak-repository.tar.gz --repository-url "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/"
+          tar -czf dist/release/nahhasio-install.tar.gz bin/nahhasio-server-install bin/nahhasio-client-install bin/nahhasio-transfer packaging/server packaging/operations packaging/flatpak/install.py packaging/flatpak/README.md packaging/release/manifest.py docs/DEPLOYMENT.md
           openssl pkeyutl -sign -rawin -inkey "$key" -in dist/release/nahhasio-install.tar.gz | base64 -w0 > dist/release/nahhasio-install.tar.gz.sig
       - name: Create reviewable draft release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: gh release create "nahhasio-v$RELEASE_VERSION" dist/release/* --draft --prerelease --title "Nahhasio $RELEASE_VERSION" --generate-notes
+        run: gh release create "nahhasio-v$RELEASE_VERSION" dist/release/* --target "$GITHUB_SHA" --draft --prerelease --title "Nahhasio $RELEASE_VERSION" --generate-notes

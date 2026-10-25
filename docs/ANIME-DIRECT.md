@@ -36,7 +36,8 @@ not fall back to Japanese. Preferred stars still require separately reviewed evi
   bounded HLS rewriting and streamed media. Network playback still uses the native loopback
   boundary. Remote playlists cannot introduce local-file or private-network resources.
 - `packaging/linux/anipy-resolver.nix`: hash-pinned upstream wheel and Nix dependencies, used by
-  both development and the AppImage wrapper. No runtime pip installs or remote executable lists.
+  development only. Installed Flatpak dependencies are locked in `packaging/flatpak/python-sources.json`;
+  no runtime pip installs or remote executable lists are used.
   The API's own player/download dependencies are omitted because Nahhasio supplies those modules.
 
 The Python helper strips inherited app credentials/configuration and disables proxy/environment

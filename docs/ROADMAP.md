@@ -39,7 +39,7 @@ checkpoints; detailed implementation order stays subject to review.
 - [ ] **A06** Scan/link existing videos to catalog work/part/episode identities with manual review.
 - [ ] **A07** Play an authorized server file through the native player with seeking/audio/subtitles.
 - [ ] **A08** Configure persistent PostgreSQL/artwork/library paths and recovery boundaries.
-- [ ] **A09** Build initial Podman and AppImage artifacts without assuming the development checkout.
+- [ ] **A09** Build initial Podman and Flatpak artifacts without assuming the development checkout.
 - [ ] **A10** Improve the highest-priority admin/login/Downloads flows in reviewed slices.
 - [ ] **A11** Define explicit Alpha installation/update/backup steps and known limitations.
 - [ ] **A12** Run the consolidated Alpha acceptance on isolated data and the target environment.
@@ -62,7 +62,7 @@ Inspect actual consumers, obsolete/duplicate concepts, performance and migration
 proposed changes with rationale, compatibility/backfill/recovery impact and priorities; retain
 catalog UUIDs, user history and artwork. No speculative live cleanup is implicit approval.
 
-Deployment review must cover trusted container/AppImage sources, pinned base images/actions,
+Deployment review must cover trusted container/Flatpak sources, pinned base images/actions,
 release provenance/signatures/digests, least privilege and secrets, persistent volumes, verified
 independent backup/restore, explicit migrations, compatibility checks and upgrade health gates.
 Define rollback honestly: an older binary may not support a migrated database. Keep an approved
@@ -440,26 +440,25 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-18-10** Document that container rollback cannot automatically undo schema/data migrations.
 - [ ] **NH-18-11** DECISION: define Jellyfin/PostgreSQL update ownership separately from Nahhasio updates.
 
-### 19. AppImage and GitHub release pipeline
+### 19. Flatpak and signed release pipeline
 
-An initial x86_64 AppImage is built locally; `bin/nahhasio-appimage` and the draft-release
-workflow implement packaging. The local preview uses the dev profile; CI uses release.
-The checkboxes below retain supported-platform/runtime, CI and publication acceptance gates.
+Flatpak supersedes the initial AppImage prototype. See [the supported packaging guide](../packaging/flatpak/README.md).
+The historical prototype remains recoverable in Git; no installed acceptance is implied by source checks.
 
-- [ ] **NH-19-01** Build an early AppImage prototype and establish the supported Linux baseline.
-- [ ] **NH-19-02** Package GTK/libadwaita/WebKitGTK/mpv and required runtime assets correctly.
-- [ ] **NH-19-03** Inspect native dynamic libraries, glibc compatibility, graphics/audio and codec dependencies.
-- [ ] **NH-19-04** Include desktop metadata, icon and application identity.
+- [ ] **NH-19-01** Build the x86_64 Flatpak against the supported GNOME SDK baseline.
+- [ ] **NH-19-02** Verify runtime GTK/WebKitGTK and bundled mpv/torrent/helper dependencies.
+- [ ] **NH-19-03** Inspect native ABI, graphics/audio and codec dependencies.
+- [ ] **NH-19-04** Validate desktop metadata, icon and stable application identity.
 - [ ] **NH-19-05** Run without the repository/devenv or development port assumptions.
-- [ ] **NH-19-06** Connect a packaged client to a separately running server through the chooser.
-- [ ] **NH-19-07** Build reproducible release artifacts in GitHub CI.
-- [ ] **NH-19-08** Publish versioned AppImages, checksums/signatures and release notes.
-- [ ] **NH-19-09** Implement verified automatic AppImage updates with atomic replacement, failure recovery and persistent-state preservation.
-- [ ] **NH-19-10** Keep user connections/settings/downloads across desktop updates.
-- [ ] **NH-19-11** Handle unsupported server versions and failed/partial client updates.
-- [ ] **NH-19-12** Validate Wayland/XWayland behavior on the chosen supported systems.
-- [ ] **NH-19-13** Document launch/runtime requirements, including any AppImage/FUSE limitations.
-- [ ] **NH-19-14** DECISION: target additional Linux architectures only if required for v1.0.
+- [ ] **NH-19-06** Connect the installed client to a separate LAN server through the chooser.
+- [ ] **NH-19-07** Accept the cached conventional Flatpak Builder CI pipeline.
+- [ ] **NH-19-08** Publish signed Flatpak commits/repository metadata and versioned release notes.
+- [ ] **NH-19-09** Verify Software/Flatpak update behavior under the chosen host policy.
+- [ ] **NH-19-10** Preserve client state and device videos across updates; review legacy state imports separately.
+- [ ] **NH-19-11** Handle unsupported API versions and failed/partial client updates.
+- [ ] **NH-19-12** Validate Wayland/XWayland behavior on supported systems.
+- [ ] **NH-19-13** Validate portal file selection and minimal filesystem permissions.
+- [ ] **NH-19-14** DECISION: add other Linux architectures only if needed.
 
 ### 20. Consolidated acceptance and website retirement
 
@@ -473,7 +472,7 @@ The checkboxes below retain supported-platform/runtime, CI and publication accep
 - [ ] **NH-20-08** Exercise server/device downloads, disk-full cases and restart recovery.
 - [ ] **NH-20-09** Exercise offline playback and reconnection under the agreed access policy.
 - [ ] **NH-20-10** Exercise Fedora boot, update, failed-update recovery and independent backup restore.
-- [ ] **NH-20-11** Exercise freshly installed/released AppImages and upgrade compatibility.
+- [ ] **NH-20-11** Exercise freshly installed/released Flatpaks and upgrade compatibility.
 - [ ] **NH-20-12** Inspect real GTK layouts/focus/RTL/input behavior; distinguish fixtures from physical input.
 - [ ] **NH-20-13** Compare every existing website workflow against its accepted client replacement.
 - [x] **NH-20-14** Retire the web dashboard, Hono API and their development/build wiring (2026-10-20).

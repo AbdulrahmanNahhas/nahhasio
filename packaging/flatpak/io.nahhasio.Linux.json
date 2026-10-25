@@ -1,0 +1,169 @@
+{
+  "app-id": "io.nahhasio.Linux",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "50",
+  "sdk": "org.gnome.Sdk",
+  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "command": "nahhasio",
+  "default-branch": "alpha",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--filesystem=xdg-videos/nahhasio:create",
+    "--env=LC_NUMERIC=C"
+  ],
+  "cleanup": ["/include", "/lib/pkgconfig", "/lib/cmake", "/lib/*.a", "/lib/*.la", "/share/man"],
+  "modules": [
+    {
+      "name": "boost-headers",
+      "buildsystem": "simple",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz",
+          "sha256": "3621533e820dcab1e8012afd583c0c73cf0f77694952b81352bf38c1488f9cb4"
+        }
+      ],
+      "build-commands": [
+        "mkdir -p /app/include",
+        "cp -r boost /app/include/",
+        "install -Dm644 LICENSE_1_0.txt /app/share/licenses/boost/LICENSE_1_0.txt"
+      ]
+    },
+    {
+      "name": "libtorrent",
+      "buildsystem": "cmake-ninja",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/arvidn/libtorrent/releases/download/v2.0.12/libtorrent-rasterbar-2.0.12.tar.gz",
+          "sha256": "25b898d02e02e43ee9a8ea5480c20007f129091b5754d0283f94e4d51d11a19e"
+        }
+      ],
+      "config-opts": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DCMAKE_CXX_STANDARD=17",
+        "-Dbuild_tests=OFF",
+        "-Dbuild_examples=OFF",
+        "-Dpython-bindings=OFF",
+        "-DBoost_INCLUDE_DIR=/app/include",
+        "-DBoost_NO_BOOST_CMAKE=ON"
+      ]
+    },
+    {
+      "name": "ffmpeg",
+      "buildsystem": "autotools",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+          "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+        }
+      ],
+      "config-opts": [
+        "--enable-shared",
+        "--disable-static",
+        "--enable-gnutls",
+        "--enable-gpl",
+        "--disable-doc",
+        "--disable-programs",
+        "--disable-encoders",
+        "--disable-muxers",
+        "--disable-debug"
+      ],
+      "no-autogen": true
+    },
+    {
+      "name": "libass",
+      "buildsystem": "autotools",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz",
+          "sha256": "2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc"
+        }
+      ],
+      "config-opts": ["--disable-static"]
+    },
+    {
+      "name": "libplacebo",
+      "buildsystem": "meson",
+      "config-opts": [
+        "-Dvulkan=disabled",
+        "-Dshaderc=disabled",
+        "-Dglslang=disabled",
+        "-Ddemos=false",
+        "-Dtests=false",
+        "--buildtype=release"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/haasn/libplacebo.git",
+          "tag": "v7.360.1",
+          "commit": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+        }
+      ]
+    },
+    {
+      "name": "libmpv",
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/mpv-player/mpv/archive/v0.41.0.tar.gz",
+          "sha256": "ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209"
+        }
+      ],
+      "config-opts": [
+        "-Dlibmpv=true",
+        "-Dcplayer=false",
+        "-Dbuild-date=false",
+        "-Dlua=disabled",
+        "-Djavascript=disabled",
+        "-Dlibarchive=disabled",
+        "-Duchardet=disabled",
+        "-Dvulkan=disabled",
+        "--buildtype=release"
+      ]
+    },
+    {
+      "name": "nahhasio",
+      "buildsystem": "simple",
+      "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "env": {
+          "CARGO_HOME": "/run/build/nahhasio/cargo-home",
+          "CARGO_NET_OFFLINE": "true"
+        }
+      },
+      "build-commands": [
+        "python3 packaging/flatpak/check-sdk.py",
+        "cargo build --release --locked --offline -p nahhasio-linux",
+        "install -Dm755 target/release/nahhasio-linux /app/libexec/nahhasio-linux",
+        "mkdir -p /app/share/nahhasio/ui",
+        "cp -r apps/linux/ui/dist/. /app/share/nahhasio/ui/",
+        "python3 -m venv --without-pip /app/libexec/nahhasio-python",
+        "python3 -m pip install --no-index --no-deps --no-compile --prefix=/app/libexec/nahhasio-python python-wheels/*.whl",
+        "install -Dm644 apps/linux/anime/resolver.py /app/share/nahhasio/resolver.py",
+        "install -Dm755 packaging/flatpak/nahhasio /app/bin/nahhasio",
+        "install -Dm755 packaging/flatpak/nahhasio-anime-resolver /app/bin/nahhasio-anime-resolver",
+        "install -Dm644 packaging/flatpak/io.nahhasio.Linux.desktop /app/share/applications/io.nahhasio.Linux.desktop",
+        "install -Dm644 packaging/flatpak/io.nahhasio.Linux.metainfo.xml /app/share/metainfo/io.nahhasio.Linux.metainfo.xml",
+        "install -Dm644 packaging/flatpak/io.nahhasio.Linux.svg /app/share/icons/hicolor/scalable/apps/io.nahhasio.Linux.svg",
+        "install -Dm644 LICENSE /app/share/licenses/io.nahhasio.Linux/LICENSE"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "../../.flatpak-source"
+        }
+      ]
+    }
+  ]
+}

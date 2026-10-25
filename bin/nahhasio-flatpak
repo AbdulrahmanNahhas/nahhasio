@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Conventional SDK build; no Nix, source checkout or toolchain is required by installed users.
+set -euo pipefail
+task_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$task_root"
+pnpm --filter @nahhasio/linux-ui build
+python3 packaging/flatpak/prepare.py
+flatpak-builder --user --force-clean --disable-rofiles-fuse --install-deps-from=flathub \
+  --repo=dist/flatpak-repo --default-branch=alpha \
+  .flatpak-build packaging/flatpak/io.nahhasio.Linux.json
+flatpak build-bundle dist/flatpak-repo dist/Nahhasio-x86_64.flatpak io.nahhasio.Linux alpha \
+  --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo

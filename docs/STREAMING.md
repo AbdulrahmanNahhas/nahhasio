@@ -274,8 +274,8 @@ current primary endpoint reference were deferred rather than guessing integratio
 ## Native runtime and verification
 
 The development shell supplies GLib networking for HTTPS and GStreamer base/good/bad/libav
-plugins for WebKit media. The AppImage wrapper declares the same media plugin paths; a real
-AppImage installation still requires separate acceptance. Never disable certificate validation.
+plugins for WebKit media. The installed Flatpak uses the supported GNOME runtime and pinned native media modules;
+actual Flatpak installation still requires separate acceptance. Never disable certificate validation.
 After runtime or bridge changes, fully quit the client and relaunch from the updated environment:
 
 ```sh

@@ -92,18 +92,20 @@ impl Config {
     }
 }
 fn main() -> glib::ExitCode {
-    // WebKitGTK 2.54 GPU painting corrupts poster tiles on the target desktop.
-    // CPU rasterization was verified with the affected catalog. Keep an explicit
-    // WEBKIT_SKIA_ENABLE_CPU_RENDERING=0 override for renderer diagnostics.
-    // Renderer environment must be set before GTK or worker threads start.
-    if glib::setenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1", false).is_err() {
+    // Shadow needs a process-local WebKit compatibility path. Installed Flatpaks
+    // use their supported runtime defaults, independent of the development host.
+    let shadow_compat = !std::path::Path::new("/.flatpak-info").exists()
+        && std::path::Path::new("/etc/NIXOS").exists();
+    let compatibility =
+        std::env::var("NAHHASIO_WEBKIT_COMPAT_SHM").map_or(shadow_compat, |value| value == "1");
+    // Configure graphics before GTK or worker threads start. Existing explicit
+    // CPU-rendering and DMA-BUF overrides remain available for diagnostics.
+    if compatibility && glib::setenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING", "1", false).is_err() {
         eprintln!("Could not configure desktop image painting");
         return glib::ExitCode::FAILURE;
     }
-    // WebKit 2.52's Skia software backing store blends transparent updates over
-    // old pixels. Keep the launcher's no-DMA-BUF default, but use the shared-memory
-    // compositor instead. Set this before GTK or workers create any threads.
-    if std::env::var("NAHHASIO_WEBKIT_DMABUF").as_deref() != Ok("1")
+    if compatibility
+        && std::env::var("NAHHASIO_WEBKIT_DMABUF").as_deref() != Ok("1")
         && (glib::setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "0", true).is_err()
             || glib::setenv("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1", true).is_err())
     {
@@ -369,8 +371,6 @@ fn build_window(
                         let _permit = permit;
                         match request.command.as_str() {
                             "clientUpdate.status" => updater::status().await,
-                            "clientUpdate.check" => updater::check().await,
-                            "clientUpdate.stage" => updater::stage().await,
                             _ => Err(Error::new("bad_request", "Unknown update operation")),
                         }
                     })

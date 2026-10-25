@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+export NAHHASIO_UI_DIR=/app/share/nahhasio/ui
+export NAHHASIO_ANIPY_HELPER=/app/bin/nahhasio-anime-resolver
+exec /app/libexec/nahhasio-linux "$@"

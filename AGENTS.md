@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## Installed client correction — 2026-10-25
+
+Aqua approved replacing AppImage with Flatpak for Fedora Atomic and other Linux hosts. Nix/devenv
+remains development-only. Preserve the rootless server/recovery work. Flatpak/Software owns client
+updates; no custom client executable downloader or host-command escape. Use packaging/flatpak/README.md
+for current delivery. Historical AppImage requirements below are superseded for this checkpoint.
+Aqua subsequently required continuing without agents; do the remaining work in the main chat.
+
 ## Active delivery authorization — 2026-10-25
 
 Aqua authorized merging the current branch into local main and implementing all four phases
@@ -13,11 +21,11 @@ commits merely from this authorization. Development stays independent on Shadow 
 ## Project and review boundary
 
 Nahhasio is a private Arabic-first family media server, administration dashboard, and playback
-client project. The Git repository remains Arcadia during the rewrite.
+client project. The GitHub repository is AbdulrahmanNahhas/nahhasio; historical @arcadia workspace and database names remain compatible.
 Read `docs/PROJECT.md` for the current Alpha direction and long-term target and `docs/ROADMAP.md` for the proposed
 task inventory, then `docs/DEVELOPMENT.md` for implementation context.
 Current milestone is 0.1 Alpha; not all future roadmap tasks are Alpha requirements.
-The target is Fedora Atomic/Podman server + Linux AppImage client only, with no shipped website.
+The target is Fedora Atomic/Podman server + Linux Flatpak client only, with no shipped website.
 Approximately 70 Arabic-dubbed works use existing/server-stored files, independently of torrents.
 Treat tasks marked DECISION as unresolved until Aqua answers; future client platforms follow v1.0.
 Complete one phase, report verification and limits, and stop for Aqua's review. Do not begin
@@ -85,7 +93,7 @@ Node/pnpm may remain on development/build machines for React. Jellyfin is playba
 only, with the minimum media identity/track information needed for delivery; never import its
 metadata/artwork as catalog authority or synchronize tracking. Provider keys stay server-owned,
 managed through authenticated desktop administration with write-only updates and masked status.
-Automatic server and AppImage updates are the approved target; implement verified artifacts,
+Automatic server updates and host-managed Flatpak client updates are the approved target; implement verified artifacts,
 compatibility, recovery and state preservation before enabling them. Schema maintenance remains
 explicit, never application startup; PostgreSQL/Jellyfin upgrades have separate ownership.
 Product priority is database/catalog, images and tracking first. Save work caches metadata/artwork;

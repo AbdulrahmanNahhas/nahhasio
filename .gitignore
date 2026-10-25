@@ -23,6 +23,9 @@ core.*
 
 # Native workspace and build artifacts.
 /target/
+/.flatpak-source/
+/.flatpak-build/
+/.flatpak-builder/
 **/build/
 
 # Local library state (created on first run)
@@ -73,3 +76,7 @@ devenv.local.yaml
 .claude/settings.json
 apps/*/.claude/
 apps/*/src/**/.claude/
+
+# Local Python packaging/test bytecode.
+__pycache__/
+*.pyc
