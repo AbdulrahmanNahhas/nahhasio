@@ -18,12 +18,9 @@ type Template = {
 export const browseTemplates: readonly Template[] = [
   {
     id: "anime",
-    title: "كرتون شرقي (أنمي)",
-    description: "مسلسلات الأنمي، باستثناء الأعمال الموسومة بكلاسيكيات الطفولة.",
-    facets: [
-      facet("kinds", ["animated-series"]),
-      facet("tags", ["anime-series"], ["childhood-classic"]),
-    ],
+    title: "كرتون حديث (شرقي وغربي)",
+    description: "مسلسلات الأنمي او الكرتون الغربي، باستثناء الأعمال الموسومة بكلاسيكيات الطفولة.",
+    facets: [facet("kinds", ["animated-series"]), facet("tags", ["childhood-classic"])],
   },
   {
     id: "arabic-cartoon",
