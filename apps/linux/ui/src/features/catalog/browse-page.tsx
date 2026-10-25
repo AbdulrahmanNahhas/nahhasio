@@ -190,7 +190,7 @@ function BrowseContent({
         className="mx-auto flex w-full max-w-400 flex-col px-4 py-6 sm:px-6 lg:px-10"
         aria-label={title}
       >
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl leading-relaxed font-semibold">{title}</h1>
             <Badge variant="secondary" aria-live="polite">

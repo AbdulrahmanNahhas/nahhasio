@@ -54,51 +54,53 @@ export function BrowseToolbar({
   filterTrigger: RefObject<HTMLButtonElement | null>;
 }) {
   return (
-    <div
-      className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
-      role="region"
-      aria-label="أدوات التصفح"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <QuickSelection
-          label="نوع العمل"
-          options={formats}
-          value={selectedFacet(filters, "formats")}
-          onChange={(value) => onFacet("formats", value)}
-        />
-        <QuickSelection
-          label="حالة المشاهدة"
-          options={watchStates}
-          value={selectedFacet(filters, "watchStates")}
-          onChange={(value) => onFacet("watchStates", value)}
-        />
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <div className="w-44">
-          <Choice
-            label="ترتيب النتائج"
-            value={sort}
-            options={sortChoices.map((item) => ({ value: item.value, label: item.label }))}
-            onChange={(next) => onSort(parseSort(next))}
+    <>
+      <BrowseTemplatePicker search={search} onApply={onTemplate} />
+      <div
+        className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
+        role="region"
+        aria-label="أدوات التصفح"
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <QuickSelection
+            label="نوع العمل"
+            options={formats}
+            value={selectedFacet(filters, "formats")}
+            onChange={(value) => onFacet("formats", value)}
+          />
+          <QuickSelection
+            label="حالة المشاهدة"
+            options={watchStates}
+            value={selectedFacet(filters, "watchStates")}
+            onChange={(value) => onFacet("watchStates", value)}
           />
         </div>
-        <DrawerTrigger render={<Button ref={filterTrigger} variant="outline" />}>
-          <SlidersHorizontal data-icon="inline-start" /> المرشحات
-          {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
-        </DrawerTrigger>
-        <DisplaySettings value={display} onChange={onDisplay} group={group} onGroup={onGroup} />
-        <BrowseTemplatePicker search={search} display={display} onApply={onTemplate} />
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="البحث في المكتبة"
-          title="فتح صفحة البحث"
-          onClick={() => openSearch(true)}
-        >
-          <Search />
-        </Button>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="w-44">
+            <Choice
+              label="ترتيب النتائج"
+              value={sort}
+              options={sortChoices.map((item) => ({ value: item.value, label: item.label }))}
+              onChange={(next) => onSort(parseSort(next))}
+            />
+          </div>
+          <DrawerTrigger render={<Button ref={filterTrigger} variant="outline" />}>
+            <SlidersHorizontal data-icon="inline-start" /> المرشحات
+            {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
+          </DrawerTrigger>
+          <DisplaySettings value={display} onChange={onDisplay} group={group} onGroup={onGroup} />
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="البحث في المكتبة"
+            title="فتح صفحة البحث"
+            onClick={() => openSearch(true)}
+          >
+            <Search />
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
