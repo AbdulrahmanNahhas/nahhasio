@@ -66,8 +66,8 @@ pub fn install(
         let passed = passed.clone();
         let weak = view.downgrade();
         let script=match step.get(){
-            0=>"JSON.stringify({ready:!!document.querySelector('#email') && typeof window.__nahhasioReply === 'function'})".into(),
-            1=>format!("(()=>{{const input={credentials}; for(const name of ['email','password']){{const element=document.getElementById(name);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,input[name]);element.dispatchEvent(new Event('input',{{bubbles:true}}));}} return 'filled';}})()"),
+            0=>"JSON.stringify({ready:!!document.querySelector('#login-heading') && !document.querySelector('[aria-busy=true]') && typeof window.__nahhasioReply === 'function'})".into(),
+            1=>format!("(()=>{{if(!document.querySelector('#email')){{Array.from(document.querySelectorAll('button')).find(button=>button.textContent.trim()==='الدخول بالبريد الإلكتروني')?.click();return 'opening';}}const input={credentials}; for(const name of ['email','password']){{const element=document.getElementById(name);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,input[name]);element.dispatchEvent(new Event('input',{{bubbles:true}}));}} return 'filled';}})()"),
             2=>"(()=>{document.querySelector('form').requestSubmit();return 'submitted';})()".into(),
             3=>"JSON.stringify({posters:document.querySelectorAll('.home-fitted-row article a').length,images:Array.from(document.querySelectorAll('.home-fitted-row article img')).filter(img=>img.complete&&img.naturalWidth>0).length,errors:document.querySelectorAll('[role=alert]').length,heroReady:Array.from(document.querySelectorAll('section[aria-label=\"أحدث الأعمال\"] img')).every(image=>image.tagName==='IMG'?image.complete&&image.naturalWidth>0:!image.textContent.includes('جارٍ تحميل الصورة'))})".into(),
             4=>"(()=>{document.querySelector('.home-fitted-row article a').click();return 'open';})()".into(),
@@ -75,7 +75,7 @@ pub fn install(
             6=>"(()=>{document.querySelector('article[aria-label=\"صفحة العمل\"] button').click();return 'back';})()".into(),
             7=>"(()=>{document.querySelector('button[aria-label=\"الملف والحساب\"]').click();return 'account';})()".into(),
             8=>"(()=>{Array.from(document.querySelectorAll('[role=\"menuitem\"]')).find(item=>item.textContent.trim()==='تسجيل الخروج').click();return 'logout';})()".into(),
-            _=>"JSON.stringify({signedOut:!!document.querySelector('#email')})".into(),
+            _=>"JSON.stringify({signedOut:!!document.querySelector('#login-heading')})".into(),
         };
         view.evaluate_javascript(
             &script,
@@ -100,7 +100,8 @@ pub fn install(
                             step.set(1);
                         }
                     }
-                    1 => step.set(2),
+                    1 if text == "filled" => step.set(2),
+                    1 => {}
                     2 => step.set(3),
                     3 => {
                         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)

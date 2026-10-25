@@ -28,6 +28,8 @@
   --font-emoji: "Noto Color Emoji", emoji, sans-serif;
   --font-heading: var(--font-sans);
   --font-display: "Plex Arabic", var(--font-sans);
+  --color-login-background: #05090d;
+  --color-login-glow: #075681;
   --color-background: var(--background);
   --color-player-chrome: var(--player-chrome);
   --color-player-panel: var(--player-panel);

@@ -50,6 +50,32 @@ test.beforeEach(async ({ page }) => {
                   }),
                 );
               switch (request.command) {
+                case "loginAccounts":
+                  success([]);
+                  return;
+                case "servers.list":
+                  success({
+                    selected: "http://127.0.0.1:23103/",
+                    servers: [
+                      {
+                        url: "http://127.0.0.1:23103/",
+                        name: "مكتبة التجربة",
+                        trustedFingerprint: null,
+                      },
+                    ],
+                  });
+                  return;
+                case "servers.probe":
+                  success({
+                    url: request.payload.url,
+                    info: {
+                      product: "nahhasio",
+                      name: "مكتبة التجربة",
+                      version: "0.1.0",
+                      apiVersion: 1,
+                    },
+                  });
+                  return;
                 case "session":
                   success(current ? { user: current, expiresAt: "2099-01-01T00:00:00Z" } : null);
                   return;
@@ -123,6 +149,7 @@ test.beforeEach(async ({ page }) => {
 
 async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/");
+  await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
   await page.getByLabel("البريد الإلكتروني", { exact: true }).fill(email);
   await page.getByLabel("كلمة المرور", { exact: true }).fill("123456");
   await page.getByRole("button", { name: "إظهار كلمة المرور" }).click();
@@ -194,7 +221,7 @@ test("ordinary account has its own profile, no admin entry, and direct admin nav
   await expect(page.getByText("هذه الصفحة للمدير فقط", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "الملف والحساب" }).click();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
-  await expect(page.getByRole("heading", { name: "ادخل إلى مكتبتك" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
 });
 
 test("admin navigation has guarded empty pages for every dashboard section", async ({ page }) => {

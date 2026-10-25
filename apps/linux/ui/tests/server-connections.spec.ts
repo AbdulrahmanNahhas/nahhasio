@@ -13,6 +13,17 @@ test.beforeEach(async ({ page }) => {
             const request = JSON.parse(raw);
             let result;
             switch (request.command) {
+              case "loginAccounts":
+                result = [
+                  {
+                    id: "91000000-0000-4000-8000-000000000001",
+                    name: selected.startsWith("https:")
+                      ? "حساب المكتبة الجديدة"
+                      : "حساب المكتبة السابقة",
+                    avatarKey: "anon-1.png",
+                  },
+                ];
+                break;
               case "session":
                 result = null;
                 break;
@@ -69,6 +80,9 @@ for (const width of [1440, 520]) {
   test(`home certificate enrollment and saved fingerprint at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/#/login");
+    await expect(
+      page.getByRole("button", { name: "حساب المكتبة السابقة", exact: true }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "تغيير", exact: true }).click();
     await page.getByRole("button", { name: "إضافة خادم", exact: true }).click();
     await page.getByLabel("عنوان الخادم", { exact: true }).fill("https://192.168.1.50:8443/");
@@ -82,6 +96,12 @@ for (const width of [1440, 520]) {
     await expect(page.getByText("الخادم جاهز للاتصال", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "اتصال بالمكتبة", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "حساب المكتبة الجديدة", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "حساب المكتبة السابقة", exact: true }),
+    ).toHaveCount(0);
     await page.getByRole("button", { name: "تغيير", exact: true }).click();
     await page.getByRole("button", { name: "تسمية مكتبة البيت", exact: true }).click();
     await expect(page.getByText("ثقة خاصة بهذا الخادم", { exact: true })).toBeVisible();

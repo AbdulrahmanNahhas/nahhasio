@@ -19,9 +19,12 @@ pub(crate) struct ServerSession {
     network_permits: Arc<Semaphore>,
 }
 #[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Login {
-    email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    account_id: Option<String>,
     password: String,
 }
 #[derive(Deserialize, Serialize)]
@@ -569,13 +572,23 @@ impl ServerSession {
             .await
             .map_err(|_| Error::new("internal", "Desktop requests stopped"))?;
         match request.command.as_str() {
+            "loginAccounts" => {
+                let response = self
+                    .client
+                    .get(self.url("api/v1/auth/accounts"))
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
             "login" => {
                 let input: Login = parse(request.payload)?;
-                if input.email.len() > 254
-                    || input.password.len() > 512
-                    || input.email.trim().is_empty()
-                    || input.password.is_empty()
-                {
+                let valid_identity = match (&input.email, &input.account_id) {
+                    (Some(email), None) => email.len() <= 254 && !email.trim().is_empty(),
+                    (None, Some(id)) => valid_id(id),
+                    _ => false,
+                };
+                if !valid_identity || input.password.len() > 512 || input.password.is_empty() {
                     return Err(Error::new("bad_request", "Enter an email and password"));
                 }
                 // Serialize session changes; neither login data nor token is logged or returned.

@@ -130,8 +130,40 @@ test.beforeEach(async ({ page }) => {
               const request = JSON.parse(message);
               let result;
               switch (request.command) {
+                case "servers.list":
+                  result = {
+                    selected: "http://127.0.0.1:23103/",
+                    servers: [
+                      {
+                        url: "http://127.0.0.1:23103/",
+                        name: "مكتبة التجربة",
+                        trustedFingerprint: null,
+                      },
+                    ],
+                  };
+                  break;
+                case "servers.probe":
+                  result = {
+                    url: request.payload.url,
+                    info: {
+                      product: "nahhasio",
+                      name: "مكتبة التجربة",
+                      version: "0.1.0",
+                      apiVersion: 1,
+                    },
+                  };
+                  break;
                 case "session":
                   result = signedIn ? session : null;
+                  break;
+                case "loginAccounts":
+                  result = [
+                    {
+                      id: session.user.accountId,
+                      name: session.user.name,
+                      avatarKey: session.user.avatarKey,
+                    },
+                  ];
                   break;
                 case "login":
                   if (request.payload.password !== "fixture-password") {
@@ -539,6 +571,8 @@ for (const width of [480, 1440]) {
   });
 }
 async function login(page: Page) {
+  if ((await page.getByLabel("البريد الإلكتروني").count()) === 0)
+    await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
   await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
@@ -613,6 +647,7 @@ function latestRow(page: Page) {
 test("real bridge states: reject login, browse details, family guide, search and logout", async ({
   page,
 }) => {
+  await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
   await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("wrong");
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
@@ -652,7 +687,7 @@ test("real bridge states: reject login, browse details, family guide, search and
   await expect(page).toHaveURL(/q=missing/);
   await page.getByRole("button", { name: "الملف والحساب" }).click();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
-  await expect(page.getByRole("heading", { name: "ادخل إلى مكتبتك" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
 });
 for (const width of [480, 640, 1024, 1440])
   test("responsive " + width + ": library and work page fit window", async ({ page }) => {
@@ -854,6 +889,7 @@ for (const width of [480, 1440]) {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "مكتمل (2)", exact: true })).toBeVisible();
     await page.reload();
+    await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
     await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
     await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
     await page.getByRole("button", { name: "دخول المكتبة" }).click();

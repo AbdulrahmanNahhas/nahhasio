@@ -23,6 +23,7 @@ import {
   AdminWorksPageSchema,
   AdminWorkSelectionSchema,
   UserSchema,
+  LoginAccountsSchema,
   ProfileUpdateSchema,
   PublicProfileSchema,
   ProfileOverviewSchema,
@@ -264,6 +265,8 @@ export const gateway = {
     AccountMessageSchema.parse(await call("updatePassword", PasswordUpdateSchema.parse(input))),
   session: async (signal?: AbortSignal) =>
     SessionSchema.nullable().parse(await call("session", {}, signal)),
+  loginAccounts: async (signal?: AbortSignal) =>
+    LoginAccountsSchema.parse(await call("loginAccounts", {}, signal)),
   login: async (payload: LoginRequest) =>
     SessionSchema.parse(await call("login", payload, undefined, 40000)),
   logout: async () => {

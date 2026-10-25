@@ -40,6 +40,7 @@ struct AuthState {
 pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/accounts", get(login_accounts))
         .route("/api/v1/auth/session", get(session))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/me/device", post(device::register))
@@ -106,9 +107,10 @@ struct LoginResponse {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Login {
-    email: String,
+    email: Option<String>,
+    account_id: Option<String>,
     password: String,
 }
 
@@ -192,12 +194,34 @@ pub(crate) fn bearer(headers: &HeaderMap) -> Result<String, AuthError> {
         .ok_or_else(unauthorized)
 }
 
+/// Deliberate family-server sign-in discovery: never return emails, roles or credentials.
+async fn login_accounts(
+    State(state): State<AuthState>,
+) -> Result<Json<serde_json::Value>, AuthError> {
+    let accounts: serde_json::Value = sqlx::query_scalar("SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'name',display_name,'avatarKey',avatar_key) ORDER BY kind='admin',created_at,id),'[]'::jsonb) FROM (SELECT a.id,a.display_name,a.avatar_key,a.kind,a.created_at FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE a.status='active' AND u.role IN ('owner','admin','member') AND (NOT u.banned OR u.ban_expires<=now()) AND EXISTS (SELECT 1 FROM auth_accounts c WHERE c.user_id=u.id AND c.provider_id='credential') ORDER BY a.kind='admin',a.created_at,a.id LIMIT 100) choices")
+        .fetch_one(&state.pool).await.map_err(unavailable)?;
+    Ok(Json(accounts))
+}
+
 async fn login(
     State(state): State<AuthState>,
     Json(input): Json<Login>,
 ) -> Result<Json<LoginResponse>, AuthError> {
-    if input.email.len() > 254
-        || input.email.is_empty()
+    let valid_identity = match (&input.email, &input.account_id) {
+        (Some(email), None) => !email.trim().is_empty() && email.len() <= 254,
+        (None, Some(id)) => {
+            id.len() == 36
+                && id.bytes().enumerate().all(|(i, byte)| {
+                    if [8, 13, 18, 23].contains(&i) {
+                        byte == b'-'
+                    } else {
+                        byte.is_ascii_hexdigit()
+                    }
+                })
+        }
+        _ => false,
+    };
+    if !valid_identity
         || input.password.len() > 512
         || input.password.chars().count() > 128
         || input.password.is_empty()
@@ -224,8 +248,8 @@ async fn login(
         .clone()
         .try_acquire_owned()
         .map_err(|_| AuthError(StatusCode::TOO_MANY_REQUESTS, "Try again later"))?;
-    let row = sqlx::query("SELECT u.id, a.display_name AS name, u.email, u.role, a.id::text AS account_id, a.kind::text AS kind, a.avatar_key, a.bio, (u.role IN ('owner','admin') AND a.kind='admin') AS is_admin, to_char(a.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at, ((u.role IN ('owner','admin') AND a.kind='admin') OR EXISTS(SELECT 1 FROM account_content_policies p WHERE p.account_id=a.id AND p.audience='adult' AND p.age='18+' AND p.sexuality_risk='high' AND p.behavioral_risk='high' AND p.theology_risk='high' AND p.inclusion_filter IS NULL)) AS unrestricted, c.password FROM auth_users u JOIN auth_accounts c ON c.user_id=u.id AND c.provider_id='credential' JOIN accounts a ON a.auth_user_id=u.id WHERE lower(u.email)=lower($1) AND u.role IN ('owner','admin','member') AND a.status='active' AND (NOT u.banned OR u.ban_expires <= now()) LIMIT 1")
-        .bind(input.email.trim()).fetch_optional(&state.pool).await.map_err(unavailable)?;
+    let row = sqlx::query("SELECT u.id, a.display_name AS name, u.email, u.role, a.id::text AS account_id, a.kind::text AS kind, a.avatar_key, a.bio, (u.role IN ('owner','admin') AND a.kind='admin') AS is_admin, to_char(a.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at, ((u.role IN ('owner','admin') AND a.kind='admin') OR EXISTS(SELECT 1 FROM account_content_policies p WHERE p.account_id=a.id AND p.audience='adult' AND p.age='18+' AND p.sexuality_risk='high' AND p.behavioral_risk='high' AND p.theology_risk='high' AND p.inclusion_filter IS NULL)) AS unrestricted, c.password FROM auth_users u JOIN auth_accounts c ON c.user_id=u.id AND c.provider_id='credential' JOIN accounts a ON a.auth_user_id=u.id WHERE (($1::text IS NOT NULL AND lower(u.email)=lower($1)) OR a.id::text=$2) AND u.role IN ('owner','admin','member') AND a.status='active' AND (NOT u.banned OR u.ban_expires <= now()) LIMIT 1")
+        .bind(input.email.as_deref().map(str::trim)).bind(input.account_id.as_deref()).fetch_optional(&state.pool).await.map_err(unavailable)?;
     let hash = row
         .as_ref()
         .and_then(|r| r.get::<Option<String>, _>("password"))

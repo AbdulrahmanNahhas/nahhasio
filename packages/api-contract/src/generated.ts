@@ -101,10 +101,16 @@ export const UserSchema = z.strictObject({
 });
 export type User = z.infer<typeof UserSchema>;
 
-export const LoginRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string().min(1).max(1024),
-});
+export const LoginRequestSchema = z.union([
+  z.strictObject({
+    email: z.string(),
+    password: z.string().min(1).max(1024),
+  }),
+  z.strictObject({
+    accountId: z.string().uuid(),
+    password: z.string().min(1).max(1024),
+  }),
+]);
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 
 export const SessionSchema = z.strictObject({
@@ -3275,6 +3281,16 @@ export const ClientUpdateStatusSchema = z.strictObject({
 });
 export type ClientUpdateStatus = z.infer<typeof ClientUpdateStatusSchema>;
 
+export const LoginAccountSchema = z.strictObject({
+  id: z.string().uuid(),
+  name: z.string(),
+  avatarKey: z.string(),
+});
+export type LoginAccount = z.infer<typeof LoginAccountSchema>;
+
+export const LoginAccountsSchema = z.array(LoginAccountSchema);
+export type LoginAccounts = z.infer<typeof LoginAccountsSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3812,5 +3828,9 @@ export class ApiClient {
   ): Promise<ServerOperationQueued> {
     const response = await this.request("/api/v1/admin/server/operations", "POST", body, signal);
     return ServerOperationQueuedSchema.parse(await response.json());
+  }
+  async getLoginAccounts(signal?: AbortSignal): Promise<LoginAccounts> {
+    const response = await this.request("/api/v1/auth/accounts", "GET", undefined, signal);
+    return LoginAccountsSchema.parse(await response.json());
   }
 }

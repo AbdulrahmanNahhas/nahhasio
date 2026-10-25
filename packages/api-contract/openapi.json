@@ -19,7 +19,7 @@
     "/api/v1/releases": {
       "get": {
         "operationId": "getReleases",
-        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1\u201331) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
+        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1–31) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
         "parameters": [
           {
             "name": "season",
@@ -2628,6 +2628,25 @@
           }
         }
       }
+    },
+    "/api/v1/auth/accounts": {
+      "get": {
+        "operationId": "getLoginAccounts",
+        "summary": "Active accounts available on the selected family server",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Account picker; names and avatars only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginAccounts"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2970,20 +2989,40 @@
         }
       },
       "LoginRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["email", "password"],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email"
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["email", "password"],
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "password": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
           },
-          "password": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["accountId", "password"],
+            "properties": {
+              "accountId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "password": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
           }
-        }
+        ]
       },
       "Session": {
         "type": "object",
@@ -13904,6 +13943,30 @@
             "enum": ["flatpak", "development", "external"]
           }
         }
+      },
+      "LoginAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "avatarKey"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarKey": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginAccounts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/LoginAccount"
+        },
+        "maxItems": 100
       }
     }
   }

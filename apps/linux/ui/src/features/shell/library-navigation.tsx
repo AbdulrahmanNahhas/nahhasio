@@ -5,7 +5,6 @@ import {
   Compass,
   Ellipsis,
   Home,
-  Library,
   MonitorPlay,
   Orbit,
   Search,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
+import { Brand } from "@/components/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -147,7 +147,7 @@ export function LibraryNavigation({
             />
           }
         >
-          <Library className="size-7" aria-hidden="true" />
+          <Brand compact />
         </TooltipTrigger>
         <TooltipContent side="left">نحّاسيو</TooltipContent>
       </Tooltip>

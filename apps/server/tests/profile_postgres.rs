@@ -147,6 +147,7 @@ async fn public_profiles_and_curated_avatars_preserve_privacy() {
             expected
         );
     }
+    login_picker_acceptance(&api, &pool).await;
     activity_acceptance(&api, &pool).await;
     let path = format!("/api/v1/profiles/{ACTOR}");
     assert_eq!(
@@ -657,4 +658,99 @@ async fn server_acceptance(api: &Router, pool: &PgPool) {
             .0,
         StatusCode::SERVICE_UNAVAILABLE
     );
+}
+
+// Uses only the socket-only synthetic database owned by bin/test-account-profile.
+async fn login_picker_acceptance(api: &Router, pool: &PgPool) {
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let hash = "00112233445566778899aabbccddeeff:0f41509d7afa42f50405a64fee8db01ba40f9016a7f011477989a0af876e15d9745b07f4499f1b8e12e40de191be30daba9c2289b89ddff8e79a40f86304bc14";
+    for id in ["rust-editor-admin", "rust-editor-member"] {
+        sqlx::query("insert into auth_accounts(id,account_id,user_id,provider_id,password) values($1,$1,$1,'credential',$2)").bind(id).bind(hash).execute(&mut *tx).await.unwrap();
+    }
+    tx.commit().await.unwrap();
+    let (status, bytes, _) = request(api, "GET", "/api/v1/auth/accounts", None, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    let choices: Value = serde_json::from_slice(&bytes).unwrap();
+    let choices = choices.as_array().unwrap();
+    assert_eq!(choices.len(), 2);
+    assert_eq!(choices[0]["id"], "91000000-0000-4000-8000-000000000002");
+    for choice in choices {
+        let mut keys = choice
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(keys, vec!["avatarKey", "id", "name"]);
+    }
+    for body in [
+        json!({"accountId":ACTOR,"password":"fixture-password"}),
+        json!({"email":"rust-editor-admin@example.invalid","password":"fixture-password"}),
+    ] {
+        let (status, bytes, _) = request(api, "POST", "/api/v1/auth/login", None, body).await;
+        assert_eq!(status, StatusCode::OK);
+        let login: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(login["user"]["accountId"], ACTOR);
+        assert_eq!(login["user"]["isAdmin"], true);
+    }
+    assert_eq!(
+        request(
+            api,
+            "POST",
+            "/api/v1/auth/login",
+            None,
+            json!({"accountId":ACTOR,"password":"wrong"})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(request(api,"POST","/api/v1/auth/login",None,json!({"accountId":ACTOR,"email":"rust-editor-admin@example.invalid","password":"fixture-password"})).await.0,StatusCode::BAD_REQUEST);
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update auth_users set banned=true where id='rust-editor-admin'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update accounts set status='suspended' where auth_user_id='rust-editor-member'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let (_, bytes, _) = request(api, "GET", "/api/v1/auth/accounts", None, Value::Null).await;
+    assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), json!([]));
+    assert_eq!(
+        request(
+            api,
+            "POST",
+            "/api/v1/auth/login",
+            None,
+            json!({"accountId":ACTOR,"password":"fixture-password"})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update auth_users set banned=false where id='rust-editor-admin'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update accounts set status='active' where auth_user_id='rust-editor-member'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
 }
