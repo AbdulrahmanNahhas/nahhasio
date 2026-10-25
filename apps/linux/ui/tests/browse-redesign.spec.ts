@@ -155,6 +155,9 @@ test.beforeEach(async ({ page }) => {
                 case "session":
                   result = signedIn ? session : null;
                   break;
+                case "loginAccounts":
+                  result = [];
+                  break;
                 case "login":
                   if (request.payload.password !== "fixture-password") {
                     window["__nahhasioReply"]?.({
@@ -609,6 +612,7 @@ test.beforeEach(async ({ page }) => {
 test.use({ viewport: { width: 1440, height: 1000 } });
 async function openBrowse(page: import("@playwright/test").Page) {
   await page.goto("/");
+  await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
   await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "دخول المكتبة", exact: true }).click();
