@@ -1,0 +1,9 @@
+[Flatpak Ref]
+Name=io.nahhasio.Linux
+Branch=alpha
+Title=Nahhasio
+Url=https://abdulrahmannahhas.github.io/nahhasio/flatpak/
+IsRuntime=false
+SuggestRemoteName=nahhasio-alpha
+GPGKey=mDMEat4jARYJKwYBBAHaRw8BAQdAEQ7AMs4hLA/nN8t4sAciH04OpXcQKH/34BadAkeEkd20GU5haGhhc2lvIEZsYXRwYWsgUmVsZWFzZXOIlgQTFgoAPhYhBOeQun2uvTbWNd82Mobvx5ovugXKBQJq3iMBAhsDBQkDwmcABQsJCAcCBhUKCQgLAgQWAgMBAh4BAheAAAoJEIbvx5ovugXK7msA/jHQHRjtbFSJ1dzzZy3cKH9tQQPDK3VMJqDe0lZRDiv6AQDU8yqQeOFPxhYMidFhlrszaEdiK1OwHkIRKt2GBn81Dg==
+RuntimeRepo=https://dl.flathub.org/repo/flathub.flatpakrepo
