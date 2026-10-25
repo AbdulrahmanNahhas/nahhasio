@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Active delivery authorization — 2026-10-25
+
+Aqua authorized merging the current branch into local main and implementing all four phases
+in docs/DEPLOYMENT.md before consolidated runtime tests. Parallel agents are explicitly authorized.
+For this checkpoint the older per-phase/visible-change review stops below are superseded; retain
+compile/static checks during coding and defer runtime installation acceptance until code is ready.
+Jellyfin/files-only playback and player/provider testing are outside this release. Do not mutate
+the live catalog, install on the family PC, publish/push releases or create new implementation
+commits merely from this authorization. Development stays independent on Shadow after transfer.
+
 ## Project and review boundary
 
 Nahhasio is a private Arabic-first family media server, administration dashboard, and playback

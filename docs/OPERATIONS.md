@@ -1,5 +1,11 @@
 # Operations and deployment boundary
 
+The current 2026-10-25 implementation and delivery sequence is [DEPLOYMENT.md](DEPLOYMENT.md).
+Rootless installer, host maintenance worker and managed client updater now have implementation
+sources under `packaging/`; installed Fedora/transfer/update acceptance remains deferred.
+Jellyfin/files-only video playback is outside this release. Older readiness statements below
+record earlier checkpoints; use the new guide for current installation commands and boundaries.
+
 Read [PROJECT.md](PROJECT.md) for confirmed product decisions. **Fedora deployment and release
 installation are not implemented/accepted yet.** This guide distinguishes existing development
 configuration from the installation/update procedures still to be delivered.

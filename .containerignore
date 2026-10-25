@@ -1,0 +1,12 @@
+.git
+.devenv*
+.direnv
+node_modules
+**/node_modules
+target
+data
+dist
+.env*
+**/.env*
+test-results
+playwright-report

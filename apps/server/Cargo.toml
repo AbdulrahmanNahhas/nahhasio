@@ -8,6 +8,8 @@ license.workspace = true
 [dependencies]
 nahhasio-catalog = { path = "../../crates/catalog-core" }
 axum.workspace = true
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true

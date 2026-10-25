@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { gateway } from "@/lib/bridge";
 
+import { ClientUpdateCard } from "../admin/server/maintenance";
 import { CacheControl } from "../player/cache-control";
 import { navigate } from "../shell/navigation";
 import { AccountAvatar, avatarChoices } from "./account-avatar";
@@ -289,17 +290,20 @@ export function ProfileEditor({
                 value="device"
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6 scroll-fade-y"
               >
-                <Card>
-                  <CardHeader>
-                    <CardTitle>التخزين على هذا الجهاز</CardTitle>
-                    <CardDescription>
-                      الملفات المؤقتة والتنزيلات تخص هذا الجهاز وحده.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <CacheControl />
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col gap-5">
+                  <ClientUpdateCard />
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>التخزين على هذا الجهاز</CardTitle>
+                      <CardDescription>
+                        الملفات المؤقتة والتنزيلات تخص هذا الجهاز وحده.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CacheControl />
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
             )}
           </div>

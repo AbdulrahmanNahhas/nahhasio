@@ -1,5 +1,6 @@
 //! Real server administration. Fixed operations, bounded queries, no arbitrary paths or secrets.
 mod checks;
+mod operations;
 use super::{Error, no_store};
 use axum::{
     Json, Router,
@@ -35,10 +36,11 @@ pub(super) fn routes(pool: PgPool) -> Router {
         .layer(DefaultBodyLimit::max(8192))
         .layer(middleware::from_fn(no_store))
         .with_state(Services {
-            pool,
+            pool: pool.clone(),
             started: Instant::now(),
             config: provider_config::root(),
         })
+        .merge(operations::routes(pool))
 }
 fn configuration_error(error: nahhasio_catalog::Error) -> Error {
     match error {

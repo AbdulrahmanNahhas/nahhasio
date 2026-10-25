@@ -1,4 +1,4 @@
-use std::{env, error::Error, net::SocketAddr};
+use std::{env, error::Error, net::SocketAddr, time::Duration};
 
 use nahhasio_server::{database_pool, router_with_admin};
 use tokio::net::TcpListener;
@@ -27,12 +27,47 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if token.as_ref().is_some_and(|value| value.len() < 32) {
         return Err("Local admin token must contain at least 32 characters".into());
     }
-    let listener = TcpListener::bind(address).await?;
-    tracing::info!(%address, "Nahhasio server listening");
-
-    axum::serve(listener, router_with_admin(pool.clone(), token))
-        .with_graceful_shutdown(shutdown())
-        .await?;
+    let app = router_with_admin(pool.clone(), token);
+    match (
+        env::var_os("NAHHASIO_TLS_CERT"),
+        env::var_os("NAHHASIO_TLS_KEY"),
+    ) {
+        (Some(cert), Some(key)) => {
+            // Other workspace HTTP clients enable ring as well; select one provider explicitly.
+            rustls::crypto::aws_lc_rs::default_provider()
+                .install_default()
+                .map_err(|_| "Could not install the server TLS provider")?;
+            let tls = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key).await?;
+            let handle = axum_server::Handle::new();
+            let shutdown_handle = handle.clone();
+            tokio::spawn(async move {
+                shutdown().await;
+                shutdown_handle.graceful_shutdown(Some(Duration::from_secs(20)));
+            });
+            tracing::info!(%address, "Nahhasio HTTPS server listening");
+            axum_server::bind_rustls(address, tls)
+                .handle(handle)
+                .serve(app.into_make_service())
+                .await?;
+        }
+        (None, None) if address.ip().is_loopback() => {
+            let listener = TcpListener::bind(address).await?;
+            tracing::info!(%address, "Nahhasio loopback development server listening");
+            axum::serve(listener, app)
+                .with_graceful_shutdown(shutdown())
+                .await?;
+        }
+        (None, None) => {
+            return Err(
+                "Non-loopback listeners require NAHHASIO_TLS_CERT and NAHHASIO_TLS_KEY".into(),
+            );
+        }
+        _ => {
+            return Err(
+                "NAHHASIO_TLS_CERT and NAHHASIO_TLS_KEY must be configured together".into(),
+            );
+        }
+    }
     pool.close().await;
     Ok(())
 }

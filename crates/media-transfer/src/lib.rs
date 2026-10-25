@@ -456,12 +456,21 @@ impl Engine {
         if cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        self.0
-            .readers
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-                (count < 8).then_some(count + 1)
-            })
-            .map_err(|_| Error::Busy)?;
+        let mut readers = self.0.readers.load(Ordering::Acquire);
+        loop {
+            if readers >= 8 {
+                return Err(Error::Busy);
+            }
+            match self.0.readers.compare_exchange_weak(
+                readers,
+                readers + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(current) => readers = current,
+            }
+        }
         let mut guard = ReadGuard {
             engine: self.clone(),
             token: None,

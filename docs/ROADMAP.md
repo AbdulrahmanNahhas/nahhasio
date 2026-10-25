@@ -1,5 +1,11 @@
 # Nahhasio roadmap and task inventory
 
+Current delivery order (2026-10-25): [the four-phase deployment checkpoint](DEPLOYMENT.md)
+supersedes the older sequence below. Complete the code for rootless installation, recovery/transfer,
+server/client updates and app maintenance controls before consolidated installation testing.
+Jellyfin/files-only playback and the wider admin backlog follow this release. Player/provider
+testing is not a release phase. Historical unchecked entries are not an implementation audit.
+
 Updated 2026-10-18. **Current milestone: 0.1 Alpha, a reliable base.**
 [PROJECT.md](PROJECT.md) owns confirmed scope. This is the long-term inventory, not a promise
 that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminPageHeader } from "./admin-page-header";
 import { DatabaseInspector } from "./database-inspector";
 import { LibraryActions } from "./server/library-actions";
+import { ServerMaintenance, ClientUpdateCard } from "./server/maintenance";
 import { ServerSettingsPage } from "./server/server-pages";
 
 const workspaces = {
@@ -74,9 +75,9 @@ const workspaces = {
       {
         value: "backups",
         label: "النسخ والاستعادة",
-        description: "أدوات إنشاء النسخ الاحتياطية واستعادتها لم تُربط بعد.",
+        description: "إنشاء نسخ الخادم ومراجعتها واستعادتها.",
       },
-      { value: "updates", label: "التحديثات", description: "إدارة تحديثات الخادم لم تُربط بعد." },
+      { value: "updates", label: "التحديثات", description: "تحديث الخادم وتطبيق Linux." },
       {
         value: "validation",
         label: "التحقق والصيانة",
@@ -118,6 +119,13 @@ export function AdminWorkspacePage({
           <TabsContent key={item.value} value={item.value}>
             {section === "maintenance" && item.value === "actions" ? (
               <LibraryActions />
+            ) : section === "maintenance" && item.value === "backups" ? (
+              <ServerMaintenance view="backups" />
+            ) : section === "maintenance" && item.value === "updates" ? (
+              <div className="flex flex-col gap-5">
+                <ServerMaintenance view="updates" />
+                <ClientUpdateCard />
+              </div>
             ) : section === "maintenance" ? (
               <Empty>
                 <EmptyHeader>

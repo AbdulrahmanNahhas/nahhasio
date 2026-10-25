@@ -1,0 +1,24 @@
+# Release builds pass digest-qualified base images and record them with the release manifest.
+ARG RUST_IMAGE=docker.io/library/rust:1.94-bookworm
+ARG RUNTIME_IMAGE=docker.io/library/debian:bookworm-slim
+FROM ${RUST_IMAGE} AS build
+WORKDIR /build
+COPY . .
+RUN cargo build --release --locked -p nahhasio-server -p nahhasio-cli
+
+FROM ${RUNTIME_IMAGE}
+RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 nahhasio && useradd --uid 10001 --gid 10001 --no-create-home nahhasio
+COPY --from=build /build/target/release/nahhasio-server /usr/local/bin/nahhasio-server
+COPY --from=build /build/target/release/nahhasio /usr/local/bin/nahhasio
+USER 10001:10001
+ENV NAHHASIO_BIND=0.0.0.0:8443 \
+    NAHHASIO_MEDIA_ROOT=/var/lib/nahhasio/artwork/uploads \
+    NAHHASIO_PUBLIC_MEDIA_ROOT=/var/lib/nahhasio/artwork \
+    NAHHASIO_CONFIG_ROOT=/var/lib/nahhasio/config \
+    NAHHASIO_TLS_CERT=/var/lib/nahhasio/tls/server.crt \
+    NAHHASIO_TLS_KEY=/var/lib/nahhasio/tls/server.key
+EXPOSE 8443
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/nahhasio-server"]

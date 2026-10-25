@@ -767,11 +767,18 @@ impl ServerSession {
                     .map_err(network)?;
                 self.json_limit(response, 16 * 1024 * 1024).await
             }
-            "serverOverview" | "serverSettings" | "renameServer" | "updateProviders" => {
+            "serverOverview"
+            | "serverSettings"
+            | "renameServer"
+            | "updateProviders"
+            | "serverOperations"
+            | "requestServerOperation" => {
                 let (method, path) = match request.command.as_str() {
                     "serverOverview" => (Method::GET, "api/v1/admin/server/overview"),
                     "serverSettings" => (Method::GET, "api/v1/admin/server/settings"),
                     "renameServer" => (Method::PATCH, "api/v1/admin/server/settings"),
+                    "serverOperations" => (Method::GET, "api/v1/admin/server/operations"),
+                    "requestServerOperation" => (Method::POST, "api/v1/admin/server/operations"),
                     _ => (Method::PUT, "api/v1/admin/server/providers"),
                 };
                 let write = method != Method::GET;

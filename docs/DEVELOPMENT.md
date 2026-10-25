@@ -400,10 +400,11 @@ home was too full for the first extraction. Use a persistent cache directory whe
 for example `XDG_CACHE_HOME=/your/persistent/cache ./Nahhasio-0.1.0-x86_64.AppImage`.
 Do not put the extracted runtime into the client state/video directories.
 
-`.github/workflows/linux-release.yml` builds an optimized AppImage and checksum on manual
-dispatch or `v*` tags. Manual runs supply a downloadable Actions artifact; tags create a **draft**
-prerelease for review. CI execution and publication are separate from local artifact creation.
-No automatic client updater or published release is implied by this workflow.
+`.github/workflows/nahhasio-release.yml` prepares the server image, AppImage, signed manifest
+and installation bundle on manual dispatch or `nahhasio-v*` tags. It creates a draft prerelease.
+The separate channel workflow promotes the verified manifest only after release publication.
+Managed server/client update implementations and their deferred installation acceptance are
+documented in [DEPLOYMENT.md](DEPLOYMENT.md). Historical `v*` tags belong to the retired release line.
 
 The AppImage uses our own static Bubblewrap AppRun instead of the bundler's chroot launcher.
 It mounts bundled Nix objects read-only, includes the host GPU/loader closure on NixOS to retain runtime

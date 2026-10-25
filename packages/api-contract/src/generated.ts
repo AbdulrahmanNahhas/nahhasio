@@ -3211,6 +3211,69 @@ export const TrailersPageSchema = z.strictObject({
 });
 export type TrailersPage = z.infer<typeof TrailersPageSchema>;
 
+export const MaintenanceJobSchema = z.strictObject({
+  id: z.string(),
+  operation: z.string(),
+  state: z.string(),
+  stage: z.string(),
+  message: z.string(),
+});
+export type MaintenanceJob = z.infer<typeof MaintenanceJobSchema>;
+
+export const ServerBackupSchema = z.strictObject({
+  id: z.string(),
+  createdAt: z.string(),
+  reason: z.string(),
+  byteSize: z.number().int().min(0),
+  version: z.string(),
+  schema: z.string(),
+});
+export type ServerBackup = z.infer<typeof ServerBackupSchema>;
+
+export const InstalledUpdateSchema = z.strictObject({
+  state: z.string(),
+  currentVersion: z.string(),
+  availableVersion: z.string().optional(),
+  message: z.string().optional(),
+});
+export type InstalledUpdate = z.infer<typeof InstalledUpdateSchema>;
+
+export const ServerOperationsSchema = z.strictObject({
+  version: z.number().int(),
+  available: z.boolean(),
+  backups: z.array(ServerBackupSchema),
+  update: InstalledUpdateSchema,
+  activeJob: MaintenanceJobSchema.nullable(),
+  lastJob: MaintenanceJobSchema.nullable(),
+});
+export type ServerOperations = z.infer<typeof ServerOperationsSchema>;
+
+export const ServerOperationRequestSchema = z.strictObject({
+  id: z.string().uuid(),
+  operation: z.enum(["backup", "restore", "check-update", "update"]),
+  backupId: z.string().max(80).optional(),
+  confirmation: z.string().max(80).optional(),
+});
+export type ServerOperationRequest = z.infer<typeof ServerOperationRequestSchema>;
+
+export const ServerOperationQueuedSchema = z.strictObject({
+  id: z.string(),
+  state: z.enum(["queued"]),
+});
+export type ServerOperationQueued = z.infer<typeof ServerOperationQueuedSchema>;
+
+export const ClientUpdateStatusSchema = z.strictObject({
+  available: z.boolean(),
+  state: z.string(),
+  currentVersion: z.string(),
+  availableVersion: z.string().nullable(),
+  message: z.string(),
+  pendingVersion: z.string().nullable(),
+  automatic: z.boolean(),
+  lastCheck: z.number().int().nullable(),
+});
+export type ClientUpdateStatus = z.infer<typeof ClientUpdateStatusSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3230,6 +3293,7 @@ export class ApiClient {
       | PasswordUpdate
       | ProfileUpdate
       | ProviderUpdate
+      | ServerOperationRequest
       | ServerRename
       | TrackingChange
       | WatchedRequest
@@ -3731,5 +3795,21 @@ export class ApiClient {
       signal,
     );
     return TrailersPageSchema.parse(await response.json());
+  }
+  async getServerOperations(signal?: AbortSignal): Promise<ServerOperations> {
+    const response = await this.request(
+      "/api/v1/admin/server/operations",
+      "GET",
+      undefined,
+      signal,
+    );
+    return ServerOperationsSchema.parse(await response.json());
+  }
+  async requestServerOperation(
+    body: ServerOperationRequest,
+    signal?: AbortSignal,
+  ): Promise<ServerOperationQueued> {
+    const response = await this.request("/api/v1/admin/server/operations", "POST", body, signal);
+    return ServerOperationQueuedSchema.parse(await response.json());
   }
 }

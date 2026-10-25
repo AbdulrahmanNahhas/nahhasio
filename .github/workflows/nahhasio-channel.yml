@@ -1,0 +1,35 @@
+name: Publish Nahhasio update channel
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nahhasio-alpha-channel
+  cancel-in-progress: false
+
+jobs:
+  channel:
+    if: startsWith(github.event.release.tag_name, 'nahhasio-v')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify published release and update alpha channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          TRUSTED_KEY: ${{ vars.NAHHASIO_RELEASE_PUBLIC_KEY }}
+        run: |
+          test -n "$TRUSTED_KEY"
+          mkdir release
+          gh release download "$RELEASE_TAG" --pattern 'manifest.json*' --dir release
+          printf '%s\n' "$TRUSTED_KEY" > release/key.pem
+          base64 --decode release/manifest.json.sig > release/signature.bin
+          openssl pkeyutl -verify -pubin -inkey release/key.pem -rawin -in release/manifest.json -sigfile release/signature.bin
+          if ! gh release view nahhasio-alpha >/dev/null 2>&1; then
+            gh release create nahhasio-alpha --title "Nahhasio Alpha update channel" --prerelease --notes "Signed release information for installed Nahhasio clients and servers."
+          fi
+          gh release upload nahhasio-alpha release/manifest.json release/manifest.json.sig --clobber

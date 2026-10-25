@@ -1,5 +1,10 @@
 # Administration review — 2026-10-23
 
+2026-10-25 follow-up: backup/restore and server/client update services and app controls are
+implemented in the [deployment checkpoint](DEPLOYMENT.md), awaiting consolidated installation
+acceptance. They are enabled only for configured installations. The remaining administration
+backlog below follows family-PC setup; Jellyfin/files-only playback is outside this release.
+
 Source review of the Linux administration routes and their current services. This is a proposed
 next-work list, not authorization to start additional phases or publish a release. No website is shipped.
 

@@ -19,7 +19,7 @@
     "/api/v1/releases": {
       "get": {
         "operationId": "getReleases",
-        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1–31) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
+        "description": "Read-only public releases using actual installment/episode dates only. Defaults to the database current year. Year/month are valid only in year scope. Optional day (1\u201331) requires year scope and a supplied month. Days contain exact counts by recorded date from the filtered scope before pagination (including any day filter), ordered by date; undated returns no days. A month overview can use pageSize=1 without fetching all entries. Upcoming is dated-only from current_date across years. Undated includes announced installments and episodes whose parent is announced/airing. Episode status is the parent installment status; episodeCount is null for episodes. Posters prefer installment then work. Stable ascending date (null last), work sort title, installment/episode positions, kind and UUID ordering. Years are ascending distinct actual known public release years, independent of query filters. A passed date does not imply playback availability.",
         "parameters": [
           {
             "name": "season",
@@ -1423,13 +1423,19 @@
             "name": "language",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["ar", "en"] }
+            "schema": {
+              "type": "string",
+              "enum": ["ar", "en"]
+            }
           },
           {
             "name": "status",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["completed", "ongoing", "announced", "unknown"] }
+            "schema": {
+              "type": "string",
+              "enum": ["completed", "ongoing", "announced", "unknown"]
+            }
           },
           {
             "name": "gap",
@@ -2072,13 +2078,19 @@
             "name": "language",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["ar", "en"] }
+            "schema": {
+              "type": "string",
+              "enum": ["ar", "en"]
+            }
           },
           {
             "name": "status",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["completed", "ongoing", "announced", "unknown"] }
+            "schema": {
+              "type": "string",
+              "enum": ["completed", "ongoing", "announced", "unknown"]
+            }
           },
           {
             "name": "gap",
@@ -2557,6 +2569,60 @@
                 "schema": {
                   "$ref": "#/components/schemas/TrailersPage"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/server/operations": {
+      "get": {
+        "operationId": "getServerOperations",
+        "responses": {
+          "200": {
+            "description": "Fixed installation maintenance response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerOperations"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Active administrator session required"
+          },
+          "503": {
+            "description": "Host maintenance worker unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "requestServerOperation",
+        "responses": {
+          "200": {
+            "description": "Fixed installation maintenance response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerOperationQueued"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Active administrator session required"
+          },
+          "503": {
+            "description": "Host maintenance worker unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerOperationRequest"
               }
             }
           }
@@ -13652,6 +13718,184 @@
           "pageSize": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "MaintenanceJob": {
+        "type": "object",
+        "required": ["id", "operation", "state", "stage", "message"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerBackup": {
+        "type": "object",
+        "required": ["id", "createdAt", "reason", "byteSize", "version", "schema"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "version": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "string"
+          }
+        }
+      },
+      "InstalledUpdate": {
+        "type": "object",
+        "required": ["state", "currentVersion"],
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "string"
+          },
+          "availableVersion": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerOperations": {
+        "type": "object",
+        "required": ["version", "available", "backups", "update", "activeJob", "lastJob"],
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "backups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerBackup"
+            }
+          },
+          "update": {
+            "$ref": "#/components/schemas/InstalledUpdate"
+          },
+          "activeJob": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MaintenanceJob"
+              }
+            ],
+            "nullable": true
+          },
+          "lastJob": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MaintenanceJob"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "ServerOperationRequest": {
+        "type": "object",
+        "required": ["id", "operation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["backup", "restore", "check-update", "update"]
+          },
+          "backupId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "confirmation": {
+            "type": "string",
+            "maxLength": 80
+          }
+        }
+      },
+      "ServerOperationQueued": {
+        "type": "object",
+        "required": ["id", "state"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["queued"]
+          }
+        }
+      },
+      "ClientUpdateStatus": {
+        "type": "object",
+        "required": [
+          "available",
+          "state",
+          "currentVersion",
+          "availableVersion",
+          "message",
+          "pendingVersion",
+          "automatic",
+          "lastCheck"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "string"
+          },
+          "availableVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "pendingVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "automatic": {
+            "type": "boolean"
+          },
+          "lastCheck": {
+            "type": "integer",
+            "nullable": true
           }
         }
       }

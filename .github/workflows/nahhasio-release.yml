@@ -1,0 +1,125 @@
+name: Nahhasio release preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Nahhasio version (must match the Rust and client package versions)
+        required: true
+        default: "0.1.0"
+  push:
+    tags: ["nahhasio-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nahhasio-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, tomllib
+          version = os.environ.get("REQUESTED_VERSION") or os.environ["GITHUB_REF_NAME"].removeprefix("nahhasio-v")
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?", version):
+              raise SystemExit("Invalid release version")
+          for path in ("apps/server/Cargo.toml", "apps/linux/Cargo.toml", "crates/cli/Cargo.toml"):
+              with open(path, "rb") as stream:
+                  if tomllib.load(stream)["package"]["version"] != version:
+                      raise SystemExit(f"Version mismatch: {path}")
+          if json.load(open("apps/linux/ui/package.json"))["version"] != version:
+              raise SystemExit("Client package version mismatch")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={version}\n")
+          PY
+  server:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and publish digest-qualified server image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes podman
+          printf '%s' "$REGISTRY_TOKEN" | podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}/nahhasio-server"
+          podman pull docker.io/library/rust:1.94-bookworm
+          podman pull docker.io/library/debian:bookworm-slim
+          rust_image=$(podman image inspect docker.io/library/rust:1.94-bookworm --format '{{index .RepoDigests 0}}')
+          runtime_image=$(podman image inspect docker.io/library/debian:bookworm-slim --format '{{index .RepoDigests 0}}')
+          podman build --file packaging/server/Containerfile --build-arg "RUST_IMAGE=$rust_image" --build-arg "RUNTIME_IMAGE=$runtime_image" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$repository:$RELEASE_VERSION" .
+          mkdir -p dist/release
+          podman push --digestfile dist/release/server.digest "$repository:$RELEASE_VERSION"
+          printf '%s@%s\n' "$repository" "$(cat dist/release/server.digest)" > dist/release/server-image.txt
+          printf '%s\n%s\n' "$rust_image" "$runtime_image" > dist/release/build-bases.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nahhasio-server-release
+          path: dist/release/*
+  client:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # 31.11.3
+      - name: Build AppImage
+        run: |
+          nix profile install github:cachix/devenv/30ef5a2458f270574726efe3574e5eb7e731f647
+          devenv shell -- bash bin/nahhasio-appimage
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nahhasio-client-release
+          path: |
+            dist/client/*.AppImage
+            dist/client/*.sha256
+          if-no-files-found: error
+  draft:
+    needs: [version, server, client]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: nahhasio-*-release
+          merge-multiple: true
+          path: dist/release
+      - name: Sign release and prepare install bundle
+        env:
+          SIGNING_KEY: ${{ secrets.NAHHASIO_RELEASE_SIGNING_KEY }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          test -n "$SIGNING_KEY"
+          umask 077
+          key="$RUNNER_TEMP/nahhasio-release-key.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          image="dist/release/Nahhasio-$RELEASE_VERSION-x86_64.AppImage"
+          python3 packaging/release/manifest.py --version "$RELEASE_VERSION" --client "$image" --client-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/$(basename "$image")" --server-image "$(cat dist/release/server-image.txt)" --signing-key "$key"
+          tar -czf dist/release/nahhasio-install.tar.gz bin/nahhasio-server-install bin/nahhasio-client-install bin/nahhasio-transfer packaging/server packaging/operations packaging/linux/update-client.py packaging/linux/updates.md packaging/release/manifest.py docs/DEPLOYMENT.md
+          openssl pkeyutl -sign -rawin -inkey "$key" -in dist/release/nahhasio-install.tar.gz | base64 -w0 > dist/release/nahhasio-install.tar.gz.sig
+      - name: Create reviewable draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: gh release create "nahhasio-v$RELEASE_VERSION" dist/release/* --draft --prerelease --title "Nahhasio $RELEASE_VERSION" --generate-notes

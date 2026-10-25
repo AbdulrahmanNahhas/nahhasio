@@ -1,4 +1,8 @@
 import {
+  ServerOperationsSchema,
+  ServerOperationRequestSchema,
+  ServerOperationQueuedSchema,
+  ClientUpdateStatusSchema,
   ServerOverviewSchema,
   ServerSettingsSchema,
   ServerIdentitySchema,
@@ -238,6 +242,18 @@ export const gateway = {
     DatabasePageSchema.parse(await call("databaseRows", { table, page, pageSize: 25, q }, signal)),
   serverOverview: async (signal?: AbortSignal) =>
     ServerOverviewSchema.parse(await call("serverOverview", {}, signal)),
+  serverOperations: async (signal?: AbortSignal) =>
+    ServerOperationsSchema.parse(await call("serverOperations", {}, signal)),
+  requestServerOperation: async (input: z.input<typeof ServerOperationRequestSchema>) =>
+    ServerOperationQueuedSchema.parse(
+      await call("requestServerOperation", ServerOperationRequestSchema.parse(input)),
+    ),
+  clientUpdateStatus: async (signal?: AbortSignal) =>
+    ClientUpdateStatusSchema.parse(await call("clientUpdate.status", {}, signal)),
+  checkClientUpdate: async () =>
+    ClientUpdateStatusSchema.parse(await nativeCall("clientUpdate.check", {}, undefined, 120000)),
+  stageClientUpdate: async () =>
+    ClientUpdateStatusSchema.parse(await nativeCall("clientUpdate.stage", {}, undefined, 3600000)),
   serverSettings: async (signal?: AbortSignal) =>
     ServerSettingsSchema.parse(await call("serverSettings", {}, signal)),
   renameServer: async (input: ServerRename) =>

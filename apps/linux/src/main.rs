@@ -36,6 +36,7 @@ mod stream_registry;
 mod torrent_smoke;
 mod torrent_sources;
 mod torrentio;
+mod updater;
 
 use adw::prelude::*;
 use bridge::{Error, Request, reply};
@@ -335,6 +336,52 @@ fn build_window(
         let id = request.id.clone();
         let revision = services.revision();
         let boundary = services.clone();
+        if request.command.starts_with("clientUpdate.") {
+            if request
+                .payload
+                .as_object()
+                .is_none_or(|value| !value.is_empty())
+            {
+                send_reply(
+                    &view,
+                    reply(
+                        &id,
+                        Err(Error::new("bad_request", "Invalid update request")),
+                    ),
+                );
+                return;
+            }
+            let permit = match services.permits.clone().try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => {
+                    send_reply(
+                        &view,
+                        reply(&id, Err(Error::new("busy", "طلبات التطبيق مشغولة."))),
+                    );
+                    return;
+                }
+            };
+            let runtime = runtime.clone();
+            let weak = view.downgrade();
+            glib::MainContext::default().spawn_local(async move {
+                let result = runtime
+                    .spawn(async move {
+                        let _permit = permit;
+                        match request.command.as_str() {
+                            "clientUpdate.status" => updater::status().await,
+                            "clientUpdate.check" => updater::check().await,
+                            "clientUpdate.stage" => updater::stage().await,
+                            _ => Err(Error::new("bad_request", "Unknown update operation")),
+                        }
+                    })
+                    .await
+                    .unwrap_or_else(|_| Err(Error::new("update", "تعذّر إكمال تحديث التطبيق.")));
+                if let Some(view) = weak.upgrade() {
+                    send_reply(&view, reply(&id, result));
+                }
+            });
+            return;
+        }
         if request.command.starts_with("anime.") {
             let command = anime::Command::parse(&request);
             let resolver = anime_resolver.clone();

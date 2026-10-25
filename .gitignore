@@ -33,6 +33,8 @@ data/backups/
 data/previews/
 data/ideas/
 data/recovery/
+data/development-packs/
+data/development-local/
 
 # Devenv
 .devenv*

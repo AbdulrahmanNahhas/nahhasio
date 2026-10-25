@@ -1,5 +1,16 @@
 # Nahhasio project guide
 
+## Current release checkpoint — 2026-10-25
+
+Aqua authorized the four-phase family-PC delivery in [DEPLOYMENT.md](DEPLOYMENT.md): rootless
+Fedora Atomic Quadlets, backup/restore and catalog transfer with independent laptop development,
+verified server/AppImage updates, then app maintenance controls. Code all four phases before
+consolidated installation acceptance; there is no per-phase approval stop for this checkpoint.
+Player/provider testing is removed from this release sequence. Jellyfin and files-only playback
+are deferred, as are unrelated catalog/admin tools. This dated scope supersedes older checkpoint
+ordering and mandatory Jellyfin/playback acceptance language below. The real catalog moves only
+after a verified transfer; development remains on Shadow. No release publication/push is implied.
+
 Updated 2026-10-18. This document owns the current product direction. [ROADMAP.md](ROADMAP.md)
 owns the large task inventory and Alpha/future priorities. Older plans are recoverable in Git.
 
