@@ -38,10 +38,12 @@ test("GTK gateway normalizes manual targets, validates replies and supports canc
   type Reply = { id: string; ok: true; result: BridgeResult };
   const sent: z.infer<typeof NativeMessageSchema>[] = [];
   let result: BridgeResult = state;
+  const events = new EventTarget();
   type NativeWindow = {
     webkit: { messageHandlers: { nahhasio: { postMessage: (raw: string) => void } } };
     __nahhasioReply?: (reply: Reply) => void;
     dispatchEvent: (event: Event) => boolean;
+    addEventListener: EventTarget["addEventListener"];
   };
   const windowStub: NativeWindow = {
     webkit: {
@@ -55,7 +57,8 @@ test("GTK gateway normalizes manual targets, validates replies and supports canc
         },
       },
     },
-    dispatchEvent: () => true,
+    dispatchEvent: events.dispatchEvent.bind(events),
+    addEventListener: events.addEventListener.bind(events),
   };
   const original = Object.getOwnPropertyDescriptor(globalThis, "window");
   Object.defineProperty(globalThis, "window", { value: windowStub, configurable: true });
@@ -91,6 +94,10 @@ test("GTK gateway normalizes manual targets, validates replies and supports canc
     assert.equal(sent.length, count, "invalid/aborted operations never reach the native bridge");
     result = { ...state, token: "must-not-be-returned" };
     await assert.rejects(() => gateway.workState(id));
+    result = state;
+    const previousServerRead = gateway.workState(id);
+    windowStub.dispatchEvent(new Event("nahhasio:server-changed"));
+    await assert.rejects(() => previousServerRead, { name: "AbortError" });
   } finally {
     if (original) Object.defineProperty(globalThis, "window", original);
     else Reflect.deleteProperty(globalThis, "window");

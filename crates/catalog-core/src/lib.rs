@@ -43,6 +43,9 @@ pub fn database_pool(
             Box::pin(async move {
                 for statement in [
                     "SET default_transaction_read_only = on",
+                    // Bounded catalog queries must not spend their request budget compiling
+                    // large generated JSON projections on LLVM-enabled PostgreSQL builds.
+                    "SET jit = off",
                     "SET statement_timeout = '30s'",
                     "SET lock_timeout = '5s'",
                 ] {
