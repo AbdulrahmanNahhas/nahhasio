@@ -42,7 +42,7 @@ export const defaultPreferences: BrowsePreferences = {
   display: displayDefaults,
   presets: [],
 };
-const rememberedKeys = ["view", "filters", "privacy", "sort", "group", "from", "to"];
+const rememberedKeys = ["library", "view", "filters", "privacy", "sort", "group", "from", "to"];
 /** Search text stays temporary. Explicit links override the remembered view. */
 export function rememberedSearch(params: URLSearchParams) {
   const search = new URLSearchParams();

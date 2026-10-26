@@ -1,73 +1,74 @@
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useEffect, useRef } from "react";
 
-import { browseTemplates, templateSettings } from "./browse-templates";
-import { displayDefaults, type DisplayPreferences } from "./display-preferences";
-import { emptyFilters, parseFilters } from "./filter-model";
+import { Button } from "@/components/ui/button";
+
+import { browseLibrary, browseTemplates, selectLibrary } from "./browse-templates";
 
 export function BrowseTemplatePicker({
   search,
+  path,
   onApply,
 }: {
   search: string;
-  onApply: (search: string, display: DisplayPreferences) => void;
+  path: string;
+  onApply: (search: string) => void;
 }) {
   const current = new URLSearchParams(search);
-  const filters = parseFilters(current.get("filters"));
-  const active =
-    (current.get("view") ?? "works") === "works"
-      ? browseTemplates.find((template) => {
-          const next = new URLSearchParams(templateSettings(template, null).search);
-          return JSON.stringify(filters) === JSON.stringify(parseFilters(next.get("filters")));
-        })
-      : undefined;
-
-  const allActive =
-    (current.get("view") ?? "works") === "works" &&
-    !current.get("q") &&
-    !current.get("from") &&
-    !current.get("to") &&
-    JSON.stringify(filters) === JSON.stringify(parseFilters(null));
-
+  const active = browseLibrary(current).template?.id ?? "all";
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const reveal = () =>
+      navigation.current
+        ?.querySelector<HTMLAnchorElement>(`[data-library="${active}"]`)
+        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    if (navigation.current) observer.observe(navigation.current);
+    return () => observer.disconnect();
+  }, [active]);
+  const libraries = [
+    { id: "all", title: "كل المكتبة", description: "جميع أعمال المكتبة" },
+    ...browseTemplates,
+  ];
   return (
-    <section className="mb-3 min-w-0 overflow-x-auto p-1" aria-label="فئات المكتبة">
-      <ToggleGroup
-        variant="outline"
-        spacing={0}
-        value={active ? [active.id] : allActive ? ["all"] : []}
-        className="w-full min-w-max"
-        aria-label="عروض التصفح"
-        onValueChange={(values) => {
-          if (values[0] === "all") {
-            const params = new URLSearchParams({
-              view: "works",
-              sort: "year-desc",
-              filters: JSON.stringify(emptyFilters()),
-            });
-            const privacy = current.get("privacy");
-            if (privacy === "all" || privacy === "private") params.set("privacy", privacy);
-            onApply(params.toString(), { ...displayDefaults });
-            return;
-          }
-          const template = browseTemplates.find((item) => item.id === values[0]);
-          if (!template) return;
-          const next = templateSettings(template, current.get("privacy"));
-          onApply(next.search, next.display);
-        }}
-      >
-        <ToggleGroupItem value="all" className="flex-1" title="كل المكتبة بلا مرشحات">
-          <span>كل المكتبة</span>
-        </ToggleGroupItem>
-        {browseTemplates.map((template) => (
-          <ToggleGroupItem
-            key={template.id}
-            value={template.id}
-            className="flex-1"
-            title={template.description}
-          >
-            <span>{template.title}</span>
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </section>
+    <nav ref={navigation} className="min-w-0 overflow-x-auto py-2" aria-label="مكتبات التصفح">
+      <div className="flex w-max min-w-full items-center gap-1">
+        {libraries.map((library) => {
+          const next =
+            active === library.id
+              ? current.toString()
+              : selectLibrary(current, library.id).toString();
+          return (
+            <Button
+              key={library.id}
+              variant={active === library.id ? "secondary" : "ghost"}
+              className="shrink-0"
+              render={
+                <a
+                  data-library={library.id}
+                  href={`#${path}?${next}`}
+                  aria-current={active === library.id ? "page" : undefined}
+                />
+              }
+              title={library.description}
+              onClick={(event) => {
+                if (
+                  event.button ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return;
+                event.preventDefault();
+                if (active !== library.id) onApply(next);
+              }}
+            >
+              {library.title}
+            </Button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

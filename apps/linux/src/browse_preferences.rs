@@ -51,6 +51,17 @@ fn invalid() -> Error {
 fn valid_search(search: &str) -> bool {
     search.len() <= 9000
         && url::form_urlencoded::parse(search.as_bytes()).all(|(key, value)| match key.as_ref() {
+            "library" => matches!(
+                value.as_ref(),
+                "all"
+                    | "anime"
+                    | "arabic-cartoon"
+                    | "eastern-animation-movies"
+                    | "western-animation-movies"
+                    | "live-action-movies"
+                    | "western-series"
+                    | "arabic-series"
+            ),
             "view" => matches!(value.as_ref(), "works" | "installments"),
             "privacy" => matches!(value.as_ref(), "public" | "private" | "all"),
             "sort" => matches!(
@@ -246,6 +257,10 @@ mod tests {
     #[test]
     fn only_bounded_browse_state_is_persisted() {
         assert!(valid_search("group=planet&sort=title&filters=%7B%7D"));
+        assert!(valid_search(
+            "library=arabic-series&view=installments&group=year"
+        ));
+        assert!(!valid_search("library=arbitrary"));
         assert!(!valid_search("token=private"));
         assert!(!valid_search("group=arbitrary"));
         assert!(!valid_search("filters=broken"));

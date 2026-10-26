@@ -38,15 +38,20 @@ export function useBrowsePreferences() {
   const save = useMutation({
     scope: { id: `browse-preferences:${scope}` },
     mutationFn: async (value: BrowsePreferences) => {
+      if (query.isError) throw new Error("أعد تحميل تفضيلات التصفح قبل حفظ تغييرات جديدة.");
       const parsed = preferencesSchema.parse(value);
       if (!enabled) throw new Error("لم يكتمل تحميل حساب المكتبة؛ أعد المحاولة.");
       z.object({ ok: z.literal(true) }).parse(await nativeCall("browsePreferences.save", parsed));
     },
     onMutate: (value) => {
-      client.setQueryData(key, value);
+      if (!query.isError) client.setQueryData(key, value);
     },
     networkMode: "always",
     retry: false,
   });
-  return { query, save, scope, loading: enabled && query.isPending };
+  const retry = () => {
+    if (query.isError) void query.refetch();
+    else if (save.variables) save.mutate(save.variables);
+  };
+  return { query, save, retry, scope, loading: enabled && query.isPending };
 }

@@ -1,9 +1,8 @@
 import type { BrowseFilters } from "@nahhasio/api-contract";
 
-import { displayDefaults } from "./display-preferences";
-import { emptyFilters } from "./filter-model";
+import { emptyFilters, parseFilters } from "./filter-model";
 
-function facet(key: string, include: string[] = [], exclude: string[] = []) {
+function templateFacet(key: string, include: string[] = [], exclude: string[] = []) {
   return { key, include, exclude };
 }
 
@@ -20,68 +19,98 @@ export const browseTemplates: readonly Template[] = [
     id: "anime",
     title: "كرتون حديث",
     description: "مسلسلات الأنمي او الكرتون الغربي، باستثناء الأعمال الموسومة بكلاسيكيات الطفولة.",
-    facets: [facet("kinds", ["animated-series"]), facet("tags", [], ["childhood-classic"])],
+    facets: [
+      templateFacet("kinds", ["animated-series"]),
+      templateFacet("tags", [], ["childhood-classic"]),
+    ],
   },
   {
     id: "arabic-cartoon",
     title: "كرتون عربي",
     description: "مسلسلات الرسوم المتحركة التي سُجّلت لها دبلجة عربية.",
-    facets: [facet("kinds", ["animated-series"]), facet("dubLanguages", ["ar"])],
+    facets: [templateFacet("kinds", ["animated-series"]), templateFacet("dubLanguages", ["ar"])],
   },
   {
     id: "eastern-animation-movies",
     title: "أفلام أنميشن شرقي",
     description: "أفلام الأنمي حسب تصنيف المكتبة، من كل السنوات.",
-    facets: [facet("kinds", ["animated-movie"]), facet("tags", ["anime-movie"])],
+    facets: [templateFacet("kinds", ["animated-movie"]), templateFacet("tags", ["anime-movie"])],
   },
   {
     id: "western-animation-movies",
     title: "أفلام أنميشن غربي",
     description: "بقية أفلام الرسوم المتحركة، بما فيها المدبلجة بالعربية.",
-    facets: [facet("kinds", ["animated-movie"]), facet("tags", [], ["anime-movie"])],
+    facets: [
+      templateFacet("kinds", ["animated-movie"]),
+      templateFacet("tags", [], ["anime-movie"]),
+    ],
   },
   {
     id: "live-action-movies",
     title: "أفلام تمثيل حي",
     description: "جميع أفلام التمثيل الحي، العربية والأجنبية.",
-    facets: [facet("kinds", ["live-action-movie"])],
+    facets: [templateFacet("kinds", ["live-action-movie"])],
   },
   {
     id: "western-series",
     title: "مسلسلات غربية",
     description: "مسلسلات التمثيل الحي التي لم تُسجّل لها دبلجة عربية.",
-    facets: [facet("kinds", ["live-action-series"]), facet("dubLanguages", [], ["ar"])],
+    facets: [
+      templateFacet("kinds", ["live-action-series"]),
+      templateFacet("dubLanguages", [], ["ar"]),
+    ],
   },
   {
     id: "arabic-series",
     title: "مسلسلات عربية",
     description: "مسلسلات التمثيل الحي التي سُجّلت لها دبلجة عربية.",
-    facets: [facet("kinds", ["live-action-series"]), facet("dubLanguages", ["ar"])],
+    facets: [templateFacet("kinds", ["live-action-series"]), templateFacet("dubLanguages", ["ar"])],
   },
 ];
 
-export function templateSettings(template: Template, privacy: string | null) {
-  const filters: BrowseFilters = emptyFilters();
-  filters.facets = template.facets.map((item) => ({
-    ...item,
-    include: [...item.include],
-    exclude: [...item.exclude],
-  }));
-  const params = new URLSearchParams({
-    view: "works",
-    sort: "year-desc",
-    group: "none",
-    filters: JSON.stringify(filters),
-  });
-  if (privacy === "all" || privacy === "private") params.set("privacy", privacy);
+/** Old category links remain readable; new links store the library separately from refinements. */
+export function browseLibrary(params: URLSearchParams) {
+  const filters = parseFilters(params.get("filters"));
+  const explicit = params.get("library");
+  const template = explicit
+    ? browseTemplates.find((item) => item.id === explicit)
+    : browseTemplates.find(
+        (item) =>
+          item.facets.length === filters.facets.length &&
+          item.facets.every((base) =>
+            filters.facets.some(
+              (facet) =>
+                facet.key === base.key &&
+                JSON.stringify(facet.include) === JSON.stringify(base.include) &&
+                JSON.stringify(facet.exclude) === JSON.stringify(base.exclude),
+            ),
+          ),
+      );
   return {
-    search: params.toString(),
-    display: {
-      ...displayDefaults,
-      size: "compact" as const,
-      minimal: true,
-      showScore: false,
-      showStatus: false,
-    },
+    template,
+    filters: !explicit && template ? { ...filters, facets: [] } : filters,
   };
+}
+
+export function libraryFilters(filters: BrowseFilters, library?: string): BrowseFilters {
+  const template = browseTemplates.find((item) => item.id === library);
+  if (!template) return filters;
+  return {
+    ...filters,
+    facets: [
+      ...filters.facets.filter((facet) => !template.facets.some((base) => base.key === facet.key)),
+      ...template.facets,
+    ],
+  };
+}
+
+export function selectLibrary(params: URLSearchParams, library: string) {
+  const next = new URLSearchParams(params);
+  next.set("library", browseTemplates.some((item) => item.id === library) ? library : "all");
+  // Extra filters belong to the library being left. Presentation and sort stay shared.
+  next.set("filters", JSON.stringify(emptyFilters()));
+  next.delete("from");
+  next.delete("to");
+  next.delete("q");
+  return next;
 }

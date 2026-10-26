@@ -33,10 +33,11 @@ import {
 import type { BrowseRefinements } from "./browse-refinements";
 import { browseGridClass, BrowseResultsSkeleton } from "./browse-results-skeleton";
 import { BrowseTable } from "./browse-table";
+import { BrowseTemplatePicker } from "./browse-template-picker";
+import { browseLibrary, libraryFilters } from "./browse-templates";
 import { BrowseToolbar } from "./browse-toolbar";
 import { displayDefaults } from "./display-settings";
 import { FilterDrawer } from "./filter-drawer";
-import { parseFilters } from "./filter-model";
 type BrowseProps = {
   params: URLSearchParams;
   path?: string;
@@ -63,6 +64,7 @@ export function BrowsePage(props: BrowseProps) {
       preferences={saved}
       onRemember={(value) => preferences.save.mutate(value)}
       preferenceError={preferences.query.error ?? preferences.save.error}
+      onRetryPreferences={preferences.retry}
     />
   );
 }
@@ -74,10 +76,12 @@ function BrowseContent({
   preferences,
   onRemember,
   preferenceError,
+  onRetryPreferences,
 }: {
   preferences: BrowsePreferences;
   onRemember: (value: BrowsePreferences) => void;
   preferenceError?: Error | null;
+  onRetryPreferences: () => void;
   params: URLSearchParams;
   path?: string;
   title?: string;
@@ -86,7 +90,8 @@ function BrowseContent({
   const navigation = useCardNavigation();
 
   const loadMore = useLoadMoreNavigation();
-  const filters = withPreset(parseFilters(params.get("filters")), preset);
+  const library = browseLibrary(params);
+  const filters = withPreset(library.filters, preset);
   const view = params.get("view") === "installments" ? "installments" : "works";
   const isAdmin = useIsAdmin();
   const privacy = !isAdmin
@@ -116,6 +121,10 @@ function BrowseContent({
   };
   const update = (values: Array<[string, string]>) => {
     const next = new URLSearchParams(params);
+    if (library.template) {
+      next.set("library", library.template.id);
+      next.set("filters", JSON.stringify(filters));
+    }
     for (const [key, value] of values) {
       if (value) next.set(key, value);
       else next.delete(key);
@@ -137,7 +146,11 @@ function BrowseContent({
     const timer = setTimeout(() => setDebounced(q), 250);
     return () => clearTimeout(timer);
   }, [q]);
-  const query = refinementQuery(refinements, view, debounced);
+  const query = refinementQuery(
+    { ...refinements, filters: libraryFilters(filters, library.template?.id) },
+    view,
+    debounced,
+  );
   const result = useInfiniteQuery({
     queryKey: ["catalog", "browse", query],
     initialPageParam: 1,
@@ -190,9 +203,11 @@ function BrowseContent({
         className="mx-auto flex w-full max-w-400 flex-col px-4 py-6 sm:px-6 lg:px-10"
         aria-label={title}
       >
-        <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl leading-relaxed font-semibold">{title}</h1>
+            <h1 className="font-display text-3xl leading-relaxed font-semibold">
+              {library.template?.title ?? title}
+            </h1>
             <Badge variant="secondary" aria-live="polite">
               {result.data?.pages[0]?.total ?? "…"}{" "}
               {["planet", "genre", "country", "studio"].includes(group)
@@ -203,6 +218,7 @@ function BrowseContent({
             </Badge>
           </div>
           <ToggleGroup
+            size="sm"
             variant="outline"
             spacing={0}
             value={[view]}
@@ -216,6 +232,16 @@ function BrowseContent({
             <ToggleGroupItem value="installments">المواسم والإصدارات</ToggleGroupItem>
           </ToggleGroup>
         </header>
+        <div className="mb-4 min-w-0 border-b border-border">
+          <BrowseTemplatePicker
+            search={params.toString()}
+            path={path}
+            onApply={(search) => {
+              onRemember({ ...preferences, search: rememberedSearch(new URLSearchParams(search)) });
+              replaceParams(path, new URLSearchParams(search));
+            }}
+          />
+        </div>
         <BrowseToolbar
           filters={filters}
           onFacet={(key, value) => {
@@ -229,18 +255,16 @@ function BrowseContent({
           onDisplay={setDisplay}
           group={group}
           onGroup={(nextGroup) => apply({ ...refinements, group: nextGroup })}
-          search={params.toString()}
-          onTemplate={(search, nextDisplay) => {
-            onRemember({ ...preferences, search, display: nextDisplay });
-            replaceParams(path, new URLSearchParams(search));
-          }}
           filterCount={refinementCount(refinements, preset)}
           filterTrigger={filterTrigger}
         />
         {preferenceError && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>
-              تعذّر حفظ أو استعادة تفضيلات التصفح: {preferenceError.message}
+              <p>تعذّر حفظ أو استعادة تفضيلات التصفح. {preferenceError.message}</p>
+              <Button variant="outline" size="sm" onClick={onRetryPreferences}>
+                إعادة المحاولة
+              </Button>
             </AlertDescription>
           </Alert>
         )}
@@ -344,6 +368,7 @@ function BrowseContent({
         {filtersMounted && (
           <FilterDrawer
             value={refinements}
+            library={library.template?.id}
             view={view}
             q={q}
             locked={preset}

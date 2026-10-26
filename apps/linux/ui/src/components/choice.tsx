@@ -32,7 +32,7 @@ export function Choice({
         <SelectTrigger id={id} aria-label={label} className="w-full">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} align="start">
+        <SelectContent alignItemWithTrigger={true} align="start">
           <SelectGroup>
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>

@@ -425,25 +425,27 @@ test.beforeEach(async ({ page }) => {
                       const value =
                         facet.key === "formats"
                           ? item.format
-                          : facet.key === "watchStates"
-                            ? "unwatched"
-                            : facet.key === "favoriteStates"
-                              ? "other"
-                              : facet.key === "ratingStates"
-                                ? "rated"
-                                : facet.key === "playableStates"
-                                  ? "missing"
-                                  : facet.key === "kinds"
-                                    ? item.id === fixtureWork.id
-                                      ? "animated-movie"
-                                      : "live-action-series"
-                                    : facet.key === "planets"
-                                      ? item.id === fixtureWork.id || item.isPrivate
-                                        ? "fantasy"
-                                        : ""
-                                      : facet.key === "releaseStatuses"
-                                        ? "completed"
-                                        : "";
+                          : facet.key === "dubLanguages"
+                            ? "ar"
+                            : facet.key === "watchStates"
+                              ? "unwatched"
+                              : facet.key === "favoriteStates"
+                                ? "other"
+                                : facet.key === "ratingStates"
+                                  ? "rated"
+                                  : facet.key === "playableStates"
+                                    ? "missing"
+                                    : facet.key === "kinds"
+                                      ? item.id === fixtureWork.id
+                                        ? "animated-movie"
+                                        : "live-action-series"
+                                      : facet.key === "planets"
+                                        ? item.id === fixtureWork.id || item.isPrivate
+                                          ? "fantasy"
+                                          : ""
+                                        : facet.key === "releaseStatuses"
+                                          ? "completed"
+                                          : "";
                       return (
                         (!facet.include.length || facet.include.includes(value)) &&
                         !facet.exclude.includes(value)
@@ -696,4 +698,56 @@ test("compact toolbar and one-step presentation settings", async ({ page }) => {
   const bounds = await layout.boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(520);
+});
+
+test("library navigation preserves presentation and keeps refinements separate", async ({
+  page,
+}) => {
+  const dialog = await openBrowse(page);
+  await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
+  await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
+  await page.getByRole("button", { name: "جدول", exact: true }).click();
+  await page.keyboard.press("Escape");
+  const libraries = page.getByRole("navigation", { name: "مكتبات التصفح" });
+  for (const name of [
+    "كرتون حديث",
+    "كرتون عربي",
+    "أفلام أنميشن شرقي",
+    "أفلام أنميشن غربي",
+    "أفلام تمثيل حي",
+    "مسلسلات غربية",
+    "مسلسلات عربية",
+    "كل المكتبة",
+  ]) {
+    await libraries.getByRole("link", { name, exact: true }).click();
+    await expect(libraries.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
+    await expect(page.getByRole("button", { name: "جدول", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.keyboard.press("Escape");
+  }
+  await libraries.getByRole("link", { name: "مسلسلات عربية", exact: true }).click();
+  await page.getByRole("combobox", { name: "حالة المشاهدة", exact: true }).click();
+  await page.getByRole("option", { name: "لم يُشاهَد", exact: true }).click();
+  await page.getByRole("button", { name: "مسح المرشحات", exact: true }).click();
+  await expect(libraries.getByRole("link", { name: "مسلسلات عربية", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByRole("table")).toBeVisible();
+  await page.screenshot({
+    path: "../../../data/previews/browse-library-desktop.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 520, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({
+    path: "../../../data/previews/browse-library-narrow.png",
+    animations: "disabled",
+  });
 });

@@ -37,6 +37,7 @@ import {
   yearError,
 } from "./browse-refinements";
 import type { BrowseRefinements, LockedFacet } from "./browse-refinements";
+import { browseTemplates, libraryFilters } from "./browse-templates";
 import { FilterFacets } from "./filter-facets";
 import { completeFacetGroups, facetMatches, normalizeFacetSearch } from "./filter-model";
 import { ScoreFilters } from "./score-filters";
@@ -111,8 +112,10 @@ export function FilterDrawer({
   locked,
   onApply,
   returnFocus,
+  library,
 }: {
   value: BrowseRefinements;
+  library?: string;
   view: "works" | "installments";
   q: string;
   locked?: LockedFacet;
@@ -131,7 +134,11 @@ export function FilterDrawer({
     const timer = setTimeout(() => setPreviewDraft(draft), 300);
     return () => clearTimeout(timer);
   }, [draft]);
-  const previewQuery = refinementQuery(previewDraft, view, q);
+  const previewQuery = refinementQuery(
+    { ...previewDraft, filters: libraryFilters(previewDraft.filters, library) },
+    view,
+    q,
+  );
   const invalid = yearError(draft.from, draft.to);
   const options = useQuery({
     queryKey: ["catalog", "facets", view, draft.privacy],
@@ -165,7 +172,12 @@ export function FilterDrawer({
     normalizeFacetSearch(
       `${item.label} ${item.description} ${categoryTerms.get(item.key) ?? ""}`,
     ).includes(searchText);
-  const facetGroups = options.data ? completeFacetGroups(options.data.groups, view) : [];
+  const libraryFacets = browseTemplates.find((item) => item.id === library)?.facets ?? [];
+  const facetGroups = options.data
+    ? completeFacetGroups(options.data.groups, view).filter(
+        (facet) => !libraryFacets.some((base) => base.key === facet.key),
+      )
+    : [];
   const categoryGroups = (item: (typeof categories)[number]) =>
     facetGroups.filter(
       (facet) =>
