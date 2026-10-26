@@ -725,7 +725,7 @@ test("real bridge states: reject login, browse details, family guide, search and
     article.getByRole("complementary").getByText("الموضوعات العقدية", { exact: true }),
   ).toBeVisible();
   await expect(theology.getByText("متوسط", { exact: true })).toBeVisible();
-  await expect(article.getByRole("button", { name: "تشغيل", exact: true })).toBeEnabled();
+  await expect(article.getByRole("button", { name: "تشغيل", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
   await browse(page);
