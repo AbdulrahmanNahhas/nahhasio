@@ -62,8 +62,9 @@ checkpoint is `data/backups/tvdb-removal-20261008`. Git retains the old rehearsa
 
 ## Updates and administration
 
-Server maintenance verifies signed artifacts, API/schema compatibility and readiness, taking a
-backup before replacement. Schema-changing releases require explicit maintenance. PostgreSQL
+Server maintenance verifies signed artifacts, API/schema and host-tool compatibility, taking a
+backup before coordinated server-image/tool activation. Versioned tools use an atomic selector
+and retain previous files for rollback. The worker reloads after completing its update job. Schema-changing releases require explicit maintenance. PostgreSQL
 major upgrades have separate ownership. Client updates are managed by Flatpak/Software and the
 host's policy; the app reports its running version without claiming automatic updates are enabled.
 
@@ -151,3 +152,18 @@ mounts, SELinux access, disk capacity, TLS service configuration, artifact trust
 remain installation acceptance. Provider keys stay manageable through Settings; initial database
 credentials, bind address and mount paths remain private installation/bootstrap configuration because
 the service needs them before its dashboard can run.
+
+## PostgreSQL query execution
+
+The application pool disables JIT for bounded catalog queries. On the first Fedora 0.1.0 install,
+LLVM query compilation caused approximately 30-second Browse requests/Home errors; disabling JIT
+for the runtime role and reconnecting resolved them. Shadow's PostgreSQL has no JIT provider, so
+local timing alone did not expose the problem. Keep the existing request timeout rather than
+masking this with longer waits. Restore refreshes planner statistics on the staged database before
+activation. Neither setting changes catalog rows or migration history.
+
+## Installed host-tool upgrades
+
+Follow [RELEASE-0.1.1](RELEASE-0.1.1.md) for the one-time 0.1.0 worker bootstrap. Thereafter the
+same verified server update carries host tools; no routine SSH/file copying is needed. The
+`~/Nahhasio/releases` folder is only an installer cache, independent of installed tools/backups.

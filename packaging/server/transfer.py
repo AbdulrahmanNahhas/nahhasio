@@ -16,6 +16,7 @@ import sys
 import tarfile
 import tempfile
 import uuid
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 
 FILES = {"database.dump", "artwork.tar.gz", "configuration.tar.gz", "host-recovery.tar.gz", "installation.json"}
@@ -50,8 +51,26 @@ def postgres(command, *, sql=None, output=None):
     if not database:
         raise ValueError("DATABASE_URL must explicitly select the source database")
     environment = {key: value for key, value in os.environ.items()
-                   if key in ("PATH", "LANG", "LC_ALL", "HOME", "PGUSER", "PGPASSFILE", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT")}
-    environment.update(PGDATABASE=database, PGAPPNAME="nahhasio-transfer-export",
+                   if key in ("PATH", "LANG", "LC_ALL", "HOME", "PGUSER", "PGPASSWORD", "PGPASSFILE",
+                              "PGSSLMODE", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT", "PGCONNECT_TIMEOUT")}
+    environment.setdefault("PGCONNECT_TIMEOUT", "5")
+    selected = urlsplit(database)
+    if selected.scheme not in ("postgres", "postgresql") or not selected.path.strip("/"):
+        raise ValueError("DATABASE_URL must be a PostgreSQL URL with an explicit database")
+    environment.update(PGDATABASE=unquote(selected.path[1:]),
+                       PGHOST=selected.hostname or "localhost", PGPORT=str(selected.port or 5432))
+    if selected.username is not None:
+        environment["PGUSER"] = unquote(selected.username)
+    if selected.password is not None:
+        environment["PGPASSWORD"] = unquote(selected.password)
+    parameters = {"host": "PGHOST", "port": "PGPORT", "sslmode": "PGSSLMODE",
+                  "sslcert": "PGSSLCERT", "sslkey": "PGSSLKEY", "sslrootcert": "PGSSLROOTCERT",
+                  "connect_timeout": "PGCONNECT_TIMEOUT"}
+    for key, value in parse_qsl(selected.query, keep_blank_values=True):
+        if key not in parameters:
+            raise ValueError("Unsupported source database URL parameter")
+        environment[parameters[key]] = value
+    environment.update(PGAPPNAME="nahhasio-transfer-export",
                        PGOPTIONS="-c default_transaction_read_only=on -c lock_timeout=5000")
     result = subprocess.run(command, input=sql, stdout=output or subprocess.PIPE,
                             stderr=subprocess.PIPE, env=environment, timeout=3600, check=False)
@@ -207,9 +226,16 @@ def import_backup(args):
         return
     if args.confirm != manifest["id"]:
         raise ValueError("--confirm must exactly match the transfer backup ID")
-    if not args.operations_script.is_file() or args.operations_script.is_symlink():
+    operations_script = args.operations_script
+    if operations_script.is_symlink():
+        installation = json.loads((args.config_root / "installation.json").read_text())
+        managed = Path(installation["dataRoot"]) / "tools"
+        if operations_script != managed / "operations.py" or not operations_script.resolve().is_relative_to(managed / "versions"):
+            raise ValueError("Refusing an unmanaged operations script link")
+        operations_script = operations_script.resolve()
+    if not operations_script.is_file() or operations_script.is_symlink():
         raise ValueError("Supply the installed trusted operations.py through --operations-script")
-    spec = importlib.util.spec_from_file_location("nahhasio_host_operations", args.operations_script)
+    spec = importlib.util.spec_from_file_location("nahhasio_host_operations", operations_script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     maintenance = module.Maintenance(args.config_root)

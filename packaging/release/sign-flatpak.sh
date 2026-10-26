@@ -12,16 +12,24 @@ key=$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1=="fpr" {print $
 test "$key" = "$NAHHASIO_FLATPAK_GPG_FINGERPRINT"
 mkdir -p dist/release
 tar --extract --gzip --file dist/unsigned-flatpak-repo.tar.gz
-# Sign every exported app/extension commit, not only the primary application.
-while IFS=/ read -r kind app arch branch; do
-  case "$kind" in
-    app) flags=() ;;
-    runtime) flags=(--runtime) ;;
-    *) continue ;;
+# Builder may already have generated unsigned, unchanged AppStream commits. Updating the
+# summary alone does not sign those commits. Generate metadata first, sign every referenced
+# commit, then produce the signed summary/deltas without regenerating AppStream afterward.
+flatpak build-update-repo --no-update-summary dist/flatpak-repo
+refs=$(ostree --repo=dist/flatpak-repo refs)
+commits=()
+while IFS= read -r ref; do
+  case "$ref" in
+    app/*|runtime/*|appstream/*|appstream2/*)
+      commits+=("$(ostree --repo=dist/flatpak-repo rev-parse "$ref")") ;;
+    *) echo "Unexpected Flatpak repository ref: $ref" >&2; exit 1 ;;
   esac
-  flatpak build-sign "${flags[@]}" --arch="$arch" --gpg-homedir="$GNUPGHOME" --gpg-sign="$key" dist/flatpak-repo "$app" "$branch"
-done < <(ostree --repo=dist/flatpak-repo refs)
-flatpak build-update-repo --gpg-homedir="$GNUPGHOME" --gpg-sign="$key" --generate-static-deltas dist/flatpak-repo
+done <<< "$refs"
+printf '%s\n' "${commits[@]}" | sort -u | while IFS= read -r commit; do
+  ostree --repo=dist/flatpak-repo gpg-sign --gpg-homedir="$GNUPGHOME" "$commit" "$key"
+  ostree --repo=dist/flatpak-repo show --gpg-homedir="$GNUPGHOME" "$commit" >/dev/null
+done
+flatpak build-update-repo --no-update-appstream --gpg-homedir="$GNUPGHOME" --gpg-sign="$key" --generate-static-deltas dist/flatpak-repo
 gpg --batch --export "$key" > dist/release/flatpak-key.gpg
 python3 packaging/release/flatpak-descriptors.py dist/release/flatpak-key.gpg dist/flatpak-repo \
   "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/"

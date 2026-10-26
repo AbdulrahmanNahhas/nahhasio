@@ -20,6 +20,36 @@ Push CI on the same commit failed because Ubuntu packaged libtorrent 2.0.10 whil
 requires 2.0.12. The local workflow correction uses the release manifest's verified source and
 independent interface/backend/native jobs; its hosted result must be checked after push.
 
+## Installed family-PC checkpoint — 2026-10-26
+
+Release 0.1.0 is published and its package-feed deployment passed. Aqua installed the rootless
+server on Fedora at `~/Nahhasio`: `config/` holds credentials/TLS, `data/artwork/` contains restored
+images, `data/backups/` retains the verified transfer, and `releases/` holds installer artifacts.
+The database remains in Podman's named `nahhasio-postgres-data` volume. Quadlets remain under
+`~/.config/containers/systemd`. Always pass `--config-root "$HOME/Nahhasio/config"` to host tools.
+
+Transfer `20261026T060849Z-c4e27bea` restored 75 tables and 1,126 verified artwork assets. Both
+containers are healthy, trusted HTTPS readiness returns ready, and Flatpak login/library access
+were confirmed. Videos remain in the existing `~/Media` library; new video folders are not an
+implemented scan/import service. The source had no saved provider configuration to transfer.
+
+Slow Browse/Home requests were resolved on Fedora by disabling JIT for `nahhasio_runtime` in
+database `nahhasio` and restarting the API. Shadow's PostgreSQL lacks JIT, which hid this difference.
+The next server build disables JIT in pool initialization. Until that server is installed, a
+restore to a new database can require reapplying the role/database workaround.
+
+Pending source fixes include literal Quadlet mount quotes/service dependencies, explicit libpq
+export connection fields, post-restore ANALYZE, signed AppStream/AppStream2 commits and the actual
+brand icon. They are not retroactively applied to published 0.1.0 artifacts. Do not disable GPG
+verification to bypass the 0.1.0 metadata defect; publish a corrected signed repository.
+
+Backup/update worker units are installed; schedule activation, fresh backup/restore acceptance,
+reboot persistence, LAN firewall access and installed updates still need verification. Keep old
+installation directories and Shadow's original recovery copy until those checks pass. Host worker
+scripts are outside the OCI image. Version 0.1.1 adds coordinated signed host-tool updates with
+atomic selection, rollback and post-job worker reload. The original 0.1.0 worker needs the
+[one-time bootstrap upgrade](RELEASE-0.1.1.md); subsequent compatible updates use the worker.
+
 ## Deployment shape
 
 The Fedora Atomic family PC owns the authoritative PostgreSQL catalog, artwork, provider settings
@@ -152,3 +182,15 @@ Aqua chose a CLI on Shadow configured with the server HTTPS address and an API k
 catalog editing. Implement this later using scoped/revocable keys, explicit server authorization,
 auditing and existing catalog validation/dry-run semantics. PostgreSQL stays private. The current
 host `operator` command is local maintenance, not this remote API client.
+
+## Coordinated server and host-tool updates
+
+The signed manifest binds the server image and a bounded installer archive by URL, SHA-256 and
+size. Compatible host tools are staged under `data/tools/versions/<release>` with integrity
+receipts. Stable tool entries select `current`; activation/recovery journals coordinate that
+selector with the server image and installation metadata. The worker reloads only after its
+completed job/status and cleared claim are durable. Previous versions remain for rollback.
+
+An incompatible host-tool API or schema requires explicit maintenance. Existing custom storage,
+credentials, certificates, timers and Quadlets are not regenerated during ordinary updates. See
+[0.1.1 deployment](RELEASE-0.1.1.md) for bootstrap, client updates and release-cache cleanup.

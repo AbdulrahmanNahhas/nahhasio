@@ -102,8 +102,21 @@ jobs:
         run: cargo test --locked -p nahhasio-server -p nahhasio-cli -p nahhasio-catalog
       - name: Build installed Rust binaries
         run: cargo build --locked -p nahhasio-server -p nahhasio-cli
-      - name: Release trust and archive checks
-        run: python3 -m unittest discover -s packaging/release -p test_release.py -v
+
+  release:
+    name: Release trust and signed repository metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install release verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak ostree gnupg openssl
+      - name: Signatures, archives and private source exclusions
+        run: python3 -m unittest discover -s packaging/release -p 'test_*.py' -v
+      - name: Verify signed app and AppStream pulls
+        run: bash packaging/release/test-flatpak-signing.sh
 
   native:
     name: Rust Linux client and media core

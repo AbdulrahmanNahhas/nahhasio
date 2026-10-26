@@ -183,6 +183,7 @@ fn main() -> glib::ExitCode {
         .build();
     let result = passed.clone();
     application.connect_activate(move |app| {
+        gtk::Window::set_default_icon_name("io.nahhasio.Linux");
         build_window(
             app,
             &config,

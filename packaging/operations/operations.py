@@ -9,6 +9,7 @@ import contextlib
 import datetime as dt
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,10 @@ import urllib.request
 import uuid
 
 VERSION = 1
+HOST_TOOLS_VERSION = "0.1.1"
+_tools_spec = importlib.util.spec_from_file_location("nahhasio_host_tools", Path(__file__).resolve().with_name("host_tools.py"))
+host_tools = importlib.util.module_from_spec(_tools_spec)
+_tools_spec.loader.exec_module(host_tools)
 OPERATIONS = {"backup", "restore", "check-update", "update"}
 BACKUP_ID = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
@@ -176,10 +181,12 @@ class Maintenance:
             self.status["lastJob"] = previous.get("lastJob")
             self.status["update"] = previous.get("update", self.status["update"])
         self.job = None
+        self.tools = host_tools.Store(self.data / "tools")
+        self.reload_tools = False
 
     @contextlib.contextmanager
     def lock(self):
-        descriptor = os.open(self.private / "maintenance.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        descriptor = os.open(self.private / "maintenance.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             yield
@@ -471,6 +478,9 @@ class Maintenance:
                                         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=3600)
                 if result.returncode:
                     raise RuntimeError("Restored database validation failed")
+            # Dumps omit planner statistics. Refresh the staged database before serving
+            # complex catalog/filter queries from the restored installation.
+            self.sql("ANALYZE", stage_db)
             if self.summary(stage_db) != manifest["catalog"]:
                 raise ValueError("Restored catalog identity or row counts do not match the backup")
             self.extract(source / "artwork.tar.gz", stage_art)
@@ -593,6 +603,18 @@ class Maintenance:
                 or not SHA256.fullmatch(image.removeprefix(repository + "@sha256:"))
                 or manifest["server"].get("schemaVersion") != manifest["schemaVersion"]):
             raise ValueError("Release image does not match the configured repository")
+        tools = manifest.get("hostTools", {})
+        parsed = urllib.parse.urlsplit(tools.get("url", ""))
+        origin = urllib.parse.urlsplit(url)
+        expected_url = url.split("/releases/", 1)[0] + "/releases/download/nahhasio-v" + manifest["version"] + "/nahhasio-install.tar.gz"
+        if (tools.get("apiVersion") != host_tools.API_VERSION
+                or type(tools.get("size")) is not int or not 32 <= tools["size"] <= host_tools.MAX_ARCHIVE
+                or not SHA256.fullmatch(tools.get("sha256", ""))
+                or parsed.scheme != "https" or parsed.hostname != origin.hostname
+                or parsed.username or parsed.password or parsed.port not in (None, 443)
+                or parsed.query or parsed.fragment
+                or origin.hostname == "github.com" and tools["url"] != expected_url):
+            raise ValueError("Release lacks a compatible, signed host-tool bundle")
         return manifest
 
     def check_update(self):
@@ -602,7 +624,10 @@ class Maintenance:
         same_image = manifest["server"]["image"] == self.config["serverImage"]
         if version_key(version) < version_key(current) or not same_image and version_key(version) == version_key(current):
             raise ValueError("Release channel attempted a version downgrade")
-        state = "up-to-date" if same_image else "available"
+        same_tools = self.config.get("hostToolsVersion") == version
+        if same_tools:
+            same_tools = self.tools.current() == "versions/" + version
+        state = "up-to-date" if same_image and same_tools else "available"
         if manifest["schemaVersion"] != self.config.get("schemaVersion"):
             state = "maintenance-required"
         self.status["update"] = {"state": state, "currentVersion": current,
@@ -618,6 +643,12 @@ class Maintenance:
         if self.status["update"]["state"] == "up-to-date":
             return {"version": self.config["version"], "changed": False}
         image = manifest["server"]["image"]
+        previous_tools = self.tools.current()
+        self.progress("update-tools", "Downloading and validating signed host maintenance tools")
+        bundle = download(manifest["hostTools"]["url"], host_tools.MAX_ARCHIVE)
+        target_tools = self.tools.stage(manifest["version"], host_tools.unpack(bundle, manifest["hostTools"]))
+        candidate = self.tools.verify(target_tools)
+        run([sys.executable, str(candidate / "operations.py"), "--help"], timeout=10)
         self.progress("update-download", "Downloading the verified server image")
         run(["podman", "pull", "--tls-verify=true", image], timeout=1800)
         # A digest-addressed pull must resolve the signed image reference locally.
@@ -628,8 +659,10 @@ class Maintenance:
         override.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         previous = override.read_bytes() if override.exists() else None
         journal_path = self.private / "update-journal.json"
+        previous_installation = self.config.copy()
         journal = {"formatVersion": VERSION, "stage": "activating", "previousImage": self.config["serverImage"],
                    "nextImage": image, "nextVersion": manifest["version"],
+                   "previousTools": previous_tools, "nextTools": target_tools,
                    "previousOverride": base64.b64encode(previous).decode() if previous is not None else None}
         atomic_json(journal_path, journal)
         self.progress("update-activate", "Activating the new server version")
@@ -638,7 +671,13 @@ class Maintenance:
             run(["systemctl", "--user", "daemon-reload"], timeout=60)
             run(["systemctl", "--user", "restart", self.unit], timeout=180)
             self.ready()
+            self.tools.activate(target_tools)
+            self.config.update(serverImage=image, version=manifest["version"], hostToolsVersion=manifest["version"])
+            atomic_json(self.installation_path, self.config)
         except Exception:
+            self.tools.activate(previous_tools)
+            self.config = previous_installation
+            atomic_json(self.installation_path, self.config)
             if previous is None:
                 override.unlink(missing_ok=True)
             else:
@@ -649,11 +688,10 @@ class Maintenance:
             journal["stage"] = "rolled-back"
             atomic_json(journal_path, journal)
             raise RuntimeError("Server update failed; the previous image was restored") from None
-        self.config.update(serverImage=image, version=manifest["version"])
-        atomic_json(self.installation_path, self.config)
         journal["stage"] = "complete"
         atomic_json(journal_path, journal)
         self.status["update"] = {"state": "up-to-date", "currentVersion": manifest["version"], "checkedAt": now()}
+        self.reload_tools = target_tools != previous_tools
         return {"version": manifest["version"], "changed": True, "reconnectRequired": True}
 
     def recover_update(self):
@@ -663,13 +701,18 @@ class Maintenance:
         journal = read_json(journal_path)
         if journal.get("stage") in ("complete", "rolled-back"):
             return
-        if journal.get("nextImage") == self.config["serverImage"]:
+        tools_committed = not journal.get("nextTools") or self.config.get("hostToolsVersion") == journal.get("nextVersion")
+        if journal.get("nextImage") == self.config["serverImage"] and tools_committed:
             # Metadata commit follows successful readiness. A crash before journal completion
             # can safely finish that final bookkeeping without changing services.
+            if journal.get("nextTools"):
+                self.tools.activate(journal["nextTools"])
             journal["stage"] = "complete"
         else:
             if journal.get("previousImage") != self.config["serverImage"]:
                 raise ValueError("Interrupted update does not match this installation")
+            if journal.get("previousTools"):
+                self.tools.activate(journal["previousTools"])
             root = Path(self.config.get("quadletRoot", str(Path.home() / ".config/containers/systemd")))
             override = root / "nahhasio-server.container.d" / "20-release.conf"
             previous = journal.get("previousOverride")
@@ -805,6 +848,11 @@ class Maintenance:
                             pass
                     self.execute(request, reason=reason)
                     claimed.unlink(missing_ok=True)
+                    if self.reload_tools:
+                        # The completed job/status and cleared claim are durable first. Python
+                        # descriptors close on exec, releasing the old worker's maintenance lock.
+                        os.execv(sys.executable, [sys.executable, str(self.data / "tools/operations.py"),
+                                                 "--config-root", str(self.config_root), "worker"])
                 if time.monotonic() - heartbeat > 30:
                     self.publish()
                     heartbeat = time.monotonic()
@@ -816,9 +864,18 @@ def install_units(config_root):
     config = read_json(config_root / "installation.json")
     tools = private_directory(Path(config["dataRoot"]) / "tools")
     destination = tools / "operations.py"
-    if Path(__file__).resolve() != destination.resolve():
-        shutil.copyfile(__file__, destination)
-        os.chmod(destination, 0o700)
+    if subprocess.run(["systemctl", "--user", "is-active", "--quiet", "nahhasio-maintenance.service"],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode == 0:
+        raise ValueError("Stop nahhasio-maintenance.service before bootstrapping host tools")
+    source = Path(__file__).resolve()
+    if all((source.parent / name).is_file() for name in host_tools.FILES):
+        files = {name: (source.parent / name).read_bytes() for name in host_tools.FILES}
+    else:
+        packaging = source.parent.parent
+        files = {name: (packaging.parent / member).read_bytes() for name, member in host_tools.FILES.items()}
+    host_tools.Store(tools).bootstrap(HOST_TOOLS_VERSION, files)
+    config["hostToolsVersion"] = HOST_TOOLS_VERSION
+    atomic_json(config_root / "installation.json", config)
     units = Path.home() / ".config/systemd/user"
     units.mkdir(mode=0o700, parents=True, exist_ok=True)
     # systemd quoting: do not invoke a shell and reject specifier expansion in supplied roots.

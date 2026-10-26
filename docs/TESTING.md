@@ -234,7 +234,7 @@ Release build, publication and installation details are in [DEPLOYMENT](DEPLOYME
 ## Push and pull-request CI
 
 `.github/workflows/ci.yml` runs independent jobs on Ubuntu 24.04 for interface/contracts/database
-fixtures, server/operator Rust, and native Linux/media-core Rust. Rust is pinned to 1.94.0; actions
+fixtures, server/operator Rust, native Linux/media-core Rust, and release trust/metadata. Rust is pinned to 1.94.0; actions
 are pinned to commits. Native libtorrent uses the same SHA-256-verified source as the Flatpak
 manifest, cached separately from Cargo. Ubuntu's packaged 2.0.10 is too old for the bridge.
 
@@ -246,3 +246,14 @@ disposable operator/API integration suites remain separate acceptance commands a
 The standalone player journey suite and live provider tests are outside default push CI for this
 hosting release. Native unit tests do not launch GTK or establish physical playback acceptance.
 CI does not rebuild/publish the Flatpak or server image; the release workflow owns those artifacts.
+
+The release job uses a real disposable Flatpak/OSTree repository and OpenPGP key to verify signed
+application, AppStream and AppStream2 pulls. The original signer reproduces the unsigned-commit
+failure; the corrected signer passes. Offline Python regressions also cover literal Quadlet mount
+quotes, generated service dependencies and explicit libpq connection fields without argv secrets.
+
+Host-tool update regressions use disposable directories and mocked services, plus a real local
+bootstrap with a fake systemctl. They verify signed-bundle hash/path bounds, immutable versions,
+legacy preservation, installed entrypoints without a release cache, image/tool rollback, crash
+recovery before/after metadata commit, and worker reload only after durable job/claim completion.
+Run `devenv shell -- python3 -m unittest discover -s packaging/release -p 'test_*.py' -v`.

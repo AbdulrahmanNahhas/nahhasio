@@ -128,6 +128,26 @@ settings show the running version and explain who manages updates. Relaunch afte
 An operator can choose a retained commit with `flatpak update --user --commit=COMMIT
 io.nahhasio.Linux`; binary rollback does not undo newer device-state format changes.
 
+## Signed metadata and application icon
+
+The signer refreshes AppStream first, signs every app/runtime/AppStream/AppStream2 commit, then
+writes signed summary/static deltas without regenerating metadata. This also signs unchanged
+metadata commits exported unsigned by Builder. GPG verification stays enabled. The real-repository
+regression `bash packaging/release/test-flatpak-signing.sh` creates a disposable key/repository and
+pulls all three kinds of refs into a fresh consumer with signature verification enabled.
+
+The installed icon is the 512×512 PNG derived from the approved desktop brand image, with desktop
+and GTK window IDs matching `io.nahhasio.Linux`. To regenerate it after an approved brand change:
+
+```sh
+gdk-pixbuf-thumbnailer --size 512 apps/linux/ui/src/assets/brand/nahhasio.png packaging/flatpak/io.nahhasio.Linux.png
+```
+
+The published 0.1.0 used a placeholder SVG and can have unsigned AppStream metadata. The next
+signed release must carry these fixes; source changes alone do not repair installed clients or
+published feeds. Fedora login/library access is confirmed; the corrected icon and metadata still
+need installed update acceptance after publication.
+
 ## Verification boundary
 
 Run `devenv shell -- python3 -m unittest discover -s packaging/release -p test_release.py` for

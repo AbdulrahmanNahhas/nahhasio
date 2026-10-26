@@ -33,6 +33,8 @@ def main():
     parser.add_argument("--flatpak-repo", type=Path)
     parser.add_argument("--repository-url", default="https://abdulrahmannahhas.github.io/nahhasio/flatpak/")
     parser.add_argument("--server-image")
+    parser.add_argument("--installer-bundle", type=Path)
+    parser.add_argument("--installer-url")
     parser.add_argument("--signing-key", type=Path)
     parser.add_argument("--output", type=Path, default=Path("dist/release"))
     args = parser.parse_args()
@@ -46,6 +48,11 @@ def main():
         parser.error("A digest-qualified GHCR --server-image is required")
     if not args.client_url or not args.client_url.startswith("https://github.com/"):
         parser.error("A GitHub HTTPS --client-url is required")
+    if not args.installer_bundle or not args.installer_url or not args.installer_url.startswith("https://github.com/") or not args.installer_url.endswith("/nahhasio-install.tar.gz"):
+        parser.error("A GitHub HTTPS --installer-url is required")
+    installer_size = args.installer_bundle.stat().st_size
+    if not 32 <= installer_size <= 8 * 1024 * 1024:
+        parser.error("Installer bundle exceeds the host-tool update bound")
     if not args.client or not args.signing_key:
         parser.error("--client and --signing-key are required")
     if not args.flatpak_key or not args.flatpak_repo or not re.fullmatch(r"[A-F0-9]{40,64}", args.flatpak_fingerprint or ""):
@@ -68,7 +75,10 @@ def main():
                            "gpgFingerprint": args.flatpak_fingerprint,
                            "gpgKey": base64.b64encode(args.flatpak_key.read_bytes()).decode(),
                            "repositoryArchive": {"sha256": hashlib.sha256(args.flatpak_repo.read_bytes()).hexdigest(), "size": args.flatpak_repo.stat().st_size}},
-                "server": {"image": args.server_image, "schemaVersion": schema}}
+                "server": {"image": args.server_image, "schemaVersion": schema},
+                "hostTools": {"apiVersion": 1, "url": args.installer_url,
+                              "sha256": hashlib.sha256(args.installer_bundle.read_bytes()).hexdigest(),
+                              "size": installer_size}}
     args.output.mkdir(parents=True, exist_ok=True)
     path = args.output / "manifest.json"
     path.write_text(json.dumps(manifest, separators=(",", ":"), sort_keys=True) + "\n")

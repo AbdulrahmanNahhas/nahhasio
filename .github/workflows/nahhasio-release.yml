@@ -6,7 +6,7 @@ on:
       version:
         description: Nahhasio version (must match the Rust and client package versions)
         required: true
-        default: "0.1.0"
+        default: "0.1.1"
   push:
     tags: ["nahhasio-v*"]
 
@@ -31,7 +31,7 @@ jobs:
           FLATPAK_FINGERPRINT: ${{ vars.NAHHASIO_FLATPAK_GPG_FINGERPRINT }}
         run: |
           python3 - <<'PY'
-          import json, os, re, tomllib
+          import ast, json, os, re, tomllib
           if os.environ.get("HAS_FLATPAK_KEY") != "true" or not re.fullmatch(r"[A-F0-9]{40,64}", os.environ.get("FLATPAK_FINGERPRINT", "")):
               raise SystemExit("Configure NAHHASIO_FLATPAK_GPG_KEY secret and NAHHASIO_FLATPAK_GPG_FINGERPRINT variable before building")
           version = os.environ.get("REQUESTED_VERSION") or os.environ["GITHUB_REF_NAME"].removeprefix("nahhasio-v")
@@ -43,6 +43,10 @@ jobs:
                       raise SystemExit(f"Version mismatch: {path}")
           if json.load(open("apps/linux/ui/package.json"))["version"] != version:
               raise SystemExit("Client package version mismatch")
+          tree = ast.parse(open("packaging/operations/operations.py").read())
+          host_version = next(ast.literal_eval(item.value) for item in tree.body if isinstance(item, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "HOST_TOOLS_VERSION" for target in item.targets))
+          if host_version != version:
+              raise SystemExit("Host maintenance tools version mismatch")
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"version={version}\n")
           PY
@@ -165,8 +169,8 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$SIGNING_KEY" > "$key"
           image="dist/release/Nahhasio-$RELEASE_VERSION-x86_64.flatpak"
-          python3 packaging/release/manifest.py --version "$RELEASE_VERSION" --client "$image" --client-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/$(basename "$image")" --server-image "$(cat dist/release/server-image.txt)" --signing-key "$key" --flatpak-key dist/release/flatpak-key.gpg --flatpak-fingerprint "$NAHHASIO_FLATPAK_GPG_FINGERPRINT" --flatpak-repo dist/release/flatpak-repository.tar.gz --repository-url "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/"
-          tar -czf dist/release/nahhasio-install.tar.gz bin/nahhasio-server-install bin/nahhasio-client-install bin/nahhasio-transfer packaging/server packaging/operations packaging/flatpak/install.py packaging/flatpak/README.md packaging/release/manifest.py docs/DEPLOYMENT.md
+          tar --exclude=__pycache__ --exclude='*.pyc' -czf dist/release/nahhasio-install.tar.gz bin/nahhasio-server-install bin/nahhasio-client-install bin/nahhasio-transfer packaging/server packaging/operations packaging/flatpak/install.py packaging/flatpak/README.md packaging/release/manifest.py docs/DEPLOYMENT.md
+          python3 packaging/release/manifest.py --version "$RELEASE_VERSION" --client "$image" --client-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/$(basename "$image")" --server-image "$(cat dist/release/server-image.txt)" --installer-bundle dist/release/nahhasio-install.tar.gz --installer-url "https://github.com/$GITHUB_REPOSITORY/releases/download/nahhasio-v$RELEASE_VERSION/nahhasio-install.tar.gz" --signing-key "$key" --flatpak-key dist/release/flatpak-key.gpg --flatpak-fingerprint "$NAHHASIO_FLATPAK_GPG_FINGERPRINT" --flatpak-repo dist/release/flatpak-repository.tar.gz --repository-url "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/"
           openssl pkeyutl -sign -rawin -inkey "$key" -in dist/release/nahhasio-install.tar.gz | base64 -w0 > dist/release/nahhasio-install.tar.gz.sig
       - name: Create reviewable draft release
         env:

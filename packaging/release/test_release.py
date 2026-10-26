@@ -10,6 +10,9 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import argparse
+import contextlib
+import os
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,9 +27,47 @@ def module(name, path):
 
 publish = module("publish", ROOT / "packaging/release/publish-flatpak.py")
 prepare = module("prepare", ROOT / "packaging/flatpak/prepare.py")
+transfer = module("transfer", ROOT / "packaging/server/transfer.py")
+installer = module("installer", ROOT / "packaging/server/install.py")
 
 
 class ReleaseBoundaries(unittest.TestCase):
+    def test_source_connection_uses_explicit_libpq_fields_without_argv_secrets(self):
+        connection = "postgresql://fixture:example%2Bpassword@127.0.0.1:25483/catalog?sslmode=require"
+        with patch.dict(os.environ, {"DATABASE_URL": connection, "NAHHASIO_SERVER_TOKEN": "private"}, clear=True):
+            with patch.object(transfer.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"1", b"")) as run:
+                self.assertEqual(transfer.query("SELECT 1"), "1")
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual(environment["PGDATABASE"], "catalog")
+        self.assertEqual(environment["PGHOST"], "127.0.0.1")
+        self.assertEqual(environment["PGPORT"], "25483")
+        self.assertEqual(environment["PGUSER"], "fixture")
+        self.assertEqual(environment["PGPASSWORD"], "example+password")
+        self.assertEqual(environment["PGSSLMODE"], "require")
+        self.assertIn("default_transaction_read_only=on", environment["PGOPTIONS"])
+        self.assertNotIn("NAHHASIO_SERVER_TOKEN", environment)
+        self.assertNotIn(connection, run.call_args.args[0])
+
+    def test_prepared_quadlets_keep_mount_options_and_service_dependencies_valid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / "private config"
+            args = argparse.Namespace(data_root=str(root / "persistent data"), quadlet_root=str(root / "quadlets"),
+                                      server_image="ghcr.io/example/server@sha256:" + "a" * 64,
+                                      postgres_image="docker.io/library/postgres@sha256:" + "b" * 64,
+                                      schema_version="c" * 64, version="0.1.0", manifest_url=None,
+                                      release_key=None, bind_address="127.0.0.1", port=8443)
+            with contextlib.redirect_stdout(io.StringIO()):
+                installer.prepare(args, config)
+            postgres = (root / "quadlets/nahhasio-postgres.container").read_text()
+            server = (root / "quadlets/nahhasio-server.container").read_text()
+            self.assertIn(f"Volume={config}/postgres-password:/run/secrets/postgres-password:ro,Z\n", postgres)
+            for text in (postgres, server):
+                self.assertNotIn('Volume="', text)
+            self.assertIn("Requires=nahhasio-postgres.service\n", server)
+            self.assertIn("After=nahhasio-postgres.service\n", server)
+            self.assertIn(f"EnvironmentFile={config}/server.env\n", server)
+
     def archive(self, root, entries):
         path = root / "repo.tar.gz"
         with tarfile.open(path, "w:gz") as output:
@@ -82,10 +123,13 @@ class ReleaseBoundaries(unittest.TestCase):
             (root / "bundle.flatpak").write_bytes(b"Flatpak bundle fixture")
             (root / "key.gpg").write_bytes(b"OpenPGP public fixture")
             (root / "repo.tar.gz").write_bytes(b"Repository archive fixture")
+            (root / "installer.tar.gz").write_bytes(b"Installer archive fixture" * 4)
             subprocess.run([sys.executable, str(ROOT / "packaging/release/manifest.py"),
                             "--version", "0.1.0", "--client", str(root / "bundle.flatpak"),
                             "--client-url", "https://github.com/example/nahhasio/releases/download/v0.1.0/client.flatpak",
                             "--server-image", "ghcr.io/example/nahhasio@sha256:" + "a" * 64,
+                            "--installer-bundle", str(root / "installer.tar.gz"),
+                            "--installer-url", "https://github.com/example/nahhasio/releases/download/nahhasio-v0.1.0/nahhasio-install.tar.gz",
                             "--flatpak-key", str(root / "key.gpg"), "--flatpak-fingerprint", "A" * 40,
                             "--flatpak-repo", str(root / "repo.tar.gz"), "--signing-key", str(key),
                             "--schema-root", str(ROOT / "packages/database/drizzle"), "--output", str(root / "release")], check=True, capture_output=True)

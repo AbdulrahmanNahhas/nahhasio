@@ -186,3 +186,17 @@ null for other operations. Public status includes only backup IDs/dates/sizes/ve
 status and job stages/results. It never returns credential values, raw subprocess stderr or host
 filesystem paths. Jobs survive API shutdown; a reconnect reads their result. No generic shell,
 upload/extraction or service-management endpoint is exposed.
+
+## Coordinated host-tool delivery (0.1.1 onward)
+
+The signed release manifest binds a size-limited installer archive. Updates verify its hash and
+version/API, stage Python tools with integrity receipts, and check candidate startup before
+activation. `data/tools/versions/<version>` holds immutable files; stable entry links follow the
+atomic `current` selector. Image, tool selection and installation metadata share the recovery
+journal. Failed activation restores the old selection/image; a successful worker re-execs only
+after its finished job and claim removal are durable. Configuration, TLS and Quadlets remain intact.
+
+The original 0.1.0 worker needs one verified bootstrap upgrade. Follow
+[RELEASE-0.1.1](../../docs/RELEASE-0.1.1.md); subsequent compatible updates carry their own host tools.
+Client updates remain owned by Flatpak/Software, not this worker. Release-download folders can
+be removed after bootstrap acceptance; installed tool versions and recovery backups are separate.

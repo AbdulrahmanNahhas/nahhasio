@@ -155,7 +155,7 @@
         "install -Dm755 packaging/flatpak/nahhasio-anime-resolver /app/bin/nahhasio-anime-resolver",
         "install -Dm644 packaging/flatpak/io.nahhasio.Linux.desktop /app/share/applications/io.nahhasio.Linux.desktop",
         "install -Dm644 packaging/flatpak/io.nahhasio.Linux.metainfo.xml /app/share/metainfo/io.nahhasio.Linux.metainfo.xml",
-        "install -Dm644 packaging/flatpak/io.nahhasio.Linux.svg /app/share/icons/hicolor/scalable/apps/io.nahhasio.Linux.svg",
+        "install -Dm644 packaging/flatpak/io.nahhasio.Linux.png /app/share/icons/hicolor/512x512/apps/io.nahhasio.Linux.png",
         "install -Dm644 LICENSE /app/share/licenses/io.nahhasio.Linux/LICENSE"
       ],
       "sources": [

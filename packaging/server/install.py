@@ -154,7 +154,7 @@ Environment=POSTGRES_USER=postgres
 Environment=POSTGRES_DB=postgres
 Environment=POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 Volume=nahhasio-postgres-data.volume:/var/lib/postgresql/data
-Volume="{config}/postgres-password:/run/secrets/postgres-password:ro,Z"
+Volume={config}/postgres-password:/run/secrets/postgres-password:ro,Z
 HealthCmd=pg_isready -U postgres -d postgres
 HealthInterval=10s
 HealthTimeout=5s
@@ -172,8 +172,8 @@ WantedBy=default.target
 """)
     write(quadlets / "nahhasio-server.container", f"""[Unit]
 Description=Nahhasio family catalog server
-Requires=nahhasio-postgres.container
-After=nahhasio-postgres.container
+Requires=nahhasio-postgres.service
+After=nahhasio-postgres.service
 
 [Container]
 Image={server_image}
@@ -182,12 +182,12 @@ Network=nahhasio.network
 UserNS=keep-id
 User=%U
 PublishPort={args.bind_address}:{args.port}:8443
-EnvironmentFile="{config}/server.env"
+EnvironmentFile={config}/server.env
 Environment=NAHHASIO_OPERATIONS_ROOT=/var/lib/nahhasio/operations
-Volume="{data}/artwork:/var/lib/nahhasio/artwork:z"
-Volume="{config}/private:/var/lib/nahhasio/config:z"
-Volume="{config}/tls:/var/lib/nahhasio/tls:ro,z"
-Volume="{data}/operations:/var/lib/nahhasio/operations:z"
+Volume={data}/artwork:/var/lib/nahhasio/artwork:z
+Volume={config}/private:/var/lib/nahhasio/config:z
+Volume={config}/tls:/var/lib/nahhasio/tls:ro,z
+Volume={data}/operations:/var/lib/nahhasio/operations:z
 ReadOnly=true
 Tmpfs=/tmp:rw,nosuid,nodev,size=64m
 DropCapability=ALL
@@ -278,10 +278,16 @@ def maintenance_install(config):
     target = Path(installed["dataRoot"]) / "tools/operations.py"
     source = Path(__file__).resolve().parent.parent / "operations/operations.py"
     if source.is_file():
-        write(target, source.read_text(), executable=True)
-    elif not target.is_file():
+        # Execute the verified bundle's tool to bootstrap versioned files atomically;
+        # never overwrite a running worker or its managed entry links in place.
+        selected = source
+    elif target.is_file():
+        selected = target
+    else:
         fail("Install the operations.py release artifact into the installation tools directory first")
-    run([sys.executable, str(target), "--config-root", str(config), "install-units"])
+    result = subprocess.run([sys.executable, str(selected), "--config-root", str(config), "install-units"], check=False)
+    if result.returncode:
+        fail("Host-tool installation failed; see the diagnostic above")
     print("Installed host maintenance units; review their configuration before enabling timers.")
 
 
