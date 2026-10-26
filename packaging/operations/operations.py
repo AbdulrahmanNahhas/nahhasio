@@ -28,7 +28,7 @@ import urllib.request
 import uuid
 
 VERSION = 1
-HOST_TOOLS_VERSION = "0.1.1"
+HOST_TOOLS_VERSION = "0.1.2"
 _tools_spec = importlib.util.spec_from_file_location("nahhasio_host_tools", Path(__file__).resolve().with_name("host_tools.py"))
 host_tools = importlib.util.module_from_spec(_tools_spec)
 _tools_spec.loader.exec_module(host_tools)

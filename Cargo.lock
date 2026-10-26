@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "clap",
  "hex",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-linux"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -1941,7 +1941,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "axum-server",

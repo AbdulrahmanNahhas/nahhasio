@@ -6,7 +6,7 @@ on:
       version:
         description: Nahhasio version (must match the Rust and client package versions)
         required: true
-        default: "0.1.1"
+        default: "0.1.2"
   push:
     tags: ["nahhasio-v*"]
 
