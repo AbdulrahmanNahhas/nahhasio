@@ -1,7 +1,8 @@
 import { installmentRating } from "@arcadia/domain";
 import type { WorkDetail, ViewerUnitState } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownUp, ChevronDown, Download, Info, Play } from "lucide-react";
+import { cn } from "cn";
+import { ArrowDownUp, ChevronDown, Clock, Download, Info, Play } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Progress } from "@/components/ui/progress";
@@ -163,6 +164,7 @@ export function InstallmentsPanel({
             {item.kind !== "season" && (
               <Button
                 {...navigation}
+                disabled={item.status === "announced"}
                 onClick={() =>
                   requestWatch({
                     workId: work.id,
@@ -277,6 +279,15 @@ function EpisodeCard({
   const [triggerId, setTriggerId] = useState<string | null>(null);
   const number = episodeNumberLabel(episode.number);
   const state = tracking.unitByEpisode.get(episode.id);
+  const upcoming = episode.releaseState === "upcoming" || installment.status === "announced";
+  const continuing = Boolean(state?.positionSeconds && !state.isPlayed);
+  const play = () =>
+    requestWatch({
+      workId: work.id,
+      installmentId: installment.id,
+      episodeId: episode.id,
+      title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
+    });
   const image =
     episode.still ??
     pickArtwork(episode.artwork, "still") ??
@@ -305,6 +316,44 @@ function EpisodeCard({
       }}
     >
       <article className="relative flex min-w-0 flex-col gap-4" aria-label={`الحلقة ${number}`}>
+        <div
+          className={cn(
+            "relative aspect-video rounded-3xl border border-border bg-card transition-colors duration-200 motion-reduce:transition-none",
+            !upcoming && "group/episode hover:border-foreground/50 focus-within:border-ring",
+          )}
+        >
+          <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
+            <Artwork
+              id={image?.id}
+              alt=""
+              className="block size-full object-cover transition-transform duration-200 motion-safe:group-hover/episode:scale-105 motion-safe:group-focus-within/episode:scale-105 motion-reduce:transition-none"
+            />
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/85 to-transparent" />
+          </span>
+          <span className="absolute start-3 top-3">
+            <Badge variant="secondary">{number}</Badge>
+          </span>
+          <Button
+            {...navigation}
+            variant="link"
+            size="icon-lg"
+            className="absolute inset-0 size-full"
+            disabled={upcoming}
+            aria-label={upcoming ? `الحلقة ${number} لم تصدر بعد` : `تشغيل الحلقة ${number}`}
+            onClick={play}
+          >
+            <span className="grid size-14 place-items-center rounded-full border border-foreground/30 bg-background/75 text-foreground transition-transform duration-200 motion-safe:group-hover/episode:scale-110 motion-safe:group-focus-within/episode:scale-110 motion-reduce:transition-none">
+              {upcoming ? <Clock aria-hidden="true" /> : <Play aria-hidden="true" />}
+            </span>
+          </Button>
+          <span className="pointer-events-none absolute start-3 bottom-3 flex gap-2">
+            {episode.runtimeMinutes && (
+              <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
+            )}
+            {episode.releaseState === "upcoming" && <Badge variant="outline">قادم</Badge>}
+            {downloaded && <Badge variant="secondary">محمّلة</Badge>}
+          </span>
+        </div>
         <DialogTrigger
           nativeButton={false}
           role="link"
@@ -316,41 +365,20 @@ function EpisodeCard({
                 if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)
                   event.preventDefault();
               }}
-              className="group/episode flex min-w-0 flex-col gap-4 rounded-3xl text-start focus-visible:outline-none"
+              className="min-w-0 rounded-sm text-start hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               aria-label={`فتح الحلقة ${number} · ${episode.title || "تفاصيل الحلقة"}`}
             />
           }
         >
-          <span className="relative block aspect-video rounded-3xl border border-border bg-card transition-[box-shadow,border-color] duration-200 group-hover/episode:border-foreground/60 group-hover/episode:shadow-lg group-focus-visible/episode:ring-4 group-focus-visible/episode:ring-foreground group-focus-visible/episode:ring-offset-2 group-focus-visible/episode:ring-offset-background motion-reduce:transition-none">
-            <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
-              <Artwork id={image?.id} alt="" className="block size-full object-cover" />
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/85 to-transparent" />
-            </span>
-            <span className="absolute start-3 top-3">
-              <Badge variant="secondary">{number}</Badge>
-            </span>
-            <span className="pointer-events-none absolute inset-0 grid place-items-center">
-              <span className="grid size-14 place-items-center rounded-full border border-foreground/30 bg-background/75 text-foreground transition-transform group-hover/episode:scale-110 group-focus-visible/episode:scale-110 motion-reduce:transform-none">
-                <Play className="size-6" aria-hidden="true" />
-              </span>
-            </span>
-            <span className="absolute start-3 bottom-3 flex gap-2">
-              {episode.runtimeMinutes && (
-                <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
-              )}
-              {episode.releaseState === "upcoming" && <Badge variant="outline">قادم</Badge>}
-              {downloaded && <Badge variant="secondary">محمّلة</Badge>}
-            </span>
-          </span>
-          <h3 className="min-w-0 text-lg leading-relaxed font-semibold transition-colors group-hover/episode:text-primary group-focus-visible/episode:text-primary md:text-xl motion-reduce:transition-none">
+          <h3 className="min-w-0 text-lg leading-relaxed font-semibold md:text-xl">
             {episode.title || `الحلقة ${number}`}
           </h3>
-          {episode.summary.trim() && (
-            <p className="line-clamp-2 text-base leading-relaxed text-muted-foreground" dir="auto">
-              {episode.summary}
-            </p>
-          )}
         </DialogTrigger>
+        {episode.summary.trim() && (
+          <p className="line-clamp-2 text-base leading-relaxed text-muted-foreground" dir="auto">
+            {episode.summary}
+          </p>
+        )}
         <div className="absolute end-3 top-3">
           <WatchedControl
             tracking={tracking}
@@ -364,18 +392,12 @@ function EpisodeCard({
           <Button
             {...navigation}
             variant="secondary"
-            aria-label={`تشغيل الحلقة ${number}`}
-            onClick={() =>
-              requestWatch({
-                workId: work.id,
-                installmentId: installment.id,
-                episodeId: episode.id,
-                title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
-              })
-            }
+            disabled={upcoming}
+            aria-label={`${continuing ? "متابعة" : "مشاهدة"} الحلقة ${number}`}
+            onClick={play}
           >
-            <Play data-icon="inline-start" />
-            مشاهدة
+            {upcoming ? <Clock data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+            {upcoming ? "لم تصدر بعد" : continuing ? "متابعة" : "مشاهدة"}
           </Button>
           <Button
             variant="outline"
@@ -402,7 +424,7 @@ function EpisodeCard({
             render={<Button {...navigation} variant="ghost" size="icon-sm" />}
             aria-label={`تفاصيل الحلقة ${number}`}
           >
-            <Info />
+            <Info data-icon="inline-start" />
           </DialogTrigger>
         </div>
         {state && state.positionSeconds > 0 && !state.isPlayed && state.durationSeconds && (

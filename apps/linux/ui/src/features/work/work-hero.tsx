@@ -1,6 +1,8 @@
 import type { WorkDetail } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Download, Film, Heart, Play, Tv } from "lucide-react";
+import { CalendarDays, Download, Film, FileVideo, Heart, Languages, Play, Tv } from "lucide-react";
+
+import { languageName } from "@/lib/languages";
 
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
@@ -14,6 +16,7 @@ import { entityLink } from "../shell/navigation";
 import { audienceLabels, statusLabels } from "./format";
 import type { WorkTracking } from "./use-work-tracking";
 import { WatchedControl } from "./watched-control";
+import { WorkTrailers } from "./work-trailers";
 
 export function releaseStatus(work: WorkDetail) {
   const statuses = work.installments.map((item) => item.status);
@@ -115,6 +118,26 @@ export function WorkHero({
             )}
             {work.isPrivate && <Badge variant="outline">خاص</Badge>}
           </div>
+          {(work.playbackPolicy === "files-only" || Boolean(work.dubLanguages?.length)) && (
+            <div className="flex flex-wrap items-center gap-2" aria-label="الدبلجة ومصدر التشغيل">
+              {work.playbackPolicy === "files-only" && (
+                <Badge variant="outline" title="التشغيل من الملفات فقط">
+                  <FileVideo data-icon="inline-start" />
+                  ملفات فقط
+                </Badge>
+              )}
+              {Boolean(work.dubLanguages?.length) && (
+                <Badge
+                  variant="secondary"
+                  aria-label="لغات الدبلجة المسجّلة"
+                  title="لغات الدبلجة المسجّلة للعمل"
+                >
+                  <Languages data-icon="inline-start" />
+                  دبلجة: {work.dubLanguages?.map(languageName).join("، ")}
+                </Badge>
+              )}
+            </div>
+          )}
           {work.summary.trim() && (
             <p
               className="line-clamp-4 text-base leading-loose wrap-anywhere md:text-lg lg:text-xl"
@@ -128,6 +151,10 @@ export function WorkHero({
               className="h-12 px-6 text-base"
               size="lg"
               {...navigation}
+              disabled={
+                work.installments.length > 0 &&
+                work.installments.every((item) => item.status === "announced")
+              }
               onClick={() =>
                 requestWatch({
                   workId: work.id,
@@ -178,6 +205,7 @@ export function WorkHero({
             </Button>
             <WatchedControl tracking={tracking} label="العمل" compact large />
             <SaveWorkControl id={work.id} compact />
+            <WorkTrailers trailers={work.trailers ?? []} />
           </div>
         </div>
         <div className="hidden lg:block">

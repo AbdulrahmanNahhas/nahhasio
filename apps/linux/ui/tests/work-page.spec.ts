@@ -136,6 +136,26 @@ const work: WorkDetail = {
   canonicalTitle: "The family library",
   titleAr: workTitle,
   sortTitle: "The family library",
+  dubLanguages: ["ar", "en"],
+  dubbingNotes: "دبلجة عربية مسجّلة للمكتبة.",
+  trailers: [
+    {
+      id: id(901),
+      position: 1,
+      youtubeVideoId: "abcdefghijk",
+      title: "الإعلان الأول",
+      language: "ar",
+      isPrimary: false,
+    },
+    {
+      id: id(902),
+      position: 2,
+      youtubeVideoId: "lmnopqrstuv",
+      title: "الإعلان الرئيسي",
+      language: "en",
+      isPrimary: true,
+    },
+  ],
   summary,
   releaseYear: 2021,
   format: "animated",
@@ -1126,7 +1146,9 @@ test("episode keyboard navigation follows physical RTL directions and details re
   await expect(first).toBeFocused();
   await episodeCard(page, 1).getByRole("button", { name: "تفاصيل الحلقة 1" }).focus();
   await page.keyboard.press("ArrowDown");
-  await expect(episodeCard(page, 4).getByRole("link", { name: /^فتح الحلقة 4/ })).toBeFocused();
+  await expect(
+    episodeCard(page, 4).getByRole("button", { name: "تشغيل الحلقة 4", exact: true }),
+  ).toBeFocused();
   const detailsTrigger = episodeCard(page, 2).getByRole("button", { name: "تفاصيل الحلقة 2" });
   await detailsTrigger.focus();
   await page.keyboard.press("Enter");
@@ -1157,7 +1179,7 @@ test("episode keyboard navigation follows physical RTL directions and details re
   await expect(noTitle.getByRole("button", { name: "تفاصيل الحلقة 3" })).toBeFocused();
 });
 
-test("whole episode cards are keyboard links with image focus, scoped actions and reloadable details", async ({
+test("episode details remain deep links while artwork starts the selected episode", async ({
   page,
 }) => {
   await openWork(page, `?installment=${seasonId}`);
@@ -1168,15 +1190,7 @@ test("whole episode cards are keyboard links with image focus, scoped actions an
   await expect(link.locator("button, a, input")).toHaveCount(0);
   await expect(card.getByRole("button", { name: "تشغيل الحلقة 2" })).toBeEnabled();
   await expect(card.getByRole("button", { name: "تنزيل الحلقة 2" })).toBeEnabled();
-  const image = link.locator(":scope > span").first();
-  const idleShadow = await image.evaluate((element) => getComputedStyle(element).boxShadow);
   await link.focus();
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Shift+Tab");
-  await expect(link).toBeFocused();
-  await expect
-    .poll(() => image.evaluate((element) => getComputedStyle(element).boxShadow))
-    .not.toBe(idleShadow);
   await link.press("Enter");
   const dialog = page.getByRole("dialog", { name: "2 · رحلة الحلقة 2" });
   await expect(dialog).toBeVisible();
@@ -1195,6 +1209,18 @@ test("whole episode cards are keyboard links with image focus, scoped actions an
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   expect(new URL(page.url()).hash).not.toContain("episode=");
+  await card.getByRole("button", { name: "تشغيل الحلقة 2", exact: true }).click();
+  await expect
+    .poll(() => requests(page, "player.preview"))
+    .toContainEqual({ title: `${workTitle} · الحلقة 2` });
+  await expect
+    .poll(() => requests(page, "media.local"))
+    .toContainEqual(
+      expect.objectContaining({
+        target: { workId, installmentId: seasonId, episodeId: id(102) },
+      }),
+    );
+  await expect(page.getByRole("dialog", { name: "2 · رحلة الحلقة 2" })).toHaveCount(0);
   expect(await requests(page, "setWatched")).toEqual([]);
 });
 
@@ -1739,4 +1765,46 @@ test("watch page local file: no sidebar, one filename and fullscreen in bottom c
     player.locator("footer").getByRole("button", { name: "ملء الشاشة", exact: true }),
   ).toBeVisible();
   await expectNoOverflow(page);
+});
+
+test("work media actions stay in context and upcoming episodes cannot start playback", async ({
+  page,
+}) => {
+  await openWork(page);
+  await expect(page.getByLabel("لغات الدبلجة المسجّلة")).toContainText("العربية");
+  const trailer = page.getByRole("link", {
+    name: "مشاهدة الإعلان التشويقي على YouTube",
+    exact: true,
+  });
+  await expect(trailer).toHaveAttribute("href", "https://www.youtube.com/watch?v=lmnopqrstuv");
+  await expect(trailer).toHaveAttribute("target", "_blank");
+  await page.getByRole("button", { name: "كل الإعلانات التشويقية", exact: true }).click();
+  await expect(page.getByRole("menuitem").filter({ hasText: "الإعلان الأول" })).toHaveAttribute(
+    "href",
+    "https://www.youtube.com/watch?v=abcdefghijk",
+  );
+  await page.keyboard.press("Escape");
+  await page.screenshot({
+    path: "../../../data/previews/work-media-desktop.png",
+    animations: "disabled",
+  });
+  const notes = page.getByText("ملاحظات الدبلجة", { exact: true });
+  await notes.click();
+  await expect(page.getByText(work.dubbingNotes!, { exact: true })).toBeVisible();
+  await openEpisodes(page);
+  await expect(
+    episodeCard(page, 8).getByRole("button", { name: "الحلقة 8 لم تصدر بعد", exact: true }),
+  ).toBeDisabled();
+  await episodeCard(page, 1).scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: "../../../data/previews/work-episodes-desktop.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 520, height: 900 });
+  await episodeCard(page, 1).scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({
+    path: "../../../data/previews/work-episodes-narrow.png",
+    animations: "disabled",
+  });
 });

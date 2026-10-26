@@ -4,8 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Lightbulb } from "lucide-react";
 
-import { languageName } from "@/lib/languages";
-
 import { useCardNavigation } from "../../components/card-navigation";
 import { MediaCard } from "../../components/media-card";
 import { Badge } from "../../components/ui/badge";
@@ -76,50 +74,6 @@ export function OverviewPanel({ work, tracking }: { work: WorkDetail; tracking: 
   const terms = [...work.genres, ...work.tones, ...work.tags].filter((term) => term.labelAr.trim());
   return (
     <div className="flex min-w-0 flex-col gap-8 md:gap-12">
-      {((work.dubLanguages?.length ?? 0) > 0 ||
-        work.dubbingNotes ||
-        work.playbackPolicy === "files-only") && (
-        <Section title="الصوت والدبلجة">
-          <div className="flex flex-wrap gap-2">
-            {work.playbackPolicy === "files-only" && (
-              <Badge variant="outline">التشغيل من الملفات</Badge>
-            )}
-            {work.dubLanguages?.map((language) => (
-              <Badge variant="secondary" key={language}>
-                {languageName(language)}
-              </Badge>
-            ))}
-          </div>
-          {work.dubbingNotes && (
-            <p dir="auto" className="mt-3 whitespace-pre-line text-muted-foreground">
-              {work.dubbingNotes}
-            </p>
-          )}
-        </Section>
-      )}
-      {Boolean(work.trailers?.length) && (
-        <Section title="الإعلانات التشويقية">
-          <div className="flex flex-wrap gap-3">
-            {work.trailers?.map((trailer) => (
-              <Button
-                key={trailer.id}
-                variant="outline"
-                render={
-                  <a
-                    href={`https://www.youtube.com/watch?v=${trailer.youtubeVideoId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  />
-                }
-              >
-                {trailer.title || "مشاهدة الإعلان"}
-                {trailer.language ? ` · ${languageName(trailer.language)}` : ""}
-                {trailer.isPrimary ? " · الرئيسي" : ""}
-              </Button>
-            ))}
-          </div>
-        </Section>
-      )}
       {(work.summary.trim() || terms.length > 0) && (
         <section className="flex min-w-0 flex-col gap-6" aria-label="نبذة العمل">
           {work.summary.trim() && (
@@ -144,6 +98,13 @@ export function OverviewPanel({ work, tracking }: { work: WorkDetail; tracking: 
             </div>
           )}
         </section>
+      )}
+      {work.dubbingNotes?.trim() && (
+        <Disclosure title="ملاحظات الدبلجة">
+          <p className="text-base leading-loose whitespace-pre-line wrap-anywhere" dir="auto">
+            {work.dubbingNotes}
+          </p>
+        </Disclosure>
       )}
       {(work.contentWarnings?.trim() || work.analysisNotes?.trim()) && (
         <div className="grid gap-6 xl:grid-cols-2">
