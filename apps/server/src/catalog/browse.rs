@@ -221,6 +221,7 @@ fn base(is_admin: bool) -> String {
         .join(",");
     format!(
         r#"select t.id,i.id unit_id,t.sort_title,t.updated_at,t.created_at,
+coalesce((select c.entity_id::text from contributions c join entities e on e.id=c.entity_id join roles r on r.id=c.role_id where c.title_id=t.id and e.kind='organization' and c.is_primary and r.slug in ('animation_studio','production_company') order by case r.slug when 'animation_studio' then 0 else 1 end,c.position,c.entity_id limit 1),'__none__') main_studio,
 coalesce(i.release_date::text,t.release_year::text||'-01-01') release_sort,
 coalesce(extract(year from i.release_date)::integer,t.release_year) as catalog_year,
 (select max(coalesce(x.release_date::text,t.release_year::text||'-01-01')) from installments x where x.title_id=t.id and (i.id is null or x.id=i.id) and {RELEASED_INSTALLMENT}) latest_released_sort,
@@ -239,7 +240,7 @@ cross join lateral (select {counts} from ({units}) units
 left join account_playback_states ps on ps.account_id=(select a.id from accounts a where a.auth_user_id=$1 and a.status='active')
 and ps.installment_id=units.installment_id and ps.episode_id is not distinct from units.episode_id) tracking
 cross join lateral (select {watch_state} watch_state) watch
-where ($2='works' or i.id is not null) and ($3='all' or t.is_private=($3='private')) and ({is_admin} or t.workflow_status='published')"#,
+where ($2='works' or i.id is not null) and ($3='all' or t.is_private=($3='private')) and ({is_admin} or t.workflow_status in ('draft','published'))"#,
         release_status = release_status(),
         art = queries::ARTWORK,
         score = queries::SCORE_VALUE,
@@ -313,12 +314,12 @@ fn membership_groups(group: &str) -> Option<(&'static str, &'static str)> {
         )),
         "genre" => Some(("genres", "0")),
         "country" => Some(("countries", "0")),
-        "studio" => Some(("studios", "0")),
         _ => None,
     }
 }
 fn grouping(group: &str) -> (&'static str, &'static str) {
     match group {
+        "studio" => ("main_studio", "null::integer"),
         "year" => ("coalesce(catalog_year::text,'unknown')", "-catalog_year"),
         "format" => (
             "entry#>>'{work,format}'",

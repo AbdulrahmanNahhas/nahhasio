@@ -159,7 +159,7 @@ async fn race(api: &Router, pool: &PgPool, operation: &str, change: &str) {
         .fetch_one(&mut *blocker)
         .await
         .unwrap();
-    if matches!(change, "private" | "draft") {
+    if matches!(change, "private" | "archived") {
         sqlx::query("select id from titles where id=$1::uuid for update")
             .bind(WORK)
             .execute(&mut *blocker)
@@ -206,14 +206,14 @@ async fn race(api: &Router, pool: &PgPool, operation: &str, change: &str) {
   "demoted"=>sql(&mut blocker,"update auth_users set role='member' where id='authorization-fixture'").await,
   "policy"=>sqlx::query("delete from account_content_policies where account_id=$1::uuid").bind(OWNER).execute(&mut *blocker).await.map(|_|()).unwrap(),
   "private"=>sqlx::query("update titles set is_private=true where id=$1::uuid").bind(WORK).execute(&mut *blocker).await.map(|_|()).unwrap(),
-  "draft"=>sqlx::query("update titles set workflow_status='draft' where id=$1::uuid").bind(WORK).execute(&mut *blocker).await.map(|_|()).unwrap(),
+  "archived"=>sqlx::query("update titles set workflow_status='archived' where id=$1::uuid").bind(WORK).execute(&mut *blocker).await.map(|_|()).unwrap(),
   _=>unreachable!()
  }
     let expected = fingerprint(&mut blocker).await;
     blocker.commit().await.unwrap();
     let (status, _) = task.await.unwrap();
     let wanted = match change {
-        "private" | "draft" | "demoted" => StatusCode::NOT_FOUND,
+        "private" | "archived" | "demoted" => StatusCode::NOT_FOUND,
         "policy" => StatusCode::FORBIDDEN,
         _ => StatusCode::UNAUTHORIZED,
     };
@@ -225,6 +225,8 @@ async fn race(api: &Router, pool: &PgPool, operation: &str, change: &str) {
     );
 }
 pub(super) async fn acceptance(api: &Router, pool: &PgPool) {
+    studio_grouping(api, pool).await;
+    draft_visibility(api, pool).await;
     for operation in [
         "favorite", "watched", "tracking", "comment", "profile", "password", "device",
     ] {
@@ -233,7 +235,7 @@ pub(super) async fn acceptance(api: &Router, pool: &PgPool) {
         }
     }
     for operation in ["favorite", "watched", "tracking", "comment"] {
-        for change in ["policy", "private", "draft"] {
+        for change in ["policy", "private", "archived"] {
             race(api, pool, operation, change).await;
         }
     }
@@ -267,4 +269,156 @@ pub(super) async fn acceptance(api: &Router, pool: &PgPool) {
     eprintln!(
         "53 deterministic session/policy/visibility races rejected without state changes; valid writes preserved"
     );
+}
+
+async fn studio_grouping(api: &Router, pool: &PgPool) {
+    reset(pool).await;
+    let main = "98000000-0000-4000-8000-000000000011";
+    let supporting = "98000000-0000-4000-8000-000000000012";
+    let distributor = "98000000-0000-4000-8000-000000000013";
+    let mut tx = pool.begin().await.unwrap();
+    sql(&mut tx, "set transaction read write").await;
+    for (id, name, role, primary, position) in [
+        (main, "Main animation studio", "animation_studio", true, 2),
+        (
+            supporting,
+            "Supporting animation studio",
+            "animation_studio",
+            false,
+            0,
+        ),
+        (distributor, "Primary distributor", "distributor", true, 1),
+    ] {
+        sqlx::query(
+            "insert into entities(id,name,sort_name,kind) values($1::uuid,$2,$2,'organization')",
+        )
+        .bind(id)
+        .bind(name)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        sqlx::query("insert into contributions(title_id,entity_id,role_id,is_primary,position) select $1::uuid,$2::uuid,id,$4,$5 from roles where slug=$3")
+            .bind(WORK).bind(id).bind(role).bind(primary).bind(position).execute(&mut *tx).await.unwrap();
+    }
+    tx.commit().await.unwrap();
+    for expected in [main, "__none__", main] {
+        for view in ["works", "installments"] {
+            let (status, body) = call(api.clone(), "GET", format!("/api/v1/catalog/browse?privacy=public&group=studio&view={view}&q=Authorization%20film"), Value::Null).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            assert_eq!(body["total"], 1);
+            assert_eq!(body["groups"].as_array().unwrap().len(), 1);
+            assert_eq!(body["groups"][0]["key"], expected);
+            assert_eq!(body["items"][0]["groupKey"], expected);
+        }
+        let mut tx = pool.begin().await.unwrap();
+        sql(&mut tx, "set transaction read write").await;
+        if expected == main {
+            sqlx::query("update contributions set is_primary=false where title_id=$1::uuid and entity_id=$2::uuid")
+                .bind(WORK).bind(main).execute(&mut *tx).await.unwrap();
+        } else {
+            sqlx::query("update contributions set is_primary=true,role_id=(select id from roles where slug='production_company') where title_id=$1::uuid and entity_id=$2::uuid")
+                .bind(WORK).bind(main).execute(&mut *tx).await.unwrap();
+        }
+        tx.commit().await.unwrap();
+    }
+}
+
+async fn draft_visibility(api: &Router, pool: &PgPool) {
+    reset(pool).await;
+    let artwork = "97000000-0000-4000-8000-000000000006";
+    let root = std::path::PathBuf::from(std::env::var_os("NAHHASIO_MEDIA_ROOT").unwrap());
+    assert!(root.starts_with("/tmp"));
+    std::fs::create_dir_all(root.join("posters")).unwrap();
+    let bytes = hex::decode("89504e470d0a1a0a0000000d4948445200000001000000010804000000b51c0c020000000b4944415478da6364f80f00010501012718e3660000000049454e44ae426082").unwrap();
+    std::fs::write(root.join("posters/draft-fixture.png"), &bytes).unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    sql(&mut tx, "set transaction read write").await;
+    sqlx::query("insert into media_assets(id,path,sha256,mime_type,byte_size,width,height,original_filename) values($1::uuid,'/media/uploads/posters/draft-fixture.png',$2,'image/png',$3,1,1,'draft-fixture.png')")
+        .bind(artwork).bind(hex::encode(Sha256::digest(&bytes))).bind(i32::try_from(bytes.len()).unwrap()).execute(&mut *tx).await.unwrap();
+    sqlx::query("insert into media_asset_assignments(asset_id,title_id,role,is_primary) values($1::uuid,$2::uuid,'poster',true)")
+        .bind(artwork).bind(WORK).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    for (workflow, private, visible) in [
+        ("draft", false, true),
+        ("published", false, true),
+        ("draft", true, false),
+        ("archived", false, false),
+        ("in_review", false, false),
+        ("approved", false, false),
+    ] {
+        let mut tx = pool.begin().await.unwrap();
+        sql(&mut tx, "set transaction read write").await;
+        sqlx::query(
+            "update titles set workflow_status=$2::workflow_status,is_private=$3 where id=$1::uuid",
+        )
+        .bind(WORK)
+        .bind(workflow)
+        .bind(private)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+        for view in ["works", "installments"] {
+            let (status, body) = call(
+                api.clone(),
+                "GET",
+                format!("/api/v1/catalog/browse?privacy=public&view={view}&q=Authorization%20film"),
+                Value::Null,
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(
+                body["total"].as_u64().unwrap() > 0,
+                visible,
+                "{workflow}/{private}/{view}"
+            );
+        }
+        let wanted = if visible {
+            StatusCode::OK
+        } else {
+            StatusCode::NOT_FOUND
+        };
+        assert_eq!(
+            call(
+                api.clone(),
+                "GET",
+                format!("/api/v1/works/{WORK}"),
+                Value::Null
+            )
+            .await
+            .0,
+            wanted
+        );
+        let response = api
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/artwork/{artwork}"))
+                    .header("authorization", format!("Bearer {}", token()))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), wanted, "{workflow}/{private}/artwork");
+        if visible {
+            assert_eq!(
+                &to_bytes(response.into_body(), 1024).await.unwrap()[..],
+                &bytes
+            );
+        }
+        if workflow == "draft" && !private {
+            assert_eq!(
+                call(
+                    api.clone(),
+                    "PUT",
+                    format!("/api/v1/works/{WORK}/favorite"),
+                    json!({"isFavorite":true})
+                )
+                .await
+                .0,
+                StatusCode::OK
+            );
+        }
+    }
 }

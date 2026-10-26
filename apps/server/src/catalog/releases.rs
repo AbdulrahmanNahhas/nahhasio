@@ -54,12 +54,12 @@ const ENTRIES: &str = r#"with entries as (
 select i.id,t.id work_id,t.sort_title,i.id installment_id,i.position installment_position,
 -1 episode_position,i.title,i.release_date,i.runtime_minutes,i.status::text status,'installment'::text kind,
 null::text episode_number
-from installments i join titles t on t.id=i.title_id where (not t.is_private and t.workflow_status='published')
+from installments i join titles t on t.id=i.title_id where (not t.is_private and t.workflow_status in ('draft','published'))
 union all
 select e.id,t.id,t.sort_title,i.id,i.position,e.position,e.title,e.release_date,e.runtime_minutes,
 i.status::text,'episode'::text,e.number::text
 from episodes e join installments i on i.id=e.installment_id join titles t on t.id=i.title_id
-where (not t.is_private and t.workflow_status='published')
+where (not t.is_private and t.workflow_status in ('draft','published'))
 ), filtered as (
 select * from entries where ($1='all' or ($1='installments' and kind='installment') or ($1='episodes' and kind='episode'))
 and case $2
@@ -264,7 +264,7 @@ mod tests {
         let sql = query();
         assert!(sql.contains("e.title,e.release_date,e.runtime_minutes"));
         assert_eq!(
-            sql.matches("where (not t.is_private and t.workflow_status='published')")
+            sql.matches("where (not t.is_private and t.workflow_status in ('draft','published'))")
                 .count(),
             2
         );

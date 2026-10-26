@@ -181,8 +181,8 @@ async fn filters(State(pool): State<PgPool>) -> ApiResult<Json<Value>> {
     let value = sqlx::query_scalar::<_, SqlJson<Value>>(r#"select jsonb_build_object(
 'genres',coalesce((select jsonb_agg(jsonb_build_object('id',id,'slug',slug,'labelEn',label_en,'labelAr',label_ar,'descriptionEn',description_en,'descriptionAr',description_ar) order by position,slug) from genres where is_active),'[]'::jsonb),
 'formats',jsonb_build_array('animated','live-action'),'audiences',jsonb_build_array('general','teen','young-adult','adult'),'statuses',jsonb_build_array('announced','airing','completed','unknown'),
-'planets',coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'slug',p.slug,'nameAr',p.name_ar,'nameEn',p.name_en,'icon',p.icon,'primaryColor',p.primary_color,'secondaryColor',p.secondary_color,'count',(select count(*) from title_planets tp join titles t on t.id=tp.title_id where tp.planet_id=p.id and not t.is_private and t.workflow_status='published')) order by p.display_order,p.id) from planets p where p.is_active),'[]'::jsonb),
-'yearMin',(select min(release_year) from titles where not is_private and workflow_status='published'),'yearMax',(select max(release_year) from titles where not is_private and workflow_status='published'))"#).fetch_one(&pool).await?;
+'planets',coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'slug',p.slug,'nameAr',p.name_ar,'nameEn',p.name_en,'icon',p.icon,'primaryColor',p.primary_color,'secondaryColor',p.secondary_color,'count',(select count(*) from title_planets tp join titles t on t.id=tp.title_id where tp.planet_id=p.id and not t.is_private and t.workflow_status in ('draft','published'))) order by p.display_order,p.id) from planets p where p.is_active),'[]'::jsonb),
+'yearMin',(select min(release_year) from titles where not is_private and workflow_status in ('draft','published')),'yearMax',(select max(release_year) from titles where not is_private and workflow_status in ('draft','published')))"#).fetch_one(&pool).await?;
     Ok(Json(value.0))
 }
 

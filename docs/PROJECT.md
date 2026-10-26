@@ -56,6 +56,10 @@ is not permission to expose secrets or infer that a device has complete files.
 
 ## Catalog rules
 
+Draft and published works are visible to family accounts when public. Draft marks editorial
+revision work for administrators; it is not a privacy setting. Private works remain restricted,
+and archived/in-review/approved records retain their existing visibility rules.
+
 Dub languages and notes belong to the whole work; contributions can identify dubbing studios and
 credit languages. Each work has at most one planet. Trailers use validated YouTube IDs. Episode
 stills are registered server artwork attached to episode UUIDs. Do not introduce edition systems,

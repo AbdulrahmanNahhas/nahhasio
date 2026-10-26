@@ -64,7 +64,11 @@ system fields.
   minimum thresholds, individual resets and a shared reset. All thresholds use 0.1 precision.
 - Work status uses completed, ongoing, upcoming and unknown; installment status retains airing.
   Administrator privacy filtering follows the privacy flag independently of editorial state.
-  Family accounts still require published public works.
+  Family accounts can browse public draft and published works. Draft is an administrator
+  revision marker; private works remain restricted.
+- Studio grouping uses one primary animation studio, or a primary production company when
+  no primary animation studio is recorded. Supporting studios and distributors do not create
+  extra groups; the studio filter still searches all credited organizations.
 - Display has layout tiles, contextual setting rows, immediate switches, a table-column picker,
   Arabic/English/both title choices, thumbnails and row density. Added preferences are optional
   in both TypeScript and native Rust so previous documents remain readable. Defaults retain
@@ -177,7 +181,7 @@ shows discussion as unavailable; comments are not added to the offline mutation 
 
 ## Work recommendations
 
-The viewer's work page requests up to ten other published, non-private works through
+The viewer's work page requests up to ten other draft or published, non-private works through
 `GET /api/v1/catalog/recommendations?workId=…`. The current work is excluded. All eligible
 candidates are ranked in PostgreSQL; the client receives only ten summaries and their explanations.
 No migrations, catalog mutations, viewing-history inference or third-party recommendation service
@@ -215,7 +219,7 @@ No private bookkeeping, alternative titles or verification data is shown in the 
 
 ### Runtime boundary
 
-The existing endpoint's no-work-ID personal/editorial behavior is retained, with published/private
+The existing endpoint's no-work-ID personal/editorial behavior is retained, with editorial-status/private
 filtering. Its related-work response adds optional `matches` and `algorithm` fields to the canonical
 OpenAPI schema. Generate the client rather than editing generated TypeScript. The new fixed
 `recommendations` native command validates the work ID and calls this endpoint using the existing

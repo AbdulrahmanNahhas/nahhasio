@@ -119,7 +119,7 @@ async fn ensure_work(
     write: bool,
 ) -> ApiResult<()> {
     let query = format!(
-        "select id::text from titles where id=$1::uuid and ($2 or (not is_private and workflow_status='published')){}",
+        "select id::text from titles where id=$1::uuid and ($2 or (not is_private and workflow_status in ('draft','published'))){}",
         if write { " for share" } else { "" }
     );
     sqlx::query_scalar::<_, String>(AssertSqlSafe(query))

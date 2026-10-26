@@ -363,7 +363,7 @@ pub async fn require_viewer(
         let parts: Vec<_> = request.uri().path().split('/').collect();
         if parts.len() >= 5 && parts[3] == "works" {
             let private: bool = sqlx::query_scalar(
-                "SELECT (is_private OR workflow_status<>'published') FROM titles WHERE id::text=$1",
+                "SELECT (is_private OR workflow_status not in ('draft','published')) FROM titles WHERE id::text=$1",
             )
             .bind(parts[4])
             .fetch_optional(&pool)
@@ -375,7 +375,7 @@ pub async fn require_viewer(
             }
         }
         if parts.len() == 5 && parts[3] == "artwork" {
-            let private: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM media_asset_assignments m LEFT JOIN installments i ON i.id=m.installment_id LEFT JOIN episodes e ON e.id=m.episode_id LEFT JOIN installments ei ON ei.id=e.installment_id LEFT JOIN titles t ON t.id=coalesce(m.title_id,i.title_id,ei.title_id) WHERE m.asset_id::text=$1 AND ((NOT t.is_private AND t.workflow_status='published') OR EXISTS(SELECT 1 FROM contributions c JOIN titles visible ON visible.id=c.title_id WHERE c.entity_id=m.entity_id AND NOT visible.is_private AND visible.workflow_status='published')))").bind(parts[4]).fetch_one(&pool).await.map_err(unavailable)?;
+            let private: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM media_asset_assignments m LEFT JOIN installments i ON i.id=m.installment_id LEFT JOIN episodes e ON e.id=m.episode_id LEFT JOIN installments ei ON ei.id=e.installment_id LEFT JOIN titles t ON t.id=coalesce(m.title_id,i.title_id,ei.title_id) WHERE m.asset_id::text=$1 AND ((NOT t.is_private AND t.workflow_status in ('draft','published')) OR EXISTS(SELECT 1 FROM contributions c JOIN titles visible ON visible.id=c.title_id WHERE c.entity_id=m.entity_id AND NOT visible.is_private AND visible.workflow_status in ('draft','published'))))").bind(parts[4]).fetch_one(&pool).await.map_err(unavailable)?;
             if private {
                 return Err(AuthError(StatusCode::NOT_FOUND, "Artwork not found"));
             }

@@ -40,7 +40,7 @@ pub(super) async fn list(
         "title" => "t.sort_title,v.position,v.id",
         _ => return Err(ApiError(StatusCode::BAD_REQUEST, "Invalid trailer sort")),
     };
-    let filter = "not t.is_private and t.workflow_status='published' and ($1::text is null or strpos(lower(t.canonical_title||' '||coalesce(t.title_ar,'')||' '||v.title),lower($1))>0 or exists(select 1 from title_aliases a where a.title_id=t.id and strpos(lower(a.title),lower($1))>0)) and ($2::text is null or t.format::text=$2)";
+    let filter = "not t.is_private and t.workflow_status in ('draft','published') and ($1::text is null or strpos(lower(t.canonical_title||' '||coalesce(t.title_ar,'')||' '||v.title),lower($1))>0 or exists(select 1 from title_aliases a where a.title_id=t.id and strpos(lower(a.title),lower($1))>0)) and ($2::text is null or t.format::text=$2)";
     let query = format!(
         r#"select jsonb_build_object('items',coalesce((select jsonb_agg(item order by ordinal) from (
 select row_number() over(order by {order}) ordinal,jsonb_build_object('work',({summary}),'trailer',jsonb_build_object('id',v.id,'youtubeVideoId',v.youtube_video_id,'title',v.title,'language',v.language,'isPrimary',v.is_primary,'position',v.position)) item
