@@ -36,6 +36,36 @@ flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/fl
 This produces an unsigned local test repository/bundle. Production signing belongs to the release
 workflow. It does not install the local build or change an existing client.
 
+On Shadow, keep SDK downloads on the persistent project disk: the ordinary user Flatpak
+directory may be on the small ephemeral root. From the repository root, prepare an isolated
+build installation once:
+
+```sh
+FLATPAK_USER_DIR="$PWD/.flatpak-user" flatpak remote-add --user --if-not-exists \
+  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+FLATPAK_USER_DIR="$PWD/.flatpak-user" flatpak install --user --no-related flathub \
+  org.gnome.Sdk//50 org.freedesktop.Sdk.Extension.rust-stable//25.08
+```
+
+Then build using the repository development tools and a temporary Nix-provided Builder:
+
+```sh
+FLATPAK_USER_DIR="$PWD/.flatpak-user" devenv shell -- \
+  nix shell nixpkgs#flatpak-builder --command bash bin/nahhasio-flatpak
+```
+
+The first SDK/dependency build can take time. Retain `.flatpak-user` and `.flatpak-builder`
+for subsequent builds; both are ignored. To test the built sandbox without installing the
+unsigned bundle over the signed client, fully quit the installed app, then run:
+
+```sh
+FLATPAK_USER_DIR="$PWD/.flatpak-user" nix shell nixpkgs#flatpak-builder --command \
+  flatpak-builder --run .flatpak-build packaging/flatpak/io.nahhasio.Linux.json nahhasio
+```
+
+This is a development sandbox, not installed-release acceptance. It may use the same
+app-private settings as the installed client. No production remote verification is disabled.
+
 ## Permissions and persistent data
 
 The sandbox grants network access for LAN/API/provider requests, Wayland with fallback X11,

@@ -26,6 +26,7 @@ core.*
 /.flatpak-source/
 /.flatpak-build/
 /.flatpak-builder/
+/.flatpak-user/
 **/build/
 
 # Local library state (created on first run)
