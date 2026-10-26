@@ -24,7 +24,14 @@ export function AdminNavigation() {
     if (isMobile) setOpenMobile(false);
   };
   return (
-    <Sidebar side="right" variant="inset" collapsible="icon" dir="rtl" aria-label="التنقل الإداري">
+    <Sidebar
+      role="navigation"
+      side="right"
+      variant="inset"
+      collapsible="icon"
+      dir="rtl"
+      aria-label="التنقل الإداري"
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

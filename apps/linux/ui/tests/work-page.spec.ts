@@ -1726,7 +1726,8 @@ test("watch page local file: no sidebar, one filename and fullscreen in bottom c
   await openWork(page);
   await page.getByRole("button", { name: "تشغيل", exact: true }).click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
-  await watch.getByRole("button", { name: "فتح فيديو من الجهاز", exact: true }).click();
+  await watch.getByRole("button", { name: "خيارات المصدر", exact: true }).click();
+  await page.getByRole("menuitem", { name: "فتح فيديو من الجهاز", exact: true }).click();
   await expect(watch.getByRole("heading", { name: "Frieren.mkv", exact: true })).toBeVisible();
   await expect(watch.getByText("Frieren.mkv", { exact: true })).toHaveCount(1);
   await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);

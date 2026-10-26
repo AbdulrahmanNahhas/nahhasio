@@ -94,6 +94,25 @@ test.beforeEach(async ({ page }) => {
                   current = null;
                   success(null);
                   return;
+                case "publicProfile":
+                  success({
+                    id: current!.accountId,
+                    name: current!.name,
+                    avatarKey: current!.avatarKey,
+                    bio: current!.bio,
+                    joinedAt: "2026-02-14",
+                  });
+                  return;
+                case "profileOverview":
+                  success({
+                    owner: true,
+                    stats: [],
+                    viewing: { works: 0, episodes: 0, movies: 0, recordedSeconds: 0 },
+                  });
+                  return;
+                case "profileEntries":
+                  success({ items: [], total: 0, page: request.payload.page, pageSize: 20 });
+                  return;
                 case "profile":
                   success(current);
                   return;
@@ -171,15 +190,19 @@ for (const width of [520, 1440]) {
     await menu.screenshot({ path: `../../../data/previews/account-menu-${width}.png` });
     await page.getByRole("menuitem", { name: "الملف الشخصي" }).click();
     await expect(page.getByRole("article", { name: "الملف الشخصي" })).toBeVisible();
+    await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
     await page.getByLabel("الاسم", { exact: true }).fill("اسم الحساب الجديد");
     await page.getByLabel("نبذة عنك", { exact: true }).fill("مكتبتي الخاصة");
-    await page.getByRole("radio", { name: /العوالم/ }).check();
+    await page.getByTitle("رمز ملون 2", { exact: true }).click();
+    await expect(page.getByRole("radio", { name: "رمز ملون 2", exact: true })).toBeChecked();
     await page.getByRole("button", { name: "حفظ التغييرات" }).click();
     await expect(
       page.getByRole("heading", { name: "اسم الحساب الجديد", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("تم حفظ الملف الشخصي.", { exact: true })).toBeVisible();
+    await expect(page.getByText("تم حفظ ملفك الشخصي", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
     await expect(page.getByRole("button", { name: "حفظ التغييرات" })).toBeDisabled();
+    await page.getByRole("tab", { name: "أمان الحساب", exact: true }).click();
     await page.getByLabel("كلمة المرور الحالية", { exact: true }).fill("wrong");
     await page.getByLabel("كلمة المرور الجديدة", { exact: true }).fill("new-password");
     await page.getByLabel("تأكيد كلمة المرور", { exact: true }).fill("not-matching");
@@ -203,9 +226,11 @@ for (const width of [520, 1440]) {
       path: `../../../data/previews/account-profile-${width}.png`,
       fullPage: true,
     });
-    await page.getByRole("link", { name: "لوحة الإدارة" }).click();
+    await page.getByRole("button", { name: "إغلاق الإعدادات", exact: true }).click();
+    await page.getByRole("button", { name: "الملف والحساب" }).click();
+    await page.getByRole("menuitem", { name: "لوحة الإدارة", exact: true }).click();
     await expect(page.getByRole("region", { name: "لوحة الإدارة" })).toBeVisible();
-    await expect(page.getByText("مساحتك لإدارة المكتبة.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "نظرة عامة", exact: true })).toBeVisible();
   });
 }
 test("ordinary account has its own profile, no admin entry, and direct admin navigation is denied", async ({
@@ -224,7 +249,7 @@ test("ordinary account has its own profile, no admin entry, and direct admin nav
   await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
 });
 
-test("admin navigation has guarded empty pages for every dashboard section", async ({ page }) => {
+test("admin navigation exposes current sections and marks the active route", async ({ page }) => {
   await login(page, admin.email);
   await page.getByRole("button", { name: "الملف والحساب" }).click();
   await page.getByRole("menuitem", { name: "لوحة الإدارة" }).click();
@@ -236,11 +261,10 @@ test("admin navigation has guarded empty pages for every dashboard section", asy
       title: element.textContent!.trim(),
     })),
   );
-  expect(links).toHaveLength(31);
+  expect(links).toHaveLength(16);
   for (const link of links) {
     await navigation.locator(`a[href="${link.href}"]`).click();
     await expect(page.getByText(link.title, { exact: true }).last()).toBeVisible();
-    await expect(page.getByText("قيد التجهيز", { exact: true })).toBeVisible();
     await expect(navigation.locator(`a[href="${link.href}"]`)).toHaveAttribute(
       "aria-current",
       "page",

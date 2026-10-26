@@ -153,6 +153,12 @@ test.beforeEach(async ({ page }) => {
                     },
                   };
                   break;
+                case "browsePreferences.load":
+                  result = null;
+                  break;
+                case "browsePreferences.save":
+                  result = { ok: true };
+                  break;
                 case "session":
                   result = signedIn ? session : null;
                   break;
@@ -183,6 +189,14 @@ test.beforeEach(async ({ page }) => {
                   break;
                 case "home":
                   result = {
+                    featured: [
+                      fixtureWork,
+                      {
+                        ...fixtureWork,
+                        id: "00000000-0000-4000-8000-000000000003",
+                        titleAr: "رحلة أخرى",
+                      },
+                    ],
                     comments: [
                       {
                         id: "00000000-0000-4000-8000-000000000006",
@@ -274,7 +288,23 @@ test.beforeEach(async ({ page }) => {
                     if (item.releaseDate)
                       counts.set(item.releaseDate, (counts.get(item.releaseDate) ?? 0) + 1);
                   result = {
-                    items: entries.slice(0, query.pageSize ?? 24),
+                    items: entries.slice(0, query.pageSize ?? 24).map((item) => ({
+                      ...item,
+                      work: fixtureWork,
+                      installment: {
+                        id: item.installmentId,
+                        workId: item.workId,
+                        workTitle: item.workTitle,
+                        workTitleAr: item.workTitleAr,
+                        title: item.title ?? "",
+                        kind: "season",
+                        releaseDate: item.releaseDate,
+                        runtimeMinutes: item.runtimeMinutes,
+                        episodeCount: item.episodeCount ?? 0,
+                        poster: item.poster,
+                        score: fixtureWork.score,
+                      },
+                    })),
                     total: entries.length,
                     page: query.page ?? 1,
                     pageSize: query.pageSize ?? 24,
@@ -367,9 +397,11 @@ test.beforeEach(async ({ page }) => {
                               ? item.id === fixtureWork.id || item.isPrivate
                                 ? "fantasy"
                                 : ""
-                              : facet.key === "releaseStatuses"
-                                ? "completed"
-                                : "";
+                              : facet.key === "releaseStates"
+                                ? "released"
+                                : facet.key === "releaseStatuses"
+                                  ? "completed"
+                                  : "";
                       return (
                         (!facet.include.length || facet.include.includes(value)) &&
                         !facet.exclude.includes(value)
@@ -577,6 +609,18 @@ async function login(page: Page) {
   await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
+  await expect
+    .poll(async () => {
+      await page.locator("#main-content").evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      return page.getByRole("heading", { name: "آخر تحديثات المكتبة", exact: true }).count();
+    })
+    .toBe(1);
+  await expect(latestRow(page).locator("article").first()).toBeVisible();
+  await page.locator("#main-content").evaluate((element) => {
+    element.scrollTop = 0;
+  });
 }
 test("releases calendar, timeline, seasons and upcoming use bounded real-shaped data", async ({
   page,
@@ -584,28 +628,29 @@ test("releases calendar, timeline, seasons and upcoming use bounded real-shaped 
   await login(page);
   await page
     .getByRole("navigation", { name: "التنقل الرئيسي" })
-    .getByRole("link", { name: "الإصدارات", exact: true })
+    .getByRole("link", { name: "التقويم", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: "الإصدارات", exact: true })).toBeVisible();
-  await page.goto("/#/releases?year=2027&month=1");
-  const second = page.locator('.release-day[data-day="2"]');
-  await expect(second).toHaveAccessibleName(/2 إصدار/);
+  await expect(page.getByRole("heading", { name: "تقويم المكتبة", exact: true })).toBeVisible();
+  await page.goto("/#/releases?year=2027&month=1&view=calendar");
+  const second = page.locator('button[data-day="2"]');
+  await expect(second).toHaveAccessibleName(/1 حلقة/);
   await second.focus();
   await page.keyboard.press("ArrowLeft");
-  await expect(page.locator('.release-day[data-day="3"]')).toBeFocused();
+  await expect(page.locator('button[data-day="3"]')).toBeFocused();
   await second.click();
-  await expect(page.locator(".release-row")).toHaveCount(2);
-  await expect(page.getByRole("link", { name: /بداية جديدة/ })).toHaveAttribute(
+  const day = page.getByRole("dialog");
+  await expect(day.getByRole("link", { name: /بداية جديدة/ })).toHaveAttribute(
     "href",
     /episode=00000000-0000-4000-8000-000000000008/,
   );
-  await page.getByRole("link", { name: "الخط الزمني", exact: true }).click();
+  await day.getByRole("button", { name: "إغلاق حلقات اليوم" }).click();
+  await page.getByRole("tab", { name: "الخط الزمني", exact: true }).click();
   await expect(page.getByRole("heading", { name: "على امتداد 2027" })).toBeVisible();
-  await expect(page.locator(".release-row")).toHaveCount(2);
-  await page.getByRole("link", { name: "الفصول", exact: true }).click();
-  await page.getByRole("button", { name: /الشتاء/ }).click();
-  await expect(page.locator(".release-season-grid .release-row")).toHaveCount(2);
-  await page.getByRole("link", { name: "القادم", exact: true }).click();
+  await expect(page.getByRole("tabpanel").getByRole("link", { name: /بداية جديدة/ })).toBeVisible();
+  await page.getByRole("tab", { name: "المواسم", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "الشتاء 2027", exact: true })).toBeVisible();
+  await expect(page.getByRole("tabpanel").locator("article[data-layout]")).toHaveCount(1);
+  await page.getByRole("tab", { name: "القادم", exact: true }).click();
   await expect(page.getByRole("heading", { name: "في الأفق" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "جزء بلا موعد", exact: true })).toBeVisible();
 });
@@ -613,9 +658,8 @@ for (const width of [480, 1440]) {
   test(`releases responsive ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await login(page);
-    await page.goto("/#/releases?year=2027&month=1");
-    await expect(page.locator('.release-day[data-day="2"]')).toHaveAccessibleName(/2 إصدار/);
-    await expect(page.locator(".release-row")).toHaveCount(2);
+    await page.goto("/#/releases?year=2027&month=1&view=calendar");
+    await expect(page.locator('button[data-day="2"]')).toHaveAccessibleName(/1 حلقة/);
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
@@ -634,14 +678,14 @@ async function openFilters(page: Page) {
   await page.getByRole("button", { name: /^المرشحات/ }).click();
   const sheet = page.getByRole("dialog", { name: "مرشحات المكتبة" });
   await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: "الإصدار ومكتبتي", exact: true }).click();
   return sheet;
 }
 function latestRow(page: Page) {
   return page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "آخر تحديثات المكتبة", exact: true }) })
-    .locator("div")
-    .filter({ has: page.locator("article[data-layout]") })
+    .locator(":scope > div")
     .last();
 }
 test("real bridge states: reject login, browse details, family guide, search and logout", async ({
@@ -653,7 +697,10 @@ test("real bridge states: reject login, browse details, family guide, search and
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
   await expect(page.getByRole("alert")).toHaveText("بيانات الدخول غير صحيحة");
   await login(page);
-  await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).first().click();
+  await page
+    .getByRole("region", { name: "أحدث الأعمال" })
+    .getByRole("link", { name: "عرض التفاصيل", exact: true })
+    .click();
   await expect(page).toHaveURL(new RegExp("#/titles/" + work.id + "$"));
   const article = page.getByRole("article", { name: "صفحة العمل" });
   await expect(
@@ -682,8 +729,9 @@ test("real bridge states: reject login, browse details, family guide, search and
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
   await browse(page);
-  await page.getByRole("textbox", { name: "البحث في المكتبة" }).fill("missing");
-  await expect(page.getByText("لا توجد أعمال مطابقة", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "البحث في المكتبة", exact: true }).click();
+  await page.getByRole("searchbox", { name: "ابحث في المكتبة" }).fill("missing");
+  await expect(page.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/q=missing/);
   await page.getByRole("button", { name: "الملف والحساب" }).click();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
@@ -693,7 +741,7 @@ for (const width of [480, 640, 1024, 1440])
   test("responsive " + width + ": library and work page fit window", async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await expect(page.getByRole("button", { name: "البحث" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "البحث" })).toBeVisible();
     await browse(page);
     await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).click();
     await expect(page.getByRole("tab", { name: "العائلة", exact: true })).toHaveCount(0);
@@ -717,47 +765,39 @@ test("planet navigation, private opt-in and native keyboard links", async ({ pag
   await row.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).focus();
   await page.keyboard.press("Tab");
   await expect(row.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toBeFocused();
-  const rail = page.getByRole("navigation", { name: "التنقل الرئيسي" });
-  await rail.getByRole("link", { name: "الكواكب", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "التنقل الرئيسي" })
+    .getByRole("link", { name: "الكواكب", exact: true })
+    .click();
   await page.getByRole("link", { name: /الخيال/ }).click();
   await expect(page).toHaveURL(/#\/planets\/fantasy$/);
+  await expect(page.getByRole("heading", { name: "الخيال", exact: true })).toBeVisible();
+  await browse(page);
   let dialog = await openFilters(page);
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
   await expect(page).not.toHaveURL(/privacy=all/);
-  await expect(dialog.getByText("2 نتيجة مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
+  await expect(dialog.getByText("3 نتيجة مطابقة", { exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل عمل خاص" })).toBeVisible();
   dialog = await openFilters(page);
-  await dialog.getByRole("tab", { name: /الحكاية والعالم/ }).click();
-  await expect(dialog.getByRole("checkbox", { name: "الخيال", exact: true })).toBeDisabled();
   await dialog.getByRole("button", { name: "مسح كل المرشحات" }).click();
-  await expect(dialog.getByRole("checkbox", { name: "الخيال", exact: true })).toBeChecked();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
-  await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /إزالة.*الخيال/ })).toHaveCount(0);
-  await browse(page);
-  dialog = await openFilters(page);
-  await dialog.getByRole("tab", { name: /الحكاية والعالم/ }).click();
-  await dialog.getByRole("checkbox", { name: "تمثيل حي", exact: true }).check();
+  await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
+  const live = dialog.getByRole("button", { name: /^تمثيل حي،/ });
+  await live.click();
   await expect(dialog.getByText("1 نتيجة مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toBeVisible();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" })).toHaveCount(0);
   dialog = await openFilters(page);
-  await dialog.getByRole("checkbox", { name: "مكتمل", exact: true }).check();
-  await dialog.getByRole("tab", { name: /الحكاية والعالم/ }).click();
-  await dialog
-    .getByRole("tabpanel", { name: /الحكاية والعالم/ })
-    .getByRole("button", { name: "استبعاد", exact: true })
-    .click();
-  await dialog.getByRole("checkbox", { name: "تمثيل حي", exact: true }).check();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
+  await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
+  await dialog.getByRole("button", { name: /^تمثيل حي،/ }).click();
+  await expect(dialog.getByRole("button", { name: /^تمثيل حي،/ })).toHaveAttribute(
+    "aria-pressed",
+    "mixed",
+  );
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" })).toBeVisible();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toHaveCount(0);
-  dialog = await openFilters(page);
-  await dialog.getByRole("button", { name: "مسح كل المرشحات" }).click();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
-  await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
 });
 
 test("filter preview stays bounded and draft privacy reloads vocabulary", async ({ page }) => {
@@ -798,8 +838,8 @@ test("filter preview stays bounded and draft privacy reloads vocabulary", async 
   });
   const dialog = await openFilters(page);
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
-  await dialog.getByRole("tab", { name: /الحكاية والعالم/ }).click();
-  await expect(dialog.getByRole("checkbox", { name: "كوكب خاص", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: /^كوكب خاص،/ })).toBeVisible();
   await expect(dialog.getByText("3 نتيجة مطابقة", { exact: true })).toBeVisible();
   expect(requests.length).toBeGreaterThan(0);
   expect(requests.every((request) => request === "preview-fixture:1:1")).toBe(true);
@@ -807,48 +847,32 @@ test("filter preview stays bounded and draft privacy reloads vocabulary", async 
   await expect(page).not.toHaveURL(/privacy=all/);
 });
 
-test("filter drafts: cancel, validation, preview, complete chips and atomic reset", async ({
+test("filter drafts cancel without changing the URL and reset applies atomically", async ({
   page,
 }) => {
   await login(page);
   await browse(page);
   const initial = page.url();
   let dialog = await openFilters(page);
-  await dialog.getByRole("checkbox", { name: "مكتمل", exact: true }).check();
+  await dialog.getByRole("button", { name: /^مكتمل،/ }).click();
   await expect(dialog.getByText("2 نتيجة مطابقة", { exact: true })).toBeVisible();
   expect(page.url()).toBe(initial);
   await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
   await expect(page.getByRole("button", { name: /^المرشحات/ })).toBeFocused();
   dialog = await openFilters(page);
-  await expect(dialog.getByRole("checkbox", { name: "مكتمل", exact: true })).not.toBeChecked();
-  await dialog.getByLabel("من سنة", { exact: true }).fill("2025");
-  await dialog.getByLabel("إلى سنة", { exact: true }).fill("2020");
-  await expect(dialog.getByRole("button", { name: "تطبيق المرشحات" })).toBeDisabled();
-  await expect(dialog.getByText("سنة البداية يجب ألا تكون بعد سنة النهاية.")).toBeVisible();
-  await dialog.getByLabel("من سنة", { exact: true }).fill("2020");
-  await dialog.getByLabel("إلى سنة", { exact: true }).fill("2022");
+  await expect(dialog.getByRole("button", { name: /^مكتمل،/ })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
-  await dialog.getByRole("tab", { name: /^التقييم/ }).click();
-  await dialog.getByLabel("الحد الأدنى للتقييم العام", { exact: true }).fill("6.5");
-  await dialog.getByLabel("القصة والحبكة", { exact: true }).fill("7");
-  await expect(dialog.getByText("3 نتيجة مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
   await expect(page).toHaveURL(/privacy=all/);
-  await expect(page).toHaveURL(/from=2020/);
-  await expect(page).toHaveURL(/to=2022/);
-  await expect(page.getByRole("button", { name: "المرشحات (5)", exact: true })).toBeVisible();
-  const chips = page.getByLabel("المرشحات المطبّقة");
-  await expect(
-    chips.getByRole("button", { name: "إزالة التقييم ≥ 6.5", exact: true }),
-  ).toBeVisible();
-  await chips.getByRole("button", { name: "إزالة القصة والحبكة ≥ 7", exact: true }).click();
-  await expect(page.getByRole("button", { name: "المرشحات (4)", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "تفاصيل عمل خاص", exact: true })).toBeVisible();
   dialog = await openFilters(page);
   await dialog.getByRole("button", { name: "مسح كل المرشحات" }).click();
   await expect(page).toHaveURL(/privacy=all/);
-  await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
-  await expect(page).not.toHaveURL(/privacy=|from=|to=/);
-  await expect(page.getByLabel("المرشحات المطبّقة")).toHaveCount(0);
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await expect(page).not.toHaveURL(/privacy=/);
   await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
 });
 
@@ -859,50 +883,39 @@ for (const width of [480, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
     await browse(page);
-    let dialog = await openFilters(page);
-    await dialog.getByRole("tab", { name: /الإصدار والنطاق/ }).focus();
-    await page.keyboard.press(width < 768 ? "ArrowLeft" : "ArrowDown");
-    await expect(dialog.getByRole("tab", { name: /الحكاية والعالم/ })).toBeFocused();
-    await dialog.screenshot({ path: `test-results/filter-categories-${width}.png` });
-    await expect(dialog.getByRole("tablist")).toHaveAttribute(
-      "aria-orientation",
-      width < 768 ? "horizontal" : "vertical",
-    );
+    const dialog = await openFilters(page);
     await dialog.getByLabel("ابحث في المرشحات").fill("تمثيل حي");
-    await dialog.getByRole("checkbox", { name: "تمثيل حي", exact: true }).check();
-    await expect(dialog.getByRole("checkbox")).toHaveCount(1);
+    const live = dialog.getByRole("button", { name: /^تمثيل حي،/ });
+    await live.focus();
+    await page.keyboard.press("Space");
+    await expect(live).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.getByText("1 نتيجة مطابقة", { exact: true })).toBeVisible();
-    await dialog.screenshot({ path: `test-results/filter-dialog-${width}.png` });
     const bounds = await dialog.boundingBox();
-    expect(bounds?.width).toBeLessThanOrEqual(width);
-    expect(bounds?.y).toBeGreaterThanOrEqual(0);
-    const overflow = await dialog.evaluate((element) => element.scrollWidth > element.clientWidth);
-    expect(overflow).toBe(false);
+    expect(bounds!.width).toBeLessThanOrEqual(width);
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(await dialog.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+      false,
+    );
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: /^المرشحات/ })).toBeFocused();
-    await page.getByRole("button", { name: "الأحدث إصدارًا", exact: true }).click();
-    const organization = page.getByRole("dialog", { name: "الترتيب والتجميع" });
-    await organization.getByRole("button", { name: /الأعلى تقييمًا/ }).click();
-    await organization.getByRole("button", { name: "حالة الإصدار", exact: true }).click();
+    await page.getByRole("combobox", { name: "ترتيب النتائج", exact: true }).click();
+    await page.getByRole("option", { name: "الأعلى تقييمًا", exact: true }).click();
     await expect(page).toHaveURL(/sort=score-desc/);
+    await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
+    await page.getByRole("combobox", { name: "تجميع النتائج", exact: true }).click();
+    await page.getByRole("option", { name: "حالة الإصدار", exact: true }).click();
     await expect(page).toHaveURL(/group=status/);
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "مكتمل (2)", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "مكتمل", exact: true })).toBeVisible();
     await page.reload();
     await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
     await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
     await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
     await page.getByRole("button", { name: "دخول المكتبة" }).click();
-    await expect(page.getByRole("heading", { name: "مكتمل (2)", exact: true })).toBeVisible();
-    dialog = await openFilters(page);
-    await dialog.getByRole("tab", { name: /الترتيب والتجميع/ }).click();
-    await expect(dialog.getByRole("button", { name: /الأعلى تقييمًا/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    await expect(page.getByRole("heading", { name: "مكتمل", exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "ترتيب النتائج", exact: true })).toContainText(
+      "الأعلى تقييمًا",
     );
-    await dialog.getByRole("button", { name: "بلا تجميع", exact: true }).click();
-    await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
-    await expect(page).toHaveURL(/group=status/);
   });
 }
 
@@ -924,17 +937,17 @@ test("hero has real metadata, manual selection, pause and a working details acti
     "aria-pressed",
     "true",
   );
-  await page.getByRole("button", { name: "البحث" }).focus();
+  await page.getByRole("link", { name: "البحث" }).focus();
   await page.mouse.move(0, 0);
   await page.clock.fastForward(18000);
   await expect(hero.getByRole("heading", { name: "رحلة أخرى" })).toBeVisible();
   await hero.getByRole("button", { name: "تشغيل التبديل التلقائي" }).click();
-  await page.getByRole("button", { name: "البحث" }).focus();
+  await page.getByRole("link", { name: "البحث" }).focus();
   await page.mouse.move(0, 0);
-  await page.clock.fastForward(9001);
+  await page.clock.fastForward(15001);
   await expect(hero.getByRole("heading", { name: "رحلة في المكتبة" })).toBeVisible();
   await hero.getByRole("button", { name: "اعرض رحلة أخرى", exact: true }).focus();
-  await page.clock.fastForward(9001);
+  await page.clock.fastForward(15001);
   await expect(hero.getByRole("heading", { name: "رحلة في المكتبة" })).toBeVisible();
   await hero.getByRole("button", { name: "اعرض رحلة في المكتبة", exact: true }).click();
   const details = hero.getByRole("link", { name: "عرض التفاصيل", exact: true });
@@ -955,14 +968,11 @@ for (const width of [480, 1440]) {
       });
       await page.setViewportSize({ width, height: 900 });
       await login(page);
-      const search = page.getByRole("button", { name: "البحث" });
+      const search = page.getByRole("link", { name: "البحث" });
       const searchBox = await search.boundingBox();
       expect(searchBox?.height).toBeGreaterThanOrEqual(36);
       await search.click();
       const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
-      await expect(page.locator("#main-content")).toBeFocused();
-      await page.keyboard.press("Tab");
-      await page.keyboard.press("Enter");
       await expect(input).toBeFocused();
       await input.fill("missing");
       await expect(page.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
@@ -970,35 +980,39 @@ for (const width of [480, 1440]) {
       await expect(page.getByRole("link", { name: /تفاصيل رحلة في المكتبة/ })).toBeVisible();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await browse(page);
-      const sort = page.getByRole("button", { name: "الأحدث إصدارًا", exact: true });
+      const sort = page.getByRole("combobox", { name: "ترتيب النتائج", exact: true });
       await sort.focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByRole("heading", { name: "الترتيب والتجميع" })).toBeVisible();
+      await expect(page.getByRole("listbox")).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(sort).toBeFocused();
       const dialog = await openFilters(page);
-      await dialog.getByRole("checkbox", { name: "مكتمل", exact: true }).check();
-      await expect(dialog.getByRole("checkbox", { name: "مكتمل", exact: true })).toBeChecked();
-      await dialog.getByRole("button", { name: "تطبيق المرشحات" }).click();
+      await dialog.getByRole("button", { name: /^مكتمل،/ }).click();
+      await expect(dialog.getByRole("button", { name: /^مكتمل،/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
       await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
       expect(cspErrors).toEqual([]);
     },
   );
 }
 
-test("home logic: scores, planet reset, spoilers and installment destination", async ({ page }) => {
+test("home logic: scores, planet discovery and installment destination", async ({ page }) => {
   await login(page);
   await expect(latestRow(page).getByText("7.1", { exact: true }).first()).toBeVisible();
   await expect(latestRow(page).locator("article").first()).toHaveAttribute("data-watched", "true");
   await expect(latestRow(page).locator("article").nth(1)).toHaveAttribute("data-watched", "false");
-  await expect(page.getByRole("heading", { name: "أفلام في", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "مسلسلات في", exact: true })).toBeVisible();
-  await expect(page.getByText("حرق أحداث محفوظ", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "إظهار تعليق يحتوي على حرق" }).click();
-  await expect(page.getByText("حرق أحداث محفوظ", { exact: true })).toBeVisible();
-  const upcoming = page.getByRole("region", { name: "الإصدارات القادمة" });
-  await expect(upcoming).toContainText("12 حلقة");
-  await upcoming.getByRole("link", { name: "تفاصيل الموسم القادم" }).click();
+  await expect(
+    page.getByRole("heading", { name: "عوالم تستحق الاكتشاف", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "اختر كوكبًا" }).getByRole("button", { name: /الخيال/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const upcoming = page.getByRole("region", { name: "قريبًا" });
+  await expect(upcoming).toContainText("الموسم القادم");
+  await upcoming.getByRole("link", { name: /الموسم القادم/ }).click();
   await expect(page).toHaveURL(
     new RegExp("#/titles/" + work.id + "\\?installment=00000000-0000-4000-8000-000000000007$"),
   );
@@ -1020,7 +1034,7 @@ test("home logic: scores, planet reset, spoilers and installment destination", a
   await page.keyboard.press("Escape");
   await expect(seasonSelector).toBeFocused();
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
-  await expect(upcoming.getByRole("link", { name: "تفاصيل الموسم القادم" })).toBeVisible();
+  await expect(upcoming.getByRole("link", { name: /الموسم القادم/ })).toBeVisible();
   await page
     .getByRole("navigation", { name: "التنقل الرئيسي" })
     .getByRole("link", { name: "الكواكب", exact: true })
@@ -1037,7 +1051,7 @@ test("home logic: scores, planet reset, spoilers and installment destination", a
 });
 
 for (const width of [480, 1440]) {
-  test(`sidebar-home-only ${width}: clean header and fitted rows adapt without clipping`, async ({
+  test(`sidebar-home-only ${width}: clean header and scrollable shelves keep all cards reachable`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -1092,11 +1106,11 @@ for (const width of [480, 1440]) {
     await expect(rail.getByRole("link", { name: "الرئيسية", exact: true })).toBeVisible();
     await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.getByRole("searchbox")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "البحث", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "البحث", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "الملف والحساب" })).toBeVisible();
     const row = latestRow(page);
     await expect(row.locator("article").first()).toBeVisible();
-    await expect(row.locator("article")).toHaveCount(width < 600 ? 2 : 7);
+    await expect(row.locator("article")).toHaveCount(12);
     const metrics = await row.evaluate((element) => ({
       width: element.clientWidth,
       scroll: element.scrollWidth,
@@ -1104,14 +1118,15 @@ for (const width of [480, 1440]) {
         Math.round(card.getBoundingClientRect().top),
       ),
     }));
-    expect(metrics.scroll).toBeLessThanOrEqual(metrics.width + 1);
+    expect(metrics.scroll).toBeGreaterThan(metrics.width);
+    await row.locator("article").last().scrollIntoViewIfNeeded();
+    await expect(row.locator("article").last()).toBeInViewport();
     expect(new Set(metrics.tops).size).toBe(1);
     const hero = await page.getByRole("region", { name: "أحدث الأعمال" }).boundingBox();
-    expect(hero?.height).toBeLessThan(width < 600 ? 570 : 900);
-    await page.getByRole("button", { name: "البحث", exact: true }).click();
+    expect(hero?.height).toBeLessThan(width < 600 ? 700 : 900);
+    await page.getByRole("link", { name: "البحث", exact: true }).click();
     await expect(page).toHaveURL(/#\/search$/);
     await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toBeVisible();
-    await expect(page.locator("#main-content")).toBeFocused();
     await page.keyboard.press("Control+k");
     await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toBeFocused();
     await rail.getByRole("link", { name: "الرئيسية", exact: true }).click();
@@ -1128,7 +1143,7 @@ for (const width of [360, 640, 1024, 1440]) {
     const rail = page.getByRole("navigation", { name: "التنقل الرئيسي" });
     await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.getByRole("searchbox")).toHaveCount(0);
-    await expect(rail.getByRole("button", { name: "البحث" })).toBeVisible();
+    await expect(rail.getByRole("link", { name: "البحث" })).toBeVisible();
     await expect(rail.getByRole("link", { name: "الرئيسية", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
@@ -1149,9 +1164,9 @@ for (const width of [360, 640, 1024, 1440]) {
       await page.screenshot({ path: test.info().outputPath("sidebar-review.png") });
     await page.setViewportSize({ width, height: 400 });
     await expect(profile).toBeInViewport();
-    const libraryLink = rail.getByRole("link", { name: "تصفّح المكتبة" });
-    await libraryLink.focus();
-    await expect(libraryLink).toBeInViewport();
+    await rail.getByRole("button", { name: "صفحات أخرى", exact: true }).click();
+    await expect(page.getByRole("dialog").getByRole("link", { name: /الصنّاع/ })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(profile).toBeInViewport();
   });
 }
@@ -1189,6 +1204,7 @@ for (const width of [480, 1440]) {
                     label: "استوديو تجريبي",
                     count: 2,
                     artworkId: "00000000-0000-4000-8000-000000000032",
+                    roles: [{ value: "animation_studio", label: "استوديو الرسوم المتحركة" }],
                   },
                 ],
               },
@@ -1246,7 +1262,8 @@ for (const width of [480, 1440]) {
       await expect(page.getByRole("link", { name: new RegExp(item.name) })).toHaveCount(0);
       await input.fill("");
       if (item.label !== "الكواكب") {
-        const image = page.locator(".entity-directory-image");
+        await page.getByRole("link", { name: new RegExp(item.name) }).scrollIntoViewIfNeeded();
+        const image = page.getByRole("region", { name: item.page }).locator("img").first();
         await expect(image).toHaveJSProperty("tagName", "IMG");
         await expect(image).toHaveJSProperty("naturalWidth", 1);
         await page.screenshot({
@@ -1266,34 +1283,17 @@ for (const width of [480, 1440]) {
 test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ page }) => {
   await login(page);
   const rail = page.getByRole("navigation", { name: "التنقل الرئيسي" });
-  const search = rail.getByRole("button", { name: "البحث", exact: true });
-  const home = rail.getByRole("link", { name: "الرئيسية", exact: true });
-  expect(await home.evaluate((element) => element.nextElementSibling?.textContent)).toBe("البحث");
-  await search.click();
+  await rail.getByRole("link", { name: "البحث", exact: true }).click();
   const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
-  await expect(page).toHaveURL(/#\/search$/);
-  await expect(page.locator("#main-content")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "الانتقال إلى البحث", exact: true })).toBeFocused();
-  await page.keyboard.press("Enter");
   await expect(input).toBeFocused();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "الكل", exact: true })).toBeFocused();
-  await page.keyboard.press("Tab");
-  const privateSearch = page.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" });
-  await expect(privateSearch).toBeFocused();
-  await page.keyboard.press("Space");
-  await expect(privateSearch).toBeChecked();
-  await page.keyboard.press("Space");
   await input.fill("رحلة");
   const result = page.getByRole("link", { name: /تفاصيل رحلة في المكتبة/ });
   await expect(result).toBeVisible();
-  await search.focus();
+  await rail.getByRole("link", { name: "الرئيسية", exact: true }).focus();
   await page.keyboard.press("Control+k");
   await expect(input).toBeFocused();
   await expect(input).toHaveValue("رحلة");
-  await search.focus();
+  await rail.getByRole("link", { name: "الرئيسية", exact: true }).focus();
   await page.evaluate(() =>
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -1310,15 +1310,7 @@ test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ pa
   await expect(page).toHaveURL(/#\/titles\//);
   await page.goBack();
   await expect(input).toHaveValue("رحلة");
-  await home.click();
-  await expect(page).toHaveURL(/#\/home$/);
-  await rail.getByRole("button", { name: "الملف والحساب" }).click();
-  await page.keyboard.press("Control+k");
-  await expect(page.getByRole("menu", { name: "الحساب" })).toBeVisible();
-  await expect(input).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu", { name: "الحساب" })).toBeHidden();
-  await expect(rail.getByRole("button", { name: "الملف والحساب" })).toBeFocused();
+  await rail.getByRole("link", { name: "الرئيسية", exact: true }).click();
   await page.keyboard.press("Control+k");
   await expect(input).toBeFocused();
 });
@@ -1329,7 +1321,7 @@ for (const width of [480, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await page.getByRole("button", { name: "البحث", exact: true }).click();
+    await page.getByRole("link", { name: "البحث", exact: true }).click();
     const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
     await input.fill("رحلة");
     const results = page.getByRole("region", { name: "الأعمال المطابقة" });
@@ -1361,150 +1353,26 @@ for (const width of [480, 1440]) {
 }
 
 for (const width of [480, 1440]) {
-  test(`card arrows ${width}: RTL, rows, shelves and native controls`, async ({ page }) => {
+  test(`card arrows ${width}: physical RTL directions, native Tab and activation`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    const latest = latestRow(page).getByRole("link");
-    await latest.first().focus();
-    await page.keyboard.press("ArrowLeft");
-    await expect(latest.nth(1)).toBeFocused();
-    await page.keyboard.press("ArrowRight");
-    await expect(latest.first()).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    const planet = page.locator("#main-content .home-fitted-row").nth(1).getByRole("link").first();
-    await expect(planet).toBeFocused();
-    await page.keyboard.press("ArrowUp");
-    await expect(latest.first()).toBeFocused();
-
-    await page.evaluate((seed) => {
-      const handler = window.webkit!.messageHandlers!.nahhasio!;
-      const original = handler.postMessage.bind(handler);
-      handler.postMessage = (message: string) => {
-        const request = JSON.parse(message);
-        if (request.command !== "browse") return original(message);
-        const items = Array.from({ length: 8 }, (_, index) => ({
-          work: {
-            ...seed,
-            id: `00000000-0000-4000-8000-${String(index + (request.payload.page === 2 ? 9 : 1)).padStart(12, "0")}`,
-            titleAr: `رحلة ${index + (request.payload.page === 2 ? 9 : 1)}`,
-          },
-          installment: null,
-          classification: {
-            audience: seed.audience,
-            age: seed.age,
-            sexualityRisk: "none",
-            behavioralRisk: "low",
-            theologyRisk: "medium",
-          },
-          status: "completed",
-          watchState: "unwatched",
-          criteria: {
-            story: 7,
-            characters: 7,
-            depth: 7,
-            worldBuilding: 7,
-            originality: 8,
-            craft: 7,
-          },
-        }));
-        queueMicrotask(() =>
-          window["__nahhasioReply"]?.({
-            id: request.id,
-            ok: true,
-            result: {
-              items,
-              total: request.payload.pageSize === 24 ? 8 : 16,
-              page: request.payload.page,
-              pageSize: request.payload.pageSize === 24 ? 24 : 8,
-            },
-          }),
-        );
-      };
-    }, work);
-    await page.getByRole("button", { name: "البحث", exact: true }).click();
-    const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
-    await input.fill("رحلة");
-    await page.keyboard.press("ArrowLeft");
-    await expect(input).toBeFocused();
-    const cards = page.getByRole("region", { name: "الأعمال المطابقة" }).getByRole("link");
-    await expect(cards).toHaveCount(8);
+    await browse(page);
+    const cards = page.getByRole("link", { name: /^تفاصيل/ });
+    await expect(cards).toHaveCount(2);
     await cards.first().focus();
     await page.keyboard.press("ArrowLeft");
     await expect(cards.nth(1)).toBeFocused();
     await page.keyboard.press("ArrowRight");
     await expect(cards.first()).toBeFocused();
-    await page.keyboard.press("ArrowRight");
-    await expect(cards.first()).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(cards.nth(width === 480 ? 2 : 6)).toBeFocused();
-    await page.keyboard.press("ArrowUp");
-    await expect(cards.first()).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(cards.nth(1)).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/#\/titles\/00000000-0000-4000-8000-000000000002/);
+    await expect(page).toHaveURL(/#\/titles\/00000000-0000-4000-8000-000000000003$/);
     await expect(page.getByRole("article", { name: "صفحة العمل" })).toBeVisible();
-    const browseLink = page.getByRole("link", { name: "تصفّح المكتبة", exact: true });
-    await browseLink.focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/#\/browse$/);
-    const browseCards = page.locator("#main-content article a");
-    await expect(page.locator("#main-content")).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(
-      page.getByRole("button", { name: "الانتقال إلى المحتوى", exact: true }),
-    ).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(browseCards.first()).toBeFocused();
-    await browseLink.focus();
-    await page.keyboard.press("ArrowLeft");
-    await expect(browseCards.first()).toBeFocused();
-    await browseCards.last().focus();
-    await page.keyboard.press("ArrowDown");
-    const more = page.getByRole("button", { name: "تحميل المزيد", exact: true });
-    await expect(more).toBeFocused();
-    const padding = await more.evaluate((element) => {
-      const main = document.getElementById("main-content")!;
-      return main.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom;
-    });
-    expect(padding).toBeGreaterThanOrEqual(8);
-    await page.keyboard.press("Enter");
-    await expect(browseCards).toHaveCount(16);
-
-    await expect(browseCards.nth(8)).toBeFocused();
-    const homeLink = page.getByRole("link", { name: "الرئيسية", exact: true });
-    await homeLink.focus();
-    await page.keyboard.press("Enter");
-    const hero = page.getByRole("region", { name: "أحدث الأعمال" });
-    await expect(page.locator("#main-content")).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(
-      page.getByRole("button", { name: "الانتقال إلى العرض الرئيسي", exact: true }),
-    ).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(hero).toBeFocused();
-    await page.keyboard.press("ArrowLeft");
-    await expect(hero).toBeFocused();
-    await expect(hero.getByRole("button", { name: /^اعرض/ }).nth(1)).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await page.keyboard.press("ArrowRight");
-    await expect(hero.getByRole("button", { name: /^اعرض/ }).first()).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await page.keyboard.press("ArrowDown");
-    expect(
-      await latestRow(page).evaluate((element) => element.contains(document.activeElement)),
-    ).toBe(true);
-    await page.keyboard.press("ArrowUp");
-    await expect(hero).toBeFocused();
-    expect(
-      await hero.evaluate((element) => element.getBoundingClientRect().top),
-    ).toBeGreaterThanOrEqual(0);
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/#\/titles\//);
+    await page.goBack();
+    await expect(cards).toHaveCount(2);
   });
 }
 
@@ -1512,27 +1380,33 @@ for (const width of [480, 1440]) {
   test(`card display settings ${width}: layouts, size, minimal and reset`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await page.getByRole("combobox", { name: "اختر عالم أفلام" }).click();
-    await expect(page.getByRole("option", { name: /الخيال/ })).toBeVisible();
-    await page.keyboard.press("Escape");
-    const upcoming = page.getByRole("region", { name: "الإصدارات القادمة" });
+    await expect(
+      page.getByRole("group", { name: "اختر كوكبًا" }).getByRole("button", { name: /الخيال/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const upcoming = page.getByRole("region", { name: "قريبًا" });
     await expect(upcoming.getByText("غير مقيّم")).toHaveCount(0);
-    await expect(upcoming.getByText("12 حلقة")).toBeVisible();
-    await expect(latestRow(page).getByText("مكتمل").first()).toBeVisible();
+    await expect(upcoming.getByText("الموسم القادم", { exact: true })).toBeVisible();
+    await expect(latestRow(page).locator("article").first()).toHaveAttribute("data-kind", "work");
     await browse(page);
     const cards = page.locator("#main-content article");
-    await page.getByRole("button", { name: "بطاقات كبيرة", exact: true }).click();
-    await expect(page.getByRole("button", { name: "بطاقات كبيرة", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
+    await page
+      .getByRole("group", { name: "حجم البطاقات", exact: true })
+      .getByRole("button", { name: "كبير", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("group", { name: "حجم البطاقات", exact: true })
+        .getByRole("button", { name: "كبير", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "لافتات", exact: true }).click();
     await expect(cards.first()).toHaveAttribute("data-layout", "banner");
     await page.getByRole("button", { name: "شعارات", exact: true }).click();
     await expect(cards.first()).toHaveAttribute("data-layout", "logo");
-    await page.getByRole("button", { name: "إعدادات العرض", exact: true }).click();
-    await page.getByRole("checkbox", { name: "شعارات بلا إطار أو خلفية" }).check();
-    await page.getByRole("checkbox", { name: "الصور فقط، بلا تفاصيل" }).check();
+    const borderless = page.getByRole("switch", { name: "شعارات دون إطار", exact: true });
+    await borderless.click();
+    await expect(borderless).toBeChecked();
+    await page.getByRole("button", { name: "شعار فقط", exact: true }).click();
     await expect(cards.getByRole("heading")).toHaveCount(0);
     await expect(cards.getByRole("link")).toHaveCount(2);
     await page.getByRole("button", { name: "استعادة العرض الافتراضي" }).click();
@@ -1541,6 +1415,7 @@ for (const width of [480, 1440]) {
     await page.keyboard.press("Escape");
     await cards.first().getByRole("link").focus();
     await page.screenshot({ path: `test-results/card-refinement-${width}.png` });
+    await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
     await page.getByRole("button", { name: "جدول", exact: true }).click();
     await expect(page.getByRole("table")).toBeVisible();
   });

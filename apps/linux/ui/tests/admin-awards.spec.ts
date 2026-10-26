@@ -470,24 +470,25 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
   await expect(page.getByRole("img", { name: "الفتى ومالك الحزين", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /أكاديمية فنون/ }).click();
   await page.getByRole("tab", { name: /الدورات/ }).click();
-  await page.getByRole("button", { name: "جوائز سنة 2024", exact: true }).click();
+  await page.getByRole("button", { name: "كل جوائز سنة 2024", exact: true }).click();
   await expect(page).toHaveURL(/year=2024/);
   await expect(page.getByText("روح", { exact: true })).toHaveCount(0);
   await expect(page.getByText("سبايدرمان: عبر عالم العنكبوت", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "أفضل فيلم رسوم متحركة", exact: true }).first().click();
   await expect(page).toHaveURL(/category=/);
+  await page.getByRole("button", { name: /^المرشحات/ }).click();
   await page.getByRole("switch", { name: "الجوائز البارزة فقط", exact: true }).check();
   await expect(page.getByText("سبايدرمان: عبر عالم العنكبوت", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "جدول", exact: true }).click();
+  await page.getByRole("button", { name: "جدول الجوائز", exact: true }).click();
   await expect(page.getByRole("table")).toBeVisible();
-  await page.getByRole("button", { name: "مسح المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "مسح الكل", exact: true }).click();
   await expect(page.getByText("روح", { exact: true })).toBeVisible();
   await page.goBack();
   await expect(
     page.getByRole("switch", { name: "الجوائز البارزة فقط", exact: true }),
   ).toBeChecked();
-  await page.getByRole("button", { name: "بوسترات", exact: true }).click();
-  await page.getByRole("button", { name: "مسح المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "بطاقات الجوائز", exact: true }).click();
+  await page.getByRole("button", { name: "مسح الكل", exact: true }).click();
   await expect(
     page.getByRole("switch", { name: "الجوائز البارزة فقط", exact: true }),
   ).not.toBeChecked();
@@ -498,7 +499,8 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
   });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect(page.getByRole("button", { name: "تصفية الجوائز", exact: true })).toHaveAttribute(
+  await page.getByRole("button", { name: /^المرشحات/ }).click();
+  await expect(page.getByRole("button", { name: /^المرشحات/ })).toHaveAttribute(
     "aria-expanded",
     "false",
   );

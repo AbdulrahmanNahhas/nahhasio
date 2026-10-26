@@ -10,6 +10,8 @@
   source database connection fields explicitly without placing credentials in command arguments.
 - Retain the catalog draft visibility and primary-studio grouping changes with their authorization fixtures.
 - Repair native bridge event fixtures and reject stale responses when switching servers.
+- Refresh browser fixtures for the current profile, Home, calendar, filters and display controls;
+  run isolated browser journeys with two workers in CI.
 
 The schema/API compatibility version is unchanged. No catalog migration or reimport is needed.
 Fedora Software/Flatpak owns client/runtime updates. The rootless Nahhasio worker owns server and

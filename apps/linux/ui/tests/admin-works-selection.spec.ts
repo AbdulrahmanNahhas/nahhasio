@@ -190,10 +190,10 @@ test("deselecting a page preserves selections from another page", async ({ page 
   await page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true })).toBeChecked();
   await page.getByRole("button", { name: "التالي", exact: true }).click();
-  await page.getByRole("checkbox", { name: "تحديد كل أعمال هذه الصفحة" }).click();
-  await expect(page.getByRole("checkbox", { name: "تحديد كل أعمال هذه الصفحة" })).toBeChecked();
-  await page.getByRole("checkbox", { name: "تحديد كل أعمال هذه الصفحة" }).click();
-  await expect(page.getByRole("checkbox", { name: "تحديد كل أعمال هذه الصفحة" })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "تحديد الصفحة" }).click();
+  await expect(page.getByRole("checkbox", { name: "تحديد الصفحة" })).toBeChecked();
+  await page.getByRole("checkbox", { name: "تحديد الصفحة" }).click();
+  await expect(page.getByRole("checkbox", { name: "تحديد الصفحة" })).not.toBeChecked();
   await expect(
     page.getByRole("region", { name: "إجراءات الأعمال المحددة" }).getByText("1 عمل محدّد"),
   ).toBeVisible();
@@ -203,7 +203,7 @@ test("deselecting a page preserves selections from another page", async ({ page 
 
 test("select all includes all matching pages without the old thirty-work cap", async ({ page }) => {
   await page.goto("/#/admin/works");
-  await page.getByRole("button", { name: "تحديد الكل", exact: true }).click();
+  await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
   const actions = page.getByRole("region", { name: "إجراءات الأعمال المحددة" });
   await expect(actions.getByText("31 عمل محدّد")).toBeVisible();
   await page.screenshot({ path: "../../../data/previews/works-selection-compact-1440.png" });
@@ -216,7 +216,7 @@ test("select all includes all matching pages without the old thirty-work cap", a
 test("the compact selection bar remains usable in a narrow desktop window", async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 800 });
   await page.goto("/#/admin/works");
-  await page.getByRole("button", { name: "تحديد الكل", exact: true }).click();
+  await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
   const actions = page.getByRole("region", { name: "إجراءات الأعمال المحددة" });
   await expect(actions.getByText("31 عمل محدّد")).toBeVisible();
   await expect(actions.getByRole("link", { name: "تحرير JSON", exact: true })).toBeVisible();
@@ -234,17 +234,21 @@ test("filters stay compact, update directly and reset without clearing search or
   await page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true }).click();
   await page.getByLabel("البحث في الأعمال", { exact: true }).fill("عنوان");
   await page.getByRole("button", { name: "بحث", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "نوع الإنتاج", exact: true })).not.toBeVisible();
+  await expect(page.getByRole("group", { name: "نوع الإنتاج", exact: true })).not.toBeVisible();
   await page.getByRole("button", { name: "المرشحات", exact: true }).click();
-  await page.getByRole("combobox", { name: "نوع الإنتاج", exact: true }).click();
-  await page.getByRole("option", { name: "رسوم متحركة", exact: true }).click();
+  await page
+    .getByRole("group", { name: "نوع الإنتاج", exact: true })
+    .getByRole("button", { name: "رسوم متحركة", exact: true })
+    .click();
   await expect(page).toHaveURL(/format=animated/);
   await expect(page.getByRole("button", { name: /^المرشحات/ })).toContainText("1");
   await page.screenshot({ path: "../../../data/previews/works-filters-compact-520.png" });
-  await page.getByRole("button", { name: "إعادة ضبط المرشحات", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "نوع الإنتاج", exact: true })).toContainText(
-    "كل الأنواع",
-  );
+  await page.getByRole("button", { name: "مسح", exact: true }).click();
+  await expect(
+    page
+      .getByRole("group", { name: "نوع الإنتاج", exact: true })
+      .getByRole("button", { name: "الكل", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("البحث في الأعمال", { exact: true })).toHaveValue("عنوان");
   await expect(page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true })).toBeChecked();
@@ -254,13 +258,17 @@ test("select all toggles across pages and only deselects the current filtered re
   page,
 }) => {
   await page.goto("/#/admin/works");
-  await page.getByRole("button", { name: "تحديد الكل", exact: true }).click();
-  await expect(page.getByRole("button", { name: "إلغاء تحديد الكل", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "إلغاء تحديد النتائج", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "التالي", exact: true }).click();
-  await expect(page.getByRole("button", { name: "إلغاء تحديد الكل", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "إلغاء تحديد النتائج", exact: true }),
+  ).toBeVisible();
   await page.getByLabel("البحث في الأعمال", { exact: true }).fill("عنوان 31");
   await page.getByRole("button", { name: "بحث", exact: true }).click();
-  await page.getByRole("button", { name: "إلغاء تحديد الكل", exact: true }).click();
+  await page.getByRole("button", { name: "إلغاء تحديد النتائج", exact: true }).click();
   await expect(
     page.getByRole("checkbox", { name: "تحديد عنوان 31", exact: true }),
   ).not.toBeChecked();
@@ -268,8 +276,8 @@ test("select all toggles across pages and only deselects the current filtered re
     page.getByRole("region", { name: "إجراءات الأعمال المحددة" }).getByText("30 عمل محدّد"),
   ).toBeVisible();
   await page.getByRole("button", { name: "مسح البحث", exact: true }).click();
-  await page.getByRole("button", { name: "تحديد الكل", exact: true }).click();
-  await page.getByRole("button", { name: "إلغاء تحديد الكل", exact: true }).click();
+  await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
+  await page.getByRole("button", { name: "إلغاء تحديد النتائج", exact: true }).click();
   await expect(page.getByRole("region", { name: "إجراءات الأعمال المحددة" })).not.toBeVisible();
   await expect(
     page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true }),
@@ -297,7 +305,7 @@ for (const [path, name] of [
     await expect(
       page.getByRole("region", { name: "إجراءات السجلات المحددة" }).getByText("2 سجل محدّد"),
     ).toBeVisible();
-    await page.getByRole("button", { name: "تحديد الكل", exact: true }).click();
+    await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
     const actions = page.getByRole("region", { name: "إجراءات السجلات المحددة" });
     await expect(actions.getByText("55 سجل محدّد")).toBeVisible();
     await page.getByRole("button", { name: "المزيد من إجراءات التحديد" }).click();
@@ -317,7 +325,7 @@ for (const [path, name] of [
     await page.evaluate((target) => {
       window.location.hash = `/admin/${target}`;
     }, path);
-    await page.getByRole("button", { name: "إلغاء تحديد الكل", exact: true }).click();
+    await page.getByRole("button", { name: "إلغاء تحديد النتائج", exact: true }).click();
     await expect(actions).not.toBeVisible();
   });
 }
@@ -329,11 +337,13 @@ test("entity filters and selection review work in a narrow window with isolated 
   await page.goto("/#/admin/people");
   await page.getByRole("checkbox", { name: "تحديد شخص 1", exact: true }).click();
   await page.getByRole("button", { name: "المرشحات", exact: true }).click();
-  await page.getByRole("combobox", { name: "توفر الصورة", exact: true }).click();
-  await page.getByRole("option", { name: "بدون صورة", exact: true }).click();
+  await page
+    .getByRole("group", { name: "الصورة", exact: true })
+    .getByRole("button", { name: "بدون صورة", exact: true })
+    .click();
   await expect(page).toHaveURL(/image=without/);
   await page.screenshot({ path: "../../../data/previews/admin-people-filters-520.png" });
-  await page.getByRole("button", { name: "إعادة ضبط المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "مسح", exact: true }).click();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "مراجعة التحديد" }).click();
   await expect(page.getByRole("dialog").getByText("شخص 1", { exact: true })).toBeVisible();
