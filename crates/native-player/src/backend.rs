@@ -94,6 +94,15 @@ fn check(code: i32) -> Result<(), String> {
     }
 }
 
+fn check_option(key: &CStr, code: i32) -> Result<(), String> {
+    // mpv omits ytdl entirely when built without Lua (as in our Flatpak).
+    // With no scripting support there is no downloader hook to disable.
+    if key == c"ytdl" && code == mpv::mpv_error_MPV_ERROR_OPTION_NOT_FOUND {
+        return Ok(());
+    }
+    check(code).map_err(|error| format!("{error}; option={}", key.to_string_lossy()))
+}
+
 fn param<T>(kind: u32, value: &mut T) -> mpv::mpv_render_param {
     mpv::mpv_render_param {
         type_: kind,
@@ -183,7 +192,7 @@ impl Engine {
             (c"demuxer", c"lavf"),
         ] {
             // SAFETY: live uninitialized core and static C strings.
-            check(unsafe {
+            check_option(key, unsafe {
                 mpv::mpv_set_option_string(core.as_ptr(), key.as_ptr(), value.as_ptr())
             })?;
         }
@@ -741,6 +750,16 @@ impl Drop for Engine {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn lua_free_build_only_allows_the_missing_downloader_option() {
+        let missing = libmpv2_sys::mpv_error_MPV_ERROR_OPTION_NOT_FOUND;
+        assert!(super::check_option(c"ytdl", missing).is_ok());
+        assert!(super::check_option(c"access-references", missing).is_err());
+        assert!(super::check_option(c"load-scripts", missing).is_err());
+        assert!(super::check_option(c"ytdl", -7).is_err());
+        assert!(super::check_option(c"ytdl", 0).is_ok());
+    }
+
     #[test]
     fn generated_fbo_matches_four_c_ints() {
         assert_eq!(
