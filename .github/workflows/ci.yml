@@ -133,9 +133,12 @@ jobs:
           toolchain: 1.94.0
           components: clippy, rustfmt
       - name: Install native development libraries
+        timeout-minutes: 12
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libmpv-dev libboost-dev cmake ninja-build
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends pkg-config libssl-dev libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev libmpv-dev libboost-dev cmake ninja-build
       - name: Cache release-compatible libtorrent
         id: native-cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
