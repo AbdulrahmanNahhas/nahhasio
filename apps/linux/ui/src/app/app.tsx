@@ -169,7 +169,7 @@ export function App() {
         }).catch(() => {});
       void client.cancelQueries().then(() => {
         client.removeQueries({
-          predicate: (query) => query.queryKey[0] !== "session" && query.queryKey[0] !== "native",
+          predicate: (query) => query.queryKey[0] !== "session",
         });
         setDownload(null);
         client.setQueryData(["session"], null);
@@ -187,7 +187,11 @@ export function App() {
       setDownload(null);
     };
     window.addEventListener("nahhasio:server-changed", changed);
-    return () => window.removeEventListener("nahhasio:server-changed", changed);
+    window.addEventListener("nahhasio:session-changed", changed);
+    return () => {
+      window.removeEventListener("nahhasio:server-changed", changed);
+      window.removeEventListener("nahhasio:session-changed", changed);
+    };
   }, []);
 
   const session = useQuery({

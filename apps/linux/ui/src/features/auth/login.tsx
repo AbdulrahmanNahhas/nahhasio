@@ -1,12 +1,13 @@
 import type { LoginAccount } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Eye, EyeOff, HardDrive, LockKeyhole, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Brand } from "@/components/brand";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ import { OfflineProfiles } from "../player/offline-library";
 import { connectionsOptions } from "./connections";
 import { loginAccountsOptions } from "./login-accounts";
 import { LoginBackdrop } from "./login-backdrop";
+import { switchAccount } from "./remembered-accounts";
 import { CurrentServer, ServerConnections } from "./server-connections";
 
 function LoginAvatar({ account }: { account: LoginAccount }) {
@@ -52,10 +54,13 @@ export function Login({
   sessionError?: string;
 }) {
   const [connections, setConnections] = useState(false);
+  const accountButtons = useRef(new Map<string, HTMLButtonElement>());
+  const returnAccountId = useRef<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [visible, setVisible] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const client = useQueryClient();
@@ -71,10 +76,19 @@ export function Login({
       setVisible(false);
       await client.cancelQueries();
       client.removeQueries({
-        predicate: (query) => query.queryKey[0] !== "session" && query.queryKey[0] !== "native",
+        predicate: (query) => query.queryKey[0] !== "session",
       });
       client.setQueryData(["session"], session);
     },
+  });
+  const resume = useMutation({
+    networkMode: "always",
+    mutationFn: (accountId: string) => switchAccount(client, accountId),
+    onSuccess: (session, accountId) => {
+      if (session) client.setQueryData(["session"], session);
+      else setSelectedId(accountId);
+    },
+    onError: (_error, accountId) => setSelectedId(accountId),
   });
   const resetLogin = login.reset;
   useEffect(() => {
@@ -83,6 +97,7 @@ export function Login({
       setManual(false);
       setEmail("");
       setPassword("");
+      setRemember(false);
       setVisible(false);
       setCapsLock(false);
       resetLogin();
@@ -97,7 +112,7 @@ export function Login({
     setCapsLock(false);
     login.reset();
   };
-  const busy = login.isPending || restoring;
+  const busy = login.isPending || resume.isPending || restoring;
   return (
     <main className="relative isolate flex min-h-dvh flex-col overflow-x-clip text-foreground">
       <LoginBackdrop />
@@ -159,19 +174,20 @@ export function Login({
               </div>
             ) : (
               accounts.data?.map((account) => (
-                <DialogTrigger
+                <Button
                   key={account.id}
-                  render={
-                    <Button
-                      variant="ghost"
-                      className="group h-auto w-36 flex-col gap-5 px-3 py-5 sm:w-48"
-                    />
-                  }
+                  ref={(button) => {
+                    if (button) accountButtons.current.set(account.id, button);
+                    else accountButtons.current.delete(account.id);
+                  }}
+                  variant="ghost"
+                  className="group h-auto w-36 flex-col gap-5 px-3 py-5 sm:w-48"
                   disabled={busy}
                   onClick={() => {
                     clearPassword();
                     setManual(false);
-                    setSelectedId(account.id);
+                    returnAccountId.current = account.id;
+                    resume.mutate(account.id);
                   }}
                 >
                   <span className="rounded-full ring-2 ring-transparent ring-offset-4 ring-offset-login-background transition-all duration-200 group-hover:ring-foreground/60 group-focus-visible:ring-foreground motion-safe:group-hover:scale-105 motion-reduce:transition-none">
@@ -183,15 +199,15 @@ export function Login({
                   >
                     {account.name}
                   </span>
-                </DialogTrigger>
+                </Button>
               ))
             )}
             {!restoring && accounts.data?.length === 0 && (
               <Empty>
                 <EmptyHeader>
-                  <EmptyTitle>لا توجد حسابات متاحة</EmptyTitle>
+                  <EmptyTitle>أضف حسابك إلى هذا الجهاز</EmptyTitle>
                   <EmptyDescription>
-                    تحقق من اختيار الخادم الصحيح أو تواصل مع المشرف لتفعيل حسابك.
+                    سجّل الدخول بالبريد الإلكتروني. تظهر هنا الحسابات التي أضفتها على هذا الجهاز فقط.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -219,12 +235,21 @@ export function Login({
             onClick={() => {
               clearPassword();
               setSelectedId(null);
+              returnAccountId.current = null;
               setManual(true);
             }}
           >
             الدخول بالبريد الإلكتروني
           </DialogTrigger>
-          <DialogContent className="sm:max-w-sm" showCloseButton={!login.isPending}>
+          <DialogContent
+            className="sm:max-w-sm"
+            showCloseButton={!login.isPending}
+            finalFocus={() =>
+              returnAccountId.current
+                ? accountButtons.current.get(returnAccountId.current)
+                : undefined
+            }
+          >
             <DialogHeader className="items-center text-center sm:text-center">
               {selected && <LoginAvatar account={selected} />}
               <DialogTitle className="font-display text-2xl">
@@ -240,8 +265,8 @@ export function Login({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!busy) {
-                  if (selected) login.mutate({ accountId: selected.id, password });
-                  else if (manual) login.mutate({ email: email.trim(), password });
+                  if (selected) login.mutate({ accountId: selected.id, password, remember });
+                  else if (manual) login.mutate({ email: email.trim(), password, remember });
                 }
               }}
             >
@@ -293,6 +318,18 @@ export function Login({
                   </InputGroup>
                   {capsLock && <FieldDescription>مفتاح الأحرف الكبيرة مفعّل.</FieldDescription>}
                 </Field>
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="remember-account"
+                    checked={remember}
+                    onCheckedChange={(checked) => setRemember(checked === true)}
+                    disabled={busy}
+                  />
+                  <FieldLabel htmlFor="remember-account">تذكّر هذا الحساب على هذا الجهاز</FieldLabel>
+                </Field>
+                <FieldDescription>
+                  يمكن لأي شخص يستخدم هذا الجهاز فتح الحساب المحفوظ. لا نحفظ كلمة مرورك.
+                </FieldDescription>
                 {login.error && (
                   <Alert variant="destructive">
                     <AlertDescription>{login.error.message}</AlertDescription>

@@ -19,6 +19,9 @@ test.beforeEach(async ({ page }) => {
             const request = JSON.parse(raw);
             let result;
             switch (request.command) {
+              case "accounts.switch":
+                result = null;
+                break;
               case "session":
                 result = null;
                 break;
@@ -102,7 +105,11 @@ for (const width of [1440, 520, 360]) {
     const payload = await page.evaluate(() =>
       JSON.parse(sessionStorage.getItem("last-login-request") ?? "null"),
     );
-    expect(payload).toEqual({ accountId: familyId, password: "fixture-wrong-password" });
+    expect(payload).toEqual({
+      accountId: familyId,
+      password: "fixture-wrong-password",
+      remember: false,
+    });
     await page.screenshot({ path: `../../../data/previews/login-password-${width}.png` });
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -122,5 +129,5 @@ test("manual login keeps the existing email path", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("كلمة المرور غير صحيحة");
   expect(
     await page.evaluate(() => JSON.parse(sessionStorage.getItem("last-login-request") ?? "null")),
-  ).toEqual({ email: "fixture@example.test", password: "fixture-password" });
+  ).toEqual({ email: "fixture@example.test", password: "fixture-password", remember: false });
 });
