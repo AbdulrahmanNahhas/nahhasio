@@ -4,6 +4,50 @@ Current behavior and reviewed UI contracts. This guide does not claim installed 
 input or provider acceptance. The hosting release excludes player/provider testing. Design rules
 remain in [design-rules.md](design-rules.md).
 
+## Linux settings, sign-in and artwork
+
+Settings has its own route, with account/security, application appearance, playback, subtitles,
+sources, extensions, storage, offline, connection and help categories. Planned controls remain
+disabled alongside implemented actions, with individual source TODOs. Password changes open
+on demand; server connections, testing and editing are available inline. Library card/table
+presentation remains in Browse, not Settings. Narrow layouts use a five-destination
+Home/Library/Search/Downloads/Account dock; desktop retains its navigation rail. Existing profile,
+password, download-cache, server-connection and Flatpak-update services remain
+the owners of their controls. OpenSubtitles, debrid and addon installation are future integrations,
+not active settings. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
+credentials, URLs and local file paths; nothing is sent automatically.
+
+The login picker contains only accounts added on this device. The unauthenticated server account
+directory was removed. Remembering is opt-in and stores encrypted session credentials, never a
+password. The Flatpak Secret portal supplies the encryption key; failure permits temporary login
+without remembering. Switching preserves other remembered sessions, cancels pending catalog/image
+requests, stops playback and pauses transfers. Sign-out revokes this account's sessions on the
+registered device; forgetting also removes its local picker entry. Retained video files are not
+deleted. Explicit sign-out hides offline snapshots until that account signs in again. Download
+metadata, file opening and management actions require the exact server/account scope. Legacy
+unassigned download records stay on disk without appearing under an arbitrary account.
+
+Renewal credentials rotate, with a 30-day inactivity limit and a 90-day absolute limit. Access
+credentials remain stable during renewal so in-flight requests are not invalidated. Password
+changes revoke renewal for the current device and all other sessions; the current access session
+remains connected until it expires or signs out. Existing stored sessions are migrated only after
+server validation and successful secure-storage access; they do not gain renewal without a new
+remembered sign-in. A temporary login must never be upgraded by background session polling.
+
+Display artwork uses account-scoped native resource URLs rather than base64 bridge payloads.
+The server provides 320/640/1280/1920 maximum-edge WebP thumbnails with bounded decoding and ETags;
+AVIF currently retains original delivery. Original assets/UUIDs remain unchanged. Derivatives live
+in `NAHHASIO_ARTWORK_CACHE_ROOT` or a disposable temporary directory. The native 512 MiB LRU image
+cache is separate from saved offline artwork and video files. Recently validated bytes can be
+reused for 30 seconds; subsequent requests revalidate through authenticated HTTP. Same-image
+requests share a native lock, and foreground catalog and artwork have separate concurrency limits.
+Home uses a 30-second freshness window instead of always refetching on mount. Image failures have
+a distinct placeholder; Settings provides artwork cache usage and cleanup under Storage.
+
+This source checkpoint does not establish installed Flatpak acceptance, Secret portal availability
+on every desktop, physical input, provider playback or real-catalog performance. See TESTING.md
+for fixture/native acceptance procedures. Schema migration and deployment remain explicit.
+
 ## Awards administration
 
 ### Current experience

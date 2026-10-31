@@ -116,6 +116,14 @@ Record blocked CSP events, failed artwork and graphics warnings instead of hidin
 Credentials/tokens must not enter command arguments, logs, screenshots or committed fixtures.
 Private captures belong under the existing ignored `data/previews/` tree.
 
+The settings/artwork checkpoint also supports `NAHHASIO_SMOKE_SETTINGS=1` with
+`NAHHASIO_SMOKE_ARTWORK_ID=<synthetic UUID>` under `--ui-smoke`. Prepare the private bundle to
+start on `#/settings?section=help` using an external same-origin script; do not relax CSP.
+The mode checks the actual settings view, absence of alerts/overflow and decoding of one image
+through the authenticated native resource handler, records viewport/DPR and captures settings.
+It does not exercise real catalog images, remembering via the desktop Secret portal or playback.
+Use a synthetic localhost API that rejects unknown routes, never a production forwarding proxy.
+
 ## 4. Acceptance and reporting
 
 - Inspect native screenshots, not just exit codes. Test desktop and narrow layouts (native
