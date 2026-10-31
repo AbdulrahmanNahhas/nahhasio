@@ -36,14 +36,22 @@ devenv --profile dev up
 devenv up client
 ```
 
-`devenv up` starts PostgreSQL and the Rust API only. For everyday UI development, use
-`devenv --profile dev up` (short form: `devenv -P dev up`). The native process manager starts
-Vite alongside the backend, waits for both HTTP readiness probes, then builds and launches
-the GTK client with `NAHHASIO_UI_URL=http://127.0.0.1:23110/`. React/CSS edits update through
-Vite HMR without rebuilding the UI bundle. The native launcher retains the same process-local
-graphics compatibility settings as the built client.
-Both modes explicitly share the existing `.devenv/state/postgres` catalog; the dev profile
-does not create a separate empty database.
+`devenv up` starts the development PostgreSQL cluster, bootstraps the dedicated synthetic
+`nahhasio_development` database, starts the Rust API, and opens the built GTK client. First run
+creates three fictional shows, nine episodes, generated artwork and two accounts:
+`admin@demo.local` and `friend@demo.local`, both initially using `demo12345`. These are public
+local-development credentials, never production accounts. Subsequent starts apply pending schema
+migrations only to this recognized demo database; they do not reseed or reset your edits, passwords,
+tracking or saved accounts. The compiled server itself still never migrates or seeds.
+
+Both profiles share `.devenv/state/development-postgres` and the demo's fixed server identity.
+Artwork, settings, client sessions and videos live under ignored `data/development-local/demo/`.
+The old `.devenv/state/postgres` directory is not adopted, deleted or overwritten. The bootstrap
+rejects an existing database without the known demo identity. No family-server access is needed.
+
+For live UI development use `devenv --profile dev up` (`devenv -P dev up`). It uses the same demo
+catalog/client state, adds Vite, and launches GTK against `http://127.0.0.1:23110/` after readiness.
+React/CSS edits use Vite HMR; the normal profile uses the freshly built packaged UI.
 
 Rust changes still require a rebuild/restart: use `devenv --profile dev processes restart client`
 for the shell or `devenv --profile dev processes restart server` for the API. Fully quit any
@@ -54,8 +62,8 @@ Use `devenv up client` for the backend plus the built UI, or
 When switching modes or changing `devenv.nix`, stop the old manager first with `devenv down`
 (use `devenv --profile dev down` if it was started with that profile), then run the new command.
 An existing manager retains its original process definitions. Avoid running the two modes
-simultaneously against the same PostgreSQL data directory and fixed ports. Startup never
-migrates or seeds the catalog; no website or Node API process is started.
+simultaneously against the same PostgreSQL data directory and fixed ports. Only the guarded
+development wrapper migrates/seeds its synthetic database; no website or Node API process starts.
 
 | Service                          | Port  |
 | -------------------------------- | ----- |
@@ -154,6 +162,16 @@ native operations; it never receives session tokens or arbitrary native command 
 packaged origin is `nahhasio://app/`; development allows exactly `http://127.0.0.1:23110/`.
 Hash routes preserve native packaging. Generate `routeTree.gen.ts` and API types through their
 owning scripts; never edit them manually. The server enforces current permissions.
+
+The remembered-session checkpoint adds `0001_remembered_sessions` to the sole Drizzle history.
+Apply it explicitly through the operator after rehearsing on disposable data; startup never
+migrates. Existing identity/session rows and catalog data are preserved. Renewal hashes share
+session/device revocation. The new client/server capabilities advertise artwork variants and
+remembered accounts. A client-only update does not upgrade the installed server or database.
+Keep the Secret portal-derived vault key on the device, outside the credential files; failed
+secure storage must not silently fall back to plaintext. Rollback to the previous server requires
+clearing renewal fields and rolling back only this new migration through a reviewed operator
+procedure; do not rewrite the existing baseline or its ledger.
 
 Private native state binds sessions to server/account identities. Saved server connections retain
 trusted CA/fingerprint and normal HTTPS chain/hostname checks. Loopback HTTP is development-only.

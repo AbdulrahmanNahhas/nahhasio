@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Explicit development orchestration; the application server never migrates or seeds.
+set -euo pipefail
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_root"
+export PGUSER="${PGUSER:-$USER}"
+export DATABASE_URL="postgresql://127.0.0.1:23102/nahhasio_development"
+export NAHHASIO_BIND=127.0.0.1:23103
+export NAHHASIO_CONFIG_ROOT="$project_root/data/development-local/demo/server-config"
+export NAHHASIO_MEDIA_ROOT="$project_root/data/development-local/demo/artwork"
+export NAHHASIO_PUBLIC_MEDIA_ROOT="$project_root/data/development-local/demo/public"
+export NAHHASIO_ARTWORK_CACHE_ROOT="$project_root/data/development-local/demo/thumbnail-cache"
+unset NAHHASIO_TLS_CERT NAHHASIO_TLS_KEY NAHHASIO_LOCAL_ADMIN NAHHASIO_LOCAL_ADMIN_TOKEN
+fixture_root="$project_root/data/development-local/demo"
+mkdir -p "$fixture_root/public"
+# Fixed local host/database and identity: refuse to adopt a different populated database.
+tables="$(psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.tables where table_schema='public'")"
+seed=1
+if test "$tables" != 0; then
+  identity="$(psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c 'select id from server_instance where singleton')"
+  if test "$identity" != 97900000-0000-4000-8000-000000000001; then
+    echo 'Refusing to initialize an existing database without the development fixture identity.' >&2
+    exit 1
+  fi
+  seed=0
+fi
+cargo build --locked -p nahhasio-cli
+"${CARGO_TARGET_DIR:-target}/debug/nahhasio" migrate apply --write >/dev/null
+if test "$seed" = 1; then
+  python3 bin/development-fixtures.py "$fixture_root"
+  psql "$DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -f "$fixture_root/seed.sql"
+  echo 'Development fixtures created: three shows, admin@demo.local and friend@demo.local.'
+else
+  echo 'Using the existing development catalog; edits, passwords and watch history preserved.'
+fi
+exec cargo run --locked -p nahhasio-server

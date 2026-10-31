@@ -50,8 +50,10 @@ devenv --profile dev up
 ```
 
 `devenv --profile dev up` (or `devenv -P dev up`) starts PostgreSQL, the Rust API,
-Vite and the GTK client with live UI updates. Plain `devenv up` starts only PostgreSQL
-and the API; `devenv up client` also builds and launches the desktop bundle.
+Vite and the GTK client with live UI updates. Plain `devenv up` starts PostgreSQL,
+prepares the persistent three-show development demo, starts the API and opens the built client.
+Demo logins: `admin@demo.local` / `friend@demo.local`, initially using `demo12345`. Your local
+edits and watch history survive subsequent starts; the family catalog is never used.
 Stop the previous manager before switching modes; see the [development guide](docs/DEVELOPMENT.md#runbuild).
 Ports: database 23102, Rust 23103, desktop Vite 23110.
 Use the repository devenv environment. Build/static and runtime verification commands are in

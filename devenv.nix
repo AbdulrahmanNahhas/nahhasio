@@ -21,19 +21,19 @@
   languages.rust.channel = "stable";
   dotenv.enable = true;
 
-  # Reuse the existing persistent catalog. Startup never migrates or seeds it.
+  # A dedicated synthetic development catalog; family/recovery databases are never adopted.
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_17;
-    initialDatabases = [ { name = "arcadia"; } ];
+    initialDatabases = [ { name = "nahhasio_development"; } ];
     listen_addresses = "127.0.0.1";
     port = 23102;
   };
-  env.DATABASE_URL = "postgresql://127.0.0.1:23102/arcadia";
-  # Profiles isolate DEVENV_STATE; both modes must keep using the existing catalog.
-  env.PGDATA = lib.mkForce "${config.devenv.root}/.devenv/state/postgres";
+  env.DATABASE_URL = "postgresql://127.0.0.1:23102/nahhasio_development";
+  # Both profiles share this development-only cluster and stable fixture identity.
+  env.PGDATA = lib.mkForce "${config.devenv.root}/.devenv/state/development-postgres";
   env.NAHHASIO_BIND = "127.0.0.1:23103";
-  env.NAHHASIO_CONFIG_ROOT = "${config.devenv.root}/data/server-config";
+  env.NAHHASIO_CONFIG_ROOT = "${config.devenv.root}/data/development-local/demo/server-config";
 
   packages = with pkgs; [
     typos
@@ -74,11 +74,9 @@
   env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
   env.NAHHASIO_ANIPY_HELPER = "${import ./packaging/linux/anipy-resolver.nix { inherit pkgs; }}/bin/nahhasio-anime-resolver";
 
-  # SQLx uses the system account database for its default user; the local Node CLI uses USER.
-  # Make the development role explicit so both drivers reach the same existing catalog.
+  # Development bootstrap is explicit orchestration, separate from server startup.
   processes.server.exec = ''
-    export PGUSER="''${PGUSER:-$USER}"
-    exec cargo run --locked -p nahhasio-server
+    exec bash "${config.devenv.root}/bin/nahhasio-dev-server"
   '';
   processes.server.after = [ "devenv:processes:postgres" ];
   processes.server.ready = {
@@ -90,21 +88,17 @@
     timeout = 120;
   };
   scripts.nahhasio-client.exec = ''
-    exec "${config.devenv.root}/bin/nahhasio-client"
+    exec bash "${config.devenv.root}/bin/nahhasio-dev-client"
   '';
   processes.client = {
     exec = lib.mkDefault "nahhasio-client";
     after = [ "devenv:processes:server" ];
-    start.enable = lib.mkDefault false;
+    start.enable = lib.mkDefault true;
   };
 
   profiles.dev.module = {
     scripts.nahhasio-client-dev.exec = ''
-      set -euo pipefail
-      cd "${config.devenv.root}"
-      export NAHHASIO_UI_URL=http://127.0.0.1:23110/
-      cargo build --locked -p nahhasio-linux -j 2
-      exec bash "${config.devenv.root}/bin/nahhasio-native-runtime" "''${CARGO_TARGET_DIR:-target}/debug/nahhasio-linux" "$@"
+      exec bash "${config.devenv.root}/bin/nahhasio-dev-client" --live
     '';
     processes.ui = {
       exec = "pnpm --filter @nahhasio/linux-ui dev";
@@ -126,7 +120,7 @@
 
   enterShell = ''
     echo "Nahhasio environment ready"
-    echo "Backend: devenv up (PostgreSQL -> Rust API)"
+    echo "Development demo: devenv up (PostgreSQL -> demo bootstrap -> Rust API -> GTK client)"
     echo "Live development: devenv --profile dev up (backend + Vite + GTK desktop)"
     echo "Built desktop: devenv up client"
   '';
