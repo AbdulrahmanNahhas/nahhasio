@@ -18,6 +18,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
@@ -307,19 +308,25 @@ function ConnectionForm({
 export function ServerConnections({
   open,
   onOpenChange,
+  inline = false,
 }: {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+  inline?: boolean;
 }) {
   const client = useQueryClient();
   const connections = useQuery({ ...connectionsOptions(), enabled: open });
+  const status = useQuery({
+    ...probeOptions(inline ? connections.data?.selected : undefined),
+    retry: false,
+  });
   const [formBusy, setFormBusy] = useState(false);
   const [form, setForm] = useState<{ editing: SavedServer | null } | null>(null);
   const [removing, setRemoving] = useState<SavedServer | null>(null);
   const select = useMutation({
     mutationFn: (server: SavedServer) => selectServer(client, server),
     networkMode: "always",
-    onSuccess: () => onOpenChange(false),
+    onSuccess: () => onOpenChange?.(false),
   });
   const remove = useMutation({
     mutationFn: (server: SavedServer) => updateServer("servers.remove", server),
@@ -331,7 +338,7 @@ export function ServerConnections({
   });
   const change = (next: boolean) => {
     if (select.isPending || remove.isPending || formBusy) return;
-    onOpenChange(next);
+    onOpenChange?.(next);
     if (!next) {
       setForm(null);
       setRemoving(null);
@@ -339,159 +346,193 @@ export function ServerConnections({
       remove.reset();
     }
   };
+  const title = form
+    ? form.editing
+      ? "تسمية الاتصال"
+      : "أضف مكتبتك"
+    : inline
+      ? "مكتباتك"
+      : "اختر مكتبتك";
+  const description = inline
+    ? "أضف مكتبة أو عدّل اتصالًا محفوظًا على هذا الجهاز."
+    : form
+      ? "اتصل بالخادم الذي يحتفظ بأعمالك وصورك وسجل مشاهدتك."
+      : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل.";
+  const content = (
+    <>
+      {form ? (
+        <ConnectionForm
+          key={form.editing?.url ?? "new"}
+          editing={form.editing}
+          onBusyChange={setFormBusy}
+          onDone={() => setForm(null)}
+        />
+      ) : (
+        <>
+          <div className="flex flex-col gap-2">
+            {connections.data?.servers.map((server) => (
+              <div
+                key={server.url}
+                className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border p-4 data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/5"
+                data-selected={connections.data.selected === server.url}
+              >
+                <Server className="mx-1 size-6 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="min-w-0 flex-1 basis-40">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                    <span className="min-w-0 break-words">{server.name}</span>
+                    {connections.data.selected === server.url && (
+                      <Badge variant="secondary">
+                        <Check data-icon="inline-start" />
+                        الحالي
+                      </Badge>
+                    )}
+                    {inline && connections.data.selected === server.url && (
+                      <Badge variant="outline" aria-live="polite">
+                        {status.isFetching
+                          ? "جارٍ الفحص…"
+                          : status.error
+                            ? "تعذّر الاتصال"
+                            : status.data
+                              ? "متصل"
+                              : "لم يُفحص"}
+                      </Badge>
+                    )}
+                  </p>
+                  <p
+                    className="truncate text-xs text-muted-foreground"
+                    dir="ltr"
+                    title={server.url}
+                  >
+                    {server.url}
+                  </p>
+                </div>
+                {inline && connections.data.selected === server.url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={status.isFetching || formBusy}
+                    onClick={() => void status.refetch()}
+                  >
+                    <RefreshCw data-icon="inline-start" />
+                    اختبار الاتصال
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`تسمية ${server.name}`}
+                  disabled={select.isPending || remove.isPending}
+                  onClick={() => setForm({ editing: server })}
+                >
+                  <Pencil />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`إزالة ${server.name}`}
+                  title={
+                    connections.data.selected === server.url
+                      ? "اختر خادمًا آخر قبل إزالة الاتصال الحالي"
+                      : "إزالة الاتصال المحفوظ"
+                  }
+                  disabled={
+                    connections.data.selected === server.url || select.isPending || remove.isPending
+                  }
+                  onClick={() => {
+                    setRemoving(server);
+                    remove.reset();
+                  }}
+                >
+                  <Trash2 />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={
+                    connections.data.selected === server.url || select.isPending || remove.isPending
+                  }
+                  onClick={() => select.mutate(server)}
+                >
+                  {select.isPending && select.variables?.url === server.url ? <Spinner /> : "اتصال"}
+                </Button>
+              </div>
+            ))}
+          </div>
+          {removing && (
+            <Alert>
+              <CircleHelp />
+              <AlertTitle>إزالة «{removing.name}» من هذا الجهاز؟</AlertTitle>
+              <AlertDescription>
+                تُزال الجلسة المحفوظة لهذا الاتصال. لا يُحذف الحساب أو الخادم أو ملفات الفيديو.
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={remove.isPending}
+                    onClick={() => remove.mutate(removing)}
+                  >
+                    {remove.isPending ? <Spinner /> : "إزالة الاتصال"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={remove.isPending}
+                    onClick={() => setRemoving(null)}
+                  >
+                    إلغاء
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          {(connections.error || select.error || remove.error || (inline && status.error)) && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {select.error?.message ??
+                  remove.error?.message ??
+                  connections.error?.message ??
+                  status.error?.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setForm({ editing: null })}
+              disabled={
+                select.isPending || remove.isPending || (connections.data?.servers.length ?? 0) >= 8
+              }
+            >
+              <Plus data-icon="inline-start" />
+              إضافة خادم
+            </Button>
+          </DialogFooter>
+        </>
+      )}
+    </>
+  );
+  if (inline)
+    return (
+      <Card size="sm" aria-label="إدارة اتصالات المكتبة">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">{content}</CardContent>
+      </Card>
+    );
   return (
     <Dialog open={open} onOpenChange={change}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {form ? (form.editing ? "تسمية الاتصال" : "أضف مكتبتك") : "اختر مكتبتك"}
-          </DialogTitle>
-          <DialogDescription>
-            {form
-              ? "اتصل بالخادم الذي يحتفظ بأعمالك وصورك وسجل مشاهدتك."
-              : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل."}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {form ? (
-          <ConnectionForm
-            key={form.editing?.url ?? "new"}
-            editing={form.editing}
-            onBusyChange={setFormBusy}
-            onDone={() => setForm(null)}
-          />
-        ) : (
-          <>
-            <div className="flex flex-col gap-2">
-              {connections.data?.servers.map((server) => (
-                <div
-                  key={server.url}
-                  className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border p-4 data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/5"
-                  data-selected={connections.data.selected === server.url}
-                >
-                  <Server
-                    className="mx-1 size-6 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1 basis-40">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                      <span className="min-w-0 break-words">{server.name}</span>
-                      {connections.data.selected === server.url && (
-                        <Badge variant="secondary">
-                          <Check data-icon="inline-start" />
-                          الحالي
-                        </Badge>
-                      )}
-                    </p>
-                    <p
-                      className="truncate text-xs text-muted-foreground"
-                      dir="ltr"
-                      title={server.url}
-                    >
-                      {server.url}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`تسمية ${server.name}`}
-                    disabled={select.isPending || remove.isPending}
-                    onClick={() => setForm({ editing: server })}
-                  >
-                    <Pencil />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`إزالة ${server.name}`}
-                    title={
-                      connections.data.selected === server.url
-                        ? "اختر خادمًا آخر قبل إزالة الاتصال الحالي"
-                        : "إزالة الاتصال المحفوظ"
-                    }
-                    disabled={
-                      connections.data.selected === server.url ||
-                      select.isPending ||
-                      remove.isPending
-                    }
-                    onClick={() => {
-                      setRemoving(server);
-                      remove.reset();
-                    }}
-                  >
-                    <Trash2 />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={
-                      connections.data.selected === server.url ||
-                      select.isPending ||
-                      remove.isPending
-                    }
-                    onClick={() => select.mutate(server)}
-                  >
-                    {select.isPending && select.variables?.url === server.url ? (
-                      <Spinner />
-                    ) : (
-                      "اتصال"
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-            {removing && (
-              <Alert>
-                <CircleHelp />
-                <AlertTitle>إزالة «{removing.name}» من هذا الجهاز؟</AlertTitle>
-                <AlertDescription>
-                  تُزال الجلسة المحفوظة لهذا الاتصال. لا يُحذف الحساب أو الخادم أو ملفات الفيديو.
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate(removing)}
-                    >
-                      {remove.isPending ? <Spinner /> : "إزالة الاتصال"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={remove.isPending}
-                      onClick={() => setRemoving(null)}
-                    >
-                      إلغاء
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-            {(connections.error || select.error || remove.error) && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {select.error?.message ?? remove.error?.message ?? connections.error?.message}
-                </AlertDescription>
-              </Alert>
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                onClick={() => setForm({ editing: null })}
-                disabled={
-                  select.isPending ||
-                  remove.isPending ||
-                  (connections.data?.servers.length ?? 0) >= 8
-                }
-              >
-                <Plus data-icon="inline-start" />
-                إضافة خادم
-              </Button>
-            </DialogFooter>
-          </>
-        )}
+        {content}
       </DialogContent>
     </Dialog>
   );

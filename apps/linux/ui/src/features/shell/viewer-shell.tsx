@@ -10,6 +10,7 @@ import { TooltipProvider } from "../../components/ui/tooltip";
 import { AccountMenu } from "../account/account-menu";
 import { AdminNavigation } from "../admin/admin-navigation";
 import { DownloadQueueButton } from "../player/download-queue-button";
+import { BottomNavigation } from "./bottom-navigation";
 import { LibraryNavigation } from "./library-navigation";
 import { NativePageContext } from "./native-page-context";
 import { openSearch, useViewerRoute } from "./navigation";
@@ -127,20 +128,25 @@ export function ViewerShell({ user }: { user: User }) {
         </SidebarProvider>
       ) : (
         <div className="flex h-dvh overflow-hidden bg-background">
-          <LibraryNavigation
-            path={route.path}
+          <div className="hidden shrink-0 md:flex">
+            <LibraryNavigation
+              path={route.path}
 
-            onDialogChange={(open) => {
-              navigationOpen.current = open;
-            }}
-            footer={
-              <>
-                <DownloadQueueButton />
-                <AccountMenu user={user} open={account} onOpenChange={changeAccountOpen} />
-              </>
-            }
-          />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">{content}</div>
+              onDialogChange={(open) => {
+                navigationOpen.current = open;
+              }}
+              footer={
+                <>
+                  <DownloadQueueButton />
+                  <AccountMenu user={user} open={account} onOpenChange={changeAccountOpen} />
+                </>
+              }
+            />
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {content}
+            <BottomNavigation path={route.path} />
+          </div>
         </div>
       )}
     </TooltipProvider>

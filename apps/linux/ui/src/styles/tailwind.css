@@ -182,3 +182,7 @@
     transition-duration: 0ms;
   }
 }
+
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), --spacing(2));
+}

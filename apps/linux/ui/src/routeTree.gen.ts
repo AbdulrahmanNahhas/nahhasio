@@ -20,6 +20,7 @@ import { Route as PlanetsRouteImport } from "./routes/planets";
 import { Route as ProfileRouteImport } from "./routes/profile";
 import { Route as ReleasesRouteImport } from "./routes/releases";
 import { Route as SearchRouteImport } from "./routes/search";
+import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as StudiosRouteImport } from "./routes/studios";
 import { Route as TrailersRouteImport } from "./routes/trailers";
 import { Route as WatchRouteImport } from "./routes/watch";
@@ -98,6 +99,11 @@ const ReleasesRoute = ReleasesRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: "/search",
   path: "/search",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsRoute = SettingsRouteImport.update({
+  id: "/settings",
+  path: "/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
 const StudiosRoute = StudiosRouteImport.update({
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   "/profile": typeof ProfileRoute;
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
+  "/settings": typeof SettingsRoute;
   "/studios": typeof StudiosRoute;
   "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   "/profile": typeof ProfileRoute;
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
+  "/settings": typeof SettingsRoute;
   "/studios": typeof StudiosRoute;
   "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   "/profile": typeof ProfileRoute;
   "/releases": typeof ReleasesRoute;
   "/search": typeof SearchRoute;
+  "/settings": typeof SettingsRoute;
   "/studios": typeof StudiosRoute;
   "/trailers": typeof TrailersRoute;
   "/watch": typeof WatchRoute;
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | "/profile"
     | "/releases"
     | "/search"
+    | "/settings"
     | "/studios"
     | "/trailers"
     | "/watch"
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | "/profile"
     | "/releases"
     | "/search"
+    | "/settings"
     | "/studios"
     | "/trailers"
     | "/watch"
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | "/profile"
     | "/releases"
     | "/search"
+    | "/settings"
     | "/studios"
     | "/trailers"
     | "/watch"
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute;
   ReleasesRoute: typeof ReleasesRoute;
   SearchRoute: typeof SearchRoute;
+  SettingsRoute: typeof SettingsRoute;
   StudiosRoute: typeof StudiosRoute;
   TrailersRoute: typeof TrailersRoute;
   WatchRoute: typeof WatchRoute;
@@ -544,6 +557,13 @@ declare module "@tanstack/react-router" {
       path: "/search";
       fullPath: "/search";
       preLoaderRoute: typeof SearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings": {
+      id: "/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof SettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/studios": {
@@ -769,6 +789,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   ReleasesRoute: ReleasesRoute,
   SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
   StudiosRoute: StudiosRoute,
   TrailersRoute: TrailersRoute,
   WatchRoute: WatchRoute,

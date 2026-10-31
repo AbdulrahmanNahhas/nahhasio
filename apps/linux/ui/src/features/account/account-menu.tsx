@@ -1,6 +1,6 @@
 import type { User } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Server, HardDrive } from "lucide-react";
+import { Server, HardDrive, Settings, Users } from "lucide-react";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { gateway } from "@/lib/bridge";
 
 import { connectionsOptions } from "../auth/connections";
+import { switchAccount } from "../auth/remembered-accounts";
 import { ServerConnections } from "../auth/server-connections";
 import { changeOfflineMode } from "../player/saved-works-data";
 import { navigate } from "../shell/navigation";
@@ -44,12 +45,17 @@ export function AccountMenu({
     mutationFn: () => changeOfflineMode(client, user.accountId),
     onError: (error) => toast.add({ type: "error", title: error.message }),
   });
+  const switching = useMutation({
+    networkMode: "always",
+    mutationFn: () => switchAccount(client),
+    onSuccess: () => navigate("/home"),
+  });
   const logout = useMutation({
     mutationFn: gateway.logout,
     onSettled: async () => {
       await client.cancelQueries();
       client.removeQueries({
-        predicate: (query) => query.queryKey[0] !== "session" && query.queryKey[0] !== "native",
+        predicate: (query) => query.queryKey[0] !== "session",
       });
       client.setQueryData(["session"], null);
       window.dispatchEvent(new Event("nahhasio:signed-out"));
@@ -124,6 +130,15 @@ export function AccountMenu({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings data-icon="inline-start" /> الإعدادات والمساعدة
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={switching.isPending || logout.isPending}
+              onClick={() => switching.mutate()}
+            >
+              <Users data-icon="inline-start" /> تبديل الحساب
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setConnections(true)}>
               <Server data-icon="inline-start" />
               {currentServer ? `الخادم: ${currentServer.name}` : "الخادم والاتصال"}
@@ -148,6 +163,11 @@ export function AccountMenu({
               {logout.isPending ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
             </DropdownMenuItem>
           </DropdownMenuGroup>
+          {switching.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{switching.error.message}</AlertDescription>
+            </Alert>
+          )}
           {logout.error && (
             <Alert variant="destructive">
               <AlertDescription>{logout.error.message}</AlertDescription>
