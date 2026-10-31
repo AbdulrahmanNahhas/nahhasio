@@ -209,6 +209,8 @@ pub(super) async fn password(
             "Credentials changed; try again",
         ));
     }
+    sqlx::query("UPDATE auth_sessions SET renewal_hash=NULL,renewal_installation_id=NULL,renewal_used_at=NULL,renewal_expires_at=NULL WHERE user_id=$1")
+        .bind(&current.id).execute(&mut *tx).await.map_err(unavailable)?;
     sqlx::query("DELETE FROM auth_sessions WHERE user_id=$1 AND token<>$2")
         .bind(&current.id)
         .bind(key)

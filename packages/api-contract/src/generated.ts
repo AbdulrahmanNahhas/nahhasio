@@ -105,10 +105,14 @@ export const LoginRequestSchema = z.union([
   z.strictObject({
     email: z.string(),
     password: z.string().min(1).max(1024),
+    remember: z.boolean().optional(),
+    installationId: z.string().uuid().optional(),
   }),
   z.strictObject({
     accountId: z.string().uuid(),
     password: z.string().min(1).max(1024),
+    remember: z.boolean().optional(),
+    installationId: z.string().uuid().optional(),
   }),
 ]);
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
@@ -123,6 +127,7 @@ export const LoginResponseSchema = z.strictObject({
   token: z.string(),
   user: UserSchema,
   expiresAt: z.string(),
+  renewalToken: z.string().optional(),
 });
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
@@ -2853,6 +2858,12 @@ export const ServerInfoSchema = z.strictObject({
   version: z.string().max(64),
   apiVersion: z.number().int().min(1),
   serverId: z.string().uuid().optional(),
+  capabilities: z
+    .strictObject({
+      artworkVariants: z.boolean().optional(),
+      rememberedAccounts: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type ServerInfo = z.infer<typeof ServerInfoSchema>;
 
@@ -3291,6 +3302,13 @@ export type LoginAccount = z.infer<typeof LoginAccountSchema>;
 export const LoginAccountsSchema = z.array(LoginAccountSchema);
 export type LoginAccounts = z.infer<typeof LoginAccountsSchema>;
 
+export const RenewalRequestSchema = z.strictObject({
+  renewalToken: z.string().min(69).max(69),
+  installationId: z.string().uuid(),
+  accessToken: z.string().min(68).max(68),
+});
+export type RenewalRequest = z.infer<typeof RenewalRequestSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3310,6 +3328,7 @@ export class ApiClient {
       | PasswordUpdate
       | ProfileUpdate
       | ProviderUpdate
+      | RenewalRequest
       | ServerOperationRequest
       | ServerRename
       | TrackingChange
@@ -3829,8 +3848,8 @@ export class ApiClient {
     const response = await this.request("/api/v1/admin/server/operations", "POST", body, signal);
     return ServerOperationQueuedSchema.parse(await response.json());
   }
-  async getLoginAccounts(signal?: AbortSignal): Promise<LoginAccounts> {
-    const response = await this.request("/api/v1/auth/accounts", "GET", undefined, signal);
-    return LoginAccountsSchema.parse(await response.json());
+  async renewSession(body: RenewalRequest, signal?: AbortSignal): Promise<LoginResponse> {
+    const response = await this.request("/api/v1/auth/renew", "POST", body, signal);
+    return LoginResponseSchema.parse(await response.json());
   }
 }

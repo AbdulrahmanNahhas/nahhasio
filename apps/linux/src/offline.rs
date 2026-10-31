@@ -15,6 +15,8 @@ const DOCUMENT_LIMIT: usize = 16 * 1024 * 1024;
 struct Profile {
     account: String,
     name: String,
+    #[serde(default)]
+    signed_out: bool,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -171,6 +173,24 @@ impl Store {
             .clone()
             .ok_or_else(|| Error::new("offline_owner", "سجّل الدخول أو اختر مكتبة جهاز محفوظة أولًا."))
     }
+    pub async fn sign_out(&self, server: &str, account: Option<&str>) -> Result<(), Error> {
+        let _guard = self.serial.lock().await;
+        let account = match account {
+            Some(id) => id.to_owned(),
+            None => match self.owner.lock().await.as_ref() {
+                Some(owner) => owner.account.clone(),
+                None => return Ok(()),
+            },
+        };
+        let dir = self.server_root(server);
+        let mut profiles: Vec<Profile> =
+            private_state::read(&dir, "profiles.json")?.unwrap_or_default();
+        if let Some(p) = profiles.iter_mut().find(|p| p.account == account) {
+            p.signed_out = true;
+        }
+        private_state::write(&dir, "profiles.json", &profiles)?;
+        Ok(())
+    }
     pub async fn reset(&self) {
         *self.owner.lock().await = None;
     }
@@ -213,6 +233,7 @@ impl Store {
             private_state::read(&dir, "profiles.json")?.unwrap_or_default();
         if let Some(profile) = profiles.iter_mut().find(|p| p.account == account) {
             profile.name = name.clone();
+            profile.signed_out = false;
         } else {
             if profiles.len() >= 32 {
                 return Err(bad());
@@ -220,6 +241,7 @@ impl Store {
             profiles.push(Profile {
                 account: account.clone(),
                 name: name.clone(),
+                signed_out: false,
             });
         }
         private_state::write(&dir, "profiles.json", &profiles)?;
@@ -310,7 +332,12 @@ impl Store {
                 let profiles: Vec<Profile> =
                     private_state::read(&self.server_root(server), "profiles.json")?
                         .unwrap_or_default();
-                Ok(json!(profiles))
+                Ok(json!(
+                    profiles
+                        .into_iter()
+                        .filter(|p| !p.signed_out)
+                        .collect::<Vec<_>>()
+                ))
             }
             "offline.open" => {
                 let account = id(&request.payload, "accountId")?;
@@ -319,7 +346,7 @@ impl Store {
                         .unwrap_or_default();
                 let profile = profiles
                     .into_iter()
-                    .find(|p| p.account == account)
+                    .find(|p| p.account == account && !p.signed_out)
                     .ok_or_else(bad)?;
                 let owner = Owner {
                     server: server.into(),

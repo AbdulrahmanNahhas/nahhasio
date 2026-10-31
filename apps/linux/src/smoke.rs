@@ -41,6 +41,10 @@ pub fn install(
     passed: Rc<Cell<bool>>,
 ) {
     let home_only = std::env::var_os("NAHHASIO_SMOKE_HOME_ONLY").is_some();
+    let settings_only = std::env::var_os("NAHHASIO_SMOKE_SETTINGS").is_some();
+    let artwork_id = std::env::var("NAHHASIO_SMOKE_ARTWORK_ID")
+        .ok()
+        .filter(|id| crate::bridge::valid_id(id));
     let app = app.clone();
     let weak = view.downgrade();
     let step = Rc::new(Cell::new(0u8));
@@ -69,6 +73,23 @@ pub fn install(
             0=>"JSON.stringify({ready:!!document.querySelector('#login-heading') && !document.querySelector('[aria-busy=true]') && typeof window.__nahhasioReply === 'function'})".into(),
             1=>format!("(()=>{{if(!document.querySelector('#email')){{Array.from(document.querySelectorAll('button')).find(button=>button.textContent.trim()==='الدخول بالبريد الإلكتروني')?.click();return 'opening';}}const input={credentials}; for(const name of ['email','password']){{const element=document.getElementById(name);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,input[name]);element.dispatchEvent(new Event('input',{{bubbles:true}}));}} return 'filled';}})()"),
             2=>"(()=>{document.querySelector('form').requestSubmit();return 'submitted';})()".into(),
+            3 if settings_only => {
+                let image=artwork_id.as_deref().unwrap_or("");
+                format!(r#"(()=>{{
+                    if(!location.hash.startsWith('#/settings')){{location.hash='/settings?section=help';return '{{}}';}}
+                    if(!window.__artworkProbeStarted){{
+                        window.__artworkProbeStarted=true;
+                        const previous=window.__nahhasioReply;
+                        window.__nahhasioReply=(reply)=>{{
+                            if(reply.id==='artwork-probe' && reply.ok){{const image=document.createElement('img');image.hidden=true;image.id='artwork-probe';image.src=reply.result.url;document.body.append(image);}}
+                            else previous(reply);
+                        }};
+                        window.webkit.messageHandlers.nahhasio.postMessage(JSON.stringify({{id:'artwork-probe',command:'artwork.url',payload:{{id:'{image}',width:320}}}}));
+                    }}
+                    const image=document.getElementById('artwork-probe');
+                    return JSON.stringify({{settingsReady:!!document.querySelector('h1')?.textContent.includes('الإعدادات والمساعدة') && document.body.textContent.includes('معاينة تقرير التشخيص'),imageReady:!!image?.naturalWidth,errors:document.querySelectorAll('[role=alert]').length,viewport:[innerWidth,innerHeight,devicePixelRatio],overflow:document.documentElement.scrollWidth>innerWidth}});
+                }})()"#)
+            },
             3=>"JSON.stringify({posters:document.querySelectorAll('.home-fitted-row article a').length,images:Array.from(document.querySelectorAll('.home-fitted-row article img')).filter(img=>img.complete&&img.naturalWidth>0).length,errors:document.querySelectorAll('[role=alert]').length,heroReady:Array.from(document.querySelectorAll('section[aria-label=\"أحدث الأعمال\"] img')).every(image=>image.tagName==='IMG'?image.complete&&image.naturalWidth>0:!image.textContent.includes('جارٍ تحميل الصورة'))})".into(),
             4=>"(()=>{document.querySelector('.home-fitted-row article a').click();return 'open';})()".into(),
             5=>"JSON.stringify({workReady:!!document.querySelector('article[aria-label=\"صفحة العمل\"] h1')&&Array.from(document.querySelectorAll('article[aria-label=\"صفحة العمل\"] header img')).every(image=>image.tagName==='IMG'?image.complete&&image.naturalWidth>0:!image.textContent.includes('جارٍ تحميل الصورة')),errors:document.querySelectorAll('[role=alert]').length})".into(),
@@ -103,6 +124,25 @@ pub fn install(
                     1 if text == "filled" => step.set(2),
                     1 => {}
                     2 => step.set(3),
+                    3 if settings_only => {
+                        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
+                            && value["settingsReady"] == true
+                            && value["imageReady"] == true
+                            && value["errors"] == 0
+                            && value["overflow"] == false
+                        {
+                            println!("Native settings/artwork fixture accepted: {}", value);
+                            if let Some(view) = weak.upgrade() {
+                                snapshot(&view, "settings");
+                            }
+                            passed.set(true);
+                            step.set(250);
+                            let done = app.clone();
+                            glib::timeout_add_local_once(Duration::from_millis(800), move || {
+                                done.quit()
+                            });
+                        }
+                    }
                     3 => {
                         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
                             && value["posters"].as_u64().unwrap_or(0) > 0

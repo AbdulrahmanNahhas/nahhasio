@@ -316,8 +316,8 @@ export const gateway = {
     z.number().int().min(1).max(100000).parse(page);
     return WorkActivityPageSchema.parse(await call("workActivity", { id, page }, signal));
   },
-  artwork: async (id: string, signal?: AbortSignal) =>
+  artwork: async (id: string, signal?: AbortSignal, width = 640) =>
     z
-      .object({ dataUrl: z.string().regex(/^data:image\/(?:png|jpeg|webp|avif|gif);base64,/) })
-      .parse(await call("artwork", { id }, signal)).dataUrl,
+      .object({ url: z.string().startsWith("nahhasio://app/_artwork/") })
+      .parse(await call("artwork.url", { id, width }, signal)).url,
 };

@@ -3,10 +3,29 @@ import { test } from "node:test";
 
 import { z } from "zod";
 
-import { WorkViewerStateSchema, WorkActivityPageSchema } from "../src/generated.ts";
+import {
+  WorkViewerStateSchema,
+  WorkActivityPageSchema,
+  ServerInfoSchema,
+} from "../src/generated.ts";
 import type { WorkViewerState, WorkActivityPage } from "../src/generated.ts";
 
 const id = "00112233-4455-4677-8899-aabbccddeeff";
+test("server info accepts advertised capabilities and older servers without them", () => {
+  const info = { product: "nahhasio", name: "Development", version: "0.1.2", apiVersion: 1 };
+  assert.equal(ServerInfoSchema.safeParse(info).success, true);
+  assert.deepEqual(
+    ServerInfoSchema.parse({
+      ...info,
+      capabilities: { artworkVariants: true, rememberedAccounts: true },
+    }).capabilities,
+    { artworkVariants: true, rememberedAccounts: true },
+  );
+  assert.equal(
+    ServerInfoSchema.safeParse({ ...info, capabilities: { artworkVariants: "true" } }).success,
+    false,
+  );
+});
 const state = WorkViewerStateSchema.parse({
   workId: id,
   isFavorite: false,

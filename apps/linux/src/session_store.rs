@@ -48,6 +48,9 @@ impl SessionStore {
         private_state::write(&self.root, "installation.json", &id)?;
         Ok(id)
     }
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
     fn name(server: &str) -> String {
         format!(
             "session-{}.json",
@@ -74,24 +77,6 @@ impl SessionStore {
             return Ok(None);
         }
         Ok(Some(value.token))
-    }
-    pub fn save(&self, server: &str, token: &str, expires_at: &str) -> Result<(), Error> {
-        if token.is_empty()
-            || token.len() > 4096
-            || DateTime::parse_from_rfc3339(expires_at).is_err()
-        {
-            return Err(Error::new("response", "استجابة جلسة غير صالحة."));
-        }
-        private_state::write(
-            &self.root,
-            &Self::name(server),
-            &Stored {
-                server: server.into(),
-                token: token.into(),
-                expires_at: expires_at.into(),
-            },
-        )?;
-        self.clear_legacy(server)
     }
     fn clear_legacy(&self, server: &str) -> Result<(), Error> {
         if private_state::read::<Stored>(&self.root, "session.json")?

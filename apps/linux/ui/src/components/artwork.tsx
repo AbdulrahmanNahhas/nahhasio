@@ -49,6 +49,7 @@ export function Artwork({
   fallback,
   studioLogo = false,
   transparentFallback = false,
+  width = 640,
 }: {
   id?: string | null;
   alt: string;
@@ -57,10 +58,21 @@ export function Artwork({
   fallback?: ReactNode;
   studioLogo?: boolean | "compact";
   transparentFallback?: boolean;
+  width?: 320 | 640 | 1280 | 1920;
 }) {
   const [background, setBackground] = useState<{ source: string; color: string | null } | null>(
     null,
   );
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const retry = () => {
+      setFailedSource(null);
+      setAttempt((value) => value + 1);
+    };
+    window.addEventListener("nahhasio:retry-artwork", retry);
+    return () => window.removeEventListener("nahhasio:retry-artwork", retry);
+  }, []);
   const [element, setElement] = useState<Element | null>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -78,9 +90,9 @@ export function Artwork({
     return () => observer.disconnect();
   }, [element]);
   const query = useQuery({
-    queryKey: ["artwork", id],
+    queryKey: ["artwork", id, width],
     networkMode: "always",
-    queryFn: ({ signal }) => gateway.artwork(id ?? "", signal),
+    queryFn: ({ signal }) => gateway.artwork(id ?? "", signal, width),
     enabled: Boolean(id) && (priority || near),
     staleTime: Infinity,
     gcTime: 600000,
@@ -98,8 +110,11 @@ export function Artwork({
   );
   const imageStyle: (CSSProperties & { "--studio-logo-background": string }) | undefined =
     studioLogo ? { "--studio-logo-background": color ?? "var(--color-studio-logo)" } : undefined;
-  return query.data ? (
+  const failed = query.isError || Boolean(query.data && failedSource === query.data);
+  return query.data && !failed ? (
     <img
+      key={attempt}
+      onError={() => setFailedSource(query.data ?? null)}
       ref={setElement}
       className={imageClass}
       style={imageStyle}
@@ -127,12 +142,15 @@ export function Artwork({
         transparentFallback ? "bg-transparent" : "bg-secondary",
       )}
       role="img"
+      data-artwork-state={failed ? "error" : id && query.isPending ? "loading" : "unavailable"}
       aria-label={alt}
     >
       {fallback ?? (
         <>
           <Film className="size-7 opacity-50" aria-hidden="true" />
-          <span>{query.isLoading ? "جارٍ تحميل الصورة" : "لا توجد صورة"}</span>
+          <span>
+            {failed ? "تعذّر تحميل الصورة" : query.isLoading ? "جارٍ تحميل الصورة" : "لا توجد صورة"}
+          </span>
         </>
       )}
     </span>

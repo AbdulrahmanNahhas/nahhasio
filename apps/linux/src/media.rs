@@ -178,8 +178,20 @@ pub struct Sources {
     pub providers: Vec<torrent_sources::ProviderStatus>,
 }
 impl Media {
-    pub async fn reset_sources(&self) {
+    pub async fn reset_sources(&self) -> Result<(), Error> {
         self.sources.lock().await.clear();
+        if let Some(engine) = self.engine.get().cloned() {
+            tokio::task::spawn_blocking(move || {
+                for job in engine.jobs()? {
+                    engine.pause(&job.id)?;
+                }
+                Ok::<_, media_transfer::Error>(())
+            })
+            .await
+            .map_err(|_| transfer_error())?
+            .map_err(|_| transfer_error())?;
+        }
+        Ok(())
     }
     pub fn new(services: Services) -> Result<Arc<Self>, Error> {
         Ok(Arc::new(Self {
@@ -550,11 +562,13 @@ impl Media {
             let jobs = engine.jobs()?;
             let saved = engine.saved_files()?;
             let mut result = Vec::new();
-            for job in jobs {
+            for mut job in jobs {
                 if !job.selected.is_empty() {
                     let status = engine.status(&job.id)?;
-                    let files = engine.files(&job.id).unwrap_or_default();
-                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).map(|file|saved_json(file,scope.as_deref())).collect();
+                    let owned:Vec<u32>=saved.iter().filter(|file|file.id==job.id.0 && owns_record(&file.target,scope.as_deref())).map(|file|file.file).collect();
+                    let files:Vec<_> = engine.files(&job.id)?.into_iter().filter(|file|owned.contains(&file.index)).collect();
+                    job.selected.retain(|file|owned.contains(file));
+                    let exports: Vec<_> = saved.iter().filter(|file| file.id == job.id.0).filter_map(|file|saved_json(file,scope.as_deref())).collect();
                     if !exports.is_empty() {
                         result.push(json!({"id":job.id.0,"files":files,"selected":job.selected,"status":status,"exports":exports}));
                     }
@@ -572,7 +586,19 @@ impl Media {
             return Err(transfer_error());
         }
         let engine = self.engine().await?;
+        let scope = self.services.catalog_scope().await?;
         tokio::task::spawn_blocking(move || {
+            let saved = engine.saved_files()?;
+            let files: Vec<_> = saved.iter().filter(|file| file.id == id).collect();
+            if files.is_empty()
+                || files
+                    .iter()
+                    .any(|file| !owns_record(&file.target, Some(&scope)))
+            {
+                return Err(media_transfer::Error::Invalid(
+                    "download belongs to another account".into(),
+                ));
+            }
             if paused {
                 engine.pause(&TorrentId(id))
             } else {
@@ -660,10 +686,10 @@ impl Media {
         let scope = self.services.catalog_scope().await.ok();
         tokio::task::spawn_blocking(move||{
             let saved=engine.saved_files()?;
-            let used:u64=saved.iter().filter(|file|file.available).map(|file|file.size).sum();
+            let used:u64=saved.iter().filter(|file|file.available && owns_record(&file.target,scope.as_deref())).map(|file|file.size).sum();
             let filesystem=gtk::gio::File::for_path(&root).query_filesystem_info("filesystem::free",None::<&gtk::gio::Cancellable>).ok();
             let free=filesystem.filter(|info|info.has_attribute("filesystem::free")).map(|info|info.attribute_uint64("filesystem::free"));
-            Ok::<_,media_transfer::Error>(json!({"files":saved.iter().filter(|file|file.published).map(|file|saved_json(file,scope.as_deref())).collect::<Vec<_>>(),"root":root,"usedBytes":used,"freeBytes":free}))
+            Ok::<_,media_transfer::Error>(json!({"files":saved.iter().filter(|file|file.published).filter_map(|file|saved_json(file,scope.as_deref())).collect::<Vec<_>>(),"root":root,"usedBytes":used,"freeBytes":free}))
         }).await.map_err(|_|transfer_error())?.map_err(|_|transfer_error())
     }
     pub async fn saved_path(
@@ -672,11 +698,17 @@ impl Media {
         file: u32,
     ) -> Result<(std::path::PathBuf, String), Error> {
         let engine = self.engine().await?;
+        let scope = self.services.catalog_scope().await?;
         tokio::task::spawn_blocking(move || {
             let saved = engine
                 .saved_files()?
                 .into_iter()
-                .find(|entry| entry.id == id && entry.file == file && entry.available)
+                .find(|entry| {
+                    entry.id == id
+                        && entry.file == file
+                        && entry.available
+                        && owns_record(&entry.target, Some(&scope))
+                })
                 .ok_or_else(|| media_transfer::Error::Invalid("saved video unavailable".into()))?;
             let title = saved_record(&saved.target)
                 .map(|record| crate::display::episode_title(&record.title))
@@ -730,20 +762,30 @@ impl Media {
         action: Option<SavedAction>,
     ) -> Result<(), Error> {
         let engine = self.engine().await?;
-        tokio::task::spawn_blocking(move||match (file,action) {
+        let scope = self.services.catalog_scope().await?;
+        tokio::task::spawn_blocking(move|| {
+            let saved=engine.saved_files()?;
+            let files:Vec<_>=saved.iter().filter(|entry|entry.id==id && file.is_none_or(|file|entry.file==file)).collect();
+            if files.is_empty() || files.iter().any(|file|!owns_record(&file.target,Some(&scope))) {return Err(media_transfer::Error::Invalid("download belongs to another account".into()));}
+            match (file,action) {
             (None,None)=>engine.forget_download(&TorrentId(id)),
             (Some(file),Some(SavedAction::Retry))=>engine.retry_saved(&TorrentId(id),file),
             (Some(file),Some(action))=>engine.remove_saved(&TorrentId(id),file,matches!(action,SavedAction::DeleteVideo)),
             _=>Err(media_transfer::Error::Invalid("download action".into())),
-        }).await.map_err(|_|transfer_error())?.map_err(|_|Error::new("download_action","تعذّر تنفيذ الإجراء. قد يجري حفظ الفيديو، أو تغيّر الملف، أو يحتاج التورنت إلى مصدر جديد. لم تُحذف ملفات خارج التنزيل المسجّل."))
+        }}).await.map_err(|_|transfer_error())?.map_err(|_|Error::new("download_action","تعذّر تنفيذ الإجراء. قد يجري حفظ الفيديو، أو تغيّر الملف، أو يحتاج التورنت إلى مصدر جديد. لم تُحذف ملفات خارج التنزيل المسجّل."))
     }
 }
-fn saved_json(file: &media_transfer::SavedFile, scope: Option<&str>) -> Value {
+fn owns_record(target: &str, scope: Option<&str>) -> bool {
+    scope.is_some() && saved_record(target).is_some_and(|record| record.scope.as_deref() == scope)
+}
+fn saved_json(file: &media_transfer::SavedFile, scope: Option<&str>) -> Option<Value> {
     let record = saved_record(&file.target);
     let owned = record
         .as_ref()
-        .filter(|record| scope.is_some() && record.scope.as_deref() == scope);
-    json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":owned.map(|record|&record.target),"title":record.as_ref().map(|record|crate::display::episode_title(&record.title)),"workTitle":record.as_ref().map(|record|&record.work_title),"posterId":owned.and_then(|record|record.poster_id.as_ref())})
+        .filter(|record| scope.is_some() && record.scope.as_deref() == scope)?;
+    Some(
+        json!({"id":file.id,"file":file.file,"path":file.path,"size":file.size,"available":file.available,"published":file.published,"error":file.error,"target":owned.target,"title":crate::display::episode_title(&owned.title),"workTitle":owned.work_title,"posterId":owned.poster_id}),
+    )
 }
 async fn pause_unowned(engine: Engine, id: TorrentId) {
     let _ = tokio::task::spawn_blocking(move || engine.pause_if_unowned(&id)).await;
@@ -935,6 +977,37 @@ mod tests {
             installment_id: None,
             episode_id: None,
         }
+    }
+    #[test]
+    fn downloaded_metadata_paths_and_controls_require_the_exact_account_scope() {
+        let record = SavedRecord {
+            version: 1,
+            target: target(),
+            title: "Private episode".into(),
+            work_title: "Private work".into(),
+            poster_id: None,
+            scope: Some("server-a/account-a".into()),
+        };
+        let mut file = media_transfer::SavedFile {
+            id: "fixture-torrent".into(),
+            file: 0,
+            target: serde_json::to_string(&record).unwrap(),
+            path: std::path::PathBuf::from("/private/account-a/video.mkv"),
+            size: 10,
+            available: true,
+            published: true,
+            error: None,
+        };
+        assert!(owns_record(&file.target, Some("server-a/account-a")));
+        assert!(saved_json(&file, Some("server-a/account-a")).is_some());
+        assert!(!owns_record(&file.target, Some("server-a/account-b")));
+        assert!(saved_json(&file, Some("server-a/account-b")).is_none());
+        assert!(saved_json(&file, None).is_none());
+        file.target = serde_json::to_string(&record.target).unwrap();
+        assert!(
+            saved_json(&file, Some("server-a/account-a")).is_none(),
+            "Legacy unassigned files stay retained without exposing them to an arbitrary account"
+        );
     }
     #[test]
     fn films_require_unambiguous_imdb_and_reject_upcoming() {

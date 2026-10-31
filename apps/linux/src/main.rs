@@ -3,10 +3,12 @@ mod anime;
 mod anime_bridge;
 #[cfg(feature = "native-diagnostics")]
 mod anime_smoke;
+mod artwork_cache;
 mod assets;
 mod bridge;
 mod browse_preferences;
 mod connections;
+mod credential_store;
 mod direct_gateway;
 mod display;
 mod embed;
@@ -230,9 +232,13 @@ fn build_window(
     if config.asset_root.is_some() {
         context.set_cache_model(webkit6::CacheModel::DocumentViewer);
     }
-    if let Some(root) = &config.asset_root {
-        assets::install(&context, root.clone());
-    }
+    assets::install(
+        &context,
+        config.asset_root.clone(),
+        services.clone(),
+        runtime.clone(),
+        config.ui.clone(),
+    );
     let network = webkit6::NetworkSession::new_ephemeral();
     network.connect_download_started(|_, download| download.cancel());
     let view = webkit6::WebView::builder()
@@ -430,6 +436,8 @@ fn build_window(
                 | "offline.close"
                 | "login"
                 | "logout"
+                | "accounts.switch"
+                | "accounts.forget"
         ) {
             anime_resolver.cancel();
         }
@@ -469,8 +477,15 @@ fn build_window(
         }
         if matches!(
             request.command.as_str(),
-            "servers.select" | "offline.open" | "offline.close" | "login" | "logout"
+            "servers.select"
+                | "offline.open"
+                | "offline.close"
+                | "login"
+                | "logout"
+                | "accounts.switch"
+                | "accounts.forget"
         ) {
+            bridge_embed.close();
             let permit = services.permits.clone().try_acquire_owned();
             let player = bridge_player.borrow().clone();
             let media = media.clone();
@@ -492,6 +507,15 @@ fn build_window(
                         );
                     }
                     return;
+                };
+                let revision = match service.begin_transition(revision) {
+                    Ok(revision) => revision,
+                    Err(error) => {
+                        if let Some(view) = weak.upgrade() {
+                            send_reply(&view, reply(&id, Err(error)));
+                        }
+                        return;
+                    }
                 };
                 let operations = service.operations.clone();
                 let operation = runtime
@@ -520,15 +544,10 @@ fn build_window(
                 };
                 let result = if let Err(error) = service.check_revision(revision) {
                     Err(error)
-                } else if player
-                    .as_ref()
-                    .is_some_and(|player| player.snapshot().active)
-                {
-                    Err(Error::new(
-                        "busy",
-                        "أغلق المشغّل قبل تغيير المكتبة أو الخادم. ستبقى ملفات الجهاز محفوظة.",
-                    ))
                 } else {
+                    if let Some(player) = &player {
+                        player.close();
+                    }
                     runtime
                         .spawn(async move {
                             let _operation = operation;
@@ -536,7 +555,7 @@ fn build_window(
                             if result.is_ok()
                                 && let Some(media) = media
                             {
-                                media.reset_sources().await;
+                                media.reset_sources().await?;
                             }
                             result
                         })
@@ -565,6 +584,12 @@ fn build_window(
                     (Some(player), Some(media), Ok(command), Ok(permit)) => {
                         let _permit = permit;
                         let _operation = operations.read_owned().await;
+                        if let Err(error) = boundary.catalog_scope().await {
+                            if let Some(view) = weak.upgrade() {
+                                send_reply(&view, reply(&id, Err(error)));
+                            }
+                            return;
+                        }
                         match boundary.check_revision(revision) {
                             Ok(()) => media_bridge::execute(player, media, runtime, command).await,
                             Err(error) => Err(error),
@@ -587,6 +612,7 @@ fn build_window(
             let weak = view.downgrade();
             let task = runtime.spawn(async move {
                 let _permit = permit.map_err(|_| Error::new("busy", "Source requests are busy"))?;
+                boundary.catalog_scope().await?;
                 let candidates = torrentio::search(input?).await?;
                 Ok(serde_json::Value::Array(
                     candidates
@@ -623,6 +649,17 @@ fn build_window(
                 let result = match (player, command) {
                     (Some(player), Ok(command)) => {
                         let _operation = operations.read_owned().await;
+                        if !matches!(
+                            &command,
+                            player_protocol::Command::Status {}
+                                | player_protocol::Command::Close { .. }
+                        ) && let Err(error) = boundary.catalog_scope().await
+                        {
+                            if let Some(view) = weak.upgrade() {
+                                send_reply(&view, reply(&id, Err(error)));
+                            }
+                            return;
+                        }
                         match boundary.check_revision(revision) {
                             Ok(()) => player.execute(command).await,
                             Err(error) => Err(error),

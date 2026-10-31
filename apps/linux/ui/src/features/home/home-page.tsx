@@ -8,6 +8,7 @@ import { gateway } from "@/lib/bridge";
 import { continueItems, ContinueWatching } from "./continue-watching";
 import { EpisodeSection } from "./episode-section";
 import { Hero } from "./hero";
+import { homeOptions } from "./home-data";
 import { HomeRecommendations } from "./home-recommendations";
 import { DeferredHomeSection } from "./home-section";
 import { PlanetShelves } from "./planet-shelves";
@@ -29,11 +30,7 @@ export function HomePage() {
     queryKey: ["catalog", "filters"],
     queryFn: ({ signal }) => gateway.filters(signal),
   });
-  const feed = useQuery({
-    queryKey: ["catalog", "home"],
-    queryFn: ({ signal }) => gateway.home(signal),
-    refetchOnMount: "always",
-  });
+  const feed = useQuery(homeOptions());
   const continuing = continueItems(feed.data?.resume ?? [], feed.data?.nextUp ?? []);
   return (
     <div className="min-w-0">

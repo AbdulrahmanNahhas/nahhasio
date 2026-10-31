@@ -809,11 +809,22 @@ export const session = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     impersonatedBy: text("impersonated_by"),
+    renewalHash: text("renewal_hash"),
+    renewalInstallationId: text("renewal_installation_id"),
+    renewalUsedAt: timestamp("renewal_used_at", { withTimezone: true }),
+    renewalExpiresAt: timestamp("renewal_expires_at", { withTimezone: true }),
     deviceId: uuid("device_id").references((): AnyPgColumn => devices.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("auth_sessions_token_uq").on(t.token),
+    uniqueIndex("auth_sessions_renewal_hash_uq")
+      .on(t.renewalHash)
+      .where(sql`${t.renewalHash} is not null`),
+    check(
+      "auth_sessions_renewal_check",
+      sql`(${t.renewalHash} is null and ${t.renewalInstallationId} is null and ${t.renewalUsedAt} is null and ${t.renewalExpiresAt} is null) or (${t.renewalHash} is not null and ${t.renewalHash} ~ '^[0-9a-f]{64}$' and ${t.renewalInstallationId} is not null and ${t.renewalUsedAt} is not null and ${t.renewalExpiresAt} is not null)`,
+    ),
     index("auth_sessions_user_idx").on(t.userId),
   ],
 );

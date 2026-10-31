@@ -23,6 +23,16 @@ pub struct ServerInfo {
     pub name: String,
     pub version: String,
     pub api_version: u32,
+    #[serde(default)]
+    pub capabilities: Capabilities,
+}
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Capabilities {
+    #[serde(default)]
+    pub artwork_variants: bool,
+    #[serde(default)]
+    pub remembered_accounts: bool,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -55,6 +65,8 @@ pub struct Services {
     root: PathBuf,
     offline: crate::offline::Store,
     revision: Arc<std::sync::atomic::AtomicU64>,
+    artwork_cache: Arc<crate::artwork_cache::Cache>,
+    pending: tokio::sync::watch::Sender<()>,
     pub permits: Arc<Semaphore>,
     pub operations: Arc<AsyncRwLock<()>>,
 }
@@ -81,6 +93,69 @@ fn address(input: &str) -> Result<String, Error> {
         })
 }
 impl Services {
+    pub async fn artwork_bytes(
+        &self,
+        revision: u64,
+        id: &str,
+        width: u32,
+    ) -> Result<(Vec<u8>, String), Error> {
+        self.check_revision(revision)?;
+        if !crate::bridge::valid_id(id) || ![320, 640, 1280, 1920].contains(&width) {
+            return Err(Error::new("bad_request", "صورة غير صالحة."));
+        }
+        if self.offline.is_offline().await {
+            use base64::Engine;
+            let value = self.offline.read("artwork", &json!({"id":id})).await?;
+            let data = value["dataUrl"]
+                .as_str()
+                .ok_or_else(|| Error::new("not_found", "الصورة غير محفوظة."))?;
+            let (mime, body) = data
+                .strip_prefix("data:")
+                .and_then(|s| s.split_once(";base64,"))
+                .ok_or_else(|| Error::new("response", "صورة غير صالحة."))?;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(body)
+                .map_err(|_| Error::new("response", "صورة غير صالحة."))?;
+            return Ok((bytes, mime.into()));
+        }
+        let session = self.snapshot()?;
+        let scope = self.catalog_scope().await?;
+        let key = crate::artwork_cache::Cache::key(&scope, id, width);
+        let _flight = self.artwork_cache.flight(&key).await;
+        let cached = self.artwork_cache.read(&key).await?;
+        if let Some(cached) = cached.as_ref().filter(|c| {
+            let now = chrono::Utc::now().timestamp().max(0) as u64;
+            c.metadata.verified_at <= now && now - c.metadata.verified_at < 30
+        }) {
+            session.ensure_authenticated().await?;
+            self.check_revision(revision)?;
+            self.artwork_cache.touch(&key, &cached.metadata).await?;
+            let mut metrics = self.artwork_cache.metrics.lock().await;
+            metrics.requests += 1;
+            metrics.cache_hits += 1;
+            return Ok((cached.bytes.clone(), cached.metadata.mime.clone()));
+        }
+        let (bytes, metadata, hit, queue, response) =
+            session.artwork_bytes(id, width, cached).await?;
+        self.check_revision(revision)?;
+        if hit {
+            self.artwork_cache.touch(&key, &metadata).await?;
+        } else {
+            self.artwork_cache
+                .save(&key, metadata.clone(), &bytes)
+                .await?;
+        }
+        let mut metrics = self.artwork_cache.metrics.lock().await;
+        metrics.requests += 1;
+        metrics.queue_micros += queue;
+        metrics.response_micros += response;
+        if hit {
+            metrics.cache_hits += 1;
+        } else {
+            metrics.network_bytes += bytes.len() as u64;
+        }
+        Ok((bytes, metadata.mime))
+    }
     pub fn revision(&self) -> u64 {
         self.revision.load(std::sync::atomic::Ordering::SeqCst)
     }
@@ -97,6 +172,15 @@ impl Services {
     fn advance(&self) {
         self.revision
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.pending.send_replace(());
+    }
+    pub fn cancellation(&self) -> tokio::sync::watch::Receiver<()> {
+        self.pending.subscribe()
+    }
+    pub fn begin_transition(&self, expected: u64) -> Result<u64, Error> {
+        self.check_revision(expected)?;
+        self.advance();
+        Ok(self.revision())
     }
     pub async fn catalog_scope(&self) -> Result<String, Error> {
         self.offline.scope().await
@@ -169,9 +253,11 @@ impl Services {
             active: Arc::new(RwLock::new(active)),
             settings: Arc::new(Mutex::new(settings)),
             offline: crate::offline::Store::new(root.clone()),
+            artwork_cache: Arc::new(crate::artwork_cache::Cache::new(&root)),
             root,
             operations: Arc::new(AsyncRwLock::new(())),
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            pending: tokio::sync::watch::channel(()).0,
         })
     }
     fn snapshot(&self) -> Result<ServerSession, Error> {
@@ -188,6 +274,39 @@ impl Services {
         Ok(json!({"selected":settings.selected,"servers":servers}))
     }
     pub async fn execute(&self, request: Request) -> Result<Value, Error> {
+        if request.command == "client.info" {
+            self.catalog_scope().await?;
+            let info = self.snapshot()?.probe().await?;
+            let roots = Roots::discover().map_err(|_| storage())?;
+            return Ok(
+                json!({"version":env!("CARGO_PKG_VERSION"),"platform":"linux","serverVersion":info.version,"apiVersion":info.api_version,"videoRoot":roots.videos,"capabilities":{"nativePlayback":true,"offlineLibrary":true,"artworkVariants":info.capabilities.artwork_variants,"rememberedAccounts":info.capabilities.remembered_accounts,"subtitleSearch":false,"debrid":false}}),
+            );
+        }
+        if request.command == "artwork.url" {
+            let id = request.payload["id"]
+                .as_str()
+                .filter(|id| crate::bridge::valid_id(id))
+                .ok_or_else(|| Error::new("bad_request", "صورة غير صالحة."))?;
+            let width = request.payload["width"].as_u64().unwrap_or(640);
+            if ![320, 640, 1280, 1920].contains(&width) {
+                return Err(Error::new("bad_request", "حجم صورة غير صالح."));
+            }
+            self.catalog_scope().await?;
+            return Ok(
+                json!({"url":format!("nahhasio://app/_artwork/{}/{id}/{width}",self.revision())}),
+            );
+        }
+        if request.command.starts_with("artworkCache.") {
+            self.catalog_scope().await?;
+            return match request.command.as_str() {
+                "artworkCache.status" => self.artwork_cache.status().await,
+                "artworkCache.clear" => {
+                    self.artwork_cache.clear().await?;
+                    self.artwork_cache.status().await
+                }
+                _ => Err(Error::new("bad_request", "عملية غير صالحة.")),
+            };
+        }
         if request.command.starts_with("browsePreferences.") {
             let scope = self.catalog_scope().await?;
             return crate::browse_preferences::execute(
@@ -199,6 +318,32 @@ impl Services {
         }
         if request.command.starts_with("offline.") {
             let session = self.snapshot()?;
+            let accounts = crate::credential_store::read(&self.root, session.address())?;
+            if request.command == "offline.open"
+                && accounts.accounts.iter().any(|a| {
+                    a.signed_out && request.payload["accountId"].as_str() == Some(a.id.as_str())
+                })
+            {
+                return Err(Error::new(
+                    "unauthorized",
+                    "سجّل الدخول إلى هذا الحساب مجددًا لفتح مكتبته.",
+                ));
+            }
+            if request.command == "offline.profiles" {
+                let mut value = self
+                    .offline
+                    .execute(session.address(), session.clone(), request)
+                    .await?;
+                if let Some(profiles) = value.as_array_mut() {
+                    profiles.retain(|p| {
+                        !accounts
+                            .accounts
+                            .iter()
+                            .any(|a| a.signed_out && p["account"].as_str() == Some(a.id.as_str()))
+                    });
+                }
+                return Ok(value);
+            }
             let changes_mode = matches!(request.command.as_str(), "offline.open" | "offline.close");
             let result = self
                 .offline
@@ -280,6 +425,7 @@ impl Services {
                 let mut next = settings.clone();
                 next.servers.retain(|server| server.url != url);
                 SessionStore::new(&self.root).clear(&url)?;
+                private_state::remove(&self.root, &crate::credential_store::name(&url))?;
                 private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
                 *settings = next;
                 drop(settings);
@@ -348,6 +494,40 @@ impl Services {
             return Err(Error::new("bad_request", "عملية اتصال غير معروفة."));
         }
         let session = self.snapshot()?;
+        if matches!(
+            request.command.as_str(),
+            "accounts.switch" | "accounts.forget"
+        ) {
+            let restore = request.command == "accounts.forget"
+                || (request.command == "accounts.switch"
+                    && request.payload["accountId"].is_string());
+            self.advance();
+            if request.command == "accounts.forget" {
+                self.offline
+                    .sign_out(session.address(), request.payload["accountId"].as_str())
+                    .await?;
+            }
+            session.execute(request).await?;
+            self.offline.reset().await;
+            if restore {
+                let info = session.probe().await?;
+                if let Some(id) = info.server_id {
+                    self.offline.identify(session.address(), &id).await?;
+                }
+                let value = session
+                    .execute(Request {
+                        id: "resume".into(),
+                        command: "session".into(),
+                        payload: json!({}),
+                    })
+                    .await?;
+                if !value.is_null() {
+                    self.offline.remember(session.address(), &value).await?;
+                }
+                return Ok(value);
+            }
+            return Ok(Value::Null);
+        }
         if request.command == "setWatched"
             && let Some(work) = request.payload["workId"].as_str()
             && self.offline.tracks(work).await
@@ -356,6 +536,15 @@ impl Services {
         }
         if matches!(request.command.as_str(), "login" | "session") {
             let info = session.probe().await?;
+            if request.command == "login"
+                && request.payload["remember"] == true
+                && !info.capabilities.remembered_accounts
+            {
+                return Err(Error::new(
+                    "incompatible",
+                    "حدّث الخادم لتفعيل تذكّر الحساب، أو ادخل مؤقتًا دون تذكّره.",
+                ));
+            }
             if let Some(id) = info.server_id {
                 self.offline.identify(session.address(), &id).await?;
             }
@@ -370,7 +559,11 @@ impl Services {
         } else {
             None
         };
-        let mut result = session.execute(request).await;
+        let mut cancellation = self.cancellation();
+        let mut result = tokio::select! {
+            result=session.execute(request)=>result,
+            _=cancellation.changed()=>Err(Error::new("connection_changed","تغيّر الحساب أو الخادم.")),
+        };
         if let Some(work) = state_work
             && self.offline.tracks(&work).await
             && let Ok(state) = result
@@ -378,6 +571,7 @@ impl Services {
             result = self.offline.merge_state(&work, state).await;
         }
         if logout {
+            self.offline.sign_out(session.address(), None).await?;
             self.offline.reset().await;
             self.advance();
         }

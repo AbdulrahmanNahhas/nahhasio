@@ -6,15 +6,12 @@ import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
 import { ScoreBadge } from "../../components/media-card";
 import { Button, buttonVariants } from "../../components/ui/button";
-import { gateway } from "../../lib/bridge";
 import { requestWatch } from "../player/watch-request";
 import { navigate, workLink } from "../shell/navigation";
+import { homeOptions } from "./home-data";
 export function Hero() {
   const navigation = useCardNavigation();
-  const result = useQuery({
-    queryKey: ["catalog", "home"],
-    queryFn: ({ signal }) => gateway.home(signal),
-  });
+  const result = useQuery(homeOptions());
   const [index, setIndex] = useState(0);
   const [pause, setPause] = useState(false);
   const [stopped, setStopped] = useState(false);
@@ -81,6 +78,7 @@ export function Hero() {
     >
       <Artwork
         id={work.banner?.id}
+        width={1280}
         alt=""
         className="absolute inset-0 h-full w-full object-cover object-center"
         priority

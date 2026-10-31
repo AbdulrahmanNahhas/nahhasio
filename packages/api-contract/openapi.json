@@ -2629,18 +2629,78 @@
         }
       }
     },
-    "/api/v1/auth/accounts": {
-      "get": {
-        "operationId": "getLoginAccounts",
-        "summary": "Active accounts available on the selected family server",
+    "/api/v1/auth/renew": {
+      "post": {
+        "operationId": "renewSession",
+        "summary": "Rotate a remembered device session; 30-day idle and 90-day absolute limits",
         "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewalRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Account picker; names and avatars only",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LoginAccounts"
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner access required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -3003,6 +3063,13 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1024
+              },
+              "remember": {
+                "type": "boolean"
+              },
+              "installationId": {
+                "type": "string",
+                "format": "uuid"
               }
             }
           },
@@ -3019,6 +3086,13 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1024
+              },
+              "remember": {
+                "type": "boolean"
+              },
+              "installationId": {
+                "type": "string",
+                "format": "uuid"
               }
             }
           }
@@ -3052,6 +3126,9 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "renewalToken": {
+            "type": "string"
           }
         }
       },
@@ -12326,6 +12403,13 @@
           "serverId": {
             "type": "string",
             "format": "uuid"
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "artworkVariants": { "type": "boolean" },
+              "rememberedAccounts": { "type": "boolean" }
+            }
           }
         }
       },
@@ -13967,6 +14051,27 @@
           "$ref": "#/components/schemas/LoginAccount"
         },
         "maxItems": 100
+      },
+      "RenewalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["renewalToken", "installationId", "accessToken"],
+        "properties": {
+          "renewalToken": {
+            "type": "string",
+            "minLength": 69,
+            "maxLength": 69
+          },
+          "installationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accessToken": {
+            "type": "string",
+            "minLength": 68,
+            "maxLength": 68
+          }
+        }
       }
     }
   }

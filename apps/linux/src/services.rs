@@ -17,6 +17,12 @@ pub(crate) struct ServerSession {
     token: Arc<Mutex<Option<String>>>,
     pub permits: Arc<Semaphore>,
     network_permits: Arc<Semaphore>,
+    artwork_permits: Arc<Semaphore>,
+    vault: Arc<crate::credential_store::Vault>,
+    identity: Arc<Mutex<Option<User>>>,
+    renewal: Arc<Mutex<Option<LoginResponse>>>,
+    renewal_guard: Arc<Mutex<()>>,
+    legacy_session: Arc<std::sync::atomic::AtomicBool>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -26,8 +32,12 @@ struct Login {
     #[serde(skip_serializing_if = "Option::is_none")]
     account_id: Option<String>,
     password: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    remember: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installation_id: Option<String>,
 }
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct User {
     id: String,
@@ -41,10 +51,12 @@ struct User {
     is_admin: bool,
     updated_at: String,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LoginResponse {
     token: String,
+    #[serde(default)]
+    renewal_token: Option<String>,
     user: User,
     expires_at: String,
 }
@@ -346,7 +358,11 @@ impl ServerSession {
         let roots = crate::media_storage::Roots::discover()
             .map_err(|_| Error::new("configuration", "تعذّر تحديد مجلد حالة التطبيق."))?;
         let store = crate::session_store::SessionStore::new(&roots.state);
-        service.token = Arc::new(Mutex::new(store.load(service.base.as_str())?));
+        let legacy = store.load(service.base.as_str())?;
+        service
+            .legacy_session
+            .store(legacy.is_some(), std::sync::atomic::Ordering::SeqCst);
+        service.token = Arc::new(Mutex::new(legacy));
         service.session_store = Some(Arc::new(store));
         Ok(service)
     }
@@ -358,10 +374,125 @@ impl ServerSession {
         self.json(response).await?;
         Ok(())
     }
-    fn forget_stored_session(&self) -> Result<(), Error> {
+    async fn forget_stored_session(&self) -> Result<(), Error> {
         if let Some(store) = &self.session_store {
             store.clear(self.base.as_str())?;
+            if let Some(user) = self.identity.lock().await.as_ref() {
+                let mut accounts = crate::credential_store::read(store.root(), self.address())?;
+                if let Some(account) = accounts
+                    .accounts
+                    .iter_mut()
+                    .find(|a| a.id == user.account_id)
+                {
+                    account.credentials = None;
+                    account.signed_out = true;
+                }
+                accounts.selected = None;
+                crate::credential_store::write(store.root(), self.address(), &accounts)?;
+            }
         }
+        *self.renewal.lock().await = None;
+        Ok(())
+    }
+    async fn save_remembered(&self, login: &LoginResponse) -> Result<(), Error> {
+        let Some(store) = &self.session_store else {
+            return Ok(());
+        };
+        let scope = format!("{}:{}", self.address(), login.user.account_id);
+        let credentials = self.vault.seal(&scope, login).await?;
+        let mut accounts = crate::credential_store::read(store.root(), self.address())?;
+        let account = crate::credential_store::Account {
+            id: login.user.account_id.clone(),
+            name: login.user.name.clone(),
+            avatar_key: login.user.avatar_key.clone(),
+            credentials: Some(credentials),
+            signed_out: false,
+        };
+        accounts.accounts.retain(|a| a.id != account.id);
+        if accounts.accounts.len() >= 32 {
+            return Err(Error::new(
+                "account_limit",
+                "يمكن تذكّر ٣٢ حسابًا على هذا الجهاز.",
+            ));
+        }
+        accounts.selected = Some(account.id.clone());
+        accounts.accounts.push(account);
+        crate::credential_store::write(store.root(), self.address(), &accounts)?;
+        store.clear(self.address())?;
+        self.legacy_session
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+    async fn restore_remembered(&self) -> Result<(), Error> {
+        if self.token.lock().await.is_some() {
+            return Ok(());
+        }
+        let Some(store) = &self.session_store else {
+            return Ok(());
+        };
+        let accounts = crate::credential_store::read(store.root(), self.address())?;
+        let Some(account) = accounts
+            .accounts
+            .iter()
+            .find(|a| Some(&a.id) == accounts.selected.as_ref() && !a.signed_out)
+        else {
+            return Ok(());
+        };
+        let Some(credentials) = &account.credentials else {
+            return Ok(());
+        };
+        let login: LoginResponse = self
+            .vault
+            .open(&format!("{}:{}", self.address(), account.id), credentials)
+            .await?;
+        *self.token.lock().await = Some(login.token.clone());
+        *self.identity.lock().await = Some(login.user.clone());
+        *self.renewal.lock().await = Some(login);
+        Ok(())
+    }
+    async fn renew_if_needed(&self) -> Result<(), Error> {
+        let _guard = self.renewal_guard.lock().await;
+        let Some(current) = self.renewal.lock().await.clone() else {
+            return Ok(());
+        };
+        let due = chrono::DateTime::parse_from_rfc3339(&current.expires_at)
+            .ok()
+            .is_none_or(|d| d <= chrono::Utc::now() + chrono::Duration::days(1));
+        if !due {
+            return Ok(());
+        }
+        let Some(renewal) = &current.renewal_token else {
+            return Ok(());
+        };
+        let store = self
+            .session_store
+            .as_ref()
+            .ok_or_else(|| Error::new("secure_storage", "مخزن الحساب غير متاح."))?;
+        let response = self
+            .client
+            .post(self.url("api/v1/auth/renew"))
+            .json(&json!({"renewalToken":renewal,"accessToken":current.token,"installationId":store.installation_id()?}))
+            .send()
+            .await
+            .map_err(network)?;
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            *self.token.lock().await = None;
+            self.forget_stored_session().await?;
+            return Err(Error::new(
+                "unauthorized",
+                "انتهت صلاحية الحساب المحفوظ. سجّل الدخول مجددًا.",
+            ));
+        }
+        let login: LoginResponse = serde_json::from_slice(&self.body(response, 16384).await?)
+            .map_err(|_| Error::new("response", "استجابة تجديد غير صالحة."))?;
+        if login.user.account_id != current.user.account_id {
+            return Err(Error::new("response", "تغيّرت هوية الحساب."));
+        }
+        // Persist the rotated token before exposing the new session to other operations.
+        self.save_remembered(&login).await?;
+        *self.token.lock().await = Some(login.token.clone());
+        *self.identity.lock().await = Some(login.user.clone());
+        *self.renewal.lock().await = Some(login);
         Ok(())
     }
     pub fn new(base: &str) -> Result<Self, Error> {
@@ -412,6 +543,12 @@ impl ServerSession {
             token: Arc::new(Mutex::new(None)),
             permits: Arc::new(Semaphore::new(64)),
             network_permits: Arc::new(Semaphore::new(6)),
+            artwork_permits: Arc::new(Semaphore::new(4)),
+            vault: Arc::new(crate::credential_store::Vault::default()),
+            identity: Arc::new(Mutex::new(None)),
+            renewal: Arc::new(Mutex::new(None)),
+            renewal_guard: Arc::new(Mutex::new(())),
+            legacy_session: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
     }
     async fn editor_reply(&self, mut response: Response) -> Result<Value, Error> {
@@ -498,7 +635,7 @@ impl ServerSession {
     async fn body(&self, mut response: Response, max: usize) -> Result<Vec<u8>, Error> {
         if response.status() == reqwest::StatusCode::UNAUTHORIZED {
             *self.token.lock().await = None;
-            self.forget_stored_session()?;
+            self.forget_stored_session().await?;
             return Err(Error::new(
                 "unauthorized",
                 "Your session has expired. Sign in again.",
@@ -554,6 +691,7 @@ impl ServerSession {
         method: Method,
         path: &str,
     ) -> Result<reqwest::RequestBuilder, Error> {
+        self.renew_if_needed().await?;
         let token = self
             .token
             .lock()
@@ -565,6 +703,92 @@ impl ServerSession {
             .request(method, self.url(path))
             .bearer_auth(token))
     }
+    pub async fn ensure_authenticated(&self) -> Result<(), Error> {
+        self.renew_if_needed().await?;
+        if self.token.lock().await.is_none() {
+            return Err(Error::new("unauthorized", "سجّل الدخول إلى مكتبتك."));
+        }
+        Ok(())
+    }
+    pub async fn artwork_bytes(
+        &self,
+        id: &str,
+        width: u32,
+        cached: Option<crate::artwork_cache::Cached>,
+    ) -> Result<(Vec<u8>, crate::artwork_cache::Metadata, bool, u64, u64), Error> {
+        let queued = std::time::Instant::now();
+        let _permit = self
+            .artwork_permits
+            .acquire()
+            .await
+            .map_err(|_| Error::new("internal", "Artwork stopped"))?;
+        let queue = queued.elapsed().as_micros() as u64;
+        let start = std::time::Instant::now();
+        let mut request = self
+            .authorized(Method::GET, &format!("api/v1/artwork/{id}?width={width}"))
+            .await?;
+        if let Some(cached) = &cached {
+            request = request.header(reqwest::header::IF_NONE_MATCH, &cached.metadata.etag);
+        }
+        let response = request.send().await.map_err(network)?;
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            let mut cached =
+                cached.ok_or_else(|| Error::new("response", "Invalid artwork revalidation"))?;
+            cached.metadata.verified_at = chrono::Utc::now().timestamp().max(0) as u64;
+            return Ok((
+                cached.bytes,
+                cached.metadata,
+                true,
+                queue,
+                start.elapsed().as_micros() as u64,
+            ));
+        }
+        let mime = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .split(';')
+            .next()
+            .unwrap_or("")
+            .to_owned();
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_owned();
+        let revision = response
+            .headers()
+            .get("x-artwork-revision")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_owned();
+        let bytes = self.body(response, 10 * 1024 * 1024).await?;
+        if ![
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "image/avif",
+        ]
+        .contains(&mime.as_str())
+        {
+            return Err(Error::new("response", "Unsupported artwork format"));
+        }
+        Ok((
+            bytes,
+            crate::artwork_cache::Metadata {
+                etag,
+                mime,
+                revision,
+                verified_at: chrono::Utc::now().timestamp().max(0) as u64,
+            },
+            false,
+            queue,
+            start.elapsed().as_micros() as u64,
+        ))
+    }
     pub async fn execute(&self, request: Request) -> Result<Value, Error> {
         let _permit = self
             .network_permits
@@ -573,16 +797,115 @@ impl ServerSession {
             .map_err(|_| Error::new("internal", "Desktop requests stopped"))?;
         match request.command.as_str() {
             "loginAccounts" => {
-                let response = self
-                    .client
-                    .get(self.url("api/v1/auth/accounts"))
-                    .send()
+                let Some(store) = &self.session_store else {
+                    return Ok(json!([]));
+                };
+                let accounts = crate::credential_store::read(store.root(), self.address())?;
+                Ok(json!(
+                    accounts
+                        .accounts
+                        .iter()
+                        .filter(|a| !a.name.is_empty())
+                        .map(|a| json!({"id":a.id,"name":a.name,"avatarKey":a.avatar_key}))
+                        .collect::<Vec<_>>()
+                ))
+            }
+            "accounts.status" => Ok(json!({"secureStorage":self.vault.available().await})),
+            "accounts.switch" | "accounts.forget" => {
+                let account = request.payload["accountId"]
+                    .as_str()
+                    .filter(|id| valid_id(id));
+                let Some(store) = &self.session_store else {
+                    return Err(Error::new("device_storage", "مخزن الحسابات غير متاح."));
+                };
+                let mut accounts = crate::credential_store::read(store.root(), self.address())?;
+                let active_account = self
+                    .identity
+                    .lock()
                     .await
-                    .map_err(network)?;
-                self.json(response).await
+                    .as_ref()
+                    .map(|u| u.account_id.clone());
+                let forgetting_other = request.command == "accounts.forget"
+                    && active_account
+                        .as_deref()
+                        .is_some_and(|id| Some(id) != account);
+                if request.command == "accounts.forget" {
+                    let id =
+                        account.ok_or_else(|| Error::new("bad_request", "اختر حسابًا محفوظًا."))?;
+                    let remembered = accounts
+                        .accounts
+                        .iter()
+                        .find(|a| a.id == id)
+                        .ok_or_else(|| Error::new("not_found", "الحساب غير محفوظ."))?;
+                    let active_token = if active_account.as_deref() == Some(id) {
+                        self.token.lock().await.clone()
+                    } else {
+                        None
+                    };
+                    let revoke = if let Some(token) = active_token {
+                        Some(token)
+                    } else if let Some(credentials) = &remembered.credentials {
+                        let login: LoginResponse = self
+                            .vault
+                            .open(&format!("{}:{id}", self.address()), credentials)
+                            .await?;
+                        Some(login.token)
+                    } else {
+                        None
+                    };
+                    if let Some(token) = revoke {
+                        let response = self
+                            .client
+                            .post(self.url("api/v1/auth/logout"))
+                            .bearer_auth(token)
+                            .send()
+                            .await
+                            .map_err(network)?;
+                        if !response.status().is_success()
+                            && response.status() != reqwest::StatusCode::UNAUTHORIZED
+                        {
+                            return Err(Error::new(
+                                "server",
+                                "تعذّر إلغاء جلسة الحساب؛ أعد المحاولة.",
+                            ));
+                        }
+                    }
+                    // The offline store owns the signed-out marker; forgotten tiles must free a slot.
+                    accounts.accounts.retain(|account| account.id != id);
+                }
+                if forgetting_other {
+                    crate::credential_store::write(store.root(), self.address(), &accounts)?;
+                    return Ok(Value::Null);
+                }
+                accounts.selected = if request.command == "accounts.switch" {
+                    account.map(str::to_owned)
+                } else {
+                    None
+                };
+                crate::credential_store::write(store.root(), self.address(), &accounts)?;
+                store.clear(self.address())?;
+                *self.token.lock().await = None;
+                *self.identity.lock().await = None;
+                *self.renewal.lock().await = None;
+                Ok(Value::Null)
             }
             "login" => {
-                let input: Login = parse(request.payload)?;
+                self.legacy_session
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+                let mut input: Login = parse(request.payload)?;
+                if input.remember {
+                    if !self.vault.available().await {
+                        return Err(Error::new(
+                            "secure_storage",
+                            "مخزن الأسرار غير متاح؛ ألغِ تذكّر الحساب للدخول مؤقتًا.",
+                        ));
+                    }
+                    input.installation_id = self
+                        .session_store
+                        .as_ref()
+                        .map(|s| s.installation_id())
+                        .transpose()?;
+                }
                 let valid_identity = match (&input.email, &input.account_id) {
                     (Some(email), None) => email.len() <= 254 && !email.trim().is_empty(),
                     (None, Some(id)) => valid_id(id),
@@ -609,18 +932,33 @@ impl ServerSession {
                 let bytes = bounded_body(response, 16 * 1024).await?;
                 let login: LoginResponse = serde_json::from_slice(&bytes)
                     .map_err(|_| Error::new("response", "Invalid login response"))?;
-                if let Some(store) = &self.session_store {
-                    store.save(self.base.as_str(), &login.token, &login.expires_at)?;
-                }
-                *token = Some(login.token);
+                *token = Some(login.token.clone());
                 drop(token);
+                *self.renewal.lock().await = None;
+                *self.identity.lock().await = Some(login.user.clone());
                 self.register_device().await?;
+                if input.remember {
+                    self.save_remembered(&login).await?;
+                    *self.renewal.lock().await = Some(login.clone());
+                } else if let Some(store) = &self.session_store {
+                    store.clear(self.address())?;
+                    let mut accounts = crate::credential_store::read(store.root(), self.address())?;
+                    accounts.selected = None;
+                    if let Some(a) = accounts
+                        .accounts
+                        .iter_mut()
+                        .find(|a| a.id == login.user.account_id)
+                    {
+                        a.signed_out = false;
+                    }
+                    crate::credential_store::write(store.root(), self.address(), &accounts)?;
+                }
                 Ok(json!({"user":login.user,"expiresAt":login.expires_at}))
             }
             "logout" => {
                 let mut token = self.token.lock().await;
                 let old = token.take();
-                self.forget_stored_session()?;
+                self.forget_stored_session().await?;
                 if let Some(old) = old {
                     let response = self
                         .client
@@ -641,6 +979,7 @@ impl ServerSession {
                 Ok(Value::Null)
             }
             "session" => {
+                self.restore_remembered().await?;
                 if self.token.lock().await.is_none() {
                     return Ok(Value::Null);
                 }
@@ -652,11 +991,34 @@ impl ServerSession {
                     .map_err(network)?;
                 if response.status() == reqwest::StatusCode::UNAUTHORIZED {
                     *self.token.lock().await = None;
-                    self.forget_stored_session()?;
+                    self.forget_stored_session().await?;
                     return Ok(Value::Null);
                 }
                 let value = self.json(response).await?;
+                let user: User = serde_json::from_value(value["user"].clone())
+                    .map_err(|_| Error::new("response", "هوية حساب غير صالحة."))?;
+                *self.identity.lock().await = Some(user.clone());
                 self.register_device().await?;
+                // Upgrade legacy plaintext sessions only after the server validates their owner.
+                if self
+                    .legacy_session
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                    && self.vault.available().await
+                {
+                    let token = self
+                        .token
+                        .lock()
+                        .await
+                        .clone()
+                        .ok_or_else(|| Error::new("unauthorized", "سجّل الدخول."))?;
+                    let login = LoginResponse {
+                        token,
+                        renewal_token: None,
+                        user,
+                        expires_at: value["expiresAt"].as_str().unwrap_or("").into(),
+                    };
+                    self.save_remembered(&login).await?;
+                }
                 Ok(value)
             }
             "editorCall" => {
@@ -883,7 +1245,21 @@ impl ServerSession {
                     .send()
                     .await
                     .map_err(network)?;
-                self.json(response).await
+                let value = self.json(response).await?;
+                if request.command == "updatePassword" {
+                    self.forget_stored_session().await?;
+                } else {
+                    let user: User = serde_json::from_value(value.clone())
+                        .map_err(|_| Error::new("response", "هوية حساب غير صالحة."))?;
+                    *self.identity.lock().await = Some(user.clone());
+                    let remembered = self.renewal.lock().await.clone();
+                    if let Some(mut login) = remembered {
+                        login.user = user;
+                        self.save_remembered(&login).await?;
+                        *self.renewal.lock().await = Some(login);
+                    }
+                }
+                Ok(value)
             }
             "avatar" => {
                 #[derive(Deserialize)]
@@ -1196,7 +1572,7 @@ impl ServerSession {
                 }
                 if response.status() == reqwest::StatusCode::UNAUTHORIZED {
                     *self.token.lock().await = None;
-                    self.forget_stored_session()?;
+                    self.forget_stored_session().await?;
                     return Err(Error::new(
                         "unauthorized",
                         "Your session has expired. Sign in again.",
@@ -1673,5 +2049,131 @@ mod tests {
         assert!(session.is_null());
         assert!(service.token.lock().await.is_none());
         server.join().expect("mock server completed");
+    }
+    #[tokio::test]
+    async fn encrypted_accounts_restore_independently_and_temporary_login_stays_temporary() {
+        use axum::{
+            Json, Router,
+            http::HeaderMap,
+            routing::{get, post},
+        };
+        fn user(n: u8) -> Value {
+            json!({"id":format!("fixture-{n}"),"name":format!("Account {n}"),"email":format!("fixture{n}@example.invalid"),"role":"member","accountId":format!("96000000-0000-4000-8000-{n:012}"),"kind":"family","avatarKey":"anon-1.png","bio":"","isAdmin":false,"updatedAt":"2026-10-31T00:00:00Z"})
+        }
+        let api=Router::new()
+            .route("/api/v1/auth/login",post(|Json(body):Json<Value>| async move {
+                let n=if body["email"]=="fixture1@example.invalid" {1}else if body["email"]=="fixture2@example.invalid" {2}else{3};
+                Json(json!({"user":user(n),"token":format!("fixture-token-{n}"),"renewalToken":format!("fixture-renewal-{n}"),"expiresAt":"2099-01-01T00:00:00Z"}))
+            }))
+            .route("/api/v1/auth/session",get(|headers:HeaderMap| async move {
+                let n=if headers["authorization"]=="Bearer fixture-token-1" {1}else if headers["authorization"]=="Bearer fixture-token-2" {2}else{3};
+                Json(json!({"user":user(n),"expiresAt":"2099-01-01T00:00:00Z"}))
+            }))
+            .route("/api/v1/me/device",post(||async{Json(json!({"deviceId":"96000000-0000-4000-8000-000000000004"}))}))
+            .route("/api/v1/auth/logout",post(||async{axum::http::StatusCode::NO_CONTENT}));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, api).await.unwrap() });
+        let root =
+            std::env::temp_dir().join(format!("nahhasio-account-vault-{}", std::process::id()));
+        let store = Arc::new(crate::session_store::SessionStore::new(&root));
+        let mut service = ServerSession::new(&url).unwrap();
+        service.session_store = Some(store.clone());
+        service.vault = Arc::new(crate::credential_store::Vault::fixture([7; 32]));
+        for n in [1, 2] {
+            let result=service.execute(Request {id:"test".into(),command:"login".into(),payload:json!({"email":format!("fixture{n}@example.invalid"),"password":"fixture-password","remember":true})}).await.unwrap();
+            assert_eq!(result["user"]["accountId"], user(n)["accountId"]);
+            assert!(result.get("token").is_none());
+        }
+        let accounts = crate::credential_store::read(&root, &url).unwrap();
+        assert_eq!(accounts.accounts.len(), 2);
+        let stored =
+            std::fs::read_to_string(root.join(crate::credential_store::name(&url))).unwrap();
+        assert!(!stored.contains("fixture-token"));
+        assert!(!stored.contains("fixture-password"));
+        let mut restored = ServerSession::new(&url).unwrap();
+        restored.session_store = Some(store.clone());
+        restored.vault = service.vault.clone();
+        let request = |command: &str, payload| Request {
+            id: "test".into(),
+            command: command.into(),
+            payload,
+        };
+        assert_eq!(
+            restored
+                .execute(request("session", json!({})))
+                .await
+                .unwrap()["user"]["accountId"],
+            user(2)["accountId"]
+        );
+        restored
+            .execute(request(
+                "accounts.switch",
+                json!({"accountId":user(1)["accountId"]}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(
+            restored
+                .execute(request("session", json!({})))
+                .await
+                .unwrap()["user"]["accountId"],
+            user(1)["accountId"]
+        );
+        restored
+            .execute(request("logout", json!({})))
+            .await
+            .unwrap();
+        let accounts = crate::credential_store::read(&root, &url).unwrap();
+        assert!(
+            accounts
+                .accounts
+                .iter()
+                .find(|a| a.id == user(1)["accountId"])
+                .unwrap()
+                .credentials
+                .is_none()
+        );
+        assert!(
+            accounts
+                .accounts
+                .iter()
+                .find(|a| a.id == user(2)["accountId"])
+                .unwrap()
+                .credentials
+                .is_some()
+        );
+        restored.execute(request("login",json!({"email":"fixture3@example.invalid","password":"fixture-password","remember":false}))).await.unwrap();
+        restored
+            .execute(request("session", json!({})))
+            .await
+            .unwrap();
+        assert!(restored.renewal.lock().await.is_none());
+        let accounts = crate::credential_store::read(&root, &url).unwrap();
+        assert!(accounts.selected.is_none());
+        assert_eq!(accounts.accounts.len(), 2);
+        restored
+            .execute(request(
+                "accounts.forget",
+                json!({"accountId":user(2)["accountId"]}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(
+            restored
+                .execute(request("session", json!({})))
+                .await
+                .unwrap()["user"]["accountId"],
+            user(3)["accountId"]
+        );
+        assert_eq!(
+            crate::credential_store::read(&root, &url)
+                .unwrap()
+                .accounts
+                .len(),
+            1
+        );
+        server.abort();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

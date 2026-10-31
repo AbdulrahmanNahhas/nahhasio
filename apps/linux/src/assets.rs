@@ -1,10 +1,12 @@
 //! Serve our packaged UI without granting WebKit access to the surrounding filesystem.
 use gtk::{gio, glib};
+use std::sync::Arc;
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
 };
+use webkit6::prelude::*;
 
 pub const ENTRY: &str = "nahhasio://app/";
 const LIMIT: u64 = 8 * 1024 * 1024;
@@ -54,16 +56,77 @@ fn locate(root: &Path, uri: &str) -> Result<(PathBuf, &'static str), String> {
     };
     Ok((file, mime))
 }
-pub fn install(context: &webkit6::WebContext, root: PathBuf) {
+pub fn install(
+    context: &webkit6::WebContext,
+    root: Option<PathBuf>,
+    services: crate::connections::Services,
+    runtime: Arc<tokio::runtime::Runtime>,
+    origin: String,
+) {
     if let Some(security) = context.security_manager() {
         security.register_uri_scheme_as_secure("nahhasio");
         security.register_uri_scheme_as_cors_enabled("nahhasio");
         security.register_uri_scheme_as_display_isolated("nahhasio");
     }
     context.register_uri_scheme("nahhasio", move |request| {
+        let uri = request.uri().map(|s| s.to_string()).unwrap_or_default();
+        if uri.starts_with("nahhasio://app/_artwork/") {
+            let trusted = request
+                .web_view()
+                .and_then(|view| view.uri())
+                .is_some_and(|uri| uri.split('#').next() == Some(origin.as_str()));
+            let parts: Vec<_> = uri
+                .trim_start_matches("nahhasio://app/_artwork/")
+                .split('/')
+                .collect();
+            let parsed = if trusted && parts.len() == 3 {
+                parts[0]
+                    .parse::<u64>()
+                    .ok()
+                    .zip(parts[2].parse::<u32>().ok())
+                    .map(|(revision, width)| (revision, parts[1].to_owned(), width))
+            } else {
+                None
+            };
+            let Some((revision, id, width)) = parsed else {
+                request.finish_error(&mut glib::Error::new(
+                    gio::IOErrorEnum::PermissionDenied,
+                    "Invalid artwork capability",
+                ));
+                return;
+            };
+            let request = request.clone();
+            let services = services.clone();
+            let runtime = runtime.clone();
+            glib::MainContext::default().spawn_local(async move {
+                let result = runtime
+                    .spawn(async move {
+                        let _operation = services.operations.clone().read_owned().await;
+                        let mut cancellation=services.cancellation();
+                        tokio::select! {
+                            result=services.artwork_bytes(revision,&id,width)=>result,
+                            _=cancellation.changed()=>Err(crate::bridge::Error::new("connection_changed","Artwork scope changed")),
+                        }
+                    })
+                    .await;
+                match result {
+                    Ok(Ok((bytes, mime))) => {
+                        let length = bytes.len() as i64;
+                        let stream =
+                            gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(bytes));
+                        request.finish(&stream, length, Some(&mime));
+                    }
+                    _ => request.finish_error(&mut glib::Error::new(
+                        gio::IOErrorEnum::NotFound,
+                        "Artwork unavailable",
+                    )),
+                }
+            });
+            return;
+        }
         let result = (|| {
             let uri = request.uri().ok_or("Missing asset URI")?;
-            let (path, mime) = locate(&root, &uri)?;
+            let (path, mime) = locate(root.as_deref().ok_or("No packaged UI")?, &uri)?;
             let file = File::open(path).map_err(|_| "Cannot open packaged asset")?;
             if file
                 .metadata()

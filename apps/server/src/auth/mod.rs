@@ -4,6 +4,7 @@ mod avatar_catalog;
 mod device;
 mod profile;
 mod profile_activity;
+mod renewal;
 mod write;
 pub(crate) use write::{lock_session, lock_viewer_session};
 
@@ -40,7 +41,7 @@ struct AuthState {
 pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/auth/login", post(login))
-        .route("/api/v1/auth/accounts", get(login_accounts))
+        .route("/api/v1/auth/renew", post(renewal::renew))
         .route("/api/v1/auth/session", get(session))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/me/device", post(device::register))
@@ -102,6 +103,8 @@ struct SessionResponse {
 #[serde(rename_all = "camelCase")]
 struct LoginResponse {
     token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    renewal_token: Option<String>,
     user: User,
     expires_at: String,
 }
@@ -112,6 +115,9 @@ struct Login {
     email: Option<String>,
     account_id: Option<String>,
     password: String,
+    #[serde(default)]
+    remember: bool,
+    installation_id: Option<String>,
 }
 
 #[derive(Debug)]
@@ -194,19 +200,23 @@ pub(crate) fn bearer(headers: &HeaderMap) -> Result<String, AuthError> {
         .ok_or_else(unauthorized)
 }
 
-/// Deliberate family-server sign-in discovery: never return emails, roles or credentials.
-async fn login_accounts(
-    State(state): State<AuthState>,
-) -> Result<Json<serde_json::Value>, AuthError> {
-    let accounts: serde_json::Value = sqlx::query_scalar("SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'name',display_name,'avatarKey',avatar_key) ORDER BY kind='admin',created_at,id),'[]'::jsonb) FROM (SELECT a.id,a.display_name,a.avatar_key,a.kind,a.created_at FROM accounts a JOIN auth_users u ON u.id=a.auth_user_id WHERE a.status='active' AND u.role IN ('owner','admin','member') AND (NOT u.banned OR u.ban_expires<=now()) AND EXISTS (SELECT 1 FROM auth_accounts c WHERE c.user_id=u.id AND c.provider_id='credential') ORDER BY a.kind='admin',a.created_at,a.id LIMIT 100) choices")
-        .fetch_one(&state.pool).await.map_err(unavailable)?;
-    Ok(Json(accounts))
-}
-
 async fn login(
     State(state): State<AuthState>,
     Json(input): Json<Login>,
 ) -> Result<Json<LoginResponse>, AuthError> {
+    if input.remember
+        && !input
+            .installation_id
+            .as_deref()
+            .is_some_and(renewal::valid_installation)
+    {
+        return Err(AuthError(
+            StatusCode::BAD_REQUEST,
+            "Invalid remembered device",
+        ));
+    }
+    let remember = input.remember;
+    let installation = input.installation_id.clone();
     let valid_identity = match (&input.email, &input.account_id) {
         (Some(email), None) => !email.trim().is_empty() && email.len() <= 254,
         (None, Some(id)) => {
@@ -290,9 +300,18 @@ async fn login(
         .bind(format!("session:{key}")).bind(&key).bind(&user.id).bind(row.get::<Option<String>,_>("password"))
         .fetch_optional(&mut *transaction).await.map_err(unavailable)?;
     let expires_at = expires_at.ok_or_else(unauthorized)?;
+    let renewal_token = if remember {
+        let renewal = renewal::new_token()?;
+        sqlx::query("update auth_sessions set renewal_hash=$1,renewal_installation_id=$2,renewal_used_at=now(),renewal_expires_at=now()+interval '90 days' where token=$3")
+            .bind(renewal::hash(&renewal)).bind(installation).bind(&key).execute(&mut *transaction).await.map_err(unavailable)?;
+        Some(renewal)
+    } else {
+        None
+    };
     transaction.commit().await.map_err(unavailable)?;
     Ok(Json(LoginResponse {
         token,
+        renewal_token,
         user,
         expires_at,
     }))
@@ -323,7 +342,10 @@ async fn logout(
         .execute(&mut *transaction)
         .await
         .map_err(unavailable)?;
-    sqlx::query("DELETE FROM auth_sessions WHERE token=$1")
+    // Serialize with renewal/issuance without requiring an account that has since been disabled.
+    sqlx::query("select id from auth_users where id=(select user_id from auth_sessions where token=$1) for update")
+        .bind(&key).execute(&mut *transaction).await.map_err(unavailable)?;
+    sqlx::query("DELETE FROM auth_sessions WHERE token=$1 OR (user_id,device_id) IN (select user_id,device_id from auth_sessions where token=$1 and device_id is not null)")
         .bind(key)
         .execute(&mut *transaction)
         .await

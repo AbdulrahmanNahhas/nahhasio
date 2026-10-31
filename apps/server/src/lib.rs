@@ -43,7 +43,7 @@ async fn server_info(State(pool): State<PgPool>) -> Result<Json<serde_json::Valu
             .await
             .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
     Ok(Json(
-        serde_json::json!({"product":"nahhasio","serverId":id,"name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1}),
+        serde_json::json!({"product":"nahhasio","serverId":id,"name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1,"capabilities":{"artworkVariants":true,"rememberedAccounts":true}}),
     ))
 }
 

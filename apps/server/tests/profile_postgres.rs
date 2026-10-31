@@ -64,9 +64,8 @@ async fn request(
     let mime = response
         .headers()
         .get("content-type")
-        .unwrap()
-        .to_str()
-        .unwrap()
+        .map(|header| header.to_str().unwrap_or(""))
+        .unwrap_or("")
         .to_owned();
     (
         status,
@@ -91,11 +90,49 @@ async fn public_profiles_and_curated_avatars_preserve_privacy() {
         .execute(&mut *tx)
         .await
         .unwrap();
-    nahhasio_catalog::migrations::apply(&mut tx, &nahhasio_catalog::migrations::bundled().unwrap())
+    let history = nahhasio_catalog::migrations::bundled().unwrap();
+    nahhasio_catalog::migrations::apply(&mut tx, &history[..1])
         .await
         .unwrap();
     tx.commit().await.unwrap();
     setup(&pool).await;
+    let baseline: Vec<(String, String, String)> =
+        sqlx::query_as("select id,token,user_id from auth_sessions order by id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    let mut rehearsal = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *rehearsal)
+        .await
+        .unwrap();
+    nahhasio_catalog::migrations::apply(&mut rehearsal, &history)
+        .await
+        .unwrap();
+    rehearsal.rollback().await.unwrap();
+    let exists:bool=sqlx::query_scalar("select exists(select 1 from information_schema.columns where table_name='auth_sessions' and column_name='renewal_hash')").fetch_one(&pool).await.unwrap();
+    assert!(
+        !exists,
+        "A rolled-back rehearsal must preserve the previous schema"
+    );
+    let mut migration = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *migration)
+        .await
+        .unwrap();
+    nahhasio_catalog::migrations::apply(&mut migration, &history)
+        .await
+        .unwrap();
+    migration.commit().await.unwrap();
+    let preserved: Vec<(String, String, String)> =
+        sqlx::query_as("select id,token,user_id from auth_sessions order by id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        baseline, preserved,
+        "Adding renewal must preserve existing sessions and identities"
+    );
     // Exercise HTTP as a runtime role, not the cluster owner used for fixture preparation.
     let mut grants = pool.begin().await.unwrap();
     sqlx::query("set transaction read write")
@@ -148,6 +185,7 @@ async fn public_profiles_and_curated_avatars_preserve_privacy() {
         );
     }
     login_picker_acceptance(&api, &pool).await;
+    remembered_session_acceptance(&api, &pool).await;
     activity_acceptance(&api, &pool).await;
     let path = format!("/api/v1/profiles/{ACTOR}");
     assert_eq!(
@@ -489,7 +527,10 @@ async fn server_acceptance(api: &Router, pool: &PgPool) {
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let overview: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(overview["schema"]["compatible"], true);
-    assert_eq!(overview["schema"]["applied"], 1);
+    assert_eq!(
+        overview["schema"]["applied"],
+        nahhasio_catalog::migrations::bundled().unwrap().len()
+    );
     assert_eq!(overview["counts"]["works"], 4);
     let (_, body, _) = request(
         api,
@@ -673,21 +714,11 @@ async fn login_picker_acceptance(api: &Router, pool: &PgPool) {
     }
     tx.commit().await.unwrap();
     let (status, bytes, _) = request(api, "GET", "/api/v1/auth/accounts", None, Value::Null).await;
-    assert_eq!(status, StatusCode::OK);
-    let choices: Value = serde_json::from_slice(&bytes).unwrap();
-    let choices = choices.as_array().unwrap();
-    assert_eq!(choices.len(), 2);
-    assert_eq!(choices[0]["id"], "91000000-0000-4000-8000-000000000002");
-    for choice in choices {
-        let mut keys = choice
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
-        keys.sort();
-        assert_eq!(keys, vec!["avatarKey", "id", "name"]);
-    }
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        bytes.is_empty(),
+        "The unauthenticated account directory is removed"
+    );
     for body in [
         json!({"accountId":ACTOR,"password":"fixture-password"}),
         json!({"email":"rust-editor-admin@example.invalid","password":"fixture-password"}),
@@ -726,7 +757,7 @@ async fn login_picker_acceptance(api: &Router, pool: &PgPool) {
         .unwrap();
     tx.commit().await.unwrap();
     let (_, bytes, _) = request(api, "GET", "/api/v1/auth/accounts", None, Value::Null).await;
-    assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), json!([]));
+    assert!(bytes.is_empty());
     assert_eq!(
         request(
             api,
@@ -753,4 +784,155 @@ async fn login_picker_acceptance(api: &Router, pool: &PgPool) {
         .await
         .unwrap();
     tx.commit().await.unwrap();
+}
+
+async fn remembered_session_acceptance(api: &Router, pool: &PgPool) {
+    async fn send(
+        api: &Router,
+        path: &str,
+        token: Option<&str>,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("content-type", "application/json");
+        if let Some(token) = token {
+            request = request.header("authorization", format!("Bearer {token}"));
+        }
+        let response = api
+            .clone()
+            .oneshot(request.body(Body::from(body.to_string())).unwrap())
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), 16384).await.unwrap();
+        (
+            status,
+            if bytes.is_empty() {
+                Value::Null
+            } else {
+                serde_json::from_slice(&bytes).unwrap()
+            },
+        )
+    }
+    let installation = "94000000-0000-4000-8000-000000000001";
+    let (status,login)=send(api,"/api/v1/auth/login",None,json!({"email":"rust-editor-admin@example.invalid","password":"fixture-password","remember":true,"installationId":installation})).await;
+    assert_eq!(status, StatusCode::OK);
+    let token = login["token"].as_str().unwrap();
+    let renewal = login["renewalToken"].as_str().unwrap();
+    let (status, device) = send(
+        api,
+        "/api/v1/me/device",
+        Some(token),
+        json!({"installationId":installation,"name":"Remembered fixture","platform":"linux"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let device = device["deviceId"].as_str().unwrap();
+    let wrong = json!({"renewalToken":renewal,"accessToken":token,"installationId":"94000000-0000-4000-8000-000000000002"});
+    assert_eq!(
+        send(api, "/api/v1/auth/renew", None, wrong).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, rotated) = send(
+        api,
+        "/api/v1/auth/renew",
+        None,
+        json!({"renewalToken":renewal,"accessToken":token,"installationId":installation}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(rotated["user"]["accountId"], ACTOR);
+    assert_eq!(rotated["token"], login["token"]);
+    assert_ne!(rotated["renewalToken"], login["renewalToken"]);
+    assert_eq!(
+        send(
+            api,
+            "/api/v1/auth/renew",
+            None,
+            json!({"renewalToken":renewal,"accessToken":token,"installationId":installation})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let new_renewal = rotated["renewalToken"].as_str().unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update auth_sessions set renewal_used_at=now()-interval '31 days' where device_id=$1::uuid").bind(device).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        send(
+            api,
+            "/api/v1/auth/renew",
+            None,
+            json!({"renewalToken":new_renewal,"accessToken":token,"installationId":installation})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update auth_sessions set renewal_used_at=now(),renewal_expires_at=now()-interval '1 second' where device_id=$1::uuid").bind(device).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        send(
+            api,
+            "/api/v1/auth/renew",
+            None,
+            json!({"renewalToken":new_renewal,"accessToken":token,"installationId":installation})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("set transaction read write")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("update auth_sessions set renewal_expires_at=now()+interval '1 day' where device_id=$1::uuid").bind(device).execute(&mut *tx).await.unwrap();
+    sqlx::query("update devices set revoked_at=now() where id=$1::uuid")
+        .bind(device)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        send(
+            api,
+            "/api/v1/auth/renew",
+            None,
+            json!({"renewalToken":new_renewal,"accessToken":token,"installationId":installation})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let token = rotated["token"].as_str().unwrap();
+    assert_eq!(
+        send(api, "/api/v1/auth/logout", Some(token), json!({}))
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        send(
+            api,
+            "/api/v1/auth/renew",
+            None,
+            json!({"renewalToken":new_renewal,"accessToken":token,"installationId":installation})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
 }
