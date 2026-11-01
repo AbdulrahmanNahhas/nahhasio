@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Award,
   ArrowLeft,
   ArrowRight,
   Building2,
@@ -52,7 +51,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ReferencePicker } from "@/features/editor/references/reference-picker";
 
-import { AdminPageHeader, AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
+import { AdminFilterChips, type AdminFilterChip } from "../admin-page-header";
 import { AwardDefinitions } from "./award-definitions";
 import { AwardEditor } from "./award-editor";
 import { AwardFilters } from "./award-filters";
@@ -159,30 +158,45 @@ export function AwardsPage({
     });
   return (
     <article
-      className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 pb-16 sm:p-6"
+      className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-4 p-4 pb-16 sm:p-6"
       aria-label="إدارة الجوائز"
     >
-      <AdminPageHeader
-        title="الجوائز"
-        description="نظّم الجهات والفئات والدورات، ووثّق الجوائز والترشيحات المرتبطة بأعمال المكتبة."
-        icon={Award}
-        count={records.data?.total}
-        unit={recognition ? "جائزة وترشيح" : "سجل"}
-      >
-        <Button
-          variant="outline"
-          disabled={records.isFetching}
-          onClick={() => void records.refetch()}
-        >
-          <RefreshCw data-icon="inline-start" />
-          تحديث
-        </Button>
-        <Button onClick={() => setEditor({ table: "award_organizations", id: null })}>
-          <Plus data-icon="inline-start" />
-          جهة جديدة
-        </Button>
-      </AdminPageHeader>
-      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-2xl font-semibold">الجوائز</h1>
+          <p className="text-sm text-muted-foreground">
+            الجوائز والترشيحات، والجهات والفئات والدورات المرتبطة بها.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={records.isFetching}
+            onClick={() => void records.refetch()}
+          >
+            <RefreshCw data-icon="inline-start" />
+            تحديث
+          </Button>
+          <Button
+            size="sm"
+            onClick={() =>
+              setEditor({
+                table: search.tab === "award_recognitions" ? "award_organizations" : search.tab,
+                id: null,
+              })
+            }
+          >
+            <Plus data-icon="inline-start" />
+            {search.tab === "award_categories"
+              ? "فئة جديدة"
+              : search.tab === "award_ceremonies"
+                ? "دورة جديدة"
+                : "جهة جديدة"}
+          </Button>
+        </div>
+      </header>
+      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-4">
         <div
           className="hidden min-w-0 xl:sticky xl:top-16 xl:col-start-4 xl:row-start-1 xl:block"
           aria-label="جهات الجوائز"
@@ -220,43 +234,31 @@ export function AwardsPage({
           </CollapsibleContent>
         </Collapsible>
         <div
-          className="flex min-w-0 flex-col gap-5 xl:col-span-3 xl:col-start-1 xl:row-start-1"
+          className="flex min-w-0 flex-col gap-4 xl:col-span-3 xl:col-start-1 xl:row-start-1"
           aria-label="نتائج الجوائز"
           role="region"
         >
           <section className="flex flex-col gap-4" aria-label="نطاق الجوائز">
-            <div>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-col gap-2">
-                  <h2 className="font-display text-2xl font-semibold">
-                    {current
-                      ? awardLabel(current)
-                      : search.organization
-                        ? "الجهة المحددة"
-                        : "سجل التكريم"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {current
-                      ? text(current, "name_en") || text(current, "slug")
-                      : "كل الجهات المانحة، في مكان واحد"}
+            {current && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <h2 className="text-lg font-semibold">{awardLabel(current)}</h2>
+                  <p className="text-xs text-muted-foreground" dir="auto">
+                    {text(current, "name_en") || text(current, "slug")}
                   </p>
                 </div>
-                {current ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setEditor({ table: "award_organizations", id: search.organization })
-                    }
-                  >
-                    <Pencil data-icon="inline-start" />
-                    تحرير الجهة
-                  </Button>
-                ) : (
-                  <Award className="size-8 text-muted-foreground" aria-hidden="true" />
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEditor({ table: "award_organizations", id: search.organization })
+                  }
+                >
+                  <Pencil data-icon="inline-start" />
+                  تحرير الجهة
+                </Button>
               </div>
-            </div>
+            )}
             <div className="flex flex-col gap-4">
               {current && (
                 <>
@@ -296,15 +298,19 @@ export function AwardsPage({
                   if (tab) onChange({ ...resetAwardFilters, tab: tab.value });
                 }}
               >
-                <TabsList variant="line" className="h-auto w-full flex-wrap justify-start">
-                  {tabs.map(({ value, icon: Icon }) => (
-                    <TabsTrigger key={value} value={value}>
-                      <Icon data-icon="inline-start" />
-                      {awardLabels[value]}
-                      <Badge variant="secondary">{records.data?.counts[value] ?? "…"}</Badge>
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+                <div className="min-w-0 overflow-x-auto pb-1">
+                  <TabsList aria-label="أقسام الجوائز" className="w-max">
+                    {tabs.map(({ value, icon: Icon }) => (
+                      <TabsTrigger key={value} value={value}>
+                        <Icon data-icon="inline-start" />
+                        {awardLabels[value]}
+                        <Badge variant="secondary">
+                          {records.data?.counts[value]?.toLocaleString("ar") ?? "…"}
+                        </Badge>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
               </Tabs>
             </div>
           </section>
@@ -315,14 +321,14 @@ export function AwardsPage({
               retry={() => void organization.refetch()}
             />
           )}
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2">
             <AwardSearchForm
               key={`${search.tab}:${search.q}`}
               value={search.q}
               label="البحث في السجلات"
               onSearch={(q) => onChange({ q, page: "1" })}
             />
-            {recognition ? (
+            {recognition && (
               <>
                 <ToggleGroup
                   value={[search.result]}
@@ -346,21 +352,6 @@ export function AwardsPage({
                   onPick={openWork}
                 />
               </>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (search.tab !== "award_recognitions")
-                    setEditor({ table: search.tab, id: null });
-                }}
-              >
-                <Plus data-icon="inline-start" />
-                {search.tab === "award_categories"
-                  ? "فئة جديدة"
-                  : search.tab === "award_ceremonies"
-                    ? "دورة جديدة"
-                    : "جهة جديدة"}
-              </Button>
             )}
           </div>
           {recognition && (
@@ -407,7 +398,9 @@ export function AwardsPage({
           <p className="text-sm text-muted-foreground" role="status">
             {records.isFetching
               ? "جارٍ تحميل النتائج…"
-              : `${records.data?.total ?? 0} ${recognition ? "جائزة وترشيح" : "سجل"}`}
+              : records.isError
+                ? "تعذّرت قراءة النتائج"
+                : `${(records.data?.total ?? 0).toLocaleString("ar")} ${recognition ? "جائزة وترشيح" : "سجل"}`}
           </p>
           {records.isPending ? (
             <Skeleton className="h-96" />
@@ -460,27 +453,29 @@ export function AwardsPage({
               onEdit={(table, id) => setEditor({ table, id })}
             />
           )}
-          <nav className="flex items-center justify-between gap-3" aria-label="صفحات الجوائز">
-            <Button
-              variant="outline"
-              disabled={Number(search.page) <= 1 || records.isFetching}
-              onClick={() => onChange({ page: String(Number(search.page) - 1) })}
-            >
-              <ArrowRight data-icon="inline-start" />
-              السابق
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {search.page} / {pages}
-            </span>
-            <Button
-              variant="outline"
-              disabled={Number(search.page) >= pages || records.isFetching}
-              onClick={() => onChange({ page: String(Number(search.page) + 1) })}
-            >
-              التالي
-              <ArrowLeft data-icon="inline-end" />
-            </Button>
-          </nav>
+          {pages > 1 && (
+            <nav className="flex items-center justify-between gap-3" aria-label="صفحات الجوائز">
+              <Button
+                variant="outline"
+                disabled={Number(search.page) <= 1 || records.isFetching}
+                onClick={() => onChange({ page: String(Number(search.page) - 1) })}
+              >
+                <ArrowRight data-icon="inline-start" />
+                السابق
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {search.page} / {pages}
+              </span>
+              <Button
+                variant="outline"
+                disabled={Number(search.page) >= pages || records.isFetching}
+                onClick={() => onChange({ page: String(Number(search.page) + 1) })}
+              >
+                التالي
+                <ArrowLeft data-icon="inline-end" />
+              </Button>
+            </nav>
+          )}
         </div>
       </div>
       {editor && (
@@ -573,7 +568,7 @@ function OrganizationRail({
     ),
   );
   return (
-    <Card className="min-w-0">
+    <Card size="sm" className="min-w-0">
       <CardHeader>
         <CardTitle>الجهات المانحة</CardTitle>
         <CardDescription>تصفّح سجل كل جهة وفئاتها ودوراتها.</CardDescription>
@@ -611,7 +606,7 @@ function OrganizationRail({
               <Button
                 key={text(row, "id")}
                 variant={selected === row.id ? "secondary" : "ghost"}
-                className="h-auto justify-start py-3"
+                className="h-auto justify-start py-2"
                 aria-pressed={selected === row.id}
                 onClick={() => onSelect(text(row, "id"))}
               >
