@@ -12,6 +12,31 @@ publication, family-PC installation or live catalog mutation. Keep development i
 Shadow after transfer. Future remote catalog administration should use a local CLI with server URL
 and API key over HTTPS; defer implementation. SSH is not the routine catalog-editing target.
 
+## Installed family server — verified 2026-10-30
+
+Read [docs/FAMILY-SERVER.md](docs/FAMILY-SERVER.md) before inspecting or administering the live
+family catalog. It records the Fedora Silverblue/Podman layout, verified HTTPS admin workflow,
+SSH operator fallback, backup locking and dated acceptance limits. Production is on the family
+PC at `https://192.168.1.53:8443`, under `/var/home/nahhas-family/Nahhasio`; Shadow remains the
+development machine. Host tools require `--config-root "$HOME/Nahhasio/config"` on that account.
+Supported catalog reads/edits already work through authenticated HTTPS; the future API-key CLI
+is separate. Whole-work deletion currently requires the installed operator, used over SSH only
+when authorized. Queue backups with the running worker rather than invoking concurrent `run`
+operations. This handoff supplies operational context, not blanket mutation/deployment approval.
+Keep credentials, provider keys, tokens and private backups out of documentation and Git.
+
+## Personalized catalog lists
+
+After authorized live catalog additions, edits or deletions, refresh the ignored `catalog-lists/`
+Markdown snapshots with `devenv shell -- python3 bin/refresh-catalog-lists`. They use viewing
+account slug `family`, not the admin account's watch history. Read `catalog-lists/README.md`
+for categories and columns. The generator prompts for admin credentials; an agent may pass
+`--session-file <private temporary session file>` for its existing authorized session, then log
+out and remove that file itself. Never embed credentials in the script. If the server or login
+is unavailable, preserve the previous snapshots and report that refresh is pending. Refresh is
+explicit, not a background watcher; family watch changes also require regeneration. Do not
+commit or publish personalized lists without explicit authorization.
+
 ## Project boundaries
 
 Read docs/PROJECT.md, docs/ROADMAP.md and docs/DEVELOPMENT.md. Current milestone is 0.1 Alpha;

@@ -1,15 +1,19 @@
 # Operations
 
 Current implementation: rootless Podman server/PostgreSQL, signed server releases, Flatpak client,
-coordinated backup/restore and app maintenance controls. Installed Fedora/transfer/update acceptance
-is pending. [DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
+coordinated backup/restore and app maintenance controls. The Fedora family server is installed;
+version 0.1.2, live HTTPS/admin access, rootless services, active backup/update timers and a verified
+coordinated backup were inspected on 2026-10-30. Restore/reboot and failure-recovery acceptance
+remain separate. [FAMILY-SERVER](FAMILY-SERVER.md) records the actual layout and agent access;
+[DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
 [server installer](../packaging/server/README.md), [maintenance tools](../packaging/operations/README.md)
 and [Flatpak guide](../packaging/flatpak/README.md).
 
-The family PC inventory supplied on 2026-10-25 is Fedora Silverblue 44, Podman 5.8.9, Python 3.14.8,
-x86_64 Dell OptiPlex 3070, with approximately 100 GB free on the shared `/var`/`/var/home` filesystem.
-SSH connectivity and user lingering were confirmed by Aqua. Nahhasio installation, catalog transfer
-and reboot acceptance have not occurred. Recheck capacity immediately before transfer.
+The family PC inventory verified on 2026-10-30 is Fedora Silverblue 44, Podman 5.8.9, Python 3.14.8,
+x86_64 Dell OptiPlex 3070 with an i5-9500T and approximately 16 GB RAM. About 93 GiB was available
+on the persistent Btrfs home filesystem. SSH and user lingering were verified. Installation and
+catalog transfer have occurred; reboot acceptance was not tested in this inspection. Host tools
+must use the selected `--config-root "$HOME/Nahhasio/config"`, not the generic default path.
 
 ## Current runtime configuration
 
