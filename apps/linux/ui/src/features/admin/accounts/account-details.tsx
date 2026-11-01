@@ -193,7 +193,6 @@ export function AccessPanel({ account }: { account: ManagedAccount }) {
   const adminPolicy = restrictions.data?.rows
     .map((row) => policySchema.parse(row))
     .find((row) => row.account_id === account.id);
-  const error = capabilities.error ?? policy.error ?? restrictions.error;
 
   return (
     <>
@@ -201,19 +200,12 @@ export function AccessPanel({ account }: { account: ManagedAccount }) {
         title="الصلاحيات المضافة"
         description="تعرض المنح المسجّلة للحساب. قد يمنح دور الدخول صلاحيات أخرى؛ الخادم هو الذي يقرر الوصول الفعلي."
       >
-        {error && (
-          <ReadFailure
-            error={error}
-            retry={() => {
-              void capabilities.refetch();
-              void policy.refetch();
-              void restrictions.refetch();
-            }}
-          />
+        {capabilities.error && (
+          <ReadFailure error={capabilities.error} retry={() => void capabilities.refetch()} />
         )}
         {capabilities.isPending ? (
           <Skeleton className="h-32" />
-        ) : (
+        ) : capabilities.error ? null : (
           <FieldGroup className="grid gap-4 sm:grid-cols-2">
             {capabilityChoices.map((choice) => (
               <Field
@@ -240,6 +232,8 @@ export function AccessPanel({ account }: { account: ManagedAccount }) {
       >
         {policy.isPending ? (
           <Skeleton className="h-24" />
+        ) : policy.error ? (
+          <ReadFailure error={policy.error} retry={() => void policy.refetch()} />
         ) : current ? (
           <Facts
             entries={[
@@ -266,6 +260,9 @@ export function AccessPanel({ account }: { account: ManagedAccount }) {
           <p className="text-sm text-muted-foreground">
             لا توجد سياسة محتوى مخصّصة مسجّلة. لا يعني ذلك وصولًا غير محدود.
           </p>
+        )}
+        {restrictions.error && (
+          <ReadFailure error={restrictions.error} retry={() => void restrictions.refetch()} />
         )}
         {adminPolicy && (
           <p className="mt-3 text-sm text-muted-foreground">

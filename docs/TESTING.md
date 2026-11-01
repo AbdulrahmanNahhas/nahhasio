@@ -126,6 +126,10 @@ Use a synthetic localhost API that rejects unknown routes, never a production fo
 `NAHHASIO_SMOKE_ADMIN_SETTINGS=1` selects the admin settings variant: use a synthetic admin
 account and start at `#/admin/settings`. It additionally checks that both provider inputs are
 present and no tabs remain. It renders the page without submitting server or credential changes.
+`NAHHASIO_SMOKE_ADMIN_SECTION=settings|accounts|maintenance|activity` selects a workspace rendering
+check with its expected heading and loaded controls/records. The Activity mode opens the audit log;
+its isolated fixture must implement authenticated timestamp ordering. All four modes also verify
+an authenticated artwork resource. These checks submit only synthetic login, not admin mutations.
 
 ## 4. Acceptance and reporting
 

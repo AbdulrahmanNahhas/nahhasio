@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ImagePlus, Trash2, FileJson, Images, Users, Building2, RefreshCw } from "lucide-react";
+import { ImagePlus, Trash2, FileJson, Images, Users, Building2, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { EpisodeArtworkAction } from "./episode-artwork-action";
@@ -24,20 +25,14 @@ export function LibraryActions() {
   const [action, setAction] = useState<"episodes" | "cleanup" | null>(null);
   const data = overview.data?.insights;
   return (
-    <div className="flex flex-col gap-5 pt-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          إجراءات على المكتبة · المعاينة أولاً، ثم التأكيد عند تعديل البيانات.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={overview.isFetching}
-          onClick={() => void overview.refetch()}
-        >
-          <RefreshCw data-icon="inline-start" />
-          تحديث
-        </Button>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">صور المكتبة وتنظيمها</h2>
+          <p className="text-sm text-muted-foreground">
+            اعرض المطابقة أو قائمة التنظيف أولًا، ثم أكّد التغييرات.
+          </p>
+        </div>
       </div>
       {overview.isPending ? (
         <Skeleton className="h-64" />
@@ -49,8 +44,8 @@ export function LibraryActions() {
       ) : (
         data && (
           <>
-            <div className="grid items-start gap-4 lg:grid-cols-2">
-              <Card>
+            <div className="grid items-stretch gap-4 lg:grid-cols-2">
+              <Card size="sm" className="flex h-full flex-col">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImagePlus />
@@ -60,11 +55,11 @@ export function LibraryActions() {
                     جلب صور TMDB وربطها بالحلقات، مع مراجعة المطابقة وعدم استبدال الصور الحالية.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
+                <CardContent className="flex flex-1 flex-wrap items-start gap-2">
                   <Badge variant="outline">{data.episodesMissing} حلقة بلا صورة</Badge>
                   <Badge variant="secondary">{data.episodesEligible} مرشحة للمطابقة</Badge>
                 </CardContent>
-                <CardFooter className="flex flex-wrap gap-2">
+                <CardFooter className="mt-auto flex flex-wrap gap-2">
                   <Button
                     disabled={!data.episodeTargets.length}
                     onClick={() => setAction("episodes")}
@@ -76,7 +71,7 @@ export function LibraryActions() {
                   </Button>
                 </CardFooter>
               </Card>
-              <Card>
+              <Card size="sm" className="flex h-full flex-col">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Trash2 />
@@ -87,12 +82,12 @@ export function LibraryActions() {
                     محمية، والملفات الفعلية تُحفظ للاستعادة.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1">
                   <Badge variant="outline">
                     {data.unattachedImages} صورة غير مرتبطة قبل فحص الحماية
                   </Badge>
                 </CardContent>
-                <CardFooter className="flex flex-wrap gap-2">
+                <CardFooter className="mt-auto flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     disabled={!data.unattachedImages}
@@ -107,7 +102,7 @@ export function LibraryActions() {
               </Card>
             </div>
             <h2 className="text-lg font-semibold">مراجعة وتنظيم البيانات</h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {[
                 {
                   title: "صور الأشخاص",
@@ -146,20 +141,16 @@ export function LibraryActions() {
                   icon: FileJson,
                 },
               ].map((item) => (
-                <Card key={item.title} size="sm">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <item.icon />
-                      {item.title}
-                    </CardTitle>
-                    <CardDescription>{item.description}</CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                    <Button variant="outline" render={<a href={item.href} />}>
-                      فتح المراجعة
-                    </Button>
-                  </CardFooter>
-                </Card>
+                <Item key={item.title} variant="outline" render={<a href={item.href} />}>
+                  <ItemMedia variant="icon">
+                    <item.icon />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{item.title}</ItemTitle>
+                    <ItemDescription>{item.description}</ItemDescription>
+                  </ItemContent>
+                  <ChevronLeft className="size-4 shrink-0" aria-hidden="true" />
+                </Item>
               ))}
             </div>
           </>

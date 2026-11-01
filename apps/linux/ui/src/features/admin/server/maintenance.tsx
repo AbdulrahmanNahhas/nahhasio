@@ -1,5 +1,9 @@
-import type { ServerBackup, ServerOperationRequest } from "@nahhasio/api-contract";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  ServerBackup,
+  ServerOperationRequest,
+  ServerOperations,
+} from "@nahhasio/api-contract";
+import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { Archive, Download, RefreshCw, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
@@ -22,32 +26,28 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
+  CardAction,
 } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldContent,
+  FieldDescription,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { gateway } from "@/lib/bridge";
 
-const operationsKey = ["admin", "server", "operations"];
-const date = (value: string) => new Date(value).toLocaleString("ar");
-const size = (value: number) =>
-  `${new Intl.NumberFormat("ar", { maximumFractionDigits: 1 }).format(value / 1048576)} م.ب`;
-const stateLabels = new Map<string, string>(
-  Object.entries({
-    queued: "في الانتظار",
-    running: "قيد التنفيذ",
-    succeeded: "اكتملت",
-    failed: "تعذّرت العملية",
-    current: "محدّث",
-    available: "تحديث متاح",
-    staged: "جاهز لإعادة التشغيل",
-    unchecked: "لم يُفحص بعد",
-    "maintenance-required": "يتطلب صيانة",
-    unavailable: "غير متاح",
-    unmanaged: "نسخة تطوير",
-    "up-to-date": "محدّث",
-  }),
-);
+import { formatAdminDate as date, formatAdminBytes as size } from "../format";
+import { stateLabel } from "./maintenance-model";
+import { serverOperationsQuery } from "./queries";
+
+const operationsKey = serverOperationsQuery().queryKey;
 function Failure({ error }: { error: Error }) {
   return (
     <Alert variant="destructive">
@@ -57,21 +57,23 @@ function Failure({ error }: { error: Error }) {
   );
 }
 
-export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
+export function ServerMaintenance({
+  view,
+  status,
+}: {
+  view: "backups" | "updates";
+  status: UseQueryResult<ServerOperations>;
+}) {
   const client = useQueryClient();
   const [restore, setRestore] = useState<ServerBackup | null>(null);
   const [confirmation, setConfirmation] = useState("");
-  const status = useQuery({
-    queryKey: operationsKey,
-    queryFn: ({ signal }) => gateway.serverOperations(signal),
-    refetchInterval: 5000,
-    retry: false,
-  });
+  const [updateReview, setUpdateReview] = useState(false);
   const action = useMutation({
     mutationFn: (input: Omit<ServerOperationRequest, "id">) =>
       gateway.requestServerOperation({ id: crypto.randomUUID(), ...input }),
     onSuccess: () => {
       setRestore(null);
+      setUpdateReview(false);
       setConfirmation("");
       void client.invalidateQueries({ queryKey: operationsKey });
     },
@@ -91,95 +93,162 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
       </div>
     );
   const data = status.data;
-  const job = data.activeJob ?? data.lastJob;
   return (
-    <div className="flex flex-col gap-5">
-      {!data.available && (
-        <Alert>
-          <AlertTitle>الصيانة غير مُعدّة لهذا الخادم</AlertTitle>
-          <AlertDescription>
-            تُتاح النسخ والاستعادة والتحديثات بعد تثبيت خدمة صيانة نحّاسيو على جهاز الخادم.
-          </AlertDescription>
-        </Alert>
-      )}
+    <div className="flex h-full min-w-0 flex-col gap-4">
       {action.isError && <Failure error={action.error} />}
       {action.isSuccess && (
-        <Alert>
-          <AlertTitle>أُرسل الطلب إلى الخادم</AlertTitle>
-          <AlertDescription>
-            تستمر العملية إذا أغلقت التطبيق. قد ينقطع الاتصال مؤقتاً أثناء الصيانة.
-          </AlertDescription>
-        </Alert>
-      )}
-      {job && (
-        <Alert variant={job.state === "failed" ? "destructive" : "default"}>
-          <AlertTitle>{stateLabels.get(job.state) ?? job.state}</AlertTitle>
-          <AlertDescription>
-            {job.message || "تابع حالة العملية هنا بعد إعادة الاتصال."}
-          </AlertDescription>
-        </Alert>
+        <p role="status" className="text-sm text-muted-foreground">
+          أُرسل الطلب إلى الخادم؛ تابع نتيجته من حالة العملية. تستمر الصيانة بعد إغلاق التطبيق.
+        </p>
       )}
       {view === "backups" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>النسخ الاحتياطية</CardTitle>
-            <CardDescription>
-              قاعدة البيانات والصور وإعدادات الخادم الخاصة. تبقى النسخ على جهاز الخادم.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              {data.backups.length === 0 && (
-                <p className="text-sm text-muted-foreground">لم تُنشأ نسخة مكتملة بعد.</p>
-              )}
-              {data.backups.map((backup) => (
-                <div
-                  key={backup.id}
-                  className="flex flex-wrap items-center justify-between gap-3 border-b pb-4"
-                >
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <p>{date(backup.createdAt)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {size(backup.byteSize)} · <bdi>{backup.version}</bdi>
-                    </p>
-                    <p className="break-all text-xs text-muted-foreground">
-                      <bdi>{backup.id}</bdi>
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    disabled={!data.available || busy}
-                    onClick={() => {
-                      setRestore(backup);
-                      setConfirmation("");
-                    }}
-                  >
-                    <RotateCcw data-icon="inline-start" />
-                    استعادة
-                  </Button>
-                </div>
-              ))}
+        <Card size="sm">
+          <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
+              <CardTitle>
+                <h2>النسخ الاحتياطية</h2>
+              </CardTitle>
+              <CardDescription>
+                قاعدة البيانات والصور والإعدادات الخاصة، محفوظة على جهاز الخادم.
+              </CardDescription>
             </div>
+            <CardAction>
+              <Button
+                size="sm"
+                disabled={!data.available || busy}
+                onClick={() => action.mutate({ operation: "backup" })}
+              >
+                <Archive data-icon="inline-start" />
+                إنشاء نسخة الآن
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">النسخ المتاحة للاستعادة</p>
+              <Badge variant="secondary">
+                {new Intl.NumberFormat("ar").format(data.backups.length)} نسخة
+              </Badge>
+            </div>
+            {data.backups.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>لا توجد نسخ احتياطية بعد</EmptyTitle>
+                  <EmptyDescription>
+                    {data.available
+                      ? "أنشئ أول نسخة قبل إجراء تغييرات كبيرة على الخادم."
+                      : "تظهر النسخ هنا بعد تجهيز خدمة الصيانة وإنشاء أول نسخة."}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {data.backups
+                  .toSorted(
+                    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+                  )
+                  .map((backup) => (
+                    <Collapsible key={backup.id}>
+                      <Item variant="outline">
+                        <ItemContent>
+                          <ItemTitle>
+                            <time dateTime={backup.createdAt}>{date(backup.createdAt)}</time>
+                          </ItemTitle>
+                          <ItemDescription>
+                            {size(backup.byteSize)} · الإصدار <bdi>{backup.version}</bdi>
+                          </ItemDescription>
+                          <CollapsibleTrigger
+                            render={<Button variant="ghost" size="sm" className="w-fit" />}
+                          >
+                            تفاصيل النسخة
+                          </CollapsibleTrigger>
+                        </ItemContent>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`استعادة نسخة ${date(backup.createdAt)}`}
+                          disabled={!data.available || busy}
+                          onClick={() => {
+                            action.reset();
+                            setRestore(backup);
+                            setConfirmation("");
+                          }}
+                        >
+                          <RotateCcw data-icon="inline-start" />
+                          استعادة
+                        </Button>
+                      </Item>
+                      <CollapsibleContent className="px-4 pt-3">
+                        <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+                          {[
+                            ["معرّف النسخة", backup.id],
+                            ["سبب الإنشاء", backup.reason],
+                            ["مخطط البيانات", backup.schema],
+                          ].map(([label, value]) => (
+                            <div key={label} className="flex min-w-0 flex-col gap-1">
+                              <dt className="text-muted-foreground">{label}</dt>
+                              <dd className="break-all">
+                                <bdi>{value}</bdi>
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ))}
+              </div>
+            )}
+            <Collapsible>
+              <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                خيارات النسخ القادمة
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <FieldGroup>
+                  <Field orientation="horizontal" data-disabled>
+                    <FieldContent>
+                      <FieldLabel htmlFor="scheduled-backups">
+                        نسخ احتياطية مجدولة <Badge variant="outline">قريبًا</Badge>
+                      </FieldLabel>
+                      <FieldDescription>مواعيد دورية دون الحاجة إلى فتح التطبيق.</FieldDescription>
+                    </FieldContent>
+                    {/* TODO(server-backup-schedule): Add server-owned scheduling, timezone and persisted policy before enabling. */}
+                    <Switch id="scheduled-backups" disabled checked={false} />
+                  </Field>
+                  <Field data-disabled>
+                    <FieldLabel htmlFor="backup-retention">
+                      عدد النسخ المحتفَظ بها <Badge variant="outline">قريبًا</Badge>
+                    </FieldLabel>
+                    {/* TODO(server-backup-retention): Add reviewed retention rules that protect recovery and upgrade backups. */}
+                    <Input
+                      id="backup-retention"
+                      type="number"
+                      min={1}
+                      disabled
+                      placeholder="لم تُضبط سياسة احتفاظ"
+                    />
+                  </Field>
+                </FieldGroup>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
           <CardFooter>
-            <Button
-              disabled={!data.available || busy}
-              onClick={() => action.mutate({ operation: "backup" })}
-            >
-              <Archive data-icon="inline-start" />
-              إنشاء نسخة الآن
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              حفظ النسخة على الخادم لا يحميها من فقدان الجهاز نفسه. الاستعادة تستبدل البيانات الحالية
+              وتحتاج إلى تأكيد منفصل.
+            </p>
           </CardFooter>
         </Card>
       ) : (
-        <Card>
+        <Card size="sm" className="flex h-full flex-col">
           <CardHeader>
-            <CardTitle>تحديث الخادم</CardTitle>
+            <CardTitle>
+              <h2>تحديث الخادم</h2>
+            </CardTitle>
             <CardDescription>
               يُتحقق من توقيع الإصدار وتوافق مخطط البيانات قبل استبدال التطبيق.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             <dl className="flex flex-col gap-3">
               <div className="flex flex-wrap justify-between gap-2">
                 <dt>الإصدار المثبّت</dt>
@@ -190,9 +259,7 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
               <div className="flex flex-wrap justify-between gap-2">
                 <dt>الحالة</dt>
                 <dd>
-                  <Badge variant="secondary">
-                    {stateLabels.get(data.update.state) ?? data.update.state}
-                  </Badge>
+                  <Badge variant="secondary">{stateLabel(data.update.state)}</Badge>
                 </dd>
               </div>
               {data.update.availableVersion && (
@@ -219,7 +286,10 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
             </Button>
             <Button
               disabled={!data.available || busy || data.update.state !== "available"}
-              onClick={() => action.mutate({ operation: "update" })}
+              onClick={() => {
+                action.reset();
+                setUpdateReview(true);
+              }}
             >
               <Download data-icon="inline-start" />
               تثبيت التحديث
@@ -261,11 +331,18 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
               </Field>
             </FieldGroup>
           )}
+          {action.isError && <Failure error={action.error} />}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={action.isPending}>إلغاء</AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={!restore || confirmation !== restore.id || action.isPending}
+              disabled={
+                !restore ||
+                confirmation !== restore.id ||
+                busy ||
+                !data.available ||
+                !data.backups.some((backup) => backup.id === restore.id)
+              }
               onClick={() => {
                 if (restore)
                   action.mutate({ operation: "restore", backupId: restore.id, confirmation });
@@ -276,41 +353,46 @@ export function ServerMaintenance({ view }: { view: "backups" | "updates" }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog
+        open={updateReview}
+        onOpenChange={(open) => {
+          if (!action.isPending) setUpdateReview(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تثبيت تحديث الخادم</AlertDialogTitle>
+            <AlertDialogDescription>
+              قد يتوقف الاتصال مؤقتًا أثناء التحديث. يتحقق الخادم من توقيع الإصدار وتوافق البيانات،
+              وتستمر العملية بعد إغلاق التطبيق.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt>الإصدار المثبّت</dt>
+              <dd>
+                <bdi>{data.update.currentVersion}</bdi>
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>الإصدار الجديد</dt>
+              <dd>
+                <bdi>{data.update.availableVersion ?? "غير متاح"}</bdi>
+              </dd>
+            </div>
+          </dl>
+          {action.isError && <Failure error={action.error} />}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={action.isPending}>إلغاء</AlertDialogCancel>
+            <Button
+              disabled={busy || !data.available || data.update.state !== "available"}
+              onClick={() => action.mutate({ operation: "update" })}
+            >
+              تأكيد تثبيت التحديث
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-  );
-}
-
-export function ClientUpdateCard() {
-  const status = useQuery({
-    queryKey: ["device", "client-update"],
-    queryFn: ({ signal }) => gateway.clientUpdateStatus(signal),
-    staleTime: Infinity,
-  });
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>تحديث تطبيق Linux</CardTitle>
-        <CardDescription>تُدار النسخة المثبّتة من خلال نظام البرمجيات على هذا الجهاز.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {status.isPending ? (
-          <Skeleton className="h-12 w-full" />
-        ) : status.isError ? (
-          <Failure error={status.error} />
-        ) : (
-          <div className="flex flex-col gap-2">
-            <p>
-              الإصدار <bdi>{status.data.currentVersion}</bdi>
-            </p>
-            <p className="text-sm text-muted-foreground">{status.data.message}</p>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter>
-        <p className="text-sm text-muted-foreground">
-          افتح تطبيق «البرمجيات» في النظام ثم صفحة التحديثات لإدارة إصدار نحّاسيو.
-        </p>
-      </CardFooter>
-    </Card>
   );
 }

@@ -43,7 +43,7 @@ import { gateway, nativeCall } from "@/lib/bridge";
 
 import { AccountAvatar } from "../account/account-avatar";
 import { PasswordDialog } from "../account/password-card";
-import { ClientUpdateCard } from "../admin/server/maintenance";
+import { ClientUpdateCard } from "../admin/server/client-update-card";
 import { connectionsOptions } from "../auth/connections";
 import { loginAccountsOptions } from "../auth/login-accounts";
 import { switchAccount } from "../auth/remembered-accounts";

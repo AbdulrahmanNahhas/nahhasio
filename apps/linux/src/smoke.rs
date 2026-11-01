@@ -42,7 +42,19 @@ pub fn install(
 ) {
     let home_only = std::env::var_os("NAHHASIO_SMOKE_HOME_ONLY").is_some();
     let admin_settings = std::env::var_os("NAHHASIO_SMOKE_ADMIN_SETTINGS").is_some();
-    let settings_only = std::env::var_os("NAHHASIO_SMOKE_SETTINGS").is_some() || admin_settings;
+    let admin_section = match std::env::var("NAHHASIO_SMOKE_ADMIN_SECTION")
+        .ok()
+        .as_deref()
+    {
+        Some("settings") => 1,
+        Some("accounts") => 2,
+        Some("maintenance") => 3,
+        Some("activity") => 4,
+        _ => 0,
+    };
+    let settings_only = std::env::var_os("NAHHASIO_SMOKE_SETTINGS").is_some()
+        || admin_settings
+        || admin_section > 0;
     let artwork_id = std::env::var("NAHHASIO_SMOKE_ARTWORK_ID")
         .ok()
         .filter(|id| crate::bridge::valid_id(id));
@@ -76,10 +88,12 @@ pub fn install(
             2=>"(()=>{document.querySelector('form').requestSubmit();return 'submitted';})()".into(),
             3 if settings_only => {
                 let image=artwork_id.as_deref().unwrap_or("");
-                let (route, heading, action) = if admin_settings {
-                    ("#/admin/settings", "الإعدادات والاتصالات", "حفظ الاسم")
-                } else {
-                    ("#/settings?section=help", "الإعدادات والمساعدة", "معاينة تقرير التشخيص")
+                let (route, heading, action, ready) = match admin_section {
+                    2 => ("#/admin/accounts", "الحسابات والوصول", "حسابات المكتبة", "!!document.querySelector('button[aria-label^=\"فتح حساب\"]')"),
+                    3 => ("#/admin/maintenance", "صيانة الخادم", "صور المكتبة وتنظيمها", "!!document.querySelector('a[href*=\"tab=backups\"]')"),
+                    4 => ("#/admin/activity?tab=logs", "نشاط الخادم", "سجل العمليات الإدارية", "!!document.querySelector('button[aria-label^=\"تفاصيل العملية\"]')"),
+                    _ if admin_settings || admin_section == 1 => ("#/admin/settings", "الإعدادات والاتصالات", "حفظ الاسم", "document.querySelectorAll('[role=tab]').length===0 && !!document.getElementById('provider-tmdb') && !!document.getElementById('provider-fanart')"),
+                    _ => ("#/settings?section=help", "الإعدادات والمساعدة", "معاينة تقرير التشخيص", "true"),
                 };
                 format!(r#"(()=>{{
                     if(!location.hash.startsWith('{route}')){{location.hash='{route}';return '{{}}';}}
@@ -93,7 +107,7 @@ pub fn install(
                         window.webkit.messageHandlers.nahhasio.postMessage(JSON.stringify({{id:'artwork-probe',command:'artwork.url',payload:{{id:'{image}',width:320}}}}));
                     }}
                     const image=document.getElementById('artwork-probe');
-                    return JSON.stringify({{settingsReady:!!document.querySelector('h1')?.textContent.includes('{heading}') && document.body.textContent.includes('{action}') && (!{admin_settings} || (document.querySelectorAll('[role=tab]').length===0 && !!document.getElementById('provider-tmdb') && !!document.getElementById('provider-fanart'))),imageReady:!!image?.naturalWidth,errors:document.querySelectorAll('[role=alert]').length,viewport:[innerWidth,innerHeight,devicePixelRatio],overflow:document.documentElement.scrollWidth>innerWidth}});
+                    return JSON.stringify({{settingsReady:!!document.querySelector('h1')?.textContent.includes('{heading}') && document.body.textContent.includes('{action}') && ({ready}),imageReady:!!image?.naturalWidth,errors:document.querySelectorAll('[role=alert]').length,viewport:[innerWidth,innerHeight,devicePixelRatio],overflow:document.documentElement.scrollWidth>innerWidth}});
                 }})()"#)
             },
             3=>"JSON.stringify({posters:document.querySelectorAll('.home-fitted-row article a').length,images:Array.from(document.querySelectorAll('.home-fitted-row article img')).filter(img=>img.complete&&img.naturalWidth>0).length,errors:document.querySelectorAll('[role=alert]').length,heroReady:Array.from(document.querySelectorAll('section[aria-label=\"أحدث الأعمال\"] img')).every(image=>image.tagName==='IMG'?image.complete&&image.naturalWidth>0:!image.textContent.includes('جارٍ تحميل الصورة'))})".into(),

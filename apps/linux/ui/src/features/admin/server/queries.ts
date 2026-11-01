@@ -16,3 +16,11 @@ export const serverSettingsQuery = () =>
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
+export const serverOperationsQuery = () =>
+  queryOptions({
+    queryKey: ["admin", "server", "operations"],
+    queryFn: ({ signal }) => gateway.serverOperations(signal),
+    staleTime: 5000,
+    refetchInterval: (query) => (query.state.data?.activeJob ? 2500 : 30000),
+    retry: false,
+  });

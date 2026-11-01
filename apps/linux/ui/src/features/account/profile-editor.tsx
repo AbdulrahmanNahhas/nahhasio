@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { gateway } from "@/lib/bridge";
 
-import { ClientUpdateCard } from "../admin/server/maintenance";
+import { ClientUpdateCard } from "../admin/server/client-update-card";
 import { CacheControl } from "../player/cache-control";
 import { navigate } from "../shell/navigation";
 import { AccountAvatar, avatarChoices } from "./account-avatar";

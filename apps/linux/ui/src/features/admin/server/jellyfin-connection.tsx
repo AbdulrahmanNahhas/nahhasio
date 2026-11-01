@@ -16,7 +16,8 @@ export function JellyfinConnection() {
     <Card size="sm" aria-label="اتصال Jellyfin">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          Jellyfin<Badge variant="outline">قادم</Badge>
+          <h2>Jellyfin</h2>
+          <Badge variant="outline">قادم</Badge>
         </CardTitle>
         <CardDescription>
           مصدر اختياري لملفات الفيديو. تبقى بيانات المكتبة وصورها وسجل مشاهدتها في نحّاسيو.

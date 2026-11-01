@@ -5,7 +5,21 @@ import { AdminSectionPage } from "../features/account/admin-page";
 import { adminSection } from "../features/admin/navigation";
 
 export const Route = createFileRoute("/admin/$section")({
-  validateSearch: z.object({ tab: z.string().max(40).catch("").default("") }),
+  validateSearch: z.object({
+    tab: z.string().max(40).catch("").default(""),
+    q: z.string().max(200).catch("").default(""),
+    page: z
+      .string()
+      .regex(/^[1-9][0-9]{0,5}$/)
+      .refine((value) => Number(value) <= 100000)
+      .catch("1")
+      .default("1"),
+    jobState: z
+      .enum(["all", "queued", "running", "completed", "failed", "cancelled"])
+      .catch("all")
+      .default("all"),
+    order: z.enum(["newest", "oldest"]).catch("newest").default("newest"),
+  }),
   beforeLoad: ({ params }) => {
     const section = params.section;
     if (["episodes", "relationships", "credits", "evidence", "graph"].includes(section))
@@ -34,12 +48,5 @@ export const Route = createFileRoute("/admin/$section")({
 function Section() {
   const { section } = Route.useParams();
   const { tab } = Route.useSearch();
-  const navigate = Route.useNavigate();
-  return (
-    <AdminSectionPage
-      section={section}
-      tab={tab}
-      onTabChange={(value) => void navigate({ search: { tab: value } })}
-    />
-  );
+  return <AdminSectionPage section={section} tab={tab} />;
 }

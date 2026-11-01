@@ -60,24 +60,9 @@ export function AdminPage() {
     </section>
   );
 }
-export function AdminSectionPage({
-  section = "",
-  tab = "",
-  onTabChange,
-}: {
-  section?: string;
-  tab?: string;
-  onTabChange?: (value: string) => void;
-}) {
+export function AdminSectionPage({ section = "", tab = "" }: { section?: string; tab?: string }) {
   if (!section) return <ServerOverviewPage />;
-  if (isAdminWorkspace(section))
-    return (
-      <AdminWorkspacePage
-        section={section}
-        tab={tab}
-        onTabChange={(value) => onTabChange?.(value)}
-      />
-    );
+  if (isAdminWorkspace(section)) return <AdminWorkspacePage section={section} tab={tab} />;
   const item = adminSection(section);
   const title = section ? (item?.title ?? "صفحة غير موجودة") : "نظرة عامة";
   if (item && section in inspectionSections)

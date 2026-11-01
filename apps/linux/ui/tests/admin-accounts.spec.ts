@@ -221,3 +221,59 @@ test("devices and invitations have their own compact views and narrow details fi
   await expect(page.getByRole("button", { name: "إلغاء الدعوة", exact: true })).toBeDisabled();
   await expect(page.getByRole("table")).toHaveCount(0);
 });
+
+test("failed permission reads show an error rather than unchecked grants", async ({ page }) => {
+  await page.addInitScript(() => {
+    const handler = window.webkit!.messageHandlers!.nahhasio!;
+    const original = handler.postMessage.bind(handler);
+    handler.postMessage = (raw: string) => {
+      const request = JSON.parse(raw);
+      if (request.command === "databaseRows" && request.payload.table === "account_capabilities")
+        return queueMicrotask(() =>
+          window["__nahhasioReply"]?.({
+            id: request.id,
+            ok: false,
+            error: { code: "unavailable", message: "تعذّرت قراءة الصلاحيات" },
+          }),
+        );
+      original(raw);
+    };
+  });
+  await page.goto("/#/admin/accounts?tab=policies");
+  await page.getByRole("button", { name: "فتح حساب المدير", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByText("تعذّرت قراءة الصلاحيات", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("switch")).toHaveCount(0);
+});
+
+test("malformed account records fail inside the query with a recoverable message", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const handler = window.webkit!.messageHandlers!.nahhasio!;
+    const original = handler.postMessage.bind(handler);
+    handler.postMessage = (raw: string) => {
+      const request = JSON.parse(raw);
+      if (request.command === "databaseRows" && request.payload.table === "accounts")
+        return queueMicrotask(() =>
+          window["__nahhasioReply"]?.({
+            id: request.id,
+            ok: true,
+            result: {
+              table: "accounts",
+              page: 1,
+              pageSize: 25,
+              total: 1,
+              rows: [{ id: "invalid" }],
+            },
+          }),
+        );
+      original(raw);
+    };
+  });
+  await page.goto("/#/admin/accounts");
+  await expect(page.getByRole("heading", { name: "الحسابات والوصول", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("تعذّر قراءة استجابة الخادم");
+  await expect(page.getByRole("button", { name: "إعادة المحاولة", exact: true })).toBeEnabled();
+});

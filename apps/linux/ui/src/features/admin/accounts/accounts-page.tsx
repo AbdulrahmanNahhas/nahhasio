@@ -30,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AccountAvatar } from "@/features/account/account-avatar";
 
+import { WorkspacePage, WorkspaceNavigation } from "../workspace";
 import {
   AccountIdentity,
   AccessPanel,
@@ -62,53 +63,35 @@ const destinations = [
 export function AccountsPage({ tab }: { tab: string }) {
   const section = destinations.find((item) => item.value === tab)?.value ?? "accounts";
   return (
-    <article className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5 p-4 pb-10 sm:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <Users className="mt-1 size-6 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold">الحسابات والوصول</h1>
-            <p className="text-sm text-muted-foreground">
-              من يستخدم المكتبة، وما الذي يستطيع الوصول إليه.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <WorkspacePage
+      title="الحسابات والوصول"
+      description="من يستخدم المكتبة، وما الذي يستطيع الوصول إليه."
+      actions={
+        <>
           {/* TODO(admin-account-create): Connect account creation to reviewed identity provisioning and credential activation. */}
           <Button variant="outline" size="sm" disabled>
             <UserPlus data-icon="inline-start" />
             إنشاء حساب
           </Button>
-          {/* TODO(admin-invites): Implement scoped invite issuance, activation and revocation before enabling this action. */}
+          {/* TODO(admin-invites): Implement scoped invite issuance, activation and revocation before enabling. */}
           <Button size="sm" disabled>
             <MailPlus data-icon="inline-start" />
             دعوة جديدة
           </Button>
-        </div>
-      </header>
-      <nav aria-label="أقسام الحسابات والوصول" className="flex flex-wrap gap-2">
-        {destinations.map((item) => (
-          <Button
-            key={item.value}
-            variant={section === item.value ? "secondary" : "ghost"}
-            size="sm"
-            render={
-              <a
-                href={`#/admin/accounts?tab=${item.value}`}
-                aria-current={section === item.value ? "page" : undefined}
-              />
-            }
-          >
-            <item.icon data-icon="inline-start" />
-            {item.label}
-          </Button>
-        ))}
-      </nav>
+        </>
+      }
+    >
+      <WorkspaceNavigation
+        section="accounts"
+        label="أقسام الحسابات والوصول"
+        selected={section}
+        items={destinations}
+      />
       <p className="text-xs text-muted-foreground">
         البيانات للقراءة حاليًا؛ الإجراءات المعطّلة قادمة.
       </p>
       <AccountDirectory key={section} section={section} />
-    </article>
+    </WorkspacePage>
   );
 }
 

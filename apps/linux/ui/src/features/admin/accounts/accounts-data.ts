@@ -67,11 +67,11 @@ export const preferenceSchema = z.object({
 });
 export const policySchema = z.object({
   account_id: z.string(),
-  audience: z.string(),
-  age: z.string(),
-  sexuality_risk: z.string(),
-  behavioral_risk: z.string(),
-  theology_risk: z.string(),
+  audience: z.enum(["general", "teen", "young-adult", "adult"]),
+  age: z.enum(["all", "7+", "10+", "13+", "16+", "18+"]),
+  sexuality_risk: z.enum(["none", "low", "medium", "high"]),
+  behavioral_risk: z.enum(["none", "low", "medium", "high"]),
+  theology_risk: z.enum(["none", "low", "medium", "high"]),
 });
 export const capabilitySchema = z.object({ account_id: z.string(), capability: z.string() });
 
@@ -81,24 +81,33 @@ export const roles = { owner: "مالك الخادم", admin: "مدير", member
 export function roleLabel(role: string) {
   return Object.entries(roles).find(([key]) => key === role)?.[1] ?? role;
 }
-export function dateLabel(value: string | null) {
-  if (!value) return "غير مسجّل";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? "تاريخ غير متاح"
-    : new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(parsed);
-}
+export { formatAdminDate as dateLabel } from "../format";
+const recordSchemas = {
+  accounts: accountSchema,
+  auth_users: identitySchema,
+  devices: deviceSchema,
+  auth_sessions: sessionSchema,
+  account_invites: inviteSchema,
+  account_preferences: preferenceSchema,
+  account_content_policies: policySchema,
+  account_admin_restrictions: policySchema,
+  account_capabilities: capabilitySchema,
+};
 export function recordOptions(table: string, page = 1, q = "", column?: string) {
   return queryOptions({
     queryKey: ["admin", "accounts-workspace", table, page, q, column],
-    queryFn: ({ signal }) =>
-      gateway.databaseRows(
+    queryFn: async ({ signal }) => {
+      const data = await gateway.databaseRows(
         table,
         page,
         column ? "" : q,
         signal,
         column ? { column, value: q } : undefined,
-      ),
+      );
+      const schema = Object.entries(recordSchemas).find(([key]) => key === table)?.[1];
+      if (schema) for (const row of data.rows) schema.parse(row);
+      return data;
+    },
     staleTime: 15000,
     retry: false,
   });
