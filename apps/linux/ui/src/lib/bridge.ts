@@ -61,6 +61,8 @@ export type WatchedSelection = Pick<WatchedRequest, "isPlayed"> & {
   episodeId?: string | null;
 };
 import { z } from "zod";
+
+import { developmentBrowserAvailable } from "./development-platform.ts";
 export type AdminWorksQuery = NonNullable<Parameters<ApiClient["getAdminWorks"]>[0]>;
 export type CatalogQuery = NonNullable<Parameters<ApiClient["browseCatalog"]>[0]>;
 export type TrailersQuery = NonNullable<Parameters<ApiClient["getTrailers"]>[0]>;
@@ -106,7 +108,7 @@ window["__nahhasioReply"] = (input) => {
   waiter.resolve(parsed.data);
 };
 export function nativeAvailable() {
-  return Boolean(window.webkit?.messageHandlers?.nahhasio);
+  return Boolean(window.webkit?.messageHandlers?.nahhasio) || developmentBrowserAvailable();
 }
 export async function nativeCall(
   command: string,
@@ -116,6 +118,12 @@ export async function nativeCall(
 ) {
   const revision = connectionRevision;
   const handler = window.webkit?.messageHandlers?.nahhasio;
+  if (import.meta.env?.DEV && !handler && developmentBrowserAvailable()) {
+    const { developmentCall } = await import("./development-adapter");
+    const result = await developmentCall(command, payload, signal);
+    if (revision !== connectionRevision) throw new DOMException("Session changed", "AbortError");
+    return result;
+  }
   if (!handler) throw new Error("افتح نحّاسيو من تطبيق Linux للاتصال بمكتبتك.");
   if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
   const id = crypto.randomUUID();
@@ -239,8 +247,20 @@ export const gateway = {
     AdminWorkSelectionSchema.parse(await call("adminWorksSelection", query, signal)),
   databaseSchema: async (signal?: AbortSignal) =>
     DatabaseSchemaSchema.parse(await call("databaseSchema", {}, signal)),
-  databaseRows: async (table: string, page: number, q: string, signal?: AbortSignal) =>
-    DatabasePageSchema.parse(await call("databaseRows", { table, page, pageSize: 25, q }, signal)),
+  databaseRows: async (
+    table: string,
+    page: number,
+    q: string,
+    signal?: AbortSignal,
+    filter?: { column: string; value: string },
+  ) =>
+    DatabasePageSchema.parse(
+      await call(
+        "databaseRows",
+        { table, page, pageSize: 25, q, filterColumn: filter?.column, filterValue: filter?.value },
+        signal,
+      ),
+    ),
   serverOverview: async (signal?: AbortSignal) =>
     ServerOverviewSchema.parse(await call("serverOverview", {}, signal)),
   serverOperations: async (signal?: AbortSignal) =>
@@ -318,6 +338,14 @@ export const gateway = {
   },
   artwork: async (id: string, signal?: AbortSignal, width = 640) =>
     z
-      .object({ url: z.string().startsWith("nahhasio://app/_artwork/") })
+      .object({
+        url: z
+          .string()
+          .refine(
+            (url) =>
+              url.startsWith("nahhasio://app/_artwork/") ||
+              (developmentBrowserAvailable() && url.startsWith("blob:http://127.0.0.1:23110/")),
+          ),
+      })
       .parse(await call("artwork.url", { id, width }, signal)).url,
 };

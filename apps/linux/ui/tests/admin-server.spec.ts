@@ -226,6 +226,12 @@ test("overview uses server status and settings save name and write-only keys", a
   await expect(page.getByText("يحتاج إلى تجهيز", { exact: true })).toBeVisible();
   await page.screenshot({ path: "../../../data/previews/admin-server-overview.png" });
   await page.getByRole("link", { name: "إعدادات الخادم", exact: true }).click();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByLabel("عنوان خادم Jellyfin", { exact: true })).toBeDisabled();
+  await expect(page.getByLabel("رمز الوصول", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "مطابقة المكتبات", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("مفتاح Fanart", { exact: true })).toBeVisible();
   await page.getByLabel("اسم الخادم", { exact: true }).fill("مكتبة أكوا");
   await page.getByRole("button", { name: "حفظ الاسم", exact: true }).click();
   await expect(page.getByLabel("اسم الخادم", { exact: true })).toHaveValue("مكتبة أكوا");
@@ -245,6 +251,8 @@ test("overview uses server status and settings save name and write-only keys", a
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "../../../data/previews/admin-server-settings-narrow.png" });
+  await page.setViewportSize({ width: 360, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test("failed services show retry and unprepared credential storage disables writes", async ({

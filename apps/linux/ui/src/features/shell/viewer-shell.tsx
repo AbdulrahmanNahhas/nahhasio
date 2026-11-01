@@ -3,6 +3,8 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { cn } from "cn";
 import { useEffect, useState, useRef } from "react";
 
+import { developmentBrowserAvailable } from "@/lib/development-platform";
+
 import { CardNavigationProvider } from "../../components/card-navigation";
 import { Button } from "../../components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../../components/ui/sidebar";
@@ -110,6 +112,11 @@ export function ViewerShell({ user }: { user: User }) {
       </ContentRegion>
     </CardNavigationProvider>
   );
+  const developmentNotice = developmentBrowserAvailable() ? (
+    <div role="note" className="shrink-0 border-b bg-muted px-4 py-2 text-xs text-muted-foreground">
+      معاينة تطوير محلية · التشغيل والتنزيلات ومكتبة الجهاز تحتاج تطبيق Linux.
+    </div>
+  ) : null;
   return (
     <TooltipProvider delay={250}>
       <NativePageContext />
@@ -117,6 +124,7 @@ export function ViewerShell({ user }: { user: User }) {
         <SidebarProvider className={"h-dvh min-h-0 overflow-hidden"}>
           <AdminNavigation />
           <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+            {developmentNotice}
             <div className="flex shrink-0 items-center px-4 pt-3 md:hidden">
               <SidebarTrigger
                 aria-label="إظهار أو إخفاء القائمة"
@@ -144,6 +152,7 @@ export function ViewerShell({ user }: { user: User }) {
             />
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {developmentNotice}
             {content}
             <BottomNavigation path={route.path} />
           </div>

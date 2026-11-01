@@ -3730,7 +3730,13 @@ export class ApiClient {
   }
   async getAdminDatabaseTable(
     table: string,
-    query: { page?: number; pageSize?: number; q?: string } = {},
+    query: {
+      page?: number;
+      pageSize?: number;
+      q?: string;
+      filterColumn?: string;
+      filterValue?: string;
+    } = {},
     signal?: AbortSignal,
   ): Promise<DatabasePage> {
     const params = new URLSearchParams();

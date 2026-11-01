@@ -1105,6 +1105,8 @@ impl ServerSession {
                     page: Option<u32>,
                     page_size: Option<u32>,
                     q: Option<String>,
+                    filter_column: Option<String>,
+                    filter_value: Option<String>,
                 }
                 let input: Inspection = parse(request.payload)?;
                 let path = if request.command == "databaseSchema" {
@@ -1126,17 +1128,31 @@ impl ServerSession {
                 if input.page.is_some_and(|v| v == 0 || v > 100000)
                     || input.page_size.is_some_and(|v| v == 0 || v > 50)
                     || input.q.as_ref().is_some_and(|q| q.chars().count() > 200)
+                    || input
+                        .filter_column
+                        .as_ref()
+                        .is_some_and(|column| column.len() > 63)
+                    || input
+                        .filter_value
+                        .as_ref()
+                        .is_some_and(|value| value.chars().count() > 200)
+                    || input.filter_column.is_some() != input.filter_value.is_some()
                 {
                     return Err(Error::new("bad_request", "Invalid table query"));
+                }
+                let mut parameters = vec![
+                    ("page", input.page.unwrap_or(1).to_string()),
+                    ("pageSize", input.page_size.unwrap_or(25).to_string()),
+                    ("q", input.q.unwrap_or_default()),
+                ];
+                if let (Some(column), Some(value)) = (input.filter_column, input.filter_value) {
+                    parameters.push(("filterColumn", column));
+                    parameters.push(("filterValue", value));
                 }
                 let response = self
                     .authorized(Method::GET, &path)
                     .await?
-                    .query(&[
-                        ("page", input.page.unwrap_or(1).to_string()),
-                        ("pageSize", input.page_size.unwrap_or(25).to_string()),
-                        ("q", input.q.unwrap_or_default()),
-                    ])
+                    .query(&parameters)
                     .send()
                     .await
                     .map_err(network)?;

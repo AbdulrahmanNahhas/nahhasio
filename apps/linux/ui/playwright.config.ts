@@ -9,7 +9,10 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : undefined,
   },
   webServer: {
-    command: "pnpm build && pnpm exec vite preview --host 127.0.0.1 --port 23110 --strictPort",
+    command:
+      process.env.NAHHASIO_BROWSER_DEVELOPMENT_TEST === "1"
+        ? "pnpm dev"
+        : "pnpm build && pnpm exec vite preview --host 127.0.0.1 --port 23110 --strictPort",
     url: "http://127.0.0.1:23110",
     reuseExistingServer: !process.env.CI,
   },

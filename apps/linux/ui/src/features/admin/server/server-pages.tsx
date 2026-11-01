@@ -20,7 +20,13 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
+  FieldDescription,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
@@ -237,7 +243,7 @@ export function ServerOverviewPage() {
 export function ServerSettingsPage({ embedded = false }: { embedded?: boolean }) {
   const settings = useQuery(serverSettingsQuery());
   return (
-    <div className={cn("flex w-full flex-col gap-6", !embedded && "mx-auto max-w-4xl p-6")}>
+    <div className={cn("flex w-full min-w-0 flex-col gap-5", !embedded && "mx-auto max-w-6xl p-6")}>
       {!embedded && (
         <header>
           <h1 className="text-2xl font-semibold">إعدادات الخادم</h1>
@@ -258,9 +264,8 @@ export function ServerSettingsPage({ embedded = false }: { embedded?: boolean })
               <KeyRound aria-hidden="true" />
               مفاتيح المصادر
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              تُحفظ المفاتيح على الخادم فقط. تظهر حالتها دون عرض قيمتها. الحفظ لا يختبر صلاحية المفتاح
-              عند المصدر.
+            <p className="mt-1 text-sm text-muted-foreground">
+              مفاتيح مشتركة تُحفظ على الخادم ولا تُعرض قيمتها. الحفظ لا يختبر اتصال المزود.
             </p>
           </div>
           {!settings.data.providers.editable && (
@@ -272,9 +277,11 @@ export function ServerSettingsPage({ embedded = false }: { embedded?: boolean })
               </AlertDescription>
             </Alert>
           )}
-          {(["tmdb", "fanart"] as const).map((provider) => (
-            <ProviderForm key={provider} provider={provider} settings={settings.data.providers} />
-          ))}
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+            {(["tmdb", "fanart"] as const).map((provider) => (
+              <ProviderForm key={provider} provider={provider} settings={settings.data.providers} />
+            ))}
+          </div>
         </>
       )}
     </div>
@@ -293,7 +300,7 @@ function IdentityForm({ server }: { server: ServerIdentity }) {
     },
   });
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>هوية الخادم</CardTitle>
         <CardDescription>الاسم الذي تراه العائلة عند الاتصال بالمكتبة.</CardDescription>
@@ -309,17 +316,25 @@ function IdentityForm({ server }: { server: ServerIdentity }) {
       >
         <CardContent>
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="server-name">اسم الخادم</FieldLabel>
-              <Input
-                ref={input}
-                id="server-name"
-                defaultValue={server.name}
-                required
-                maxLength={100}
-                disabled={save.isPending}
-              />
-              <FieldDescription>هوية الخادم الثابتة لا تتغير عند تغيير الاسم.</FieldDescription>
+            <Field orientation="responsive">
+              <FieldContent>
+                <FieldLabel htmlFor="server-name">اسم الخادم</FieldLabel>
+                <FieldDescription>يظهر عند الاتصال بالمكتبة.</FieldDescription>
+              </FieldContent>
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                <Input
+                  ref={input}
+                  id="server-name"
+                  defaultValue={server.name}
+                  required
+                  maxLength={100}
+                  disabled={save.isPending}
+                  className="min-w-0 flex-1 basis-64"
+                />
+                <Button type="submit" disabled={save.isPending}>
+                  {save.isPending ? "جارٍ الحفظ…" : "حفظ الاسم"}
+                </Button>
+              </div>
             </Field>
             {save.isError && (
               <Alert variant="destructive">
@@ -339,11 +354,6 @@ function IdentityForm({ server }: { server: ServerIdentity }) {
             )}
           </FieldGroup>
         </CardContent>
-        <CardFooter className="mt-6">
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? "جارٍ الحفظ…" : "حفظ الاسم"}
-          </Button>
-        </CardFooter>
       </form>
     </Card>
   );
@@ -382,7 +392,7 @@ function ProviderForm({
   });
   const disabled = !settings.editable || save.isPending;
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between gap-2">
           {name}
@@ -422,7 +432,7 @@ function ProviderForm({
                 disabled={disabled}
               />
               <FieldDescription>
-                أدخل مفتاحاً جديداً لاستبدال الحالي. لن تُعاد قيمته إلى التطبيق.
+                أدخل مفتاحًا لاستبدال الحالي؛ تبقى القيمة مخفية بعد الحفظ.
               </FieldDescription>
             </Field>
             {save.isError && (
@@ -439,13 +449,14 @@ function ProviderForm({
             )}
           </FieldGroup>
         </CardContent>
-        <CardFooter className="mt-6 flex flex-wrap gap-2">
-          <Button type="submit" disabled={disabled}>
+        <CardFooter className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" type="submit" disabled={disabled}>
             {save.isPending ? "جارٍ الحفظ…" : "حفظ المفتاح"}
           </Button>
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={() => save.mutate("disable")}
             disabled={disabled || status.source === "disabled"}
           >
@@ -454,6 +465,7 @@ function ProviderForm({
           <Button
             type="button"
             variant="ghost"
+            size="sm"
             onClick={() => save.mutate("environment")}
             disabled={disabled || status.source === "environment"}
           >

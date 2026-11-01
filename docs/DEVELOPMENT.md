@@ -53,6 +53,23 @@ For live UI development use `devenv --profile dev up` (`devenv -P dev up`). It u
 catalog/client state, adds Vite, and launches GTK against `http://127.0.0.1:23110/` after readiness.
 React/CSS edits use Vite HMR; the normal profile uses the freshly built packaged UI.
 
+The same Vite development server also supports a local browser at `http://127.0.0.1:23110/`.
+Use `devenv --profile browser up` for PostgreSQL, the demo API and Vite without launching GTK.
+Stop any previously running profile before switching, so fixed ports and the cluster are not
+started twice. The browser and desktop profiles share the same persistent synthetic catalog.
+Sign in with a demo account to use real catalog and admin services without launching GTK.
+The browser adapter accepts only the fixed synthetic server identity on port 23103, through a
+loopback-only Vite proxy with host/origin checks. Authorization remains enforced by the Rust API.
+Session tokens stay in memory: reloading requires signing in again, and browser remembering is
+unavailable. Non-secret Browse preferences are scoped to the demo account in this browser.
+Player, transfers, offline files, secure storage and native maintenance features require Linux.
+The adapter/proxy exist only in Vite development mode; production bundles keep the native bridge
+and CSP. This does not add website hosting, assets or deployment services to Fedora.
+Run the opt-in real-demo acceptance with
+`NAHHASIO_BROWSER_DEVELOPMENT_TEST=1 pnpm --filter @nahhasio/linux-ui test:e2e browser-development.spec.ts`
+inside devenv while Vite and the local demo API are running. Ordinary browser tests retain their
+isolated fixture bridge and do not access the development database.
+
 Rust changes still require a rebuild/restart: use `devenv --profile dev processes restart client`
 for the shell or `devenv --profile dev processes restart server` for the API. Fully quit any
 separately launched GTK instance first so single-instance activation cannot retain an old shell.

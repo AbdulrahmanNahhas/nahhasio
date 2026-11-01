@@ -123,6 +123,9 @@ The mode checks the actual settings view, absence of alerts/overflow and decodin
 through the authenticated native resource handler, records viewport/DPR and captures settings.
 It does not exercise real catalog images, remembering via the desktop Secret portal or playback.
 Use a synthetic localhost API that rejects unknown routes, never a production forwarding proxy.
+`NAHHASIO_SMOKE_ADMIN_SETTINGS=1` selects the admin settings variant: use a synthetic admin
+account and start at `#/admin/settings`. It additionally checks that both provider inputs are
+present and no tabs remain. It renders the page without submitting server or credential changes.
 
 ## 4. Acceptance and reporting
 

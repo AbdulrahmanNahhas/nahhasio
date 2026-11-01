@@ -2236,6 +2236,26 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "filterColumn",
+            "in": "query",
+            "required": false,
+            "description": "Optional exact match; filterColumn and filterValue must be supplied together. Protected columns cannot be filtered.",
+            "schema": {
+              "type": "string",
+              "maxLength": 63
+            }
+          },
+          {
+            "name": "filterValue",
+            "in": "query",
+            "required": false,
+            "description": "Optional exact match; filterColumn and filterValue must be supplied together. Protected columns cannot be filtered.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
           }
         ],
         "responses": {
@@ -12407,8 +12427,12 @@
           "capabilities": {
             "type": "object",
             "properties": {
-              "artworkVariants": { "type": "boolean" },
-              "rememberedAccounts": { "type": "boolean" }
+              "artworkVariants": {
+                "type": "boolean"
+              },
+              "rememberedAccounts": {
+                "type": "boolean"
+              }
             }
           }
         }

@@ -10,8 +10,10 @@ import {
 } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { AccountsPage } from "./accounts/accounts-page";
 import { AdminPageHeader } from "./admin-page-header";
 import { DatabaseInspector } from "./database-inspector";
+import { JellyfinConnection } from "./server/jellyfin-connection";
 import { LibraryActions } from "./server/library-actions";
 import { ServerMaintenance, ClientUpdateCard } from "./server/maintenance";
 import { ServerSettingsPage } from "./server/server-pages";
@@ -100,6 +102,23 @@ export function AdminWorkspacePage({
 }) {
   const workspace = workspaces[section];
   const selected = workspace.tabs.find((item) => item.value === tab) ?? workspace.tabs[0];
+  if (section === "accounts") return <AccountsPage tab={tab} />;
+  if (section === "settings")
+    return (
+      <article className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5 p-4 pb-10 sm:p-6">
+        <header className="flex items-start gap-3">
+          <Settings className="mt-1 size-6 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="text-2xl font-semibold">الإعدادات والاتصالات</h1>
+            <p className="text-sm text-muted-foreground">
+              هوية المكتبة ومصادر البيانات والاتصالات المشتركة.
+            </p>
+          </div>
+        </header>
+        <ServerSettingsPage embedded />
+        <JellyfinConnection />
+      </article>
+    );
   return (
     <article className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 pb-16 sm:p-6">
       <AdminPageHeader
@@ -137,8 +156,6 @@ export function AdminWorkspacePage({
                 </EmptyHeader>
                 <Badge variant="outline">غير متاح بعد</Badge>
               </Empty>
-            ) : section === "settings" && item.value === "general" ? (
-              <ServerSettingsPage embedded />
             ) : (
               <>
                 <p className="py-3 text-sm text-muted-foreground">

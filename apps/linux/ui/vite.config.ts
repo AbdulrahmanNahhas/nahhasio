@@ -11,6 +11,25 @@ export default defineConfig({
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     {
+      name: "nahhasio-local-development-api",
+      apply: "serve",
+      configureServer(server) {
+        server.middlewares.use("/__development_api", (request, response, next) => {
+          const origin = request.headers.origin;
+          if (
+            request.headers.host !== "127.0.0.1:23110" ||
+            (origin && origin !== "http://127.0.0.1:23110") ||
+            request.headers["sec-fetch-site"] === "cross-site"
+          ) {
+            response.writeHead(403);
+            response.end("Local development only");
+            return;
+          }
+          next();
+        });
+      },
+    },
+    {
       name: "nahhasio-production-csp",
       apply: "build",
       transformIndexHtml: (html) =>
@@ -21,6 +40,17 @@ export default defineConfig({
     },
   ],
   base: "./",
-  server: { host: "127.0.0.1", port: 23110, strictPort: true },
+  server: {
+    host: "127.0.0.1",
+    port: 23110,
+    strictPort: true,
+    proxy: {
+      "/__development_api": {
+        target: "http://127.0.0.1:23103",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/__development_api/, "/api"),
+      },
+    },
+  },
   build: { outDir: "dist" },
 });

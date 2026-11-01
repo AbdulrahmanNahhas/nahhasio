@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { gateway, nativeAvailable } from "@/lib/bridge";
+import { developmentBrowserAvailable } from "@/lib/development-platform";
 
 import { avatarSource } from "../account/account-avatar";
 import { OfflineProfiles } from "../player/offline-library";
@@ -53,6 +54,7 @@ export function Login({
   restoring?: boolean;
   sessionError?: string;
 }) {
+  const browserDevelopment = developmentBrowserAvailable();
   const [connections, setConnections] = useState(false);
   const accountButtons = useRef(new Map<string, HTMLButtonElement>());
   const returnAccountId = useRef<string | null>(null);
@@ -318,17 +320,19 @@ export function Login({
                   </InputGroup>
                   {capsLock && <FieldDescription>مفتاح الأحرف الكبيرة مفعّل.</FieldDescription>}
                 </Field>
-                <Field orientation="horizontal">
+                <Field orientation="horizontal" data-disabled={busy || browserDevelopment}>
                   <Checkbox
                     id="remember-account"
                     checked={remember}
                     onCheckedChange={(checked) => setRemember(checked === true)}
-                    disabled={busy}
+                    disabled={busy || browserDevelopment}
                   />
                   <FieldLabel htmlFor="remember-account">تذكّر هذا الحساب على هذا الجهاز</FieldLabel>
                 </Field>
                 <FieldDescription>
-                  يمكن لأي شخص يستخدم هذا الجهاز فتح الحساب المحفوظ. لا نحفظ كلمة مرورك.
+                  {browserDevelopment
+                    ? "جلسة معاينة مؤقتة؛ يلزم تسجيل الدخول بعد إعادة تحميل الصفحة."
+                    : "يمكن لأي شخص يستخدم هذا الجهاز فتح الحساب المحفوظ. لا نحفظ كلمة مرورك."}
                 </FieldDescription>
                 {login.error && (
                   <Alert variant="destructive">
@@ -360,7 +364,9 @@ export function Login({
         </div>
         <p className="flex items-center gap-2 text-center text-xs text-muted-foreground">
           <LockKeyhole className="size-3.5 shrink-0" aria-hidden="true" />
-          يبقى حسابك متصلاً على هذا الجهاز. كلمة مرورك لا تُحفظ.
+          {browserDevelopment
+            ? "معاينة تطوير محلية؛ بيانات الدخول لا تُحفظ في المتصفح."
+            : "يبقى حسابك متصلاً على هذا الجهاز. كلمة مرورك لا تُحفظ."}
         </p>
       </footer>
       <ServerConnections open={connections} onOpenChange={setConnections} />

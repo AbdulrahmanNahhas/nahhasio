@@ -41,7 +41,8 @@ pub fn install(
     passed: Rc<Cell<bool>>,
 ) {
     let home_only = std::env::var_os("NAHHASIO_SMOKE_HOME_ONLY").is_some();
-    let settings_only = std::env::var_os("NAHHASIO_SMOKE_SETTINGS").is_some();
+    let admin_settings = std::env::var_os("NAHHASIO_SMOKE_ADMIN_SETTINGS").is_some();
+    let settings_only = std::env::var_os("NAHHASIO_SMOKE_SETTINGS").is_some() || admin_settings;
     let artwork_id = std::env::var("NAHHASIO_SMOKE_ARTWORK_ID")
         .ok()
         .filter(|id| crate::bridge::valid_id(id));
@@ -75,8 +76,13 @@ pub fn install(
             2=>"(()=>{document.querySelector('form').requestSubmit();return 'submitted';})()".into(),
             3 if settings_only => {
                 let image=artwork_id.as_deref().unwrap_or("");
+                let (route, heading, action) = if admin_settings {
+                    ("#/admin/settings", "الإعدادات والاتصالات", "حفظ الاسم")
+                } else {
+                    ("#/settings?section=help", "الإعدادات والمساعدة", "معاينة تقرير التشخيص")
+                };
                 format!(r#"(()=>{{
-                    if(!location.hash.startsWith('#/settings')){{location.hash='/settings?section=help';return '{{}}';}}
+                    if(!location.hash.startsWith('{route}')){{location.hash='{route}';return '{{}}';}}
                     if(!window.__artworkProbeStarted){{
                         window.__artworkProbeStarted=true;
                         const previous=window.__nahhasioReply;
@@ -87,7 +93,7 @@ pub fn install(
                         window.webkit.messageHandlers.nahhasio.postMessage(JSON.stringify({{id:'artwork-probe',command:'artwork.url',payload:{{id:'{image}',width:320}}}}));
                     }}
                     const image=document.getElementById('artwork-probe');
-                    return JSON.stringify({{settingsReady:!!document.querySelector('h1')?.textContent.includes('الإعدادات والمساعدة') && document.body.textContent.includes('معاينة تقرير التشخيص'),imageReady:!!image?.naturalWidth,errors:document.querySelectorAll('[role=alert]').length,viewport:[innerWidth,innerHeight,devicePixelRatio],overflow:document.documentElement.scrollWidth>innerWidth}});
+                    return JSON.stringify({{settingsReady:!!document.querySelector('h1')?.textContent.includes('{heading}') && document.body.textContent.includes('{action}') && (!{admin_settings} || (document.querySelectorAll('[role=tab]').length===0 && !!document.getElementById('provider-tmdb') && !!document.getElementById('provider-fanart'))),imageReady:!!image?.naturalWidth,errors:document.querySelectorAll('[role=alert]').length,viewport:[innerWidth,innerHeight,devicePixelRatio],overflow:document.documentElement.scrollWidth>innerWidth}});
                 }})()"#)
             },
             3=>"JSON.stringify({posters:document.querySelectorAll('.home-fitted-row article a').length,images:Array.from(document.querySelectorAll('.home-fitted-row article img')).filter(img=>img.complete&&img.naturalWidth>0).length,errors:document.querySelectorAll('[role=alert]').length,heroReady:Array.from(document.querySelectorAll('section[aria-label=\"أحدث الأعمال\"] img')).every(image=>image.tagName==='IMG'?image.complete&&image.naturalWidth>0:!image.textContent.includes('جارٍ تحميل الصورة'))})".into(),

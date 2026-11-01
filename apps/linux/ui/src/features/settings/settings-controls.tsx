@@ -15,7 +15,9 @@ export function SettingsPanel({
   return (
     <Card size="sm" data-upcoming="true" aria-label={title}>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          <h3>{title}</h3>
+        </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>{children}</CardContent>

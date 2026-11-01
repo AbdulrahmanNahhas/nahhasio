@@ -123,7 +123,24 @@
     echo "Development demo: devenv up (PostgreSQL -> demo bootstrap -> Rust API -> GTK client)"
     echo "Live development: devenv --profile dev up (backend + Vite + GTK desktop)"
     echo "Built desktop: devenv up client"
+    echo "Browser only: devenv --profile browser up (local demo + Vite, no GTK)"
   '';
+
+  profiles.browser.module = {
+    processes.ui = {
+      exec = "pnpm --filter @nahhasio/linux-ui dev";
+      after = [ "devenv:processes:server" ];
+      ready = {
+        http.get = {
+          port = 23110;
+          path = "/";
+        };
+        period = 1;
+        timeout = 120;
+      };
+    };
+    processes.client.start.enable = lib.mkForce false;
+  };
 
   enterTest = ''
     pnpm check

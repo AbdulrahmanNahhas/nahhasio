@@ -35,6 +35,8 @@ struct Page {
     page: Option<i64>,
     page_size: Option<i64>,
     q: Option<String>,
+    filter_column: Option<String>,
+    filter_value: Option<String>,
 }
 
 pub(super) fn routes(pool: PgPool) -> Router {
@@ -102,6 +104,18 @@ async fn rows(
         .into_iter()
         .find(|table| table.name == name)
         .ok_or(Error(StatusCode::NOT_FOUND, "الجدول غير متاح."))?;
+    let filter = match (&input.filter_column, &input.filter_value) {
+        (None, None) => "$6::text is null".to_owned(),
+        (Some(column), Some(value)) if value.chars().count() <= 200 => {
+            let column = table
+                .columns
+                .iter()
+                .find(|field| field.name == *column && !field.protected)
+                .ok_or(Error(StatusCode::BAD_REQUEST, "حقل المطابقة غير متاح."))?;
+            format!("t.{}::text=$6::text", quote(&column.name))
+        }
+        _ => return Err(Error(StatusCode::BAD_REQUEST, "مرشح المطابقة غير صالح.")),
+    };
     let fields=table.columns.iter().map(|column| {
         let name=quote(&column.name);
         let value=if column.protected { "to_jsonb('[protected]'::text)".into() } else { format!("case when octet_length(to_jsonb(t.{name})::text)>262144 then jsonb_build_object('_truncated',true,'bytes',octet_length(to_jsonb(t.{name})::text)) else to_jsonb(t.{name}) end") };
@@ -126,6 +140,7 @@ async fn rows(
     } else {
         format!("($1='' or {search})")
     };
+    let search = format!("({search}) and ({filter})");
     let order = table
         .columns
         .iter()
@@ -154,6 +169,7 @@ async fn rows(
         .bind((page - 1) * size)
         .bind(name)
         .bind(page)
+        .bind(input.filter_value)
         .fetch_one(&mut *tx)
         .await?
         .0;
