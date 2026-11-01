@@ -37,6 +37,8 @@ struct Page {
     q: Option<String>,
     filter_column: Option<String>,
     filter_value: Option<String>,
+    sort_column: Option<String>,
+    sort_descending: Option<bool>,
 }
 
 pub(super) fn routes(pool: PgPool) -> Router {
@@ -96,7 +98,14 @@ async fn rows(
     let page = input.page.unwrap_or(1);
     let size = input.page_size.unwrap_or(25);
     let q = input.q.unwrap_or_default();
-    if !(1..=100000).contains(&page) || !(1..=50).contains(&size) || q.chars().count() > 200 {
+    if !(1..=100000).contains(&page)
+        || !(1..=50).contains(&size)
+        || q.chars().count() > 200
+        || input
+            .sort_column
+            .as_ref()
+            .is_some_and(|column| column.len() > 63)
+    {
         return Err(Error(StatusCode::BAD_REQUEST, "مرشحات الجدول غير صالحة."));
     }
     let table = metadata(&pool)
@@ -141,12 +150,30 @@ async fn rows(
         format!("($1='' or {search})")
     };
     let search = format!("({search}) and ({filter})");
-    let order = table
+    let mut order = table
         .columns
         .iter()
         .filter(|column| column.primary)
         .map(|column| format!("t.{}", quote(&column.name)))
         .collect::<Vec<_>>();
+    if let Some(name) = input.sort_column {
+        let column = table
+            .columns
+            .iter()
+            .find(|column| column.name == name && !column.protected)
+            .ok_or(Error(StatusCode::BAD_REQUEST, "حقل الترتيب غير متاح."))?;
+        let direction = if input.sort_descending.unwrap_or(false) {
+            "desc"
+        } else {
+            "asc"
+        };
+        order.insert(
+            0,
+            format!("t.{} {direction} nulls last", quote(&column.name)),
+        );
+    } else if input.sort_descending.is_some() {
+        return Err(Error(StatusCode::BAD_REQUEST, "مرشح الترتيب غير صالح."));
+    }
     let order = if order.is_empty() {
         "t.ctid".into()
     } else {

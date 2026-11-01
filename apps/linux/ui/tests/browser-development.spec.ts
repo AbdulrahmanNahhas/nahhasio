@@ -1,4 +1,4 @@
-import { LoginResponseSchema } from "@nahhasio/api-contract";
+import { LoginResponseSchema, ServerOverviewSchema } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
 
 test.skip(
@@ -156,4 +156,89 @@ test("accounts workspace uses exact, protected-column-safe admin reads against t
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.screenshot({ path: "../../../data/previews/browser-development-accounts.png" });
+});
+
+test("overview type counts agree with combined administrative Browse-equivalent filters", async ({
+  request,
+}) => {
+  const login = await request.post("/__development_api/v1/auth/login", {
+    data: { email: "admin@demo.local", password: "demo12345", remember: false },
+  });
+  const session = LoginResponseSchema.parse(await login.json());
+  const headers = { Authorization: `Bearer ${session.token}` };
+  try {
+    const response = await request.get("/__development_api/v1/admin/server/overview", { headers });
+    expect(response.status()).toBe(200);
+    const overview = ServerOverviewSchema.parse(await response.json());
+    expect(overview.insights.kinds).toBeDefined();
+    expect(overview.insights.kinds?.reduce((sum, row) => sum + row.value, 0)).toBe(
+      overview.counts.works,
+    );
+    for (const format of ["animated", "live-action"]) {
+      for (const structure of ["movie", "series"]) {
+        const list = await request.get("/__development_api/v1/admin/works", {
+          headers,
+          params: { format, structure, page: 1, pageSize: 25 },
+        });
+        expect(list.status()).toBe(200);
+        const result = await list.json();
+        expect(result.total).toBe(
+          overview.insights.kinds?.find((row) => row.key === `${format}-${structure}`)?.value ?? 0,
+        );
+      }
+    }
+  } finally {
+    await request.post("/__development_api/v1/auth/logout", { headers, data: {} });
+  }
+});
+
+test("activity sorting is stable, chronological and rejects protected or invalid columns", async ({
+  request,
+}) => {
+  const login = await request.post("/__development_api/v1/auth/login", {
+    data: { email: "admin@demo.local", password: "demo12345", remember: false },
+  });
+  const session = LoginResponseSchema.parse(await login.json());
+  const headers = { Authorization: `Bearer ${session.token}` };
+  const endpoint = "/__development_api/v1/admin/database/audit_logs";
+  try {
+    const params = { sortColumn: "created_at", sortDescending: true, page: 1, pageSize: 5 };
+    const response = await request.get(endpoint, { headers, params });
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data.rows.length).toBeGreaterThan(0);
+    const timestamps = data.rows.map((row: { created_at: string }) => Date.parse(row.created_at));
+    expect(timestamps).toEqual(timestamps.toSorted((a: number, b: number) => b - a));
+    const repeat = await request.get(endpoint, { headers, params });
+    expect((await repeat.json()).rows.map((row: { id: string }) => row.id)).toEqual(
+      data.rows.map((row: { id: string }) => row.id),
+    );
+    const ascending = await request.get(endpoint, {
+      headers,
+      params: { ...params, sortDescending: false },
+    });
+    const ascendingRows = (await ascending.json()).rows.map((row: { created_at: string }) =>
+      Date.parse(row.created_at),
+    );
+    expect(ascendingRows).toEqual(ascendingRows.toSorted((a: number, b: number) => a - b));
+    expect(
+      (
+        await request.get(endpoint, { headers, params: { sortColumn: "created_at;drop table" } })
+      ).status(),
+    ).toBe(400);
+    expect(
+      (await request.get(endpoint, { headers, params: { sortDescending: true } })).status(),
+    ).toBe(400);
+    expect(
+      (
+        await request.get("/__development_api/v1/admin/database/auth_sessions", {
+          headers,
+          params: { sortColumn: "token" },
+        })
+      ).status(),
+    ).toBe(400);
+    expect((await request.get(endpoint, { params })).status()).toBe(401);
+  } finally {
+    await request.post("/__development_api/v1/auth/logout", { headers, data: {} });
+  }
 });

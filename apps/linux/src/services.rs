@@ -1107,6 +1107,8 @@ impl ServerSession {
                     q: Option<String>,
                     filter_column: Option<String>,
                     filter_value: Option<String>,
+                    sort_column: Option<String>,
+                    sort_descending: Option<bool>,
                 }
                 let input: Inspection = parse(request.payload)?;
                 let path = if request.command == "databaseSchema" {
@@ -1137,6 +1139,11 @@ impl ServerSession {
                         .as_ref()
                         .is_some_and(|value| value.chars().count() > 200)
                     || input.filter_column.is_some() != input.filter_value.is_some()
+                    || input
+                        .sort_column
+                        .as_ref()
+                        .is_some_and(|column| column.len() > 63)
+                    || (input.sort_descending.is_some() && input.sort_column.is_none())
                 {
                     return Err(Error::new("bad_request", "Invalid table query"));
                 }
@@ -1148,6 +1155,13 @@ impl ServerSession {
                 if let (Some(column), Some(value)) = (input.filter_column, input.filter_value) {
                     parameters.push(("filterColumn", column));
                     parameters.push(("filterValue", value));
+                }
+                if let Some(column) = input.sort_column {
+                    parameters.push(("sortColumn", column));
+                    parameters.push((
+                        "sortDescending",
+                        input.sort_descending.unwrap_or(false).to_string(),
+                    ));
                 }
                 let response = self
                     .authorized(Method::GET, &path)

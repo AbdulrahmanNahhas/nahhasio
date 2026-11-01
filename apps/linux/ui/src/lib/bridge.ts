@@ -253,11 +253,21 @@ export const gateway = {
     q: string,
     signal?: AbortSignal,
     filter?: { column: string; value: string },
+    order?: { column: string; descending: boolean },
   ) =>
     DatabasePageSchema.parse(
       await call(
         "databaseRows",
-        { table, page, pageSize: 25, q, filterColumn: filter?.column, filterValue: filter?.value },
+        {
+          table,
+          page,
+          pageSize: 25,
+          q,
+          filterColumn: filter?.column,
+          filterValue: filter?.value,
+          sortColumn: order?.column,
+          sortDescending: order?.descending,
+        },
         signal,
       ),
     ),

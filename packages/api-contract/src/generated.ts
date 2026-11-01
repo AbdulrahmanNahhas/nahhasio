@@ -3172,6 +3172,14 @@ export const ServerOverviewSchema = z.strictObject({
         createdAt: z.string(),
       }),
     ),
+    kinds: z
+      .array(
+        z.strictObject({
+          key: z.string(),
+          value: z.number().int().min(0),
+        }),
+      )
+      .optional(),
   }),
   checks: z.array(
     z.strictObject({
@@ -3736,6 +3744,8 @@ export class ApiClient {
       q?: string;
       filterColumn?: string;
       filterValue?: string;
+      sortColumn?: string;
+      sortDescending?: boolean;
     } = {},
     signal?: AbortSignal,
   ): Promise<DatabasePage> {

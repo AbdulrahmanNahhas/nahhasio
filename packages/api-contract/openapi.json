@@ -2256,6 +2256,25 @@
               "type": "string",
               "maxLength": 200
             }
+          },
+          {
+            "name": "sortColumn",
+            "in": "query",
+            "required": false,
+            "description": "Optional unprotected metadata column. Primary-key ordering remains as a stable tie-breaker.",
+            "schema": {
+              "type": "string",
+              "maxLength": 63
+            }
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "required": false,
+            "description": "Requires sortColumn. Defaults to ascending. Nulls sort last.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -13485,6 +13504,24 @@
                     }
                   }
                 }
+              },
+              "kinds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "value"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "description": "Optional on older servers. Work-level types use the same production and season-existence rules as Browse kinds. Each work is counted once."
               }
             }
           },

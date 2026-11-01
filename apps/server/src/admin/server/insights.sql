@@ -12,6 +12,7 @@ with work_stats as (
 )
 select jsonb_build_object(
  'formats',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select format::text key,count(*) value from work_stats group by format order by count(*) desc)x),
+ 'kinds',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select format::text||case when is_series then '-series' else '-movie' end key,count(*) value from work_stats group by format,is_series order by format,is_series)x),
  'workflow',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select workflow_status::text key,count(*) value from work_stats group by workflow_status order by count(*) desc)x),
  'statuses',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select release_status key,count(*) value from work_stats group by release_status order by count(*) desc)x),
  'languages',jsonb_build_array(jsonb_build_object('key','ar','value',(select count(*) from work_stats where 'ar'=any(dub_languages))),jsonb_build_object('key','en','value',(select count(*) from work_stats where not 'ar'=any(dub_languages)))),
