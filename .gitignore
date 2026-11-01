@@ -40,6 +40,9 @@ data/recovery/
 data/development-packs/
 data/development-local/
 
+# Generated personalized catalog lists contain family watch history.
+/catalog-lists/
+
 # Devenv
 .devenv*
 devenv.local.nix

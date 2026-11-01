@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Refresh private, compact catalog Markdown snapshots from the authenticated LAN API."""
+
+import argparse
+from collections import Counter, defaultdict
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+import getpass
+import json
+import os
+from pathlib import Path
+import ssl
+import sys
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+from zoneinfo import ZoneInfo
+
+
+ROOT = Path(__file__).resolve().parent.parent
+WEIGHTS = {"story": ".25", "characters": ".20", "craft": ".15", "depth": ".20",
+           "worldBuilding": ".10", "originality": ".10"}
+FILES = {
+    "anime": ("ANIME-LIST.md", "Anime and anime movies"),
+    "western_movies": ("ANIMATED-MOVIES-LIST.md", "Western animated movies"),
+    "classics": ("CLASSICS-LIST.md", "Classics and Ghibli/Ponoc movies"),
+    "animation_series": ("ANIMATED-SERIES-LIST.md", "Other animated series"),
+    "live_action": ("LIVE-ACTION-LIST.md", "Live-action works"),
+    "other": ("OTHER-WORKS-LIST.md", "Animation needing category review"),
+}
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RuntimeError("Server redirects are refused; verify the configured origin")
+
+
+class Client:
+    def __init__(self, server, ca):
+        parsed = urllib.parse.urlsplit(server)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("Use an HTTPS server origin without embedded credentials")
+        if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+            raise ValueError("Server must be an origin without a path, query or fragment")
+        self.server = server.rstrip("/")
+        self.token = None
+        context = ssl.create_default_context(cafile=str(ca))
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=context), NoRedirect())
+
+    def request(self, path, data=None):
+        headers = {"Content-Type": "application/json"}
+        if self.token:
+            headers["Authorization"] = "Bearer " + self.token
+        request = urllib.request.Request(self.server + path,
+                                        data=None if data is None else json.dumps(data).encode(),
+                                        headers=headers)
+        try:
+            with self.opener.open(request, timeout=60) as response:
+                raw = response.read()
+                return json.loads(raw) if raw else None
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(f"HTTP {error.code} at {path.split('?')[0]}") from None
+
+    def table(self, table, query=""):
+        return self.pages(f"/api/v1/admin/database/{table}", "rows", 50, {"q": query})
+
+    def pages(self, path, field, size, extra=None):
+        page, rows = 1, []
+        while True:
+            query = urllib.parse.urlencode({"page": page, "pageSize": size, **(extra or {})})
+            result = self.request(path + "?" + query)
+            batch = result[field]
+            rows.extend(batch)
+            if len(rows) >= result["total"]:
+                return rows
+            if not batch:
+                raise RuntimeError("Pagination stopped before all catalog rows were returned")
+            page += 1
+
+
+def main_studio(work):
+    for role in ("animation_studio", "production_company"):
+        candidates = [credit for credit in work["credits"]
+                      if credit["role"] == role and credit["isPrimary"]]
+        if candidates:
+            return min(candidates, key=lambda c: (c["position"], c["entity"]))["entity"]
+    studios = {c["entity"] for c in work["credits"] if c["role"] == "animation_studio"}
+    if len(studios) == 1:
+        return next(iter(studios)) + " †"
+    return "—"
+
+
+def category(work):
+    tags = set(work["tags"])
+    if work["format"] != "animated":
+        return "live_action"
+    movie = bool(work["installments"]) and all(
+        p["kind"] in ("movie", "special") for p in work["installments"])
+    classic_studio = movie and any(
+        "ghibli" in c["entity"].lower() or "ponoc" in c["entity"].lower()
+        for c in work["credits"] if c["role"] == "animation_studio")
+    if "childhood-classic" in tags or classic_studio:
+        return "classics"
+    if tags.intersection({"anime-series", "anime-movie"}):
+        return "anime"
+    if movie or "animated-movie" in tags:
+        return "western_movies"
+    if "animated-series" in tags or any(p["kind"] == "season" for p in work["installments"]):
+        return "animation_series"
+    return "other"
+
+
+def units(work, playback, today):
+    # Match apps/server/src/catalog/tracking.rs: specials count once, seasons by episode.
+    result = []
+    for part in work["installments"]:
+        members = part["episodes"] if part["kind"] == "season" else [None]
+        for episode in members:
+            date = episode["releaseDate"] if episode else part["releaseDate"]
+            released = date <= today if date else part["status"] == "completed"
+            state = playback.get((part["id"], episode["id"] if episode else None), {})
+            result.append((released, bool(state.get("is_played")),
+                           bool(state.get("is_played") or (state.get("position_seconds") or 0) > 0)))
+    return result
+
+
+def watch_label(work, playback, today):
+    data = units(work, playback, today)
+    total = sum(released for released, _, _ in data)
+    played = sum(released and watched for released, watched, _ in data)
+    started = any(started for _, _, started in data)
+    if total and total == played:
+        return f"Watched {played}/{total}"
+    if started:
+        return f"In progress {played}/{total}"
+    if total:
+        return f"Not watched 0/{total}"
+    if any(p["status"] == "announced" for p in work["installments"]):
+        return "Upcoming"
+    return "No released units"
+
+
+def rating(work):
+    values = []
+    for part in work["installments"]:
+        score = part["score"]
+        if all(score.get(key) is not None for key in WEIGHTS):
+            values.append(sum(Decimal(str(score[key])) * Decimal(weight)
+                              for key, weight in WEIGHTS.items()))
+    if not values:
+        return "—"
+    return str((sum(values) / len(values)).quantize(Decimal(".1"), rounding=ROUND_HALF_UP))
+
+
+def part_label(work):
+    counts = Counter(p["kind"] for p in work["installments"])
+    names = {"season": "season", "movie": "film", "special": "special"}
+    result = [f"{n} {names[k]}{'s' if n != 1 else ''}" for k, n in counts.items()]
+    upcoming = sum(p["status"] == "announced" for p in work["installments"])
+    if upcoming:
+        result.append(f"{upcoming} upcoming")
+    return ", ".join(result) or "Not entered"
+
+
+def section(work, bucket, today):
+    parts = work["installments"]
+    if parts and all(p["status"] == "announced" and
+                     (not p["releaseDate"] or p["releaseDate"] > today) for p in parts):
+        return "Upcoming"
+    if bucket in ("western_movies", "animation_series"):
+        return main_studio(work)
+    if bucket == "anime":
+        if "romance-focused-anime" in work["tags"] or "romance" in work["genres"]:
+            return "Romance / RomCom"
+        if parts and all(p["kind"] in ("movie", "special") for p in parts):
+            return "Movies"
+        seasons = [p for p in parts if p["kind"] == "season"]
+        if len(seasons) <= 1 and sum(len(p["episodes"]) for p in seasons) < 40:
+            return "One season / limited series"
+        return "Multiple seasons / longer series"
+    return "Series" if any(p["kind"] == "season" for p in parts) else "Movies"
+
+
+def cell(value):
+    return str(value).replace("|", "\\|").replace("\n", " ").replace("\r", " ")
+
+
+def render(works, playback, favorites, account, stamp, today):
+    buckets = defaultdict(list)
+    for work in works:
+        buckets[category(work)].append(work)
+    assert sum(map(len, buckets.values())) == len(works)
+    text = {}
+    common = (f"Refreshed: {stamp}. Watch status: **Nahhas Family** (`{account['slug']}`).\n\n"
+              "Progress counts released episodes/films/specials recorded in the catalog; upcoming parts do not count. "
+              "`[Private]` marks admin-only works; `★` marks this account's favorites. "
+              "`†` means the sole credited animation studio is not explicitly marked primary; "
+              "`—` in the studio column means no unambiguous main studio is designated. "
+              "Score is the catalog's editorial rating, not the family's personal rating. "
+              "These are snapshots; refresh after catalog or watch-state changes.\n")
+    for bucket, (filename, title) in FILES.items():
+        groups = defaultdict(list)
+        for work in buckets[bucket]:
+            groups[section(work, bucket, today)].append(work)
+        lines = [f"# {title}", "", f"**{len(buckets[bucket])} works.**", "", common]
+        ordered = sorted(groups, key=lambda k: (k == "Upcoming", k.lower()))
+        for group in ordered:
+            lines.extend([f"## {group}", "", "| Work (year) | Watch status | Parts | Audience | Genres | Main studio | Score |",
+                          "| --- | --- | --- | --- | --- | --- | --- |"])
+            for work in sorted(groups[group], key=lambda w: w["canonicalTitle"].casefold()):
+                name = f"{work['canonicalTitle']} ({work['releaseYear'] or 'TBA'})"
+                if work["isPrivate"]:
+                    name += " [Private]"
+                if work["id"] in favorites:
+                    name += " ★"
+                audience = work["audience"].replace("-", " ").title() + " / " + work["age"]
+                row = [name, watch_label(work, playback, today), part_label(work), audience,
+                       ", ".join(g.replace("-", " ").title() for g in work["genres"]),
+                       main_studio(work), rating(work)]
+                lines.append("| " + " | ".join(map(cell, row)) + " |")
+            lines.append("")
+        if not groups:
+            lines.extend(["No matching works.", ""])
+        text[filename] = "\n".join(lines)
+    lines = ["# Family catalog lists", "", common, f"**{len(works)} works**, each listed once.", "",
+             "| List | Works |", "| --- | --- |"]
+    for bucket, (filename, title) in FILES.items():
+        lines.append(f"| [{title}]({filename}) | {len(buckets[bucket])} |")
+    lines.extend(["", "## Refresh", "", "From the Nahhasio project on Shadow:", "", "```sh",
+                  "devenv shell -- python3 bin/refresh-catalog-lists", "```", "",
+                  "The command prompts for an authorized admin email/password, reads the live LAN API, "
+                  "and logs out. It never changes catalog or watch data. Credentials are not saved.", "",
+                  "Anime uses the curated anime tags, including Chinese entries. Childhood classics "
+                  "and Ghibli/Ponoc films have a separate list. Western films and other animation "
+                  "are grouped by the main studio only. A sole unmarked animation credit is shown "
+                  "with †; multiple unmarked studios remain unassigned. Missing metadata is shown as a dash. "
+                  "Progress can undercount a series when its episode catalog is incomplete.", "",
+                  "These personalized generated files are ignored by Git. Do not publish or commit "
+                  "family watch history without explicit authorization. Regenerate instead of editing rows.", ""])
+    text["README.md"] = "\n".join(lines)
+    return text, {FILES[key][0]: len(buckets[key]) for key in FILES}
+
+
+def write_files(output, files):
+    output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    for name, content in files.items():
+        descriptor, temporary = tempfile.mkstemp(prefix=".refresh-", dir=output)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                stream.write(content)
+            os.replace(temporary, output / name)
+        finally:
+            if Path(temporary).exists():
+                Path(temporary).unlink()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--server", default="https://192.168.1.53:8443")
+    parser.add_argument("--ca", type=Path, default=ROOT / "data/backups/family-server-access/home-root.pem")
+    parser.add_argument("--account", default="family", help="Exact viewing-account slug or UUID")
+    parser.add_argument("--output", type=Path, default=ROOT / "catalog-lists")
+    parser.add_argument("--session-file", type=Path, help="Use an existing private admin session; caller owns logout")
+    args = parser.parse_args()
+    client = Client(args.server, args.ca)
+    owns_session = args.session_file is None
+    try:
+        if args.session_file:
+            if args.session_file.stat().st_mode & 0o077:
+                raise ValueError("Session file must be private (mode 0600)")
+            client.token = args.session_file.read_text().strip()
+        else:
+            email = input("Admin email: ").strip()
+            login = client.request("/api/v1/auth/login", {"email": email, "password": getpass.getpass()})
+            client.token = login["token"]
+        accounts = [a for a in client.table("accounts")
+                    if args.account in (a["slug"], a["id"]) and a["status"] == "active"]
+        if len(accounts) != 1:
+            raise ValueError("Viewing account is missing or ambiguous; supply an exact slug or UUID")
+        account = accounts[0]
+        selection = client.pages("/api/v1/admin/works", "items", 100)
+        works = []
+        for start in range(0, len(selection), 20):
+            result = client.request("/api/v1/admin/editor", {"operation": "read", "data": {
+                "ids": [w["id"] for w in selection[start:start + 20]]}})
+            works.extend(record["document"] for record in result["result"])
+        if len({work["id"] for work in works}) != len(selection):
+            raise RuntimeError("Catalog selection changed or returned duplicate works; retry refresh")
+        states = client.table("account_playback_states", account["id"])
+        playback = {(s["installment_id"], s["episode_id"]): s for s in states
+                    if s["account_id"] == account["id"]}
+        favorites = {s["title_id"] for s in client.table("account_title_states", account["id"])
+                     if s["account_id"] == account["id"] and s["is_favorite"]}
+        current = datetime.now(ZoneInfo("Europe/Istanbul"))
+        files, counts = render(works, playback, favorites, account,
+                               current.strftime("%Y-%m-%d %H:%M %Z"), current.date().isoformat())
+        write_files(args.output, files)
+        print(json.dumps({"output": str(args.output), "works": len(works), "lists": counts}, indent=2))
+    finally:
+        if owns_session and client.token:
+            client.request("/api/v1/auth/logout", {})
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"Catalog refresh failed: {error}", file=sys.stderr)
+        sys.exit(1)
