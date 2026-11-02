@@ -12,13 +12,15 @@ import { TooltipProvider } from "../../components/ui/tooltip";
 import { AccountMenu } from "../account/account-menu";
 import { AdminNavigation } from "../admin/admin-navigation";
 import { DownloadQueueButton } from "../player/download-queue-button";
+import { QuickSearch } from "../search/quick-search";
 import { BottomNavigation } from "./bottom-navigation";
 import { LibraryNavigation } from "./library-navigation";
 import { NativePageContext } from "./native-page-context";
-import { openSearch, useViewerRoute } from "./navigation";
+import { useViewerRoute } from "./navigation";
 const scrollPositions = new Map<string, number>();
 export function ViewerShell({ user }: { user: User }) {
   const route = useViewerRoute();
+  const [quickSearch, setQuickSearch] = useState(false);
   const [account, setAccount] = useState(false);
   const accountOpen = useRef(false);
   const navigationOpen = useRef(false);
@@ -41,12 +43,24 @@ export function ViewerShell({ user }: { user: User }) {
       ) {
         event.preventDefault();
         if (!event.repeat && !accountOpen.current && !navigationOpen.current) {
-          openSearch(true);
+          const target = event.target;
+          if (
+            !(target instanceof Element) ||
+            !target.closest('[role="dialog"], [role="alertdialog"]')
+          )
+            setQuickSearch(true);
         }
       }
     };
+    const openQuickSearch = () => {
+      if (!accountOpen.current && !navigationOpen.current) setQuickSearch(true);
+    };
     window.addEventListener("keydown", shortcut);
-    return () => window.removeEventListener("keydown", shortcut);
+    window.addEventListener("nahhasio:quick-search", openQuickSearch);
+    return () => {
+      window.removeEventListener("keydown", shortcut);
+      window.removeEventListener("nahhasio:quick-search", openQuickSearch);
+    };
   }, []);
   useEffect(() => {
     let enterPath: string | undefined;
@@ -77,6 +91,7 @@ export function ViewerShell({ user }: { user: User }) {
       main.current.focus({ preventScroll: true });
     }
     previous.current = resolvedPath;
+    navigationOpen.current = false;
   }, [resolvedPath]);
   const parts = route.path.split("/").slice(1);
   const adminArea = parts[0] === "admin" && user.isAdmin;
@@ -89,6 +104,7 @@ export function ViewerShell({ user }: { user: User }) {
         tabIndex={-1}
         className={cn(
           "relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-p-4 [scrollbar-color:var(--line)_transparent] scrollbar-thin motion-reduce:scroll-auto **:data-card-navigation:scroll-m-2",
+          !adminArea && "pb-24 md:pb-0",
         )}
         id="main-content"
       >
@@ -120,6 +136,7 @@ export function ViewerShell({ user }: { user: User }) {
   return (
     <TooltipProvider delay={250}>
       <NativePageContext />
+      <QuickSearch open={quickSearch} onOpenChange={setQuickSearch} isAdmin={user.isAdmin} />
       {adminArea ? (
         <SidebarProvider className={"h-dvh min-h-0 overflow-hidden"}>
           <AdminNavigation />
@@ -135,7 +152,7 @@ export function ViewerShell({ user }: { user: User }) {
           </SidebarInset>
         </SidebarProvider>
       ) : (
-        <div className="flex h-dvh overflow-hidden bg-background">
+        <div className="relative flex h-dvh overflow-hidden bg-background">
           <div className="hidden shrink-0 md:flex">
             <LibraryNavigation
               path={route.path}
@@ -154,7 +171,14 @@ export function ViewerShell({ user }: { user: User }) {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {developmentNotice}
             {content}
-            <BottomNavigation path={route.path} />
+            <BottomNavigation
+              path={route.path}
+              user={user}
+              onSearch={() => setQuickSearch(true)}
+              onDialogChange={(open) => {
+                navigationOpen.current = open;
+              }}
+            />
           </div>
         </div>
       )}

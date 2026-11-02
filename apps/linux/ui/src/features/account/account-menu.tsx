@@ -1,5 +1,5 @@
 import type { User } from "@nahhasio/api-contract";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Server, HardDrive, Settings, Users } from "lucide-react";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -14,16 +14,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { gateway } from "@/lib/bridge";
 
 import { connectionsOptions } from "../auth/connections";
-import { switchAccount } from "../auth/remembered-accounts";
 import { ServerConnections } from "../auth/server-connections";
-import { changeOfflineMode } from "../player/saved-works-data";
 import { navigate } from "../shell/navigation";
 import { AccountAvatar } from "./account-avatar";
+import { useAccountActions } from "./use-account-actions";
 
 export function AccountMenu({
   user,
@@ -39,29 +36,7 @@ export function AccountMenu({
   const currentServer = servers.data?.servers.find(
     (server) => server.url === servers.data.selected,
   );
-  const client = useQueryClient();
-  const local = useMutation({
-    networkMode: "always",
-    mutationFn: () => changeOfflineMode(client, user.accountId),
-    onError: (error) => toast.add({ type: "error", title: error.message }),
-  });
-  const switching = useMutation({
-    networkMode: "always",
-    mutationFn: () => switchAccount(client),
-    onSuccess: () => navigate("/home"),
-  });
-  const logout = useMutation({
-    mutationFn: gateway.logout,
-    onSettled: async () => {
-      await client.cancelQueries();
-      client.removeQueries({
-        predicate: (query) => query.queryKey[0] !== "session",
-      });
-      client.setQueryData(["session"], null);
-      window.dispatchEvent(new Event("nahhasio:signed-out"));
-      navigate("/home");
-    },
-  });
+  const { local, switching, logout } = useAccountActions(user.accountId);
   return (
     <>
       <DropdownMenu open={open} onOpenChange={onOpenChange}>

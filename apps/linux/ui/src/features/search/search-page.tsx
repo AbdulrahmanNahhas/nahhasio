@@ -1,6 +1,4 @@
-import type { FacetCatalog } from "@nahhasio/api-contract";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { ArrowUpLeft, Building2, LoaderCircle, Orbit, Search, Users, X } from "lucide-react";
+import { ArrowUpLeft, LoaderCircle, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Label } from "@/components/ui/label";
@@ -21,26 +19,12 @@ import {
   InputGroupInput,
 } from "../../components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
-import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import { entityLink, replaceParams } from "../shell/navigation";
-import { parseSearchType, searchCatalogOptions, searchTypes } from "./search-model";
-import type { SearchType } from "./search-model";
+import { matchingEntities } from "./search-entities";
+import { parseSearchType, searchTypes } from "./search-model";
+import { useLibrarySearch } from "./use-library-search";
 
-const entityTypes = [
-  { key: "contributors", type: "people", label: "الصنّاع", icon: Users },
-  { key: "studios", type: "studios", label: "الاستوديوهات", icon: Building2 },
-  { key: "planets", type: "planets", label: "الكواكب", icon: Orbit },
-] as const;
-function matchingEntities(data: FacetCatalog | undefined, q: string, type: SearchType) {
-  return entityTypes
-    .filter((group) => type === "all" || type === group.type)
-    .flatMap((group) =>
-      (data?.groups.find((facet) => facet.key === group.key)?.options ?? [])
-        .filter((item) => item.label.toLocaleLowerCase().includes(q.toLocaleLowerCase()))
-        .map((item) => ({ ...item, group })),
-    );
-}
 function EntityMatches({ items }: { items: ReturnType<typeof matchingEntities> }) {
   const navigation = useCardNavigation();
   const [limit, setLimit] = useState(12);
@@ -95,7 +79,7 @@ export function SearchPage({ params }: { params: URLSearchParams }) {
   const type = parseSearchType(params.get("type"));
   const isAdmin = useIsAdmin();
   const includePrivate = isAdmin && params.get("privacy") === "all";
-  const [q, setQ] = useState(text.trim());
+
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -106,58 +90,42 @@ export function SearchPage({ params }: { params: URLSearchParams }) {
     const focus = () => {
       input.current?.focus({ preventScroll: true });
     };
+    const frame = requestAnimationFrame(focus);
     window.addEventListener("nahhasio:focus-search", focus);
-    return () => window.removeEventListener("nahhasio:focus-search", focus);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("nahhasio:focus-search", focus);
+    };
   }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(text.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [text]);
-  const works = useInfiniteQuery(searchCatalogOptions(q, type, includePrivate));
-  const showWorks = ["all", "movies", "series", "installments"].includes(type);
-  const showEntities = ["all", "people", "studios", "planets"].includes(type);
-  const facets = useQuery({
-    queryKey: ["catalog", "search-entities", includePrivate ? "all" : "public"],
-    enabled: q.length > 0 && showEntities,
-    queryFn: ({ signal }) =>
-      gateway.facets({ view: "works", privacy: includePrivate ? "all" : "public" }, signal),
-  });
-  const entities = matchingEntities(facets.data, q, type);
-  const entries = works.data?.pages.flatMap((page) => page.items) ?? [];
-  const total =
-    (showWorks ? (works.data?.pages[0]?.total ?? 0) : 0) + (showEntities ? entities.length : 0);
-  const waiting =
-    text.trim() !== q || (showWorks && works.isLoading) || (showEntities && facets.isLoading);
-  const error =
-    (showWorks && !works.isFetchNextPageError ? works.error : null) ??
-    (showEntities ? facets.error : null);
+  const { q, works, facets, showWorks, showEntities, entities, entries, total, waiting, error } =
+    useLibrarySearch(text, type, includePrivate);
   return (
     <section
-      className="mx-auto min-h-full max-w-400 px-5 py-8 sm:px-9 sm:py-12 lg:px-14"
+      className="mx-auto min-h-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8"
       aria-label="صفحة البحث"
     >
-      <header className="mb-9 flex items-start justify-between gap-5">
-        <div>
-          <h1 className="text-3xl leading-relaxed font-semibold sm:text-5xl">
-            ما الحكاية التي تبحث عنها؟
-          </h1>
-          <p className="mt-4 max-w-160 text-sm leading-loose text-muted-foreground">
-            ابحث بعنوان، اسم بديل، أو صانع. الأعمال والأجزاء والأسماء والعوالم، في مكان واحد.
-          </p>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">البحث في المكتبة</h1>
+          <p className="text-sm text-muted-foreground">الأعمال والصنّاع والاستوديوهات والعوالم.</p>
         </div>
-        <span className="hidden size-18 shrink-0 place-items-center rounded-3xl border border-border bg-card text-primary lg:grid">
-          <Search className="size-8 stroke-[1.5]" aria-hidden="true" />
-        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.dispatchEvent(new Event("nahhasio:quick-search"))}
+        >
+          البحث السريع · Ctrl+K
+        </Button>
       </header>
       <div className="mb-6 shadow-xs backdrop-blur-sm">
         <form
           role="search"
           onSubmit={(event) => {
             event.preventDefault();
-            setQ(text.trim());
+            input.current?.blur();
           }}
         >
-          <InputGroup className="h-12 bg-background/80 rounded-xl transition-all focus-within:ring-2 focus-within:ring-ring/20">
+          <InputGroup className="h-12">
             <InputGroupAddon>
               <Search className="size-4 text-muted-foreground" aria-hidden="true" />
             </InputGroupAddon>
@@ -245,15 +213,10 @@ export function SearchPage({ params }: { params: URLSearchParams }) {
         </Button>
       )}
       {!text.trim() ? (
-        <div className="mx-auto flex max-w-150 flex-col items-center gap-4 py-12 text-center sm:py-20">
-          <span className="grid size-20 place-items-center rounded-full bg-secondary/50 text-muted-foreground">
-            <Search className="size-9 stroke-[1.25]" aria-hidden="true" />
-          </span>
-          <h2 className="text-xl font-semibold">كل مكتبتك، أقرب بكلمة</h2>
-          <p className="max-w-110 text-sm leading-loose text-muted-foreground">
-            ابدأ بكتابة ما تتذكره، ثم اختر نوعًا لتصل إلى النتيجة أسرع.
-          </p>
-        </div>
+        <NoResults
+          title="ما الذي تتذكره؟"
+          description="اكتب عنوانًا أو اسمًا، ثم اختر نوعًا لتضييق النتائج. يبحث «الكل» في الأعمال والأسماء والعوالم معًا."
+        />
       ) : (
         <>
           <header

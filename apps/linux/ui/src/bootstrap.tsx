@@ -24,7 +24,8 @@ if (!root) throw new Error("Application root is missing");
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <CSPProvider nonce={styleNonce} disableStyleElements={!styleNonce}>
+      {/* Vite has no native nonce; Base UI still needs its functional styles in development. */}
+      <CSPProvider nonce={styleNonce} disableStyleElements={!import.meta.env.DEV && !styleNonce}>
         <DirectionProvider direction="rtl">
           <TooltipProvider>
             <Toaster timeout={4500}>

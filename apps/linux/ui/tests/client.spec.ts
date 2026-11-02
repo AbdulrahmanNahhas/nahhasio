@@ -602,6 +602,12 @@ for (const width of [480, 1440]) {
     await page.screenshot({ path: `../../../data/previews/watch-${width}.png` });
   });
 }
+async function openSearchPage(page: Page) {
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await page.getByRole("button", { name: "كل الصفحات", exact: true }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "البحث", exact: true }).click();
+  } else await page.getByRole("link", { name: "البحث", exact: true }).click();
+}
 async function login(page: Page) {
   if ((await page.getByLabel("البريد الإلكتروني").count()) === 0)
     await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
@@ -968,10 +974,7 @@ for (const width of [480, 1440]) {
       });
       await page.setViewportSize({ width, height: 900 });
       await login(page);
-      const search = page.getByRole("link", { name: "البحث" });
-      const searchBox = await search.boundingBox();
-      expect(searchBox?.height).toBeGreaterThanOrEqual(36);
-      await search.click();
+      await openSearchPage(page);
       const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
       await expect(input).toBeFocused();
       await input.fill("missing");
@@ -1124,11 +1127,12 @@ for (const width of [480, 1440]) {
     expect(new Set(metrics.tops).size).toBe(1);
     const hero = await page.getByRole("region", { name: "أحدث الأعمال" }).boundingBox();
     expect(hero?.height).toBeLessThan(width < 600 ? 700 : 900);
-    await page.getByRole("link", { name: "البحث", exact: true }).click();
+    await openSearchPage(page);
     await expect(page).toHaveURL(/#\/search$/);
     await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toBeVisible();
     await page.keyboard.press("Control+k");
-    await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toBeFocused();
+    await expect(page.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" })).toBeFocused();
+    await page.keyboard.press("Escape");
     await rail.getByRole("link", { name: "الرئيسية", exact: true }).click();
     await expect(page).toHaveURL(/#\/home$/);
   });
@@ -1282,18 +1286,17 @@ for (const width of [480, 1440]) {
 
 test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ page }) => {
   await login(page);
-  const rail = page.getByRole("navigation", { name: "التنقل الرئيسي" });
-  await rail.getByRole("link", { name: "البحث", exact: true }).click();
+  await openSearchPage(page);
   const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
   await expect(input).toBeFocused();
   await input.fill("رحلة");
   const result = page.getByRole("link", { name: /تفاصيل رحلة في المكتبة/ });
   await expect(result).toBeVisible();
-  await rail.getByRole("link", { name: "الرئيسية", exact: true }).focus();
   await page.keyboard.press("Control+k");
-  await expect(input).toBeFocused();
+  const command = page.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
+  await expect(command).toBeFocused();
+  await page.keyboard.press("Escape");
   await expect(input).toHaveValue("رحلة");
-  await rail.getByRole("link", { name: "الرئيسية", exact: true }).focus();
   await page.evaluate(() =>
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -1305,14 +1308,12 @@ test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ pa
       }),
     ),
   );
-  await expect(input).toBeFocused();
+  await expect(command).toBeFocused();
+  await page.keyboard.press("Escape");
   await result.click();
   await expect(page).toHaveURL(/#\/titles\//);
   await page.goBack();
   await expect(input).toHaveValue("رحلة");
-  await rail.getByRole("link", { name: "الرئيسية", exact: true }).click();
-  await page.keyboard.press("Control+k");
-  await expect(input).toBeFocused();
 });
 
 for (const width of [480, 1440]) {
@@ -1321,7 +1322,7 @@ for (const width of [480, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await page.getByRole("link", { name: "البحث", exact: true }).click();
+    await openSearchPage(page);
     const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
     await input.fill("رحلة");
     const results = page.getByRole("region", { name: "الأعمال المطابقة" });
@@ -1420,3 +1421,103 @@ for (const width of [480, 1440]) {
     await expect(page.getByRole("table")).toBeVisible();
   });
 }
+
+for (const width of [360, 520]) {
+  test(`quick search mobile ${width}: floating navigation, menu, query handoff and focus`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 820 });
+    await login(page);
+    const nav = page.getByRole("navigation", { name: "التنقل الرئيسي" });
+    await expect(nav.getByRole("link", { name: "الرئيسية", exact: true })).toBeVisible();
+    expect(await nav.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const trigger = nav.getByRole("button", { name: "البحث السريع", exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "البحث السريع", exact: true });
+    const input = dialog.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
+    await expect(input).toBeFocused();
+    await expect(dialog.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" })).toHaveCount(0);
+    await expect(dialog.getByText("إلى أين تريد الذهاب؟", { exact: true })).toHaveCount(0);
+    await input.fill("رحلة");
+    await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
+    await page.screenshot({ path: `../../../data/previews/mobile-search-${width}.png` });
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await input.fill("رحلة");
+    await dialog.getByRole("button", { name: "فتح صفحة البحث", exact: true }).click();
+    await expect(page).toHaveURL(/#\/search\?q=/);
+    await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toHaveValue("رحلة");
+    await nav.getByRole("button", { name: "كل الصفحات", exact: true }).click();
+    const menu = page.getByRole("dialog", { name: "كل الصفحات", exact: true });
+    await expect(menu.getByRole("link", { name: "الصنّاع", exact: true })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "لوحة الإدارة", exact: true })).toBeAttached();
+    await expect(menu.locator('a[href^="#/admin/"]')).toHaveCount(0);
+    await expect(
+      menu
+        .getByRole("region", { name: "حسابي والجهاز", exact: true })
+        .getByRole("link", { name: "لوحة الإدارة", exact: true }),
+    ).toBeAttached();
+    await expect(menu.getByRole("region", { name: "الإدارة", exact: true })).toHaveCount(0);
+    const viewport = menu.locator('[data-slot="scroll-area-viewport"]');
+    await expect(viewport).toBeVisible();
+    await expect(viewport).toHaveCSS("scrollbar-width", "none");
+    await menu.getByRole("button", { name: "تسجيل الخروج", exact: true }).scrollIntoViewIfNeeded();
+    await expect(menu.getByRole("button", { name: "تسجيل الخروج", exact: true })).toBeInViewport();
+    await menu.getByRole("link", { name: "تصفّح المكتبة", exact: true }).scrollIntoViewIfNeeded();
+    await expect(menu.getByRole("img", { name: "صورة العائلة", exact: true })).toHaveCount(1);
+    await expect(menu.getByRole("button", { name: "تبديل الحساب", exact: true })).toBeAttached();
+    await expect(menu.getByRole("button", { name: "تسجيل الخروج", exact: true })).toBeAttached();
+    await expect(menu.getByRole("button", { name: "الملف والحساب", exact: true })).toHaveCount(0);
+    await expect(menu.getByRole("heading", { name: "كل الصفحات", exact: true })).toHaveClass(
+      /sr-only/,
+    );
+    await page.screenshot({ path: `../../../data/previews/mobile-pages-${width}.png` });
+    expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await menu.getByRole("link", { name: "تصفّح المكتبة", exact: true }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/browse/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: `../../../data/previews/mobile-navigation-${width}.png` });
+  });
+}
+
+test("quick search desktop: pages, content, keyboard selection and private opt-in", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  const home = page.getByRole("link", { name: "الرئيسية", exact: true });
+  await home.focus();
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "البحث السريع", exact: true });
+  const input = dialog.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
+  await expect(input).toBeFocused();
+  await input.fill("maintenance");
+  await expect(dialog.getByRole("option", { name: /صيانة الخادم/ })).toBeVisible();
+  await input.fill("عمل خاص");
+  await expect(dialog.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
+  await dialog.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" }).check();
+  await expect(dialog.getByRole("option", { name: /عمل خاص/ })).toBeVisible();
+  await input.fill("الخيال");
+  await expect(dialog.getByRole("option", { name: /الخيال.*الكواكب/ })).toBeVisible();
+  await input.fill("رحلة");
+  await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
+  await page.screenshot({ path: "../../../data/previews/quick-search-desktop.png" });
+  await page.keyboard.press("Escape");
+  await expect(home).toBeFocused();
+  await page.keyboard.press("Control+k");
+  await input.fill("calendar");
+  // The registry uses the canonical route name as an English search term.
+  await input.fill("releases");
+  await expect(dialog.getByRole("option", { name: /التقويم/ })).toBeVisible();
+  await input.press("ArrowDown");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/#\/releases/);
+  await expect(dialog).toHaveCount(0);
+});

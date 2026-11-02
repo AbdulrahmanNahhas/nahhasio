@@ -1,16 +1,4 @@
-import {
-  Building2,
-  CalendarDays,
-  Clapperboard,
-  Compass,
-  Ellipsis,
-  Home,
-  MonitorPlay,
-  Orbit,
-  Search,
-  Users,
-  Film,
-} from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { Brand } from "@/components/brand";
@@ -27,54 +15,9 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { openSearch } from "./navigation";
+import { libraryPages } from "./page-directory";
 
-const pages = [
-  { path: "home", label: "الرئيسية", description: "آخر الإضافات ومختارات المكتبة", icon: Home },
-  { path: "search", label: "البحث", description: "ابحث عن عمل أو اسم في المكتبة", icon: Search },
-  {
-    path: "browse",
-    label: "تصفّح المكتبة",
-    description: "الأعمال والمرشحات وعروض التصفح",
-    icon: Compass,
-  },
-  {
-    path: "releases",
-    label: "التقويم",
-    description: "مواعيد الأفلام والمواسم والحلقات",
-    icon: CalendarDays,
-  },
-  {
-    path: "planets",
-    label: "الكواكب",
-    description: "العوالم والأعمال التي تنتمي إليها",
-    icon: Orbit,
-  },
-  {
-    path: "episodes",
-    label: "الحلقات",
-    description: "أحدث الحلقات في المكتبة",
-    icon: Clapperboard,
-  },
-  {
-    path: "watch",
-    label: "مشاهدة مباشرة",
-    description: "افتح عملًا للمشاهدة أو التنزيل",
-    icon: MonitorPlay,
-  },
-  {
-    path: "trailers",
-    label: "الإعلانات التشويقية",
-    description: "شاهد إعلانات الأعمال على YouTube",
-    icon: Film,
-  },
-  {
-    path: "studios",
-    label: "الاستوديوهات",
-    description: "الاستوديوهات وإنتاجاتها ومساهماتها",
-    icon: Building2,
-  },
-  { path: "people", label: "الصنّاع", description: "الأشخاص وأعمالهم وأدوارهم", icon: Users },
-];
+const pages = libraryPages;
 const navigationItemClass =
   "relative flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground outline-none hover:bg-card hover:text-foreground aria-[current=page]:bg-secondary aria-[current=page]:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
 
