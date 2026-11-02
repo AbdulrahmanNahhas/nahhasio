@@ -116,6 +116,17 @@ impl Store {
     fn server_root(&self, server: &str) -> PathBuf {
         self.root.join("saved").join(hash(server))
     }
+    pub fn known_identity(&self, server: &str) -> Result<Option<String>, Error> {
+        let aliases: Vec<(String, String, String)> =
+            private_state::read(&self.root, "server-identities.json")?.unwrap_or_default();
+        if aliases.len() > 256 {
+            return Err(bad());
+        }
+        Ok(aliases
+            .into_iter()
+            .find(|(url, _, _)| url == server)
+            .map(|(_, id, _)| id))
+    }
     fn canonical_server(&self, server: &str) -> Result<String, Error> {
         let aliases: Vec<(String, String, String)> =
             private_state::read(&self.root, "server-identities.json")?.unwrap_or_default();
@@ -174,6 +185,8 @@ impl Store {
             .ok_or_else(|| Error::new("offline_owner", "سجّل الدخول أو اختر مكتبة جهاز محفوظة أولًا."))
     }
     pub async fn sign_out(&self, server: &str, account: Option<&str>) -> Result<(), Error> {
+        let canonical = self.canonical_server(server)?;
+        let server = canonical.as_str();
         let _guard = self.serial.lock().await;
         let account = match account {
             Some(id) => id.to_owned(),

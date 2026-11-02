@@ -432,6 +432,7 @@ fn build_window(
                 | "player.close"
                 | "player.pickVideo"
                 | "servers.select"
+                | "servers.addressUpdate"
                 | "offline.open"
                 | "offline.close"
                 | "login"
@@ -478,6 +479,7 @@ fn build_window(
         if matches!(
             request.command.as_str(),
             "servers.select"
+                | "servers.addressUpdate"
                 | "offline.open"
                 | "offline.close"
                 | "login"

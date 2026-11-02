@@ -354,10 +354,17 @@ impl ServerSession {
         base: &str,
         trust: Option<&crate::server_trust::Trust>,
     ) -> Result<Self, Error> {
-        let mut service = Self::with_trust(base, trust)?;
         let roots = crate::media_storage::Roots::discover()
             .map_err(|_| Error::new("configuration", "تعذّر تحديد مجلد حالة التطبيق."))?;
-        let store = crate::session_store::SessionStore::new(&roots.state);
+        Self::new_persistent_at(base, trust, &roots.state)
+    }
+    pub(crate) fn new_persistent_at(
+        base: &str,
+        trust: Option<&crate::server_trust::Trust>,
+        root: &std::path::Path,
+    ) -> Result<Self, Error> {
+        let mut service = Self::with_trust(base, trust)?;
+        let store = crate::session_store::SessionStore::new(root);
         let legacy = store.load(service.base.as_str())?;
         service
             .legacy_session
@@ -604,6 +611,7 @@ impl ServerSession {
                 Error::new("incompatible", "استجابة الخادم غير متوافقة مع هذا التطبيق.")
             })?;
         if info.product != "nahhasio"
+            || info.server_id.as_ref().is_some_and(|id| !valid_id(id))
             || info.api_version != 1
             || info.name.is_empty()
             || info.name.chars().count() > 100

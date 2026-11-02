@@ -11,11 +11,18 @@ sources, extensions, storage, offline, connection and help categories. Planned c
 disabled alongside implemented actions, with individual source TODOs. Password changes open
 on demand; server connections, testing and editing are available inline. Library card/table
 presentation remains in Browse, not Settings. Narrow layouts use a five-destination
-Home/Library/Search/Downloads/Account dock; desktop retains its navigation rail. Existing profile,
+Home/Library/Search/Downloads/More dock; desktop retains its navigation rail. Existing profile,
 password, download-cache, server-connection and Flatpak-update services remain
 the owners of their controls. OpenSubtitles, debrid and addon installation are future integrations,
 not active settings. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
 credentials, URLs and local file paths; nothing is sent automatically.
+
+Saved connections support an explicit address-update review: probe anonymously with the saved
+certificate authority, require the known server UUID, and recheck both before saving. Connection
+names and the canonical offline artwork/preferences namespace survive the change. Credentials
+remain origin-scoped, so the new address requires sign-in; explicit offline sign-out restrictions
+also survive address aliases. Hostname validation stays enabled. A stable DNS name must already be
+configured on the network and covered by the certificate; the client does not configure DNS.
 
 The login picker contains only accounts added on this device. The unauthenticated server account
 directory was removed. Remembering is opt-in and stores encrypted session credentials, never a

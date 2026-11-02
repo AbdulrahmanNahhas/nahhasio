@@ -8,6 +8,7 @@ import { nativeCall } from "@/lib/bridge";
 const savedServer = z.object({
   url: z.string().url().max(2048),
   name: z.string().min(1).max(80),
+  serverId: z.string().uuid().nullish(),
   trustedFingerprint: z
     .string()
     .regex(/^[a-f0-9]{64}$/)
@@ -58,4 +59,27 @@ export async function updateServer(
   server: SavedServer,
 ) {
   return connectionsSchema.parse(await nativeCall(command, { url: server.url, name: server.name }));
+}
+
+export async function probeServerAddress(previousUrl: string, url: string) {
+  return z
+    .object({ url: z.string().url(), info: ServerInfoSchema })
+    .parse(await nativeCall("servers.addressProbe", { previousUrl, url }));
+}
+export async function replaceServerAddress(client: QueryClient, previousUrl: string, url: string) {
+  const active =
+    client.getQueryData<z.infer<typeof connectionsSchema>>(connectionKey)?.selected === previousUrl;
+  await client.cancelQueries();
+  const state = connectionsSchema.parse(
+    await nativeCall("servers.addressUpdate", { previousUrl, url }),
+  );
+  if (active) {
+    await client.cancelQueries();
+    client.clear();
+    client.setQueryData(["session"], null);
+    window.dispatchEvent(new Event("nahhasio:server-changed"));
+  }
+  client.setQueryData(connectionKey, state);
+  if (active) await client.invalidateQueries({ queryKey: ["session"] });
+  return state;
 }

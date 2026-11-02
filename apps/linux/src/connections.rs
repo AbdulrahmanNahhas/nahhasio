@@ -41,6 +41,8 @@ struct SavedServer {
     name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     trust: Option<crate::server_trust::Trust>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    server_id: Option<String>,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -91,6 +93,18 @@ fn address(input: &str) -> Result<String, Error> {
                 "استخدم عنوان HTTPS دون اسم مستخدم أو مسار إضافي. HTTP متاح للجهاز المحلي فقط.",
             )
         })
+}
+fn identity_error() -> Error {
+    Error::new(
+        "server_identity",
+        "هذا العنوان لا يطابق هوية المكتبة المحفوظة. بقي الاتصال السابق دون تغيير.",
+    )
+}
+fn verify_identity(expected: &str, info: &ServerInfo) -> Result<(), Error> {
+    if !crate::bridge::valid_id(expected) || info.server_id.as_deref() != Some(expected) {
+        return Err(identity_error());
+    }
+    Ok(())
 }
 impl Services {
     pub async fn artwork_bytes(
@@ -200,24 +214,33 @@ impl Services {
                         url: default.clone(),
                         name: "هذا الجهاز".into(),
                         trust: None,
+                        server_id: None,
                     }],
                 });
-        if !matches!(settings.version, 1 | 2)
+        if !matches!(settings.version, 1..=3)
             || settings.servers.is_empty()
             || settings.servers.len() > 8
         {
             return Err(storage());
         }
         let mut seen = std::collections::BTreeSet::new();
-        for server in &settings.servers {
+        for server in &mut settings.servers {
             if address(&server.url)? != server.url
                 || server.name.is_empty()
                 || server.name.chars().count() > 80
-                || !seen.insert(&server.url)
+                || !seen.insert(server.url.clone())
+                || server
+                    .server_id
+                    .as_ref()
+                    .is_some_and(|id| !crate::bridge::valid_id(id))
             {
                 return Err(storage());
             }
             ServerSession::with_trust(&server.url, server.trust.as_ref())?;
+            if server.server_id.is_none() {
+                server.server_id =
+                    crate::offline::Store::new(root.clone()).known_identity(&server.url)?;
+            }
         }
         if !settings
             .servers
@@ -239,6 +262,7 @@ impl Services {
                     url: default,
                     name: "خادم مخصص".into(),
                     trust: None,
+                    server_id: None,
                 });
             }
         }
@@ -266,10 +290,120 @@ impl Services {
             .map(|value| value.clone())
             .map_err(|_| storage())
     }
+    fn remember_identity(&self, url: &str, info: &ServerInfo) -> Result<(), Error> {
+        let mut settings = self.settings.lock().map_err(|_| storage())?;
+        let mut next = settings.clone();
+        let Some(server) = next.servers.iter_mut().find(|s| s.url == url) else {
+            return Ok(());
+        };
+        if let Some(previous) = server.server_id.as_deref() {
+            return verify_identity(previous, info);
+        }
+        let Some(id) = info.server_id.as_deref() else {
+            return Ok(());
+        };
+        if !crate::bridge::valid_id(id) {
+            return Err(identity_error());
+        }
+        server.server_id = Some(id.into());
+        next.version = 3;
+        private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
+        *settings = next;
+        Ok(())
+    }
+    async fn update_address(&self, request: Request) -> Result<Value, Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Move {
+            previous_url: String,
+            url: String,
+        }
+        let input: Move = serde_json::from_value(request.payload)
+            .map_err(|_| Error::new("bad_request", "بيانات العنوان غير صالحة."))?;
+        let previous = address(&input.previous_url)?;
+        let url = address(&input.url)?;
+        let saved = {
+            let settings = self.settings.lock().map_err(|_| storage())?;
+            if previous == url || settings.servers.iter().any(|s| s.url == url) {
+                return Err(Error::new(
+                    "conflict",
+                    "العنوان محفوظ بالفعل. أدخل عنوانًا جديدًا لهذا الاتصال.",
+                ));
+            }
+            settings
+                .servers
+                .iter()
+                .find(|s| s.url == previous)
+                .cloned()
+                .ok_or_else(|| Error::new("not_found", "الاتصال السابق غير محفوظ."))?
+        };
+        if previous.starts_with("https:") && !url.starts_with("https:") {
+            return Err(Error::new(
+                "certificate",
+                "لا يمكن تحويل اتصال HTTPS محفوظ إلى HTTP.",
+            ));
+        }
+        let expected = saved
+            .server_id
+            .clone()
+            .or(self.offline.known_identity(&previous)?);
+        let expected = expected.ok_or_else(|| Error::new("server_identity", "لم تُحفظ هوية هذه المكتبة بعد. اختبر عنوانها السابق أو سجّل الدخول إليه مرة واحدة قبل تغيير العنوان."))?;
+        // Probe anonymously with the existing authority and normal hostname validation.
+        // A matching public UUID is never permission to forward the old origin's credentials.
+        let candidate = ServerSession::with_trust(&url, saved.trust.as_ref())?;
+        let info = candidate.probe().await?;
+        verify_identity(&expected, &info)?;
+        if request.command == "servers.addressProbe" {
+            return Ok(json!({"url":url,"info":info}));
+        }
+        self.offline.identify(&previous, &expected).await?;
+        self.offline.identify(&url, &expected).await?;
+        for account in crate::credential_store::read(&self.root, &previous)?.accounts {
+            if account.signed_out {
+                self.offline.sign_out(&previous, Some(&account.id)).await?;
+            }
+        }
+        // The replacement owns only credentials previously stored for its own address.
+        let replacement = ServerSession::new_persistent_at(&url, saved.trust.as_ref(), &self.root)?;
+        let selected;
+        {
+            let mut settings = self.settings.lock().map_err(|_| storage())?;
+            if settings.servers.iter().any(|s| s.url == url) {
+                return Err(Error::new(
+                    "conflict",
+                    "أضيف العنوان أثناء الفحص. أعد المحاولة.",
+                ));
+            }
+            let mut next = settings.clone();
+            let server = next
+                .servers
+                .iter_mut()
+                .find(|s| s.url == previous)
+                .ok_or_else(|| Error::new("conflict", "تغيّر الاتصال أثناء الفحص. أعد المحاولة."))?;
+            server.url = url.clone();
+            server.server_id = Some(expected);
+            next.version = 3;
+            selected = next.selected == previous;
+            if selected {
+                next.selected = url;
+            }
+            let mut active = self.active.write().map_err(|_| storage())?;
+            private_state::write_limit(&self.root, "connections.json", &next, 96 * 1024)?;
+            if selected {
+                *active = replacement;
+            }
+            *settings = next;
+        }
+        if selected {
+            self.offline.reset().await;
+            self.advance();
+        }
+        self.state()
+    }
     fn state(&self) -> Result<Value, Error> {
         let settings = self.settings.lock().map_err(|_| storage())?;
         let servers: Vec<Value> = settings.servers.iter().map(|s|
-            json!({"url":s.url,"name":s.name,"trustedFingerprint":s.trust.as_ref().map(|t| &t.fingerprint)})
+            json!({"url":s.url,"name":s.name,"trustedFingerprint":s.trust.as_ref().map(|t| &t.fingerprint),"serverId":s.server_id})
         ).collect();
         Ok(json!({"selected":settings.selected,"servers":servers}))
     }
@@ -380,6 +514,12 @@ impl Services {
         if request.command == "servers.list" {
             return self.state();
         }
+        if matches!(
+            request.command.as_str(),
+            "servers.addressProbe" | "servers.addressUpdate"
+        ) {
+            return self.update_address(request).await;
+        }
         if request.command.starts_with("servers.") {
             let input: Address = serde_json::from_value(request.payload)
                 .map_err(|_| Error::new("bad_request", "بيانات الاتصال غير صالحة."))?;
@@ -412,6 +552,7 @@ impl Services {
                 let info = ServerSession::with_trust(&url, trust.as_ref())?
                     .probe()
                     .await?;
+                self.remember_identity(&url, &info)?;
                 return Ok(json!({"url":url,"info":info}));
             }
             if request.command == "servers.remove" {
@@ -451,6 +592,7 @@ impl Services {
             if request.command == "servers.select" {
                 let session = ServerSession::new_persistent(&url, trust.as_ref())?;
                 let info = session.probe().await?;
+                self.remember_identity(&url, &info)?;
                 {
                     let mut settings = self.settings.lock().map_err(|_| storage())?;
                     let mut next = settings.clone();
@@ -466,7 +608,9 @@ impl Services {
                                 "يمكن حفظ ثمانية خوادم. احذف اتصالًا قديمًا أولًا.",
                             ));
                         }
-                        if trust.is_some() {
+                        if info.server_id.is_some() {
+                            next.version = 3;
+                        } else if trust.is_some() {
                             next.version = 2;
                         }
                         next.servers.push(SavedServer {
@@ -477,6 +621,7 @@ impl Services {
                                 name.into()
                             },
                             trust,
+                            server_id: info.server_id.clone(),
                         });
                     }
                     next.selected = url;
@@ -536,6 +681,7 @@ impl Services {
         }
         if matches!(request.command.as_str(), "login" | "session") {
             let info = session.probe().await?;
+            self.remember_identity(session.address(), &info)?;
             if request.command == "login"
                 && request.payload["remember"] == true
                 && !info.capabilities.remembered_accounts
@@ -590,5 +736,231 @@ impl Services {
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{Router, http::HeaderMap, routing::get};
+    const ID: &str = "97900000-0000-4000-8000-000000000001";
+    fn fixture(url: &str, identity: Option<&str>) -> Services {
+        let mut nonce = [0u8; 16];
+        getrandom::fill(&mut nonce).unwrap();
+        let root =
+            std::env::temp_dir().join(format!("nahhasio-address-test-{}", hex::encode(nonce)));
+        let active = ServerSession::new(url).unwrap();
+        let settings = Settings {
+            version: 3,
+            selected: url.into(),
+            servers: vec![SavedServer {
+                url: url.into(),
+                name: "Saved household".into(),
+                trust: None,
+                server_id: identity.map(str::to_owned),
+            }],
+        };
+        private_state::write_limit(&root, "connections.json", &settings, 96 * 1024).unwrap();
+        Services {
+            permits: active.permits.clone(),
+            active: Arc::new(RwLock::new(active)),
+            settings: Arc::new(Mutex::new(settings)),
+            offline: crate::offline::Store::new(root.clone()),
+            artwork_cache: Arc::new(crate::artwork_cache::Cache::new(&root)),
+            root,
+            operations: Arc::new(AsyncRwLock::new(())),
+            revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            pending: tokio::sync::watch::channel(()).0,
+        }
+    }
+    async fn candidate(id: Option<&str>) -> (String, tokio::task::JoinHandle<()>) {
+        let info = json!({"serverId":id,"product":"nahhasio","name":"Household","version":"0.1.2","apiVersion":1});
+        let router = Router::new()
+            .route(
+                "/api/v1/server/info",
+                get(move |headers: HeaderMap| {
+                    let info = info.clone();
+                    async move {
+                        assert!(!headers.contains_key("authorization"));
+                        assert!(!headers.contains_key("cookie"));
+                        axum::Json(info)
+                    }
+                }),
+            )
+            .route(
+                "/api/health/ready",
+                get(|headers: HeaderMap| async move {
+                    assert!(!headers.contains_key("authorization"));
+                    "ready"
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = format!("http://{}/", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        (address, task)
+    }
+    fn request(command: &str, old: &str, new: &str) -> Request {
+        Request {
+            id: "address-test".into(),
+            command: command.into(),
+            payload: json!({"previousUrl":old,"url":new}),
+        }
+    }
+    #[tokio::test]
+    async fn verified_move_preserves_storage_and_never_copies_origin_credentials() {
+        let old = "http://127.0.0.1:23199/";
+        let service = fixture(old, None);
+        service.offline.identify(old, ID).await.unwrap();
+        private_state::write(
+            &service.root,
+            "session.json",
+            &json!({"server":old,"token":"fixture-session","expires_at":"2099-01-01T00:00:00Z"}),
+        )
+        .unwrap();
+        let (new, task) = candidate(Some(ID)).await;
+        let original = std::fs::read(service.root.join("connections.json")).unwrap();
+        service
+            .update_address(request("servers.addressProbe", old, &new))
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read(service.root.join("connections.json")).unwrap(),
+            original
+        );
+        let state = service
+            .update_address(request("servers.addressUpdate", old, &new))
+            .await
+            .unwrap();
+        assert_eq!(state["selected"], new);
+        assert_eq!(state["servers"].as_array().unwrap().len(), 1);
+        assert_eq!(state["servers"][0]["name"], "Saved household");
+        assert_eq!(state["servers"][0]["serverId"], ID);
+        assert_eq!(service.snapshot().unwrap().address(), new);
+        let aliases: Vec<(String, String, String)> =
+            private_state::read(&service.root, "server-identities.json")
+                .unwrap()
+                .unwrap();
+        assert!(
+            aliases
+                .iter()
+                .any(|(url, id, canonical)| url == &new && id == ID && canonical == old)
+        );
+        let sessions = SessionStore::new(&service.root);
+        assert_eq!(
+            sessions.load(old).unwrap().as_deref(),
+            Some("fixture-session")
+        );
+        assert!(sessions.load(&new).unwrap().is_none());
+        assert!(
+            crate::credential_store::read(&service.root, &new)
+                .unwrap()
+                .accounts
+                .is_empty()
+        );
+        let local_session = json!({"user":{"accountId":ID,"name":"Offline account"}});
+        service
+            .offline
+            .remember(&new, &local_session)
+            .await
+            .unwrap();
+        service.offline.sign_out(&new, Some(ID)).await.unwrap();
+        let profiles = service
+            .offline
+            .execute(
+                &new,
+                service.snapshot().unwrap(),
+                Request {
+                    id: "profiles".into(),
+                    command: "offline.profiles".into(),
+                    payload: json!({}),
+                },
+            )
+            .await
+            .unwrap();
+        assert!(profiles.as_array().unwrap().is_empty());
+        let restored: Settings =
+            private_state::read_limit(&service.root, "connections.json", 96 * 1024)
+                .unwrap()
+                .unwrap();
+        assert_eq!(restored.selected, new);
+        assert_eq!(restored.servers[0].server_id.as_deref(), Some(ID));
+        task.abort();
+        std::fs::remove_dir_all(service.root).unwrap();
+    }
+    #[tokio::test]
+    async fn mismatched_or_missing_identity_leaves_saved_connection_unchanged() {
+        for identity in [Some("97900000-0000-4000-8000-000000000002"), None] {
+            let old = "http://127.0.0.1:23199/";
+            let service = fixture(old, Some(ID));
+            let (new, task) = candidate(identity).await;
+            let original = std::fs::read(service.root.join("connections.json")).unwrap();
+            let error = service
+                .update_address(request("servers.addressUpdate", old, &new))
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, "server_identity");
+            assert_eq!(
+                std::fs::read(service.root.join("connections.json")).unwrap(),
+                original
+            );
+            assert_eq!(service.snapshot().unwrap().address(), old);
+            assert!(service.offline.known_identity(&new).unwrap().is_none());
+            task.abort();
+            std::fs::remove_dir_all(service.root).unwrap();
+        }
+    }
+    #[tokio::test]
+    async fn downgrade_duplicate_and_unidentified_moves_are_rejected() {
+        let service = fixture("https://library.home/", Some(ID));
+        let error = service
+            .update_address(request(
+                "servers.addressProbe",
+                "https://library.home/",
+                "http://127.0.0.1:23199/",
+            ))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, "certificate");
+        let error = service
+            .update_address(request(
+                "servers.addressProbe",
+                "https://library.home/",
+                "https://library.home/",
+            ))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, "conflict");
+        std::fs::remove_dir_all(service.root).unwrap();
+        let service = fixture("http://127.0.0.1:23199/", None);
+        let error = service
+            .update_address(request(
+                "servers.addressProbe",
+                "http://127.0.0.1:23199/",
+                "http://127.0.0.1:23198/",
+            ))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, "server_identity");
+        std::fs::remove_dir_all(service.root).unwrap();
+    }
+    #[test]
+    fn old_settings_remain_readable_and_known_id_cannot_disappear() {
+        let settings:Settings=serde_json::from_value(json!({"version":1,"selected":"http://127.0.0.1:23103/","servers":[{"url":"http://127.0.0.1:23103/","name":"Legacy"}]})).unwrap();
+        assert!(settings.servers[0].server_id.is_none());
+        let service = fixture("http://127.0.0.1:23199/", Some(ID));
+        let info: ServerInfo = serde_json::from_value(
+            json!({"product":"nahhasio","name":"Legacy","version":"0.1","apiVersion":1}),
+        )
+        .unwrap();
+        assert_eq!(
+            service
+                .remember_identity("http://127.0.0.1:23199/", &info)
+                .unwrap_err()
+                .code,
+            "server_identity"
+        );
+        std::fs::remove_dir_all(service.root).unwrap();
     }
 }

@@ -42,6 +42,7 @@ import {
   updateServer,
 } from "./connections";
 import type { SavedServer } from "./connections";
+import { ServerAddressForm } from "./server-address-form";
 
 export function CurrentServer({
   onManage,
@@ -180,7 +181,7 @@ function ConnectionForm({
           />
           <FieldDescription>
             {editing
-              ? "لتغيير العنوان، أضف اتصالًا جديدًا؛ الجلسات مرتبطة بعناوين خوادمها."
+              ? "لتغيير العنوان، ارجع واختر «تحديث العنوان» لهذا الاتصال."
               : "HTTPS لخادم الشبكة. للتجربة على هذا الجهاز: http://127.0.0.1:23103"}
           </FieldDescription>
         </Field>
@@ -321,7 +322,10 @@ export function ServerConnections({
     retry: false,
   });
   const [formBusy, setFormBusy] = useState(false);
-  const [form, setForm] = useState<{ editing: SavedServer | null } | null>(null);
+  const [form, setForm] = useState<{
+    editing: SavedServer | null;
+    updatingAddress?: boolean;
+  } | null>(null);
   const [removing, setRemoving] = useState<SavedServer | null>(null);
   const select = useMutation({
     mutationFn: (server: SavedServer) => selectServer(client, server),
@@ -346,13 +350,15 @@ export function ServerConnections({
       remove.reset();
     }
   };
-  const title = form
-    ? form.editing
-      ? "تسمية الاتصال"
-      : "أضف مكتبتك"
-    : inline
-      ? "مكتباتك"
-      : "اختر مكتبتك";
+  const title = form?.updatingAddress
+    ? "تحديث عنوان المكتبة"
+    : form
+      ? form.editing
+        ? "تسمية الاتصال"
+        : "أضف مكتبتك"
+      : inline
+        ? "مكتباتك"
+        : "اختر مكتبتك";
   const description = inline
     ? "أضف مكتبة أو عدّل اتصالًا محفوظًا على هذا الجهاز."
     : form
@@ -360,7 +366,13 @@ export function ServerConnections({
       : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل.";
   const content = (
     <>
-      {form ? (
+      {form?.updatingAddress && form.editing ? (
+        <ServerAddressForm
+          server={form.editing}
+          onBusyChange={setFormBusy}
+          onDone={() => setForm(null)}
+        />
+      ) : form ? (
         <ConnectionForm
           key={form.editing?.url ?? "new"}
           editing={form.editing}
@@ -418,6 +430,16 @@ export function ServerConnections({
                     اختبار الاتصال
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={select.isPending || remove.isPending}
+                  onClick={() => setForm({ editing: server, updatingAddress: true })}
+                  aria-label={`تحديث عنوان ${server.name}`}
+                >
+                  تحديث العنوان
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
