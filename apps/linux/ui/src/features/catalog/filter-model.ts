@@ -173,6 +173,9 @@ export function completeFacetGroups(
     { key: "awardResults", label: "نتائج الجوائز", values: ["winner", "nominee"] },
   ];
   const completed = groups.map((group) => ({ ...group, options: [...group.options] }));
+  // An untagged library should explain the absence rather than hide the feature.
+  if (!completed.some((group) => group.key === "tags"))
+    completed.push({ key: "tags", label: "الوسوم", options: [] });
   for (const definition of fixed) {
     let group = completed.find((item) => item.key === definition.key);
     if (!group) {

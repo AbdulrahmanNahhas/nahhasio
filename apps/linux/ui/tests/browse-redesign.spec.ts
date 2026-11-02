@@ -356,6 +356,20 @@ test.beforeEach(async ({ page }) => {
                         ],
                       },
                       {
+                        key: "tags",
+                        label: "الوسوم",
+                        options: [
+                          { value: "childhood-classic", label: "كلاسيكيات الطفولة", count: 1 },
+                          { value: "anime-movie", label: "فيلم أنمي", count: 1 },
+                          {
+                            value: "friendship",
+                            label: "الصداقة",
+                            count: 2,
+                            searchTerms: ["Friendship"],
+                          },
+                        ],
+                      },
+                      {
                         key: "countries",
                         label: "البلدان",
                         options: [
@@ -618,8 +632,15 @@ async function openBrowse(page: import("@playwright/test").Page) {
   await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "دخول المكتبة", exact: true }).click();
-  await expect(page.getByRole("button", { name: "الملف والحساب", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "تصفّح المكتبة", exact: true }).click();
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page
+      .getByRole("navigation", { name: "التنقل الرئيسي" })
+      .getByRole("link", { name: "المكتبة", exact: true })
+      .click();
+  } else {
+    await expect(page.getByRole("button", { name: "الملف والحساب", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "تصفّح المكتبة", exact: true }).click();
+  }
   await expect(page.getByRole("heading", { name: "تصفّح المكتبة", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /^المرشحات/ }).click();
   return page.getByRole("dialog");
@@ -750,4 +771,26 @@ test("library navigation preserves presentation and keeps refinements separate",
     path: "../../../data/previews/browse-library-narrow.png",
     animations: "disabled",
   });
+});
+
+test("tags remain usable within tag-based libraries and preserve category constraints", async ({
+  page,
+}) => {
+  const dialog = await openBrowse(page);
+  await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "مكتبات التصفح" })
+    .getByRole("link", { name: "كرتون حديث", exact: true })
+    .click();
+  await page.getByRole("button", { name: /^المرشحات/ }).click();
+  await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
+  await expect(dialog.getByRole("group", { name: "الوسوم", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /^كلاسيكيات الطفولة،/ })).toHaveCount(0);
+  await dialog.getByRole("textbox", { name: "ابحث في المرشحات" }).fill("Friendship");
+  await dialog.getByRole("button", { name: /^الصداقة،/ }).click();
+  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await expect(page).toHaveURL(/friendship/);
+  await page.getByRole("button", { name: /^المرشحات/ }).click();
+  await dialog.getByRole("button", { name: /مراجعة الاختيارات/ }).click();
+  await expect(dialog.getByRole("button", { name: /إزالة.*الوسوم.*الصداقة/ })).toBeVisible();
 });

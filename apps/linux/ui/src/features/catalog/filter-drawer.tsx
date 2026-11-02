@@ -64,7 +64,7 @@ const categories = [
     key: "story",
     icon: Orbit,
     label: "الحكاية والعالم",
-    description: "الكواكب والأنواع والبلدان",
+    description: "الكواكب والأنواع والطابع والوسوم والبلدان",
     facets: ["planets", "genres", "tones", "tags", "countries", "formats"],
   },
   {
@@ -163,7 +163,7 @@ export function FilterDrawer({
   const searchText = normalizeFacetSearch(search);
   const categoryTerms = new Map([
     ["basics", "release year status privacy kind watch favorite library video"],
-    ["story", "planet genre country tone tag format"],
+    ["story", "planet genre country tone tag tags format"],
     ["family", "family audience age risk"],
     ["scores", "rating score criteria"],
     ["people", "people studio contributor awards category"],
@@ -174,9 +174,25 @@ export function FilterDrawer({
     ).includes(searchText);
   const libraryFacets = browseTemplates.find((item) => item.id === library)?.facets ?? [];
   const facetGroups = options.data
-    ? completeFacetGroups(options.data.groups, view).filter(
-        (facet) => !libraryFacets.some((base) => base.key === facet.key),
-      )
+    ? completeFacetGroups(options.data.groups, view)
+        .filter(
+          (facet) => facet.key === "tags" || !libraryFacets.some((base) => base.key === facet.key),
+        )
+        .map((facet) =>
+          facet.key === "tags"
+            ? {
+                ...facet,
+                options: facet.options.filter(
+                  (option) =>
+                    !libraryFacets.some(
+                      (base) =>
+                        base.key === facet.key &&
+                        [...base.include, ...base.exclude].includes(option.value),
+                    ),
+                ),
+              }
+            : facet,
+        )
     : [];
   const categoryGroups = (item: (typeof categories)[number]) =>
     facetGroups.filter(

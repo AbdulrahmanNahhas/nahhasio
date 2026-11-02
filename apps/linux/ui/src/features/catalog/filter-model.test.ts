@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  completeFacetGroups,
   emptyFilters,
   facetMatches,
   normalizeFacetSearch,
@@ -34,5 +35,13 @@ describe("multilingual filter search and explicit selection", () => {
       exclude: [],
     });
     expect(included.facets[0].exclude).toEqual([]);
+  });
+});
+
+it("keeps tags discoverable in an untagged library without inventing options", () => {
+  expect(completeFacetGroups([], "works").find((group) => group.key === "tags")).toEqual({
+    key: "tags",
+    label: "الوسوم",
+    options: [],
   });
 });

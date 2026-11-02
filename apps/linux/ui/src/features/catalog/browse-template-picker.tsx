@@ -40,11 +40,13 @@ export function BrowseTemplatePicker({
               : selectLibrary(current, library.id).toString();
           return (
             <Button
+              nativeButton={false}
               key={library.id}
               variant={active === library.id ? "secondary" : "ghost"}
               className="shrink-0"
               render={
                 <a
+                  role="link"
                   data-library={library.id}
                   href={`#${path}?${next}`}
                   aria-current={active === library.id ? "page" : undefined}

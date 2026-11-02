@@ -19,11 +19,13 @@ export function BottomNavigation({ path }: { path: string }) {
     >
       {destinations.map((destination) => (
         <Button
+          nativeButton={false}
           key={destination.path}
           variant={active === destination.path ? "secondary" : "ghost"}
           className="h-auto min-h-14 min-w-0 flex-1 flex-col gap-1 px-1 py-2"
           render={
             <a
+              role="link"
               href={destination.href}
               aria-current={active === destination.path ? "page" : undefined}
             />

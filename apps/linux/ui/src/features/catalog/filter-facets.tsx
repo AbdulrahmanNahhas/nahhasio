@@ -48,7 +48,7 @@ export function FilterFacets({
           normalizeFacetSearch(group.label).includes(query) || facetMatches(option, query),
       ),
     }))
-    .filter((group) => group.options.length);
+    .filter((group) => group.options.length || (!query && group.key === "tags"));
   return (
     <FieldGroup
       className={cn(
@@ -123,6 +123,9 @@ function FacetOptions({
           </Button>
         )}
       </div>
+      {!group.options.length && (
+        <FieldDescription>لا توجد وسوم إضافية متاحة في هذه المكتبة.</FieldDescription>
+      )}
       <div
         className={cn("flex flex-wrap gap-2", family && "gap-y-4")}
         role="group"

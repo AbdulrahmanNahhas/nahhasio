@@ -99,7 +99,19 @@ export function libraryFilters(filters: BrowseFilters, library?: string): Browse
     ...filters,
     facets: [
       ...filters.facets.filter((facet) => !template.facets.some((base) => base.key === facet.key)),
-      ...template.facets,
+      ...template.facets.map((base) => {
+        const extra = filters.facets.find((facet) => facet.key === base.key);
+        if (base.key !== "tags" || !extra) return base;
+        // Category tags must all match independently of the user's any-of tag choices.
+        return {
+          key: base.key,
+          required: base.include,
+          include: extra.include.filter((value) => !base.exclude.includes(value)),
+          exclude: [...new Set([...base.exclude, ...extra.exclude])].filter(
+            (value) => !base.include.includes(value),
+          ),
+        };
+      }),
     ],
   };
 }
