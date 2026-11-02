@@ -43,6 +43,8 @@ struct MinimumScores {
 struct Selection {
     key: String,
     #[serde(default)]
+    required: Vec<String>,
+    #[serde(default)]
     include: Vec<String>,
     #[serde(default)]
     exclude: Vec<String>,
@@ -133,11 +135,13 @@ impl Input {
             || filters.facets.len() > keys.len()
             || filters.facets.iter().any(|s| {
                 !keys.iter().any(|(key, _, _)| *key == s.key)
+                    || s.required.len() > 32
                     || s.include.len() > 32
                     || s.exclude.len() > 32
                     || s.include
                         .iter()
                         .chain(&s.exclude)
+                        .chain(&s.required)
                         .any(|v| v.is_empty() || v.len() > 160)
             })
         {
@@ -253,7 +257,7 @@ fn condition() -> String {
     let mut parts=vec!["($5::text is null or strpos(lower(canonical_title||' '||coalesce(title_ar,'')||' '||unit_title),lower($5))>0 or exists(select 1 from title_aliases a where a.title_id=base.id and strpos(lower(a.title),lower($5))>0) or exists(select 1 from contributions c join entities e on e.id=c.entity_id where c.title_id=base.id and strpos(lower(e.name),lower($5))>0))".into(),"($6::integer is null or catalog_year>=$6)".into(),"($7::integer is null or catalog_year<=$7)".into(),"(coalesce(($4->>'minimumRating')::double precision,0)=0 or rating>=($4->>'minimumRating')::double precision)".into()];
     parts.push("(coalesce(($4->>'maximumRating')::double precision,10)=10 or rating<=($4->>'maximumRating')::double precision)".into());
     for (key, _, _) in facets() {
-        parts.push(format!("not exists(select 1 from jsonb_array_elements(coalesce($4->'facets','[]')) sel where sel->>'key'='{key}' and ((jsonb_array_length(sel->'include')>0 and not (facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'include')))) or facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'exclude'))))"));
+        parts.push(format!("not exists(select 1 from jsonb_array_elements(coalesce($4->'facets','[]')) sel where sel->>'key'='{key}' and ((jsonb_array_length(sel->'include')>0 and not (facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'include')))) or not (facts->'{key}' ?& array(select jsonb_array_elements_text(coalesce(sel->'required','[]'::jsonb)))) or facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'exclude'))))"));
     }
     for (key, _) in CRITERIA {
         parts.push(format!("(coalesce(($4#>>'{{minimumScores,{key}}}')::double precision,0)=0 or (criteria->>'{key}')::double precision>=($4#>>'{{minimumScores,{key}}}')::double precision)"));
@@ -379,6 +383,28 @@ mod tests {
         assert!(sql.contains("m.role in ('profile','logo')"));
         assert!(sql.contains("m.is_primary desc,m.id limit 1"));
         assert!(!sql.contains("image/svg+xml"));
+    }
+
+    #[test]
+    fn required_tags_are_bounded_and_preserved() {
+        let valid = Input {
+            filters: Some(r#"{"facets":[{"key":"tags","required":["anime-movie"],"include":["friendship"],"exclude":[]}] }"#.into()),
+            ..Input::default()
+        }.validated().expect("valid category and user tags").5;
+        assert_eq!(valid.facets[0].required, ["anime-movie"]);
+        for required in [vec!["x"; 33], vec![""]] {
+            assert!(
+                Input {
+                    filters: Some(
+                        serde_json::json!({"facets":[{"key":"tags","required":required}]})
+                            .to_string()
+                    ),
+                    ..Input::default()
+                }
+                .validated()
+                .is_err()
+            );
+        }
     }
 
     #[test]

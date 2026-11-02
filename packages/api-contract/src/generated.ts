@@ -718,6 +718,7 @@ export type FacetCatalog = z.infer<typeof FacetCatalogSchema>;
 
 export const FacetSelectionSchema = z.strictObject({
   key: z.string(),
+  required: z.array(z.string()).optional(),
   include: z.array(z.string()),
   exclude: z.array(z.string()),
 });

@@ -5231,6 +5231,11 @@
           "key": {
             "type": "string"
           },
+          "required": {
+            "description": "All of these values must match, independently of the any-of include choices. Used to preserve library category constraints.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "include": {
             "type": "array",
             "items": {
