@@ -130,7 +130,10 @@ export function ViewerShell({ user }: { user: User }) {
   );
   const developmentNotice = developmentBrowserAvailable() ? (
     <div role="note" className="shrink-0 border-b bg-muted px-4 py-2 text-xs text-muted-foreground">
-      معاينة تطوير محلية · التشغيل والتنزيلات ومكتبة الجهاز تحتاج تطبيق Linux.
+      {import.meta.env.VITE_NAHHASIO_BROWSER_SERVER_URL &&
+      import.meta.env.VITE_NAHHASIO_BROWSER_SERVER_URL !== "http://127.0.0.1:23103/"
+        ? "معاينة تطوير محلية · متصلة بمكتبتك الفعلية؛ التعديلات تُحفظ على الخادم. التشغيل والتنزيلات تحتاج تطبيق Linux."
+        : "معاينة تطوير محلية · التشغيل والتنزيلات ومكتبة الجهاز تحتاج تطبيق Linux."}
     </div>
   ) : null;
   return (

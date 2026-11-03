@@ -58,10 +58,19 @@ Use `devenv --profile browser up` for PostgreSQL, the demo API and Vite without 
 Stop any previously running profile before switching, so fixed ports and the cluster are not
 started twice. The browser and desktop profiles share the same persistent synthetic catalog.
 Sign in with a demo account to use real catalog and admin services without launching GTK.
-The browser adapter accepts only the fixed synthetic server identity on port 23103, through a
-loopback-only Vite proxy with host/origin checks. Authorization remains enforced by the Rust API.
+The browser adapter defaults to the fixed synthetic server identity on port 23103, through a
+loopback-only Vite proxy with host/origin checks. For an explicitly selected real library, set
+`env.NAHHASIO_BROWSER_SERVER_URL`, `env.NAHHASIO_BROWSER_SERVER_ID` (its verified UUID), and,
+for a private CA, `env.NAHHASIO_BROWSER_CA_FILE` (an absolute PEM path) in ignored
+`devenv.local.nix`. Stop and start the browser profile after changing these values so its process
+environment is refreshed. Remote targets require
+HTTPS with normal certificate/hostname verification; the server identity is checked before login
+credentials are sent. The certificate is read by Vite, never installed into system/browser trust.
+The preview remains on Shadow; no website is deployed on the selected server. Real-library
+edits affect that server, as shown in the preview banner. Remove the local overrides and restart
+the browser profile to return to the synthetic catalog. Authorization remains enforced by the Rust API.
 Session tokens stay in memory: reloading requires signing in again, and browser remembering is
-unavailable. Non-secret Browse preferences are scoped to the demo account in this browser.
+unavailable. Non-secret Browse preferences are scoped to the verified server and account in this browser.
 Player, transfers, offline files, secure storage and native maintenance features require Linux.
 The adapter/proxy exist only in Vite development mode; production bundles keep the native bridge
 and CSP. This does not add website hosting, assets or deployment services to Fedora.

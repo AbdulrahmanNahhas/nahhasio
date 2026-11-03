@@ -9,7 +9,10 @@ import { z } from "zod";
 import { preferencesSchema } from "../features/catalog/browse-preferences-model";
 import { developmentBrowserAvailable } from "./development-platform";
 
-const origin = "http://127.0.0.1:23103/";
+const origin = import.meta.env.VITE_NAHHASIO_BROWSER_SERVER_URL ?? "http://127.0.0.1:23103/";
+const expectedServerId =
+  import.meta.env.VITE_NAHHASIO_BROWSER_SERVER_ID ?? "97900000-0000-4000-8000-000000000001";
+const nameKey = `nahhasio:development:server-name:${expectedServerId}`;
 const prefix = "/__development_api";
 type DevelopmentReply = z.infer<typeof z.json>;
 let token: string | null = null;
@@ -69,6 +72,7 @@ async function transport(
       403: "لا يملك حسابك صلاحية تنفيذ هذه العملية.",
       404: "العنصر المطلوب غير موجود.",
       409: "تغيّرت البيانات؛ أعد تحميل الصفحة قبل الحفظ.",
+      422: "لم يقبل الخادم صيغة الطلب. تحقق من توافق إصدار التطبيق والخادم.",
       429: "محاولات كثيرة؛ انتظر قليلًا قبل المحاولة مجددًا.",
     };
     throw new Error(
@@ -100,8 +104,8 @@ const getRoutes = {
   facets: "/v1/catalog/facets",
   works: "/v1/works",
   releases: "/v1/releases",
-  episodes: "/v1/episodes",
-  trailers: "/v1/trailers",
+  episodes: "/v1/catalog/episodes",
+  trailers: "/v1/catalog/trailers",
   profile: "/v1/me",
   adminAccess: "/v1/admin/access",
   adminWorks: "/v1/admin/works",
@@ -147,13 +151,20 @@ export async function developmentCall(
     return session;
   }
   if (command === "login") {
-    const input = LoginRequestSchema.parse({ ...payload, remember: false });
+    const parsed = LoginRequestSchema.parse({ ...payload, remember: false });
+    // Browser sessions are temporary; omit renewal fields unsupported by installed 0.1.2 servers.
+    const input =
+      "email" in parsed
+        ? { email: parsed.email, password: parsed.password }
+        : { accountId: parsed.accountId, password: parsed.password };
     clearSession();
     const info = ServerInfoSchema.parse(
       await request("/v1/server/info", "GET", undefined, signal, true),
     );
-    if (info.serverId !== "97900000-0000-4000-8000-000000000001")
-      throw new Error("معاينة المتصفح تقبل مكتبة التطوير التجريبية فقط.");
+    if (info.serverId !== expectedServerId)
+      throw new Error(
+        "هوية الخادم لا تطابق المكتبة المحددة لمعاينة التطوير. لم تُرسل بيانات الدخول.",
+      );
     const result = LoginResponseSchema.parse(
       await request("/v1/auth/login", "POST", input, signal, true),
     );
@@ -174,7 +185,12 @@ export async function developmentCall(
       servers: [
         {
           url: origin,
-          name: localStorage.getItem("nahhasio:development:server-name") ?? "مكتبة التطوير المحلية",
+          name:
+            localStorage.getItem(nameKey) ??
+            (origin === "http://127.0.0.1:23103/"
+              ? (localStorage.getItem("nahhasio:development:server-name") ??
+                "مكتبة التطوير المحلية")
+              : "مكتبة الخادم المتصل"),
           trustedFingerprint: null,
         },
       ],
@@ -187,10 +203,7 @@ export async function developmentCall(
   }
   if (command === "servers.save") {
     if (payload.url !== origin) unsupported();
-    localStorage.setItem(
-      "nahhasio:development:server-name",
-      z.string().trim().min(1).max(80).parse(payload.name),
-    );
+    localStorage.setItem(nameKey, z.string().trim().min(1).max(80).parse(payload.name));
     return developmentCall("servers.list", {}, signal);
   }
   // The browser has no native player, transfers, secure vault or offline library.
@@ -243,10 +256,17 @@ export async function developmentCall(
     };
   if (!session || !token) throw new Error("سجّل الدخول إلى مكتبة التطوير أولًا.");
   if (command === "browsePreferences.load" || command === "browsePreferences.save") {
-    // Non-secret display preferences belong to this browser, fixed demo server and account.
-    const key = `nahhasio:development:browse:${session.user.accountId}`;
-    if (command.endsWith("load"))
-      return preferencesSchema.nullable().parse(JSON.parse(localStorage.getItem(key) ?? "null"));
+    // Browser-only preferences remain separate for each verified server and account.
+    const key = `nahhasio:development:browse:${expectedServerId}:${session.user.accountId}`;
+    if (command.endsWith("load")) {
+      const legacy =
+        expectedServerId === "97900000-0000-4000-8000-000000000001"
+          ? localStorage.getItem(`nahhasio:development:browse:${session.user.accountId}`)
+          : null;
+      return preferencesSchema
+        .nullable()
+        .parse(JSON.parse(localStorage.getItem(key) ?? legacy ?? "null"));
+    }
     localStorage.setItem(key, JSON.stringify(preferencesSchema.parse(payload)));
     return { ok: true };
   }

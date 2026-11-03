@@ -6,6 +6,14 @@ test.skip(
   "Opt in to the dedicated local demo API; ordinary UI tests remain isolated fixtures.",
 );
 
+test.beforeEach(async ({ request }) => {
+  const response = await request.get("/__development_api/v1/server/info");
+  expect(
+    (await response.json()).serverId,
+    "Mutation acceptance requires the synthetic demo server",
+  ).toBe("97900000-0000-4000-8000-000000000001");
+});
+
 test("local browser signs in, edits demo settings, displays artwork and keeps sessions transient", async ({
   page,
 }) => {
