@@ -1,7 +1,8 @@
 import type { User } from "@nahhasio/api-contract";
 import { Download, Ellipsis, Home, Library, Search } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { ContentScrollArea } from "@/components/content-scroll-area";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import {
@@ -12,7 +13,6 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { AccountAvatar } from "../account/account-avatar";
 import { MobileAccountActions } from "../account/mobile-account-actions";
@@ -37,7 +37,9 @@ export function BottomNavigation({
   const active = path.split("/")[1] || "home";
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const open = menuPath === path;
+  const navigating = useRef(false);
   const changeOpen = (next: boolean) => {
+    if (next) navigating.current = false;
     setMenuPath(next ? path : null);
     onDialogChange(next);
   };
@@ -81,9 +83,13 @@ export function BottomNavigation({
             <Ellipsis data-icon="inline-start" />
             <span className="text-xs">المزيد</span>
           </DrawerTrigger>
-          <DrawerContent aria-label="كل الصفحات" className="h-5/6">
+          <DrawerContent
+            aria-label="كل الصفحات"
+            className="max-h-5/6"
+            finalFocus={() => !navigating.current}
+          >
             <DrawerTitle className="sr-only">كل الصفحات</DrawerTitle>
-            <ScrollArea dir="rtl" className="min-h-0 flex-1">
+            <ContentScrollArea>
               <div className="flex flex-col gap-5 px-4 pt-4 pb-safe">
                 <div className="flex items-center gap-3">
                   <AccountAvatar name={user.name} avatarKey={user.avatarKey} className="size-12" />
@@ -117,8 +123,10 @@ export function BottomNavigation({
                                     !event.shiftKey &&
                                     !event.altKey &&
                                     event.button === 0
-                                  )
+                                  ) {
+                                    navigating.current = true;
                                     changeOpen(false);
+                                  }
                                 }}
                               />
                             }
@@ -139,7 +147,7 @@ export function BottomNavigation({
                 ))}
                 <MobileAccountActions accountId={user.accountId} close={() => changeOpen(false)} />
               </div>
-            </ScrollArea>
+            </ContentScrollArea>
           </DrawerContent>
         </Drawer>
       </nav>

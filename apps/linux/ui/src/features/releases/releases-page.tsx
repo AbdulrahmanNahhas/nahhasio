@@ -15,6 +15,7 @@ import { Button, buttonVariants } from "../../components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { gateway, type ReleasesQuery } from "../../lib/bridge";
 import { replaceParams } from "../shell/navigation";
+import { PublicPage, PublicPageHeader } from "../shell/public-page";
 import { EpisodeCalendar } from "./episode-calendar";
 import { ReleaseDisplay } from "./release-display";
 import { ReleaseFeed } from "./release-feed";
@@ -95,20 +96,17 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
   if (params.has("timelineMonth") && params.get("timelineMonth") !== "all")
     timeline.month = numberParam(params, "timelineMonth", month, 12);
   return (
-    <article
-      className="mx-auto flex max-w-400 flex-col gap-7 px-4 py-8 sm:px-8 lg:px-10"
-      aria-label="الإصدارات"
-    >
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold sm:text-4xl">تقويم المكتبة</h1>
-          <p className="text-sm text-muted-foreground">مواسم الإصدارات ومواعيد الحلقات</p>
-        </div>
-        <a className={buttonVariants({ variant: "outline", size: "sm" })} href="#/episodes">
-          <Clapperboard data-icon="inline-start" />
-          تصفّح الحلقات
-        </a>
-      </header>
+    <PublicPage as="article" className="flex flex-col gap-6" aria-label="الإصدارات">
+      <PublicPageHeader
+        title="تقويم المكتبة"
+        description="مواسم الإصدارات ومواعيد الحلقات"
+        actions={
+          <a className={buttonVariants({ variant: "outline", size: "sm" })} href="#/episodes">
+            <Clapperboard data-icon="inline-start" />
+            تصفّح الحلقات
+          </a>
+        }
+      />
       <Tabs
         value={view}
         onValueChange={(value) => {
@@ -305,6 +303,6 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
           </div>
         </TabsContent>
       </Tabs>
-    </article>
+    </PublicPage>
   );
 }

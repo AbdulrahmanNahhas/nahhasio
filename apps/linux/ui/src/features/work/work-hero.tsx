@@ -13,7 +13,7 @@ import { SaveWorkControl } from "../player/saved-works";
 import { offlineStatusOptions } from "../player/saved-works-data";
 import { requestDownload, requestWatch } from "../player/watch-request";
 import { entityLink } from "../shell/navigation";
-import { audienceLabels, statusLabels } from "./format";
+import { ageLabel, audienceLabels, statusLabels } from "./format";
 import type { WorkTracking } from "./use-work-tracking";
 import { WatchedControl } from "./watched-control";
 import { WorkTrailers } from "./work-trailers";
@@ -113,7 +113,7 @@ export function WorkHero({
             </span>
             {work.age && (
               <Badge variant="secondary">
-                <bdi>{work.age}</bdi>
+                <bdi>{ageLabel(work.age)}</bdi>
               </Badge>
             )}
             {work.isPrivate && <Badge variant="outline">خاص</Badge>}

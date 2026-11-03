@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Badge } from "../../components/ui/badge";
 import { Disclosure, FieldList, Section } from "./field-list";
-import { audienceLabels, classificationLabels, riskLabels } from "./format";
+import { ageLabel, audienceLabels, classificationLabels, riskLabels } from "./format";
 
 export function RiskRows({
   classification,
@@ -34,7 +34,7 @@ export function RiskRows({
             {riskLabels.get(value) ?? value}
           </Badge>
         ) : (
-          <bdi>{key === "audience" ? (audienceLabels.get(value) ?? value) : value}</bdi>
+          <bdi>{key === "audience" ? (audienceLabels.get(value) ?? value) : ageLabel(value)}</bdi>
         )}
         {overrides && (
           <span className="text-xs text-muted-foreground">

@@ -25,6 +25,7 @@ import type { CatalogQuery } from "@/lib/bridge";
 
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
+import { PublicPage } from "../shell/public-page";
 import { sortChoices } from "./browse-refinements";
 import { emptyFilters } from "./filter-model";
 import { useEntityDirectory } from "./use-entity-directory";
@@ -100,7 +101,7 @@ export function EntityWorksPage({
   const back = new URLSearchParams(params);
   for (const key of ["workSort", "workSize", "workView"]) back.delete(key);
   return (
-    <article className="mx-auto max-w-380 px-10 pt-7 pb-10 max-[720px]:px-5 max-[720px]:pt-5">
+    <PublicPage as="article">
       <a
         href={`#/${path}${back.size ? `?${back}` : ""}`}
         className="mb-6 inline-flex items-center gap-2 rounded-lg py-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
@@ -315,6 +316,6 @@ export function EntityWorksPage({
           </Button>
         )}
       </section>
-    </article>
+    </PublicPage>
   );
 }

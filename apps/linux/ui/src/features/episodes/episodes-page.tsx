@@ -33,6 +33,7 @@ import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import { ViewingCard } from "../home/viewing-card";
 import { replaceParams } from "../shell/navigation";
+import { PublicPage } from "../shell/public-page";
 
 export function EpisodesPage({ params }: { params: URLSearchParams }) {
   const admin = useIsAdmin();
@@ -96,11 +97,11 @@ export function EpisodesPage({ params }: { params: URLSearchParams }) {
   };
 
   return (
-    <div className="mx-auto max-w-[1700px] space-y-8 px-4 py-8 sm:px-8 lg:px-10">
+    <PublicPage as="div" className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold">الحلقات</h1>
+            <h1 className="font-display text-2xl font-semibold sm:text-3xl">الحلقات</h1>
             {total !== undefined && (
               <Badge variant="secondary">
                 {total} {kind === "episodes" ? "حلقة" : kind === "movies" ? "فيلم" : "إصدار"}
@@ -233,7 +234,7 @@ export function EpisodesPage({ params }: { params: URLSearchParams }) {
           </Button>
         </div>
       )}
-    </div>
+    </PublicPage>
   );
 }
 

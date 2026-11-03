@@ -8,6 +8,7 @@ import { ScoreBadge } from "../../components/media-card";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { requestWatch } from "../player/watch-request";
 import { navigate, workLink } from "../shell/navigation";
+import { ageLabel } from "../work/format";
 import { homeOptions } from "./home-data";
 export function Hero() {
   const navigation = useCardNavigation();
@@ -107,7 +108,7 @@ export function Hero() {
           <ScoreBadge score={work.score} />
           {work.releaseYear && <span>{work.releaseYear}</span>}
           <span>{work.format === "animated" ? "رسوم متحركة" : "تمثيل حي"}</span>
-          <span dir="auto">{work.age}</span>
+          <span dir="auto">{ageLabel(work.age)}</span>
         </div>
         <p
           className="line-clamp-3 max-w-150 text-sm leading-loose text-foreground sm:text-base"

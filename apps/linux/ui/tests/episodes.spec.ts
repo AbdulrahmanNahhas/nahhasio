@@ -1,6 +1,8 @@
 import type { HomeViewingItem, WorkSummary } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
 
+import { installArtworkFixture } from "./fixtures/artwork";
+
 const work: WorkSummary = {
   id: "00000000-0000-4000-8000-000000000001",
   canonicalTitle: "Family library",
@@ -46,19 +48,9 @@ const items: HomeViewingItem[] = Array.from({ length: 12 }, (_, index) => ({
 
 for (const width of [520, 1440]) {
   test(`episodes grid ${width}: contained movie posters and ordered releases`, async ({ page }) => {
+    await installArtworkFixture(page);
     await page.setViewportSize({ width, height: 1000 });
     await page.addInitScript((entries) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 200;
-      canvas.height = 300;
-      const context = canvas.getContext("2d")!;
-      context.fillStyle = "#544a87";
-      context.fillRect(0, 0, 200, 300);
-      context.fillStyle = "#dbb26b";
-      context.fillRect(30, 35, 140, 180);
-      context.fillStyle = "#19182b";
-      context.fillRect(65, 70, 70, 140);
-      const dataUrl = canvas.toDataURL("image/png");
       window.webkit = {
         messageHandlers: {
           nahhasio: {
@@ -95,8 +87,10 @@ for (const width of [520, 1440]) {
                     item.installmentTitle.includes(request.payload.q),
                   );
                 result = { items: filtered, page: 1, pageSize: 36, total: filtered.length };
-              } else if (request.command === "artwork") {
-                result = { dataUrl };
+              } else if (request.command === "artwork.url") {
+                result = {
+                  url: `nahhasio://app/_artwork/0/${request.payload.id}/${request.payload.width}`,
+                };
               } else {
                 window["__nahhasioReply"]?.({
                   id: request.id,

@@ -13,7 +13,7 @@ function PlanetCard({ planet }: { planet: CatalogPlanet }) {
     <a
       {...navigation}
       href={`#/planets/${planet.slug}`}
-      className="bg-[linear-gradient(165deg,var(--planet-secondary)_0%,var(--rail)_85%)] group relative isolate flex min-h-60 min-w-0 flex-col items-center justify-center gap-5 overflow-hidden rounded-[28px] border border-foreground/10 p-6 text-center transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-(--planet)/60 hover:shadow-[0_24px_60px_-24px_var(--planet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none"
+      className="bg-[linear-gradient(165deg,var(--planet-secondary)_0%,var(--rail)_85%)] group relative isolate flex min-h-52 sm:min-h-60 min-w-0 flex-col items-center justify-center gap-5 overflow-hidden rounded-[28px] border border-foreground/10 p-4 text-center sm:p-6 transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-(--planet)/60 hover:shadow-[0_24px_60px_-24px_var(--planet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none"
       style={planetPalette(planet.primaryColor, planet.secondaryColor)}
     >
       {/* ambient glow, top corner like the Nuvio background */}
@@ -53,7 +53,7 @@ function PlanetCard({ planet }: { planet: CatalogPlanet }) {
 
 export function PlanetCards({ planets }: { planets: CatalogPlanet[] }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,230px),1fr))] gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
       {planets
         .toSorted((a, b) => b.count - a.count)
         .map((planet) => (

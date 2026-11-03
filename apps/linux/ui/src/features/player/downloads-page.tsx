@@ -22,6 +22,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { PublicPage } from "../shell/public-page";
 import { CacheControl } from "./cache-control";
 import {
   downloadLibraryOptions,
@@ -75,13 +76,10 @@ export function DownloadsPage() {
   );
   const active = jobs.data?.filter((job) => jobCategory(job) === "active").length ?? 0;
   return (
-    <section
-      className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8"
-      aria-labelledby="downloads-heading"
-    >
+    <PublicPage className="flex max-w-6xl flex-col gap-6" aria-labelledby="downloads-heading">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 id="downloads-heading" className="font-display text-3xl font-semibold">
+          <h1 id="downloads-heading" className="font-display text-2xl font-semibold sm:text-3xl">
             مكتبة الجهاز
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -276,6 +274,6 @@ export function DownloadsPage() {
           )}
         </TabsContent>
       </Tabs>
-    </section>
+    </PublicPage>
   );
 }

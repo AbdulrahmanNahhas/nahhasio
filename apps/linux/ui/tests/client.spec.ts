@@ -1,6 +1,8 @@
 import type { WorkDetail, WorkSummary } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+
+import { installArtworkFixture } from "./fixtures/artwork";
 const work: WorkSummary = {
   id: "00000000-0000-4000-8000-000000000001",
   isPrivate: false,
@@ -82,6 +84,7 @@ const detail: WorkDetail = {
   sortTitle: "A library work",
 };
 test.beforeEach(async ({ page }) => {
+  await installArtworkFixture(page);
   await page.addInitScript(
     ({ work: fixtureWork, detail: fixtureDetail }) => {
       const session = {
@@ -567,17 +570,14 @@ test.beforeEach(async ({ page }) => {
   );
   await page.goto("/");
 });
-for (const width of [480, 1440]) {
+for (const width of [360, 480, 1440]) {
   test(`IMDb watch design ${width}: validation, series target and honest pending actions`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await login(page);
-    await page
-      .getByRole("navigation", { name: "التنقل الرئيسي" })
-      .getByRole("link", { name: "مشاهدة مباشرة", exact: true })
-      .click();
-    await expect(page.getByRole("heading", { name: "حكايتك، بمعرّف واحد." })).toBeVisible();
+    await openPublicPage(page, "مشاهدة مباشرة");
+    await expect(page.getByRole("heading", { name: "مشاهدة مباشرة", exact: true })).toBeVisible();
     const id = page.getByLabel("معرّف IMDb أو رابط العنوان");
     await id.fill("https://example.test/title/tt1234567");
     await page.getByRole("button", { name: "معاينة الطلب" }).click();
@@ -590,17 +590,40 @@ for (const width of [480, 1440]) {
     await page.getByRole("button", { name: "معاينة الطلب" }).click();
     await expect(id).toHaveValue("tt1234567");
     await expect(page.getByRole("heading", { name: "الموسم 0 · الحلقة 2" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "طلب المشاهدة", exact: true })).toBeFocused();
     for (const name of ["البحث عن المصادر", "تنزيل الفيديو", "اختيار ترجمة"])
       await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
+    await expect(page.getByRole("link", { name: "عرض على IMDb" })).toHaveAttribute(
+      "href",
+      "https://www.imdb.com/title/tt1234567/",
+    );
+    await page.screenshot({ path: `../../../data/previews/watch-request-${width}.png` });
     await page.getByLabel("الحلقة", { exact: true }).fill("3");
     await expect(page.getByRole("heading", { name: "الموسم 0 · الحلقة 2" })).toHaveCount(0);
     await page.getByRole("button", { name: "فيلم", exact: true }).click();
     await expect(page.getByLabel("الموسم", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "معاينة الطلب" }).click();
+    await page.getByRole("button", { name: "طلب جديد", exact: true }).click();
+    await expect(id).toHaveValue("");
+    await expect(id).toBeFocused();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
     await page.screenshot({ path: `../../../data/previews/watch-${width}.png` });
   });
+}
+async function openPublicPage(page: Page, label: string) {
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await page.getByRole("button", { name: "كل الصفحات", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "كل الصفحات", exact: true })
+      .getByRole("link", { name: label, exact: true })
+      .click();
+  } else
+    await page
+      .getByRole("navigation", { name: "التنقل الرئيسي", exact: true })
+      .getByRole("link", { name: label, exact: true })
+      .click();
 }
 async function openSearchPage(page: Page) {
   if ((page.viewportSize()?.width ?? 1440) < 768) {
@@ -1217,10 +1240,9 @@ for (const width of [480, 1440]) {
             yearMax: 2021,
           };
           queueMicrotask(() => window["__nahhasioReply"]?.({ id: request.id, ok: true, result }));
-        } else if (request.command === "artwork") {
+        } else if (request.command === "artwork.url") {
           const result = {
-            dataUrl:
-              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+            url: `nahhasio://app/_artwork/0/${request.payload.id}/${request.payload.width}`,
           };
           queueMicrotask(() => window["__nahhasioReply"]?.({ id: request.id, ok: true, result }));
         } else original(message);
@@ -1255,12 +1277,13 @@ for (const width of [480, 1440]) {
         back: "العودة إلى الاستوديوهات",
       },
     ]) {
-      await rail.getByRole("link", { name: item.label, exact: true }).click();
+      await openPublicPage(page, item.label);
       await expect(page.getByRole("region", { name: item.page })).toBeVisible();
-      await expect(rail.getByRole("link", { name: item.label, exact: true })).toHaveAttribute(
-        "aria-current",
-        "page",
-      );
+      if (width >= 768)
+        await expect(rail.getByRole("link", { name: item.label, exact: true })).toHaveAttribute(
+          "aria-current",
+          "page",
+        );
       const input = page.getByRole("textbox", { name: item.search });
       await input.fill("missing");
       await expect(page.getByRole("link", { name: new RegExp(item.name) })).toHaveCount(0);
@@ -1269,7 +1292,7 @@ for (const width of [480, 1440]) {
         await page.getByRole("link", { name: new RegExp(item.name) }).scrollIntoViewIfNeeded();
         const image = page.getByRole("region", { name: item.page }).locator("img").first();
         await expect(image).toHaveJSProperty("tagName", "IMG");
-        await expect(image).toHaveJSProperty("naturalWidth", 1);
+        await expect(image).toHaveJSProperty("naturalWidth", 200);
         await page.screenshot({
           path: `../../../data/previews/${item.route.split("/")[0]}-${width}.png`,
         });
@@ -1487,6 +1510,47 @@ for (const width of [360, 520]) {
   });
 }
 
+test("public shell: natural drawer height and nested connection navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 740 });
+  await login(page);
+  await page.getByRole("button", { name: "كل الصفحات", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "كل الصفحات", exact: true });
+  const scroll = menu.locator('[data-slot="scroll-area-viewport"]');
+  expect(await scroll.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+    true,
+  );
+  await scroll.hover();
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 520, height: 1600 });
+  const dimensions = await menu.evaluate((element) => ({
+    popup: element.getBoundingClientRect().height,
+    content: element
+      .querySelector('[data-slot="scroll-area-viewport"]')!
+      .firstElementChild!.getBoundingClientRect().height,
+  }));
+  expect(dimensions.popup).toBeLessThanOrEqual(dimensions.content + 32);
+  const server = menu.getByRole("button", { name: "الخادم والاتصال", exact: true });
+  await server.scrollIntoViewIfNeeded();
+  await server.click();
+  const nested = page.getByRole("dialog", { name: "اختر مكتبتك", exact: true });
+  await expect(nested).toHaveAttribute("data-slot", "drawer-popup");
+  await expect(nested.getByRole("button", { name: "إضافة خادم", exact: true })).toBeVisible();
+  await nested.hover();
+  await expect(nested.getByRole("button", { name: "إضافة خادم", exact: true })).toBeInViewport({
+    ratio: 1,
+  });
+  const nestedSize = await nested.boundingBox();
+  expect(nestedSize!.height).toBeLessThan(600);
+  await page.screenshot({ path: "../../../data/previews/public-nested-drawer.png" });
+  await page.keyboard.press("Escape");
+  await expect(nested).toHaveCount(0);
+  await expect(server).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "كل الصفحات", exact: true })).toBeFocused();
+});
+
 test("quick search desktop: pages, content, keyboard selection and private opt-in", async ({
   page,
 }) => {
@@ -1521,3 +1585,72 @@ test("quick search desktop: pages, content, keyboard selection and private opt-i
   await expect(page).toHaveURL(/#\/releases/);
   await expect(dialog).toHaveCount(0);
 });
+
+for (const width of [360, 1440]) {
+  test(`trailers redesign ${width}: featured video, filters, links and empty recovery`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate((fixture) => {
+      const handler = window.webkit?.messageHandlers?.nahhasio;
+      if (!handler) throw new Error("Fixture bridge missing");
+      const original = handler.postMessage.bind(handler);
+      handler.postMessage = (message: string) => {
+        const request = JSON.parse(message);
+        if (request.command === "trailers") {
+          const entries = Array.from({ length: 3 }, (_, index) => ({
+            work: {
+              ...fixture,
+              titleAr: `حكاية ${index + 1}`,
+              format: index === 1 ? "live-action" : "animated",
+            },
+            trailer: {
+              id: `00000000-0000-4000-8000-${String(index + 90).padStart(12, "0")}`,
+              youtubeVideoId: `video${index}`,
+              title: `الإعلان الرسمي ${index + 1}`,
+              language: "ar",
+              isPrimary: index === 0,
+              position: index,
+            },
+          })).filter(
+            (entry) =>
+              (!request.payload.format || request.payload.format === entry.work.format) &&
+              (!request.payload.q || entry.work.titleAr.includes(request.payload.q)),
+          );
+          const result = { items: entries, total: entries.length, page: 1, pageSize: 24 };
+          queueMicrotask(() => window["__nahhasioReply"]?.({ id: request.id, ok: true, result }));
+        } else original(message);
+      };
+    }, work);
+    await login(page);
+    await openPublicPage(page, "الإعلانات التشويقية");
+    const featured = page.getByRole("region", { name: "الإعلان البارز: حكاية 1" });
+    await expect(featured).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "قائمة الإعلانات" }).getByRole("listitem"),
+    ).toHaveCount(2);
+    await expect(featured.getByRole("link", { name: "شاهد الإعلان", exact: true })).toHaveAttribute(
+      "href",
+      "https://www.youtube.com/watch?v=video0",
+    );
+    await expect(featured.getByRole("link", { name: "تفاصيل العمل", exact: true })).toHaveAttribute(
+      "href",
+      `#/titles/${work.id}`,
+    );
+    await page.screenshot({ path: `../../../data/previews/trailers-redesign-${width}.png` });
+    await page.getByRole("button", { name: "تمثيل حي", exact: true }).click();
+    await expect(featured).toHaveCount(0);
+    await expect(page.getByRole("listitem")).toHaveCount(1);
+    await expect(page).toHaveURL(/format=live-action/);
+    await page
+      .getByRole("textbox", { name: "البحث عن إعلان أو عمل بالعربية أو الإنجليزية" })
+      .fill("لا يوجد");
+    await expect(page.getByText("لا توجد إعلانات مطابقة", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "مسح الفلاتر", exact: true }).click();
+    await expect(featured).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+}

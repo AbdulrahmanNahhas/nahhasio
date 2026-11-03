@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { ArrowLeft, Building2, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Building2, Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { languageName } from "@/lib/languages";
@@ -11,11 +11,18 @@ import { Failure, NoResults } from "../../components/status";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Field, FieldGroup, FieldLabel, FieldSet, FieldLegend } from "../../components/ui/field";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../../components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "../../components/ui/input-group";
 import { Switch } from "../../components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
+import { PublicPage, PublicPageHeader } from "../shell/public-page";
+import { facetMatches } from "./filter-model";
 import { useEntityDirectory } from "./use-entity-directory";
 
 export function EntityDirectoryPage({
@@ -28,13 +35,12 @@ export function EntityDirectoryPage({
   const people = type === "contributors";
   const path = people ? "people" : "studios";
   const title = people ? "الصنّاع" : "الاستوديوهات";
-  const Icon = people ? Users : Building2;
   const isAdmin = useIsAdmin();
   const privacy = isAdmin && params.get("privacy") === "all" ? "all" : "public";
   const result = useEntityDirectory(type, privacy);
   const navigation = useCardNavigation();
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("count");
+  const search = (params.get("q") ?? "").slice(0, 200);
+  const sort = params.get("sort") === "name" ? "name" : "count";
   const [limit, setLimit] = useState(24);
   const size =
     params.get("size") === "large" ? "large" : params.get("size") === "medium" ? "medium" : "small";
@@ -55,7 +61,7 @@ export function EntityDirectoryPage({
     ).values(),
   ).toSorted((a, b) => a.label.localeCompare(b.label, "ar"));
   const changeFilter = (
-    key: "role" | "image" | "size" | "shape" | "privacy" | "language",
+    key: "role" | "image" | "size" | "shape" | "privacy" | "language" | "q" | "sort",
     value: string,
   ) => {
     const next = new URLSearchParams(params);
@@ -66,6 +72,8 @@ export function EntityDirectoryPage({
       cardAspect: people ? "portrait" : "square",
       privacy: "public",
       language: "",
+      q: "",
+      sort: "count",
     };
     const defaultValue = key === "shape" ? defaults.cardAspect : defaults[key];
     if (value === defaultValue) next.delete(key);
@@ -75,10 +83,10 @@ export function EntityDirectoryPage({
   };
   const filtered = Boolean(search.trim()) || role !== "all" || image !== "all" || Boolean(language);
   const clearFilters = () => {
-    setSearch("");
     setLimit(24);
     const next = new URLSearchParams(params);
     next.delete("language");
+    next.delete("q");
     next.set("role", "all");
     next.set("image", "all");
     replaceParams(`/${path}`, next);
@@ -86,7 +94,7 @@ export function EntityDirectoryPage({
   const matches = result.entities
     .filter(
       (entity) =>
-        entity.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        facetMatches(entity, search) &&
         (role === "all"
           ? !language || entity.languages?.includes(language)
           : entity.roles?.some(
@@ -100,31 +108,23 @@ export function EntityDirectoryPage({
         : b.count - a.count || a.label.localeCompare(b.label, "ar"),
     );
   return (
-    <section
-      className="entity-directory max-w-380 mx-auto pt-12 px-10 pb-8 max-[720px]:py-7 max-[720px]:px-5"
-      data-kind={path}
-      aria-label={`صفحة ${title}`}
-    >
-      <header className="entity-directory-header flex items-start justify-between gap-5 mb-9 [&_h1]:font-display [&_h1]:text-[42px] [&_h1]:font-semibold [&_h1]:leading-[1.6] [&_h1]:mt-2 [&_p:not(.entity-eyebrow)]:max-w-162.5 [&_p:not(.entity-eyebrow)]:mt-2.5 [&_p:not(.entity-eyebrow)]:text-muted-foreground [&_p:not(.entity-eyebrow)]:text-sm [&_p:not(.entity-eyebrow)]:leading-[1.9] max-[720px]:flex-col max-[720px]:mb-6 max-[720px]:[&_h1]:text-[30px] max-[720px]:[&_p:not(.entity-eyebrow)]:text-xs">
-        <div>
-          <p className="entity-eyebrow flex items-center gap-2 text-primary text-xs">
-            <Icon className="size-4" aria-hidden="true" />
-            {people ? "من وراء الحكاية" : "من فكرة إلى الشاشة"}
-          </p>
-          <h1>{title}</h1>
-          <p>
-            {people
-              ? "وجوه وأسماء تصنع عوالمنا. اكتشف أعمالهم في مكتبتك."
-              : "بيوت الحكايات. اكتشف بصمة كل استوديو وأعماله في مكتبتك."}
-          </p>
-        </div>
-        {result.data && (
-          <Badge variant="outline">
-            {result.entities.length} {people ? "صانع" : "استوديو"}
-          </Badge>
-        )}
-      </header>
-      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+    <PublicPage className="flex flex-col gap-6" data-kind={path} aria-label={`صفحة ${title}`}>
+      <PublicPageHeader
+        title={title}
+        description={
+          people
+            ? "اكتشف أعمال الصنّاع وأدوارهم في مكتبتك."
+            : "اكتشف الاستوديوهات وإنتاجاتها ومساهماتها في مكتبتك."
+        }
+        count={
+          result.data && (
+            <Badge variant="secondary">
+              {result.entities.length} {people ? "صانع" : "استوديو"}
+            </Badge>
+          )
+        }
+      />
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
         <FieldGroup className="grid grid-cols-2 items-end gap-3 lg:grid-cols-5">
           <Field className="col-span-2">
             <FieldLabel htmlFor="entity-search" className="sr-only">
@@ -133,17 +133,28 @@ export function EntityDirectoryPage({
             <InputGroup>
               <InputGroupInput
                 id="entity-search"
+                maxLength={200}
                 aria-label={`ابحث في ${title}`}
                 placeholder={people ? "ابحث باسم الصانع…" : "ابحث باسم الاستوديو…"}
                 value={search}
                 onChange={(event) => {
-                  setSearch(event.target.value);
-                  setLimit(24);
+                  changeFilter("q", event.target.value);
                 }}
               />
               <InputGroupAddon>
                 <Search />
               </InputGroupAddon>
+              {search && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label="مسح بحث الأسماء"
+                    onClick={() => changeFilter("q", "")}
+                  >
+                    <X />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              )}
             </InputGroup>
           </Field>
           <Field>
@@ -204,8 +215,7 @@ export function EntityDirectoryPage({
                 { value: "name", label: "الاسم أبجديًا" },
               ]}
               onChange={(value) => {
-                setSort(value);
-                setLimit(24);
+                changeFilter("sort", value);
               }}
             />
           </Field>
@@ -375,6 +385,6 @@ export function EntityDirectoryPage({
           description="جرّب اسمًا آخر أو امسح التصفية لعرض الجميع."
         />
       )}
-    </section>
+    </PublicPage>
   );
 }

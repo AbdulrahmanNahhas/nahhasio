@@ -21,6 +21,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { useIsAdmin } from "../account/use-is-admin";
 import { entityLink, replaceParams } from "../shell/navigation";
+import { PublicPage } from "../shell/public-page";
 import { matchingEntities } from "./search-entities";
 import { parseSearchType, searchTypes } from "./search-model";
 import { useLibrarySearch } from "./use-library-search";
@@ -100,13 +101,10 @@ export function SearchPage({ params }: { params: URLSearchParams }) {
   const { q, works, facets, showWorks, showEntities, entities, entries, total, waiting, error } =
     useLibrarySearch(text, type, includePrivate);
   return (
-    <section
-      className="mx-auto min-h-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8"
-      aria-label="صفحة البحث"
-    >
+    <PublicPage className="min-h-full max-w-6xl" aria-label="صفحة البحث">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">البحث في المكتبة</h1>
+          <h1 className="font-display text-2xl font-semibold sm:text-3xl">البحث في المكتبة</h1>
           <p className="text-sm text-muted-foreground">الأعمال والصنّاع والاستوديوهات والعوالم.</p>
         </div>
         <Button
@@ -301,6 +299,6 @@ export function SearchPage({ params }: { params: URLSearchParams }) {
           )}
         </>
       )}
-    </section>
+    </PublicPage>
   );
 }

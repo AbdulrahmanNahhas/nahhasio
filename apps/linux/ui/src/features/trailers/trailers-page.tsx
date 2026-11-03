@@ -1,5 +1,5 @@
 import type { TrailerEntry } from "@nahhasio/api-contract";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowDown, ExternalLink, Film, Info, Play, Search, X } from "lucide-react";
 import { useDeferredValue } from "react";
 
@@ -8,14 +8,6 @@ import { useCardNavigation, useLoadMoreNavigation } from "@/components/card-navi
 import { Failure, NoResults } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 import {
   InputGroup,
   InputGroupAddon,
@@ -28,6 +20,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { replaceParams, workLink } from "@/features/shell/navigation";
 import { gateway, type TrailersQuery } from "@/lib/bridge";
 import { languageName } from "@/lib/languages";
+
+import { PublicPage, PublicPageHeader } from "../shell/public-page";
 
 export function TrailersPage({ params }: { params: URLSearchParams }) {
   const search = params.get("q") ?? "";
@@ -51,61 +45,41 @@ export function TrailersPage({ params }: { params: URLSearchParams }) {
     getNextPageParam: (page) =>
       page.page * page.pageSize < page.total ? page.page + 1 : undefined,
   });
-  const banner = useQuery({
-    queryKey: ["catalog", "trailers", "banner"],
-    queryFn: ({ signal }) => gateway.trailers({ page: 1, pageSize: 12 }, signal),
-    staleTime: 300000,
-  });
-  const seen = new Set<string>();
-  const covers = (banner.data?.items ?? [])
-    .filter(({ work }) => {
-      if (seen.has(work.id)) return false;
-      seen.add(work.id);
-      return true;
-    })
-    .slice(0, 7);
   const items = result.data?.pages.flatMap((page) => page.items) ?? [];
   const total = result.data?.pages[0]?.total;
+  const filtered = Boolean(q || query.format);
+  const featured = !filtered ? items[0] : undefined;
+  const remaining = featured ? items.slice(1) : items;
+  const resetFilters = () => {
+    const next = new URLSearchParams(params);
+    next.delete("q");
+    next.delete("format");
+    replaceParams("/trailers", next);
+  };
   const loadMore = useLoadMoreNavigation();
   const fetchMore = async () => {
     await result.fetchNextPage();
   };
   return (
-    <div className="mx-auto flex max-w-400 flex-col gap-7 px-4 py-8 sm:px-8 lg:px-10">
-      <header className="relative isolate flex min-h-48 items-center overflow-hidden rounded-3xl border border-border bg-card sm:min-h-56">
-        <div
-          className="pointer-events-none absolute inset-y-0 end-0 flex w-2/3 items-center justify-end gap-3 overflow-hidden"
-          aria-hidden="true"
-        >
-          {covers.map(({ work }) => (
-            <Artwork
-              key={work.id}
-              id={work.poster?.id}
-              alt=""
-              className="h-72 w-32 shrink-0 rotate-12 rounded-xl object-cover sm:w-40"
-            />
-          ))}
-        </div>
-        <div className="pointer-events-none absolute inset-0 bg-linear-to-l from-card via-card/80 to-transparent" />
-        <div className="relative flex max-w-xl flex-col gap-3 px-6 py-8 sm:px-9">
-          <div className="flex items-center gap-3">
-            <Film className="size-7 text-primary" aria-hidden="true" />
-            <h1 className="text-3xl font-semibold sm:text-4xl">الإعلانات التشويقية</h1>
-          </div>
-          <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-            لمحة عن الحكاية قبل أن تبدأ. اكتشف إعلانات مكتبتك وشاهدها هنا، مع مشغّل مصغّر يرافقك أثناء
-            التصفح.
-          </p>
-        </div>
-      </header>
-      <div className="flex flex-col gap-4">
-        <InputGroup className="h-12">
+    <PublicPage as="div" className="flex flex-col gap-6">
+      <PublicPageHeader
+        title="الإعلانات التشويقية"
+        description="اكتشف ما يستحق المشاهدة، من إعلانات الأعمال في مكتبتك."
+        actions={
+          <Badge variant="outline">
+            <ExternalLink data-icon="inline-start" />
+            المشاهدة على YouTube
+          </Badge>
+        }
+      />
+      <div className="flex flex-col gap-4 rounded-2xl border border-border p-4">
+        <InputGroup>
           <InputGroupAddon>
             <Search aria-hidden="true" />
           </InputGroupAddon>
           <InputGroupInput
             aria-label="البحث عن إعلان أو عمل بالعربية أو الإنجليزية"
-            placeholder="ابحث عن عمل أو إعلان بالعربية أو English…"
+            placeholder="ابحث باسم العمل أو الإعلان…"
             value={search}
             maxLength={200}
             onChange={(event) => update("q", event.target.value)}
@@ -164,10 +138,12 @@ export function TrailersPage({ params }: { params: URLSearchParams }) {
             </h2>
             {total !== undefined && <Badge variant="secondary">{total} إعلان</Badge>}
           </div>
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-            المشاهدة على YouTube
-          </span>
+          {filtered && (
+            <Button size="sm" variant="ghost" onClick={resetFilters}>
+              <X data-icon="inline-start" />
+              مسح الفلاتر
+            </Button>
+          )}
         </div>
         {result.isPending && (
           <div
@@ -176,26 +152,33 @@ export function TrailersPage({ params }: { params: URLSearchParams }) {
             aria-label="جارٍ تحميل الإعلانات"
           >
             {Array.from({ length: 6 }, (_, i) => (
-              <Skeleton key={i} className="h-32 rounded-2xl" />
+              <Skeleton key={i} className="aspect-video rounded-2xl" />
             ))}
           </div>
         )}
         {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
         {!result.isPending && !result.error && items.length === 0 && (
           <NoResults
-            title={search || format ? "لا توجد إعلانات مطابقة" : "لم تُضف إعلانات بعد"}
+            title={filtered ? "لا توجد إعلانات مطابقة" : "لم تُضف إعلانات بعد"}
             description={
-              search || format
+              filtered
                 ? "جرّب اسمًا آخر أو اختر كل أنواع الأعمال."
                 : "ستظهر هنا إعلانات YouTube المضافة إلى الأعمال في المكتبة."
             }
           />
         )}
-        <div role="list" className="grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((entry) => (
-            <TrailerCard key={entry.trailer.id} entry={entry} />
-          ))}
-        </div>
+        {featured && <FeaturedTrailer entry={featured} />}
+        {remaining.length > 0 && (
+          <div
+            role="list"
+            aria-label="قائمة الإعلانات"
+            className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          >
+            {remaining.map((entry) => (
+              <TrailerCard key={entry.trailer.id} entry={entry} />
+            ))}
+          </div>
+        )}
         {result.hasNextPage && (
           <Button
             variant="outline"
@@ -215,96 +198,148 @@ export function TrailersPage({ params }: { params: URLSearchParams }) {
           </Button>
         )}
       </section>
-    </div>
+    </PublicPage>
   );
 }
 
-function TrailerCard({ entry: { work, trailer } }: { entry: TrailerEntry }) {
-  const navigation = useCardNavigation();
-  const title = work.titleAr || work.canonicalTitle;
-  const url = `https://www.youtube.com/watch?v=${encodeURIComponent(trailer.youtubeVideoId)}`;
+function youtubeLink(entry: TrailerEntry) {
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(entry.trailer.youtubeVideoId)}`;
+}
+function TrailerMetadata({ entry: { work, trailer } }: { entry: TrailerEntry }) {
   return (
-    <Card size="sm" role="listitem" className="min-w-0 pt-0">
-      <a
-        {...navigation}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`شاهد ${trailer.title || "الإعلان التشويقي"} — ${title} على YouTube`}
-        className="group/trailer relative block aspect-video overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-      >
-        <Artwork
-          id={work.banner?.id ?? work.poster?.id}
-          alt=""
-          className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover/trailer:scale-105 motion-reduce:transition-none"
-        />
-        <span className="absolute inset-0 bg-linear-to-t from-background/70 via-background/10 to-transparent" />
-        <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm transition-transform duration-200 group-hover/trailer:scale-110 motion-reduce:transition-none">
-            <Play className="size-5" aria-hidden="true" />
-          </span>
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      {work.releaseYear && <span>{work.releaseYear}</span>}
+      {trailer.language && <Badge variant="outline">{languageName(trailer.language)}</Badge>}
+      {trailer.isPrimary && <Badge variant="secondary">الإعلان الرئيسي</Badge>}
+    </div>
+  );
+}
+function TrailerArtwork({ entry, featured = false }: { entry: TrailerEntry; featured?: boolean }) {
+  const navigation = useCardNavigation();
+  const title = entry.work.titleAr || entry.work.canonicalTitle;
+  return (
+    <a
+      {...navigation}
+      href={youtubeLink(entry)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`شاهد ${entry.trailer.title || "الإعلان التشويقي"} — ${title} على YouTube`}
+      className="group/trailer relative block aspect-video overflow-hidden bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+    >
+      <Artwork
+        id={entry.work.banner?.id ?? entry.work.poster?.id}
+        alt=""
+        className="absolute inset-0 size-full object-cover"
+      />
+      <span className="absolute inset-0 bg-linear-to-t from-background/60 to-transparent" />
+      <span className="absolute inset-0 flex items-center justify-center">
+        <span className="flex size-12 items-center justify-center rounded-full border border-border bg-background/80 text-foreground shadow-sm backdrop-blur-md transition-transform duration-200 group-hover/trailer:scale-110 motion-reduce:transition-none">
+          <Play className="size-5" aria-hidden="true" />
         </span>
-        <span className="absolute start-3 top-3">
+      </span>
+      {featured && (
+        <span className="absolute start-4 top-4">
           <Badge variant="secondary">
-            {trailer.language ? languageName(trailer.language) : "إعلان تشويقي"}
+            <Film data-icon="inline-start" />
+            {entry.work.format === "animated" ? "رسوم متحركة" : "تمثيل حي"}
           </Badge>
         </span>
-        {work.releaseYear && (
-          <span className="absolute end-3 bottom-3">
-            <Badge variant="secondary">{work.releaseYear}</Badge>
-          </span>
-        )}
-      </a>
-      <CardHeader>
-        <CardTitle>
-          <a
-            {...navigation}
-            href={workLink(work.id)}
-            className="line-clamp-1 rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+      )}
+      <span className="absolute end-3 bottom-3">
+        <Badge variant="secondary">
+          <ExternalLink data-icon="inline-start" />
+          YouTube
+        </Badge>
+      </span>
+    </a>
+  );
+}
+function FeaturedTrailer({ entry }: { entry: TrailerEntry }) {
+  const { work, trailer } = entry;
+  const title = work.titleAr || work.canonicalTitle;
+  return (
+    <section
+      aria-label={`الإعلان البارز: ${title}`}
+      className="grid overflow-hidden rounded-2xl border border-border bg-card lg:grid-cols-5"
+    >
+      <div className="min-w-0 lg:col-span-3">
+        <TrailerArtwork entry={entry} featured />
+      </div>
+      <div className="flex min-w-0 flex-col justify-center gap-4 p-5 sm:p-6 lg:col-span-2">
+        <TrailerMetadata entry={entry} />
+        <div className="flex flex-col gap-2">
+          <h2
+            className="font-display text-2xl leading-relaxed font-semibold sm:text-3xl"
             dir="auto"
           >
             {title}
-          </a>
-        </CardTitle>
-        <CardDescription>
-          <span className="line-clamp-1" dir="auto">
-            {work.titleAr && work.titleAr !== work.canonicalTitle
-              ? work.canonicalTitle
-              : work.format === "animated"
-                ? "رسوم متحركة"
-                : "تمثيل حي"}
-          </span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">
-        <p className="line-clamp-2 min-h-10 text-sm leading-relaxed" dir="auto">
-          {trailer.title || "الإعلان التشويقي الرسمي"}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">YouTube</Badge>
-          {trailer.isPrimary && <Badge variant="secondary">الإعلان الرئيسي</Badge>}
+          </h2>
+          {work.titleAr && work.titleAr !== work.canonicalTitle && (
+            <p className="text-sm text-muted-foreground" dir="auto">
+              {work.canonicalTitle}
+            </p>
+          )}
         </div>
-      </CardContent>
-      <CardFooter className="gap-2">
-        <Button
-          {...navigation}
-          variant="secondary"
-          className="flex-1"
-          render={<a href={url} target="_blank" rel="noopener noreferrer" />}
-        >
-          <Play data-icon="inline-start" />
-          شاهد الإعلان
-          <ExternalLink data-icon="inline-end" />
-        </Button>
-        <a
-          {...navigation}
-          href={workLink(work.id)}
-          aria-label={`تفاصيل ${title}`}
-          className={buttonVariants({ variant: "outline", size: "icon" })}
-        >
-          <Info />
-        </a>
-      </CardFooter>
-    </Card>
+        <p className="line-clamp-2 text-sm leading-relaxed" dir="auto">
+          {trailer.title || "الإعلان التشويقي"}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <a
+            className={buttonVariants()}
+            href={youtubeLink(entry)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Play data-icon="inline-start" />
+            شاهد الإعلان
+            <ExternalLink data-icon="inline-end" />
+          </a>
+          <a className={buttonVariants({ variant: "outline" })} href={workLink(work.id)}>
+            <Info data-icon="inline-start" />
+            تفاصيل العمل
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+function TrailerCard({ entry }: { entry: TrailerEntry }) {
+  const { work, trailer } = entry;
+  const navigation = useCardNavigation();
+  const title = work.titleAr || work.canonicalTitle;
+  return (
+    <article role="listitem" className="flex min-w-0 flex-col gap-3">
+      <div className="overflow-hidden rounded-xl border border-border">
+        <TrailerArtwork entry={entry} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-2 px-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h3 className="font-semibold">
+              <a
+                {...navigation}
+                href={workLink(work.id)}
+                className="line-clamp-1 rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                dir="auto"
+              >
+                {title}
+              </a>
+            </h3>
+            <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground" dir="auto">
+              {trailer.title || "الإعلان التشويقي"}
+            </p>
+          </div>
+          <a
+            {...navigation}
+            href={workLink(work.id)}
+            aria-label={`تفاصيل ${title}`}
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            <Info />
+          </a>
+        </div>
+        <TrailerMetadata entry={entry} />
+      </div>
+    </article>
   );
 }

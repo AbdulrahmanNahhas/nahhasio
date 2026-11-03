@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ContentScrollArea } from "@/components/content-scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import {
   connectionKey,
@@ -315,6 +324,7 @@ export function ServerConnections({
   onOpenChange?: (open: boolean) => void;
   inline?: boolean;
 }) {
+  const mobile = useIsMobile();
   const client = useQueryClient();
   const connections = useQuery({ ...connectionsOptions(), enabled: open });
   const status = useQuery({
@@ -546,6 +556,20 @@ export function ServerConnections({
         </CardHeader>
         <CardContent className="flex flex-col gap-5">{content}</CardContent>
       </Card>
+    );
+  if (mobile)
+    return (
+      <Drawer open={open} onOpenChange={change} showSwipeHandle>
+        <DrawerContent aria-label={title} className="max-h-5/6">
+          <DrawerHeader>
+            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerDescription>{description}</DrawerDescription>
+          </DrawerHeader>
+          <ContentScrollArea>
+            <div className="px-4 pt-4 pb-safe">{content}</div>
+          </ContentScrollArea>
+        </DrawerContent>
+      </Drawer>
     );
   return (
     <Dialog open={open} onOpenChange={change}>

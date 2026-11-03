@@ -64,3 +64,7 @@ export const statusLabels = new Map([
   ["released", "صدر"],
   ["upcoming", "قادم"],
 ]);
+
+export function ageLabel(value: string) {
+  return value === "all" ? "للجميع" : value;
+}
