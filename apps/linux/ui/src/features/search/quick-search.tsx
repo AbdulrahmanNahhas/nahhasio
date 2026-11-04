@@ -234,6 +234,7 @@ function SearchCommand({
                 >
                   <Artwork
                     id={entry.work.poster?.id}
+                    width={320}
                     alt=""
                     className="h-14 w-10 shrink-0 rounded-lg object-cover"
                   />

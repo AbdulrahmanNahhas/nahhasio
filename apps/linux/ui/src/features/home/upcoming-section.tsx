@@ -39,7 +39,12 @@ function UpcomingCard({ item }: { item: UpcomingInstallment }) {
       href={workLink(item.workId, item.id)}
       className="flex min-h-36 items-center gap-4 rounded-2xl border border-border bg-card p-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Artwork id={item.poster?.id} alt="" className="h-28 w-20 shrink-0 rounded-lg object-cover" />
+      <Artwork
+        id={item.poster?.id}
+        width={320}
+        alt=""
+        className="h-28 w-20 shrink-0 rounded-lg object-cover"
+      />
       <span className="flex min-w-0 flex-1 flex-col items-start gap-2">
         <Badge variant="secondary">
           <CalendarDays data-icon="inline-start" />

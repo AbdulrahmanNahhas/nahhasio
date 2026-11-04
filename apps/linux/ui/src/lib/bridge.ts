@@ -193,6 +193,7 @@ export async function nativeCall(
                 .parse(response.error.code)
             ]
           : response.error.message,
+      { cause: { code: response.error.code } },
     );
   }
   return response.result;

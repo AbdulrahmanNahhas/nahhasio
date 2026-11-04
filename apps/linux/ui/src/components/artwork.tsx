@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Film } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
+import { artworkImageFailures } from "../lib/artwork-image-failures";
+import { retryArtwork } from "../lib/artwork-query";
 import { gateway } from "../lib/bridge";
 
 function cornerBackground(image: HTMLImageElement): string | null {
@@ -63,16 +65,15 @@ export function Artwork({
   const [background, setBackground] = useState<{ source: string; color: string | null } | null>(
     null,
   );
-  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const instance = useId();
+  const identity = `${id}:${width}`;
+  const [imageFailure, setImageFailure] = useState<{
+    identity: string;
+    source: string | null;
+    count: number;
+  } | null>(null);
+  const failedSource = imageFailure?.identity === identity ? imageFailure.source : null;
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    const retry = () => {
-      setFailedSource(null);
-      setAttempt((value) => value + 1);
-    };
-    window.addEventListener("nahhasio:retry-artwork", retry);
-    return () => window.removeEventListener("nahhasio:retry-artwork", retry);
-  }, []);
   const [element, setElement] = useState<Element | null>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -96,7 +97,46 @@ export function Artwork({
     enabled: Boolean(id) && (priority || near),
     staleTime: Infinity,
     gcTime: 600000,
+    retry: retryArtwork,
+    retryDelay: (retryIndex) => Math.min(1000 * 2 ** retryIndex, 5000),
   });
+  const { isError, refetch, data } = query;
+  useEffect(() => {
+    const retry = () => {
+      if (!isError && (!data || failedSource !== data)) return;
+      setImageFailure(null);
+      setAttempt((value) => value + 1);
+      void refetch({ cancelRefetch: false });
+    };
+    window.addEventListener("nahhasio:retry-artwork", retry);
+    window.addEventListener("online", retry);
+    return () => {
+      window.removeEventListener("nahhasio:retry-artwork", retry);
+      window.removeEventListener("online", retry);
+    };
+  }, [isError, refetch, data, failedSource]);
+  useEffect(() => {
+    if (
+      !imageFailure ||
+      imageFailure.identity !== identity ||
+      imageFailure.count !== 1 ||
+      !imageFailure.source
+    )
+      return;
+    // A native URL may resolve successfully before its actual image request fails.
+    const timer = setTimeout(() => {
+      setImageFailure((previous) => (previous ? { ...previous, source: null } : null));
+      setAttempt((value) => value + 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [imageFailure, identity]);
+  const imageFailed = Boolean(
+    data && failedSource === data && imageFailure && imageFailure.count > 1,
+  );
+  useEffect(() => {
+    artworkImageFailures.set(instance, imageFailed);
+    return () => artworkImageFailures.set(instance, false);
+  }, [instance, imageFailed]);
 
   const sampled = background !== null && background.source === query.data;
   const color = sampled ? background.color : null;
@@ -110,11 +150,18 @@ export function Artwork({
   );
   const imageStyle: (CSSProperties & { "--studio-logo-background": string }) | undefined =
     studioLogo ? { "--studio-logo-background": color ?? "var(--color-studio-logo)" } : undefined;
-  const failed = query.isError || Boolean(query.data && failedSource === query.data);
-  return query.data && !failed ? (
+  const failed = query.isError || imageFailed;
+  const retryingImage = Boolean(data && failedSource === data && imageFailure?.count === 1);
+  return query.data && !failed && !retryingImage ? (
     <img
       key={attempt}
-      onError={() => setFailedSource(query.data ?? null)}
+      onError={() =>
+        setImageFailure((previous) => ({
+          identity,
+          source: data ?? null,
+          count: previous?.identity === identity ? previous.count + 1 : 1,
+        }))
+      }
       ref={setElement}
       className={imageClass}
       style={imageStyle}
@@ -123,15 +170,15 @@ export function Artwork({
       // The visibility observer already defers offscreen artwork before fetching its bytes.
       loading="eager"
       decoding="async"
-      onLoad={
-        studioLogo
-          ? (event) =>
-              setBackground({
-                source: event.currentTarget.getAttribute("src") ?? "",
-                color: cornerBackground(event.currentTarget),
-              })
-          : undefined
-      }
+      fetchPriority={priority ? "high" : "auto"}
+      onLoad={(event) => {
+        setImageFailure(null);
+        if (studioLogo)
+          setBackground({
+            source: event.currentTarget.getAttribute("src") ?? "",
+            color: cornerBackground(event.currentTarget),
+          });
+      }}
     />
   ) : (
     <span
@@ -142,15 +189,15 @@ export function Artwork({
         transparentFallback ? "bg-transparent" : "bg-secondary",
       )}
       role="img"
-      data-artwork-state={failed ? "error" : id && query.isPending ? "loading" : "unavailable"}
+      data-artwork-state={
+        failed ? "error" : retryingImage || (id && query.isPending) ? "loading" : "unavailable"
+      }
       aria-label={alt}
     >
       {fallback ?? (
         <>
           <Film className="size-7 opacity-50" aria-hidden="true" />
-          <span>
-            {failed ? "تعذّر تحميل الصورة" : query.isLoading ? "جارٍ تحميل الصورة" : "لا توجد صورة"}
-          </span>
+          <span>{failed ? "تعذّر تحميل الصورة" : id ? "جارٍ تحميل الصورة" : "لا توجد صورة"}</span>
         </>
       )}
     </span>

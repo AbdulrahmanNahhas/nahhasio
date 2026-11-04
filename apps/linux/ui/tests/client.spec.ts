@@ -1654,3 +1654,86 @@ for (const width of [360, 1440]) {
     );
   });
 }
+
+for (const failure of ["network", "not_found", "resource"]) {
+  test(`artwork recovery: ${failure}, retry without reload and warm navigation`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 520, height: 1000 });
+    if (failure === "resource") {
+      let imageRequests = 0;
+      await page.route("nahhasio://app/_artwork/**", (route) => {
+        imageRequests++;
+        return imageRequests <= 2 ? route.abort() : route.fallback();
+      });
+    }
+    await page.evaluate((code) => {
+      const handler = window.webkit?.messageHandlers?.nahhasio;
+      if (!handler) throw new Error("Fixture bridge missing");
+      const original = handler.postMessage.bind(handler);
+      let requests = 0;
+      handler.postMessage = (message: string) => {
+        const request = JSON.parse(message);
+        if (request.command === "facets") {
+          const result = {
+            groups: [
+              {
+                key: "contributors",
+                label: "الصنّاع",
+                options: [
+                  {
+                    value: "person-1",
+                    label: "صانع تجريبي",
+                    count: 1,
+                    artworkId: "00000000-0000-4000-8000-000000000031",
+                  },
+                ],
+              },
+            ],
+            yearMin: 2021,
+            yearMax: 2021,
+          };
+          queueMicrotask(() => window["__nahhasioReply"]?.({ id: request.id, ok: true, result }));
+        } else if (request.command === "artwork.url") {
+          requests++;
+          document.documentElement.dataset.artworkRequests = String(requests);
+          queueMicrotask(() =>
+            window["__nahhasioReply"]?.(
+              requests === 1 && code !== "resource"
+                ? { id: request.id, ok: false, error: { code, message: "Artwork fixture failure" } }
+                : {
+                    id: request.id,
+                    ok: true,
+                    result: {
+                      url: `nahhasio://app/_artwork/0/${request.payload.id}/${request.payload.width}`,
+                    },
+                  },
+            ),
+          );
+        } else original(message);
+      };
+    }, failure);
+    await login(page);
+    await openPublicPage(page, "الصنّاع");
+    const recovery = page.getByRole("button", { name: "إعادة تحميل الصور", exact: true });
+    if (failure !== "network") {
+      await expect(recovery).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-artwork-requests", "1");
+      await recovery.click();
+    }
+    const image = page.locator('img[src^="nahhasio://app/_artwork/"]');
+    await expect
+      .poll(() =>
+        image.evaluateAll((images) =>
+          images.some((entry) => entry instanceof HTMLImageElement && entry.naturalWidth === 200),
+        ),
+      )
+      .toBe(true);
+    await expect(page.locator("html")).toHaveAttribute("data-artwork-requests", "2");
+    await expect(recovery).toHaveCount(0);
+    await openPublicPage(page, "الاستوديوهات");
+    await openPublicPage(page, "الصنّاع");
+    await expect(image).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-artwork-requests", "2");
+  });
+}

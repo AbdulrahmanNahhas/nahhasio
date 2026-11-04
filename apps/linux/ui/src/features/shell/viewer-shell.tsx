@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 
 import { developmentBrowserAvailable } from "@/lib/development-platform";
 
+import { ArtworkRecovery } from "../../components/artwork-recovery";
 import { CardNavigationProvider } from "../../components/card-navigation";
 import { Button } from "../../components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../../components/ui/sidebar";
@@ -145,6 +146,7 @@ export function ViewerShell({ user }: { user: User }) {
           <AdminNavigation />
           <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
             {developmentNotice}
+            <ArtworkRecovery />
             <div className="flex shrink-0 items-center px-4 pt-3 md:hidden">
               <SidebarTrigger
                 aria-label="إظهار أو إخفاء القائمة"
@@ -173,6 +175,7 @@ export function ViewerShell({ user }: { user: User }) {
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {developmentNotice}
+            <ArtworkRecovery />
             {content}
             <BottomNavigation
               path={route.path}

@@ -6,7 +6,9 @@ import {
 } from "@nahhasio/api-contract";
 import { z } from "zod";
 
+import { queryClient } from "../app/query-client";
 import { preferencesSchema } from "../features/catalog/browse-preferences-model";
+import { ArtworkQueue, DevelopmentArtwork } from "./development-artwork";
 import { developmentBrowserAvailable } from "./development-platform";
 
 const origin = import.meta.env.VITE_NAHHASIO_BROWSER_SERVER_URL ?? "http://127.0.0.1:23103/";
@@ -19,13 +21,13 @@ let token: string | null = null;
 let session: z.infer<typeof SessionSchema> | null = null;
 let requests = new AbortController();
 let generation = 0;
-const artwork = new Map<string, string>();
+const artwork = new DevelopmentArtwork(queryClient.getQueryCache());
+const artworkQueue = new ArtworkQueue();
 
 function clearSession() {
   generation++;
   requests.abort();
   requests = new AbortController();
-  for (const url of artwork.values()) URL.revokeObjectURL(url);
   artwork.clear();
   token = null;
   session = null;
@@ -78,6 +80,7 @@ async function transport(
     throw new Error(
       Object.entries(errors).find(([code]) => Number(code) === response.status)?.[1] ??
         "تعذّر الاتصال بخادم التطوير أو إكمال الطلب.",
+      { cause: { status: response.status } },
     );
   }
   if (response.status === 204) return null;
@@ -276,22 +279,21 @@ export async function developmentCall(
     const current = generation;
     const key = `${session.user.accountId}:${asset}:${width}`;
     const existing = artwork.get(key);
-    if (existing) return { url: existing };
-    if (artwork.size >= 1024) throw new Error("أعد تحميل معاينة المتصفح لإفراغ ذاكرة الصور.");
-    const blob = await transport(
-      `/v1/artwork/${asset}?width=${width}`,
-      "GET",
-      undefined,
-      signal,
-      false,
-      true,
+    if (existing) return { url: artwork.url(existing) };
+    const scope = AbortSignal.any([
+      requests.signal,
+      AbortSignal.timeout(25000),
+      ...(signal ? [signal] : []),
+    ]);
+    const blob = await artworkQueue.run(
+      () => transport(`/v1/artwork/${asset}?width=${width}`, "GET", undefined, scope, false, true),
+      scope,
     );
     if (current !== generation) throw new DOMException("Session changed", "AbortError");
     if (!(blob instanceof Blob) || !blob.type.startsWith("image/"))
-      throw new Error("استجابة صورة غير صالحة.");
-    const url = URL.createObjectURL(blob);
-    artwork.set(key, url);
-    return { url };
+      throw new Error("استجابة صورة غير صالحة.", { cause: { code: "response" } });
+    artwork.store(key, blob);
+    return { url: artwork.url(blob) };
   }
   const read = Object.entries(getRoutes).find(([key]) => key === command)?.[1];
   if (read) return request(read + query(payload), "GET", undefined, signal);
