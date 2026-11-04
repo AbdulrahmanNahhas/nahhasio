@@ -175,7 +175,24 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await expect(page.getByLabel("كلمة المرور", { exact: true })).toHaveAttribute("type", "text");
   await page.getByRole("button", { name: "إخفاء كلمة المرور" }).click();
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
-  await expect(page.getByRole("button", { name: "الملف والحساب" })).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: (page.viewportSize()?.width ?? 1440) < 768 ? "كل الصفحات" : "الملف والحساب",
+      exact: true,
+    }),
+  ).toBeVisible();
+}
+async function openAccountDestination(page: import("@playwright/test").Page, name: string) {
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await page.getByRole("button", { name: "كل الصفحات", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "كل الصفحات", exact: true })
+      .getByRole("link", { name, exact: true })
+      .click();
+  } else {
+    await page.getByRole("button", { name: "الملف والحساب", exact: true }).click();
+    await page.getByRole("menuitem", { name, exact: true }).click();
+  }
 }
 for (const width of [520, 1440]) {
   test(`account menu and profile ${width}: real fields, avatar, save and password feedback`, async ({
@@ -183,12 +200,14 @@ for (const width of [520, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page, admin.email);
-    await page.getByRole("button", { name: "الملف والحساب" }).click();
-    await expect(page.getByRole("menuitem", { name: "لوحة الإدارة" })).toBeVisible();
-    const menu = page.getByRole("menu", { name: "الحساب" });
-    await expect(menu).toHaveCSS("opacity", "1");
-    await menu.screenshot({ path: `../../../data/previews/account-menu-${width}.png` });
-    await page.getByRole("menuitem", { name: "الملف الشخصي" }).click();
+    if (width >= 768) {
+      await page.getByRole("button", { name: "الملف والحساب", exact: true }).click();
+      const menu = page.getByRole("menu", { name: "الحساب" });
+      await expect(menu.getByRole("menuitem", { name: "لوحة الإدارة" })).toBeVisible();
+      await expect(menu).toHaveCSS("opacity", "1");
+      await page.keyboard.press("Escape");
+    }
+    await openAccountDestination(page, "الملف الشخصي");
     await expect(page.getByRole("article", { name: "الملف الشخصي" })).toBeVisible();
     await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
     await page.getByLabel("الاسم", { exact: true }).fill("اسم الحساب الجديد");
@@ -227,8 +246,7 @@ for (const width of [520, 1440]) {
       fullPage: true,
     });
     await page.getByRole("button", { name: "إغلاق الإعدادات", exact: true }).click();
-    await page.getByRole("button", { name: "الملف والحساب" }).click();
-    await page.getByRole("menuitem", { name: "لوحة الإدارة", exact: true }).click();
+    await openAccountDestination(page, "لوحة الإدارة");
     await expect(page.getByRole("region", { name: "لوحة الإدارة" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "نظرة عامة", exact: true })).toBeVisible();
   });
@@ -261,7 +279,11 @@ test("admin navigation exposes current sections and marks the active route", asy
       title: element.textContent!.trim(),
     })),
   );
-  expect(links).toHaveLength(16);
+  expect(links).toHaveLength(12);
+  for (const name of ["تنزيلات الخادم", "مكتبة الملفات", "جميع الجداول", "سجل التعديلات"])
+    await expect(
+      navigation.getByRole("button", { name: `${name} — غير متاح بعد`, exact: true }),
+    ).toBeDisabled();
   for (const link of links) {
     await navigation.locator(`a[href="${link.href}"]`).click();
     await expect(page.getByText(link.title, { exact: true }).last()).toBeVisible();

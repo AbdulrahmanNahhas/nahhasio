@@ -644,12 +644,16 @@ async function openSearchPage(page: Page) {
     await page.getByRole("dialog").getByRole("link", { name: "البحث", exact: true }).click();
   } else await page.getByRole("link", { name: "البحث", exact: true }).click();
 }
-async function login(page: Page) {
-  if ((await page.getByLabel("البريد الإلكتروني").count()) === 0)
-    await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
+async function login(page: Page, expectHome = true) {
+  const email = page.getByLabel("البريد الإلكتروني", { exact: true });
+  const signIn = page.getByRole("button", { name: "الدخول بالبريد الإلكتروني", exact: true });
+  await expect(email.or(signIn)).toBeVisible();
+  if (!(await email.isVisible())) await signIn.click();
   await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "دخول المكتبة" }).click();
+  await expect(page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true })).toBeVisible();
+  if (!expectHome) return;
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
   await expect
     .poll(async () => {
@@ -729,8 +733,11 @@ for (const width of [360, 480, 1440]) {
 }
 async function browse(page: Page) {
   await page
-    .getByRole("navigation", { name: "التنقل الرئيسي" })
-    .getByRole("link", { name: "تصفّح المكتبة" })
+    .getByRole("navigation", { name: "التنقل الرئيسي", exact: true })
+    .getByRole("link", {
+      name: (page.viewportSize()?.width ?? 1440) < 768 ? "المكتبة" : "تصفّح المكتبة",
+      exact: true,
+    })
     .click();
   await expect(page).toHaveURL(/#\/browse$/);
   await expect(page.getByRole("heading", { name: "تصفّح المكتبة" })).toBeVisible();
@@ -802,7 +809,11 @@ for (const width of [480, 640, 1024, 1440])
   test("responsive " + width + ": library and work page fit window", async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await expect(page.getByRole("link", { name: "البحث" })).toBeVisible();
+    await expect(
+      (page.viewportSize()?.width ?? 1440) < 768
+        ? page.getByRole("button", { name: "البحث السريع", exact: true })
+        : page.getByRole("link", { name: "البحث", exact: true }),
+    ).toBeVisible();
     await browse(page);
     await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).click();
     await expect(page.getByRole("tab", { name: "العائلة", exact: true })).toHaveCount(0);
@@ -969,10 +980,7 @@ for (const width of [480, 1440]) {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "مكتمل", exact: true })).toBeVisible();
     await page.reload();
-    await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني" }).click();
-    await page.getByLabel("البريد الإلكتروني").fill("fixture@example.test");
-    await page.getByLabel("كلمة المرور", { exact: true }).fill("fixture-password");
-    await page.getByRole("button", { name: "دخول المكتبة" }).click();
+    await login(page, false);
     await expect(page.getByRole("heading", { name: "مكتمل", exact: true })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "ترتيب النتائج", exact: true })).toContainText(
       "الأعلى تقييمًا",
@@ -1164,8 +1172,14 @@ for (const width of [480, 1440]) {
     await expect(rail.getByRole("link", { name: "الرئيسية", exact: true })).toBeVisible();
     await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.getByRole("searchbox")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "البحث", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "الملف والحساب" })).toBeVisible();
+    await expect(
+      width < 768
+        ? rail.getByRole("button", { name: "البحث السريع", exact: true })
+        : rail.getByRole("link", { name: "البحث", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: width < 768 ? "كل الصفحات" : "الملف والحساب", exact: true }),
+    ).toBeVisible();
     const row = latestRow(page);
     await expect(row.locator("article").first()).toBeVisible();
     await expect(row.locator("article")).toHaveCount(12);
@@ -1202,12 +1216,19 @@ for (const width of [360, 640, 1024, 1440]) {
     const rail = page.getByRole("navigation", { name: "التنقل الرئيسي" });
     await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.getByRole("searchbox")).toHaveCount(0);
-    await expect(rail.getByRole("link", { name: "البحث" })).toBeVisible();
+    await expect(
+      width < 768
+        ? rail.getByRole("button", { name: "البحث السريع", exact: true })
+        : rail.getByRole("link", { name: "البحث", exact: true }),
+    ).toBeVisible();
     await expect(rail.getByRole("link", { name: "الرئيسية", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    const profile = rail.getByRole("button", { name: "الملف والحساب" });
+    const profile = rail.getByRole("button", {
+      name: width < 768 ? "كل الصفحات" : "الملف والحساب",
+      exact: true,
+    });
     const box = await profile.boundingBox();
     expect(box?.y).toBeGreaterThan(600);
     const mainBox = await page.locator("#main-content").boundingBox();
@@ -1215,15 +1236,23 @@ for (const width of [360, 640, 1024, 1440]) {
     expect(mainBox?.height).toBe(720);
     expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(width);
     await profile.click();
-    await expect(page.getByRole("menu", { name: "الحساب" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "تسجيل الخروج" })).toBeVisible();
+    if (width < 768) {
+      const pages = page.getByRole("dialog", { name: "كل الصفحات", exact: true });
+      await expect(pages).toBeVisible();
+      await expect(pages.getByRole("button", { name: "تسجيل الخروج", exact: true })).toBeVisible();
+    } else {
+      await expect(page.getByRole("menu", { name: "الحساب" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "تسجيل الخروج" })).toBeVisible();
+    }
     await page.keyboard.press("Escape");
     await expect(profile).toBeFocused();
     if (width === 1440)
       await page.screenshot({ path: test.info().outputPath("sidebar-review.png") });
     await page.setViewportSize({ width, height: 400 });
     await expect(profile).toBeInViewport();
-    await rail.getByRole("button", { name: "صفحات أخرى", exact: true }).click();
+    await rail
+      .getByRole("button", { name: width < 768 ? "كل الصفحات" : "صفحات أخرى", exact: true })
+      .click();
     await expect(page.getByRole("dialog").getByRole("link", { name: /الصنّاع/ })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(profile).toBeInViewport();

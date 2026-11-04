@@ -1081,7 +1081,9 @@ test("Arabic badges, meaningful populated headings and no headings for absent me
   }
   await expect(profile.getByText(/English|untranslated/)).toHaveCount(0);
   await expect(
-    profile.getByRole("link", { name: "تفاصيل فيلم المكتبة" }).getByLabel("فيلم", { exact: true }),
+    profile
+      .getByRole("link", { name: "تفاصيل فيلم المكتبة", exact: true })
+      .getByText("90 دقيقة", { exact: true }),
   ).toBeVisible();
   await page.getByRole("tab", { name: "الصنّاع", exact: true }).click();
   await expect(page.getByRole("heading", { name: "الأشخاص", exact: true })).toBeVisible();
