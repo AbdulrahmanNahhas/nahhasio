@@ -1723,7 +1723,7 @@ for (const failure of ["network", "not_found", "resource"]) {
     await page.setViewportSize({ width: 520, height: 1000 });
     if (failure === "resource") {
       let imageRequests = 0;
-      await page.route("nahhasio://app/_artwork/**", (route) => {
+      await page.route("**/_fixture_artwork/**", (route) => {
         imageRequests++;
         return imageRequests <= 2 ? route.abort() : route.fallback();
       });
@@ -1782,7 +1782,7 @@ for (const failure of ["network", "not_found", "resource"]) {
       await expect(page.locator("html")).toHaveAttribute("data-artwork-requests", "1");
       await recovery.click();
     }
-    const image = page.locator('img[src^="nahhasio://app/_artwork/"]');
+    const image = page.locator('img[src*="/_fixture_artwork/"]');
     await expect
       .poll(() =>
         image.evaluateAll((images) =>
