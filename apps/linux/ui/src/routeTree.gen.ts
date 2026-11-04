@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AdminRouteImport } from "./routes/admin";
 import { Route as BrowseRouteImport } from "./routes/browse";
+import { Route as CardLabRouteImport } from "./routes/card-lab";
 import { Route as DownloadsRouteImport } from "./routes/downloads";
 import { Route as EpisodesRouteImport } from "./routes/episodes";
 import { Route as HomeRouteImport } from "./routes/home";
@@ -59,6 +60,11 @@ const AdminRoute = AdminRouteImport.update({
 const BrowseRoute = BrowseRouteImport.update({
   id: "/browse",
   path: "/browse",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CardLabRoute = CardLabRouteImport.update({
+  id: "/card-lab",
+  path: "/card-lab",
   getParentRoute: () => rootRouteImport,
 } as any);
 const DownloadsRoute = DownloadsRouteImport.update({
@@ -231,6 +237,7 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/admin": typeof AdminRouteWithChildren;
   "/browse": typeof BrowseRoute;
+  "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
@@ -268,6 +275,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/browse": typeof BrowseRoute;
+  "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/admin": typeof AdminRouteWithChildren;
   "/browse": typeof BrowseRoute;
+  "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
   "/episodes": typeof EpisodesRoute;
   "/home": typeof HomeRoute;
@@ -347,6 +356,7 @@ export interface FileRouteTypes {
     | "/"
     | "/admin"
     | "/browse"
+    | "/card-lab"
     | "/downloads"
     | "/episodes"
     | "/home"
@@ -384,6 +394,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/browse"
+    | "/card-lab"
     | "/downloads"
     | "/episodes"
     | "/home"
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | "/"
     | "/admin"
     | "/browse"
+    | "/card-lab"
     | "/downloads"
     | "/episodes"
     | "/home"
@@ -461,6 +473,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AdminRoute: typeof AdminRouteWithChildren;
   BrowseRoute: typeof BrowseRoute;
+  CardLabRoute: typeof CardLabRoute;
   DownloadsRoute: typeof DownloadsRoute;
   EpisodesRoute: typeof EpisodesRoute;
   HomeRoute: typeof HomeRoute;
@@ -501,6 +514,13 @@ declare module "@tanstack/react-router" {
       path: "/browse";
       fullPath: "/browse";
       preLoaderRoute: typeof BrowseRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/card-lab": {
+      id: "/card-lab";
+      path: "/card-lab";
+      fullPath: "/card-lab";
+      preLoaderRoute: typeof CardLabRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/downloads": {
@@ -781,6 +801,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   BrowseRoute: BrowseRoute,
+  CardLabRoute: CardLabRoute,
   DownloadsRoute: DownloadsRoute,
   EpisodesRoute: EpisodesRoute,
   HomeRoute: HomeRoute,

@@ -171,6 +171,7 @@ export function InstallmentTiles({ work, tracking }: { work: WorkDetail; trackin
         return (
           <MediaCard
             key={unit.id}
+            withinWork
             entry={{
               work,
               installment: {

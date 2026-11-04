@@ -6,12 +6,22 @@ import type {
 } from "@nahhasio/api-contract";
 import { cn } from "cn";
 import { CalendarDays, Film, Star, Tv } from "lucide-react";
+import { useState } from "react";
 
 import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
 import { Badge } from "./ui/badge";
+
+const hoverTilts = [
+  "motion-safe:group-hover/card:-rotate-2 motion-safe:group-focus-visible/card:-rotate-2",
+  "motion-safe:group-hover/card:-rotate-1 motion-safe:group-focus-visible/card:-rotate-1",
+  "motion-safe:group-hover/card:-rotate-0.5 motion-safe:group-focus-visible/card:-rotate-0.5",
+  "motion-safe:group-hover/card:rotate-0.5 motion-safe:group-focus-visible/card:rotate-0.5",
+  "motion-safe:group-hover/card:rotate-1 motion-safe:group-focus-visible/card:rotate-1",
+  "motion-safe:group-hover/card:rotate-2 motion-safe:group-focus-visible/card:rotate-2",
+] as const;
 
 export function ScoreBadge({ score }: { score: ScoreSummary }) {
   return (
@@ -44,6 +54,7 @@ export function MediaCard({
   showStatus = true,
   showMetadata = true,
   showOriginalTitle = false,
+  withinWork = false,
 }: {
   work?: WorkSummary;
   installment?: UpcomingInstallment;
@@ -57,8 +68,10 @@ export function MediaCard({
   showStatus?: boolean;
   showMetadata?: boolean;
   showOriginalTitle?: boolean;
+  withinWork?: boolean;
 }) {
   const navigation = useCardNavigation();
+  const [hoverTilt, setHoverTilt] = useState<string>(hoverTilts[0]);
   const parent = entry?.work ?? work;
   const unit = entry?.installment ?? installment;
   if (!parent && !unit) return null;
@@ -94,11 +107,28 @@ export function MediaCard({
         : parent?.format === "animated"
           ? "رسوم متحركة"
           : "تمثيل حي";
+  const detail = unit
+    ? unit.runtimeMinutes
+      ? `${unit.runtimeMinutes} دقيقة`
+      : unit.episodeCount
+        ? `${unit.episodeCount} حلقة`
+        : ""
+    : kind;
+  const caption =
+    unit?.kind === "season" && !withinWork
+      ? parent?.titleAr || unit.workTitleAr || parent?.canonicalTitle || unit.workTitle || title
+      : title;
+  const installmentLabel = unit && title !== caption ? title : "";
+  function chooseTilt() {
+    // Randomize once per interaction, outside React's replayable state updater.
+    const alternatives = hoverTilts.filter((tilt) => tilt !== hoverTilt);
+    setHoverTilt(alternatives[Math.floor(Math.random() * alternatives.length)]);
+  }
   const KindIcon = unit?.kind === "season" || mediaType === "series" ? Tv : Film;
 
   return (
     <article
-      className="group/media min-w-0 snap-start"
+      className="group/media relative min-w-0 snap-start hover:z-10 focus-within:z-10"
       data-layout={layout}
       data-watched={watched}
       data-kind={unit ? "installment" : "work"}
@@ -106,8 +136,14 @@ export function MediaCard({
       <a
         {...navigation}
         href={workLink(workId, unit?.id)}
-        aria-label={`تفاصيل ${title}`}
+        aria-label={`تفاصيل ${caption}${unit && title !== caption ? ` · ${title}` : ""}`}
         className="group/card flex flex-col gap-3 rounded-2xl text-foreground focus-visible:outline-none"
+        onPointerEnter={(event) => {
+          if (event.pointerType === "mouse" || event.pointerType === "pen") {
+            chooseTilt();
+          }
+        }}
+        onFocus={chooseTilt}
         onClick={
           onSelect
             ? (event) => {
@@ -119,10 +155,11 @@ export function MediaCard({
       >
         <span
           className={cn(
-            "relative block aspect-2/3 rounded-2xl transition-[box-shadow,border-color] duration-200 group-focus-visible/card:ring-4 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-background group-data-[layout=banner]/media:aspect-video group-data-[layout=logo]/media:aspect-video motion-reduce:transition-none",
+            "relative block aspect-2/3 rounded-2xl motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:group-hover/card:scale-104 motion-safe:group-focus-visible/card:scale-102 motion-safe:group-active/card:scale-98 group-focus-visible/card:ring-4 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-background group-data-[layout=banner]/media:aspect-video group-data-[layout=logo]/media:aspect-video motion-reduce:transition-none",
+            hoverTilt,
             bareLogo
               ? "rounded-none border-0 bg-transparent"
-              : "border border-border bg-card group-hover/card:border-foreground/60 group-hover/card:shadow-lg",
+              : "border border-border bg-card group-hover/card:border-foreground/60 group-hover/card:shadow-xl",
             watched === true
               ? "group-focus-visible/card:ring-success"
               : "group-focus-visible/card:ring-foreground",
@@ -155,9 +192,6 @@ export function MediaCard({
                     (bareLogo && minimal ? "object-contain" : "object-contain p-6"),
                 )}
               />
-            )}
-            {!bareLogo && (
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/85 to-transparent opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-visible/card:opacity-100 motion-reduce:transition-none" />
             )}
           </span>
           {!minimal && showScore && score?.rating != null && (
@@ -197,48 +231,47 @@ export function MediaCard({
         </span>
         {!minimal && (
           <div className="flex min-w-0 flex-col gap-px px-0.5">
-            {parent?.titleAr !== title &&
-              parent?.titleAr &&
-              !title.startsWith(parent?.titleAr) &&
-              unit && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs p-0! bg-transparent text-muted-foreground m-0!"
-                >
-                  {parent?.titleAr || unit.workTitleAr || unit.workTitle}
-                </Badge>
-              )}
             <h3
-              className="line-clamp-2 text-sm leading-relaxed font-semibold transition-colors group-hover/card:text-primary group-focus-visible/card:text-primary sm:text-base motion-reduce:transition-none"
+              className="line-clamp-2 text-right text-sm leading-relaxed font-semibold transition-colors group-focus-visible/card:text-primary sm:text-base motion-reduce:transition-none"
               dir="auto"
             >
-              {title}
+              {caption}
             </h3>
-            {showOriginalTitle && parent?.canonicalTitle && parent.canonicalTitle !== title && (
-              <p className="truncate text-xs text-muted-foreground" dir="auto">
-                {parent.canonicalTitle}
+            {showOriginalTitle &&
+              !withinWork &&
+              parent?.canonicalTitle &&
+              parent.canonicalTitle !== caption && (
+                <p
+                  className="truncate text-right text-xs leading-relaxed text-muted-foreground"
+                  dir="auto"
+                  title={parent.canonicalTitle}
+                >
+                  {parent.canonicalTitle}
+                </p>
+              )}
+            {installmentLabel && (
+              <p
+                className="line-clamp-2 text-sm leading-relaxed text-muted-foreground"
+                dir="auto"
+                title={title}
+              >
+                {installmentLabel}
               </p>
             )}
-            {showMetadata && (
-              <span className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
-                {year && (
+            {showMetadata && (year || detail) && (
+              <span className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                {showMetadata && year && (
                   <>
                     <span className="shrink-0">{year}</span>
-                    <span aria-hidden="true">·</span>
+                    {detail && <span aria-hidden="true">·</span>}
                   </>
                 )}
-                <KindIcon className="size-3.5 shrink-0" aria-label={kind} />
-                <span className="truncate">
-                  {unit
-                    ? unit.runtimeMinutes
-                      ? `${unit.runtimeMinutes} دقيقة`
-                      : unit.episodeCount
-                        ? `${unit.episodeCount} حلقة`
-                        : !unit.releaseDate
-                          ? "لم يُعلن الموعد بعد"
-                          : ""
-                    : kind}
-                </span>
+                {showMetadata && detail && (
+                  <>
+                    <KindIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="shrink-0">{detail}</span>
+                  </>
+                )}
               </span>
             )}
           </div>
