@@ -57,7 +57,11 @@ export function adminSection(slug: string) {
 }
 
 const implementedAdminSections: ReadonlySet<string> = new Set(
-  adminGroups.flatMap((group) => group.items.map((item) => item.slug)),
+  adminGroups.flatMap((group) =>
+    group.items
+      .filter((item) => !["downloads", "library", "tables", "revisions"].includes(item.slug))
+      .map((item) => item.slug),
+  ),
 );
 export function isAdminSectionAvailable(slug: string) {
   return implementedAdminSections.has(slug);

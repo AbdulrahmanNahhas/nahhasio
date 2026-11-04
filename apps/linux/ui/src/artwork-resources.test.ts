@@ -1,7 +1,7 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { retryArtwork } from "./lib/artwork-query";
+import { artworkWidth, retryArtwork } from "./lib/artwork-query";
 import { ArtworkQueue, DevelopmentArtwork } from "./lib/development-artwork";
 
 afterEach(() => vi.restoreAllMocks());
@@ -114,5 +114,15 @@ describe("artwork retry policy", () => {
       expect(retryArtwork(0, new Error("request", { cause: { status } }))).toBe(true);
     expect(retryArtwork(0, new DOMException("Cancelled", "AbortError"))).toBe(false);
     expect(retryArtwork(0, new Error("request", { cause: { code: "not_found" } }))).toBe(false);
+  });
+});
+
+describe("artwork variant sizing", () => {
+  it("uses smaller bytes for compact cards and avatars without unbounded high-DPI requests", () => {
+    expect(artworkWidth(64, 3)).toBe(320);
+    expect(artworkWidth(150, 2)).toBe(320);
+    expect(artworkWidth(240, 1)).toBe(320);
+    expect(artworkWidth(240, 2)).toBe(640);
+    expect(artworkWidth(800, 3)).toBe(640);
   });
 });

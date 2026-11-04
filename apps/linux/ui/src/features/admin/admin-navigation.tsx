@@ -77,6 +77,8 @@ export function AdminNavigation() {
                           ) : undefined
                         }
                         disabled={!available}
+                        aria-disabled={!available || undefined}
+                        tabIndex={available ? undefined : -1}
                         isActive={active}
                         tooltip={{ children: label, side: "left" }}
                         aria-label={label}

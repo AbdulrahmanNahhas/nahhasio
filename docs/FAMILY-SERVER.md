@@ -349,5 +349,25 @@ independent off-machine copy was not verified in this inspection.
   video-library contents, Jellyfin, playback and transcoding were not tested. Empty directories,
   hardware specifications and healthy HTTP responses do not prove those features.
 
+## Dashboard update inspection — 2026-11-04
+
+The authenticated development client connected to the installed family server reported its
+maintenance service available, no active job, and the last update completed. The Updates page
+reported installed version **0.1.2**, available version **0.1.2**, state **up-to-date**, and
+**Release signature verified**. The install button was disabled because no newer published
+release was offered. These are worker-reported observations, not a newly exercised upgrade.
+No update check, backup, installation or restart was requested during this inspection.
+
+The normal server update path is **Administration → Maintenance → Updates → Check updates →
+Install update → Confirm**. It queues work on the Fedora host; the client can close while the
+worker runs. Only published, signed, compatible releases appear, not uncommitted development
+changes. Linux clients continue to update through their installed Flatpak scope and Software;
+updating the server does not update clients. The worker intentionally reports
+`maintenance-required` instead of installing a release with a different schema fingerprint;
+verify the installed migration ledger before publishing the next release. If the remembered-session
+migration is absent, rehearse and apply it through explicit maintenance before a compatible dashboard
+update. The installed ledger was not inspected during this check. Noninteractive SSH authentication
+from Shadow was unavailable; authenticated HTTPS remained usable.
+
 No services, configuration, catalog rows, credentials or system packages were changed for this
 documentation inspection. Only the project documentation was edited; SSH was closed afterward.

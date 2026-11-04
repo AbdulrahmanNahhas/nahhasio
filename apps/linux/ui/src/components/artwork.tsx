@@ -5,7 +5,7 @@ import { useEffect, useId, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 import { artworkImageFailures } from "../lib/artwork-image-failures";
-import { retryArtwork } from "../lib/artwork-query";
+import { artworkWidth, retryArtwork } from "../lib/artwork-query";
 import { gateway } from "../lib/bridge";
 
 function cornerBackground(image: HTMLImageElement): string | null {
@@ -51,7 +51,7 @@ export function Artwork({
   fallback,
   studioLogo = false,
   transparentFallback = false,
-  width = 640,
+  width: requestedWidth,
 }: {
   id?: string | null;
   alt: string;
@@ -62,6 +62,8 @@ export function Artwork({
   transparentFallback?: boolean;
   width?: 320 | 640 | 1280 | 1920;
 }) {
+  const [measuredWidth, setMeasuredWidth] = useState<320 | 640>(640);
+  const width = requestedWidth ?? measuredWidth;
   const [background, setBackground] = useState<{ source: string; color: string | null } | null>(
     null,
   );
@@ -77,10 +79,12 @@ export function Artwork({
   const [element, setElement] = useState<Element | null>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
-    if (!element) return;
+    if (!element || near || priority) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
+          if (!requestedWidth)
+            setMeasuredWidth(artworkWidth(entry.boundingClientRect.width, window.devicePixelRatio));
           setNear(true);
           observer.disconnect();
         }
@@ -89,7 +93,7 @@ export function Artwork({
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [element]);
+  }, [element, near, priority, requestedWidth]);
   const query = useQuery({
     queryKey: ["artwork", id, width],
     networkMode: "always",

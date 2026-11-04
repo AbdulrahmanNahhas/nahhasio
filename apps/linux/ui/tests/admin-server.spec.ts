@@ -723,6 +723,11 @@ test("maintenance separates server and app updates and reviews installation firs
   page,
 }) => {
   await page.goto("/#/admin/maintenance?tab=updates");
+  for (const label of ["تنزيلات الخادم", "مكتبة الملفات", "جميع الجداول", "سجل التعديلات"]) {
+    await expect(
+      page.getByRole("button", { name: `${label} — غير متاح بعد`, exact: true }),
+    ).toBeDisabled();
+  }
   await expect(page.getByRole("heading", { name: "تحديث الخادم", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "تحديث تطبيق Linux", exact: true })).toBeVisible();
   const cards = page.locator('[data-slot="card"]');

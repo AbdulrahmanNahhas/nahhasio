@@ -199,6 +199,23 @@ secure storage must not silently fall back to plaintext. Rollback to the previou
 clearing renewal fields and rolling back only this new migration through a reviewed operator
 procedure; do not rewrite the existing baseline or its ledger.
 
+Thumbnail derivatives now use a versioned validator/cache
+namespace, JPEG for opaque artwork and WebP for transparency. Variant sizes are pixel widths,
+never upscaled; original artwork is unchanged. Warm derivative reads bypass the bounded resize
+queue. The server's disposable LRU cache is 32 MiB to fit the installed container's 64 MiB
+`/tmp`; it is separate from the client's 512 MiB account-scoped cache and retained offline media.
+Ordinary client artwork measures its slot before the first lazy request and selects 320 or
+640 px with a bounded pixel ratio; larger heroes keep explicit variants. These source changes
+require a new server release before Fedora can serve the improved derivatives.
+
+A read-only local debug-build benchmark on
+2026-11-04 used three existing image samples (520,397 original bytes total): the previous 640 px
+lossless derivatives totalled 1,088,222 bytes, the new 640 px derivatives 181,000 bytes, and the
+new 320 px derivatives 55,079 bytes. Warm filesystem hits measured 0.02–0.03 ms; first generation
+measured 318–404 ms. These figures exclude network, database, decoding in WebKit and Home rendering;
+they are not installed Fedora/native acceptance. Re-run the opt-in `local_thumbnail_benchmark`
+Rust test with `NAHHASIO_ARTWORK_BENCH_ROOT` pointing to a private sample-only directory.
+
 Private native state binds sessions to server/account identities. Saved server connections retain
 trusted CA/fingerprint and normal HTTPS chain/hostname checks. Loopback HTTP is development-only.
 Switching server/account scopes query caches, snapshots, downloads and queued tracking updates.

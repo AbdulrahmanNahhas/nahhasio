@@ -601,10 +601,71 @@ async fn work_acceptance(api: &Router, pool: &PgPool) {
 async fn artwork_acceptance(api: &Router) {
     let root = std::env::var("NAHHASIO_MEDIA_ROOT").unwrap();
     assert!(root.starts_with("/tmp/nahhasio-catalog."));
-    let input = json!({"dataUrl":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==","fileName":"fixture.png","role":"poster","ownerName":"Rust image fixture"});
+    let input = json!({"dataUrl":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==","fileName":"fixture.png","role":"poster","ownerName":"Rust image fixture"});
     let uploaded = ok(api, "upload", input.clone()).await;
     let id = uploaded["id"].clone();
     let old = uploaded["path"].as_str().unwrap();
+
+    let uri = format!("/api/v1/artwork/{}?width=320", id.as_str().unwrap());
+    let image_response = api
+        .clone()
+        .oneshot(
+            Request::get(&uri)
+                .header("authorization", format!("Bearer {}", token(true)))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(image_response.status(), StatusCode::OK);
+    let etag = image_response.headers()["etag"].clone();
+    assert!(etag.to_str().unwrap().ends_with("-320-v2\""));
+    let mime = image_response.headers()["content-type"].clone();
+    assert!(mime == "image/jpeg" || mime == "image/webp");
+    let bytes = to_bytes(image_response.into_body(), 10 * 1024 * 1024)
+        .await
+        .unwrap();
+    assert!(image::load_from_memory(&bytes).is_ok());
+    let warm = api
+        .clone()
+        .oneshot(
+            Request::get(&uri)
+                .header("authorization", format!("Bearer {}", token(true)))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(warm.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(warm.into_body(), 10 * 1024 * 1024).await.unwrap(),
+        bytes
+    );
+    let conditional = api
+        .clone()
+        .oneshot(
+            Request::get(&uri)
+                .header("authorization", format!("Bearer {}", token(true)))
+                .header("if-none-match", &etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(conditional.status(), StatusCode::NOT_MODIFIED);
+    // A known validator must never bypass authentication.
+    let anonymous = api
+        .clone()
+        .oneshot(
+            Request::get(&uri)
+                .header("if-none-match", etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED);
+
     assert_eq!(
         ok(api, "upload", input).await["id"],
         id,

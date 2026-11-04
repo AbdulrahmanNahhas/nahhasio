@@ -15,3 +15,9 @@ const failureCause = z.object({
   status: z.number().int().min(100).max(599).optional(),
   code: z.string().optional(),
 });
+
+/** Ordinary cards need at most 640 px; large heroes explicitly request a larger variant. */
+export function artworkWidth(cssWidth: number, pixelRatio: number): 320 | 640 {
+  const pixels = Math.max(1, cssWidth) * Math.min(2, Math.max(1, pixelRatio || 1));
+  return pixels <= 320 ? 320 : 640;
+}
