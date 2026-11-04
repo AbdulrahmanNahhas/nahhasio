@@ -4,7 +4,7 @@
 #[allow(unsafe_code)]
 mod backend;
 mod player;
-pub use player::{NativePlayer, PlaybackState, Track, TrackKind};
+pub use player::{NativePlayer, PlaybackDefaults, PlaybackState, Track, TrackKind};
 
 use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 

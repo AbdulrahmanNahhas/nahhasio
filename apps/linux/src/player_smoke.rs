@@ -72,7 +72,15 @@ async fn wait(player: &Player, predicate: impl Fn(&Snapshot) -> bool) -> Result<
             return Ok(state);
         }
         if Instant::now() >= deadline {
-            return Err("Timed out waiting for measured player state".into());
+            return Err(format!(
+                "Timed out waiting for measured player state: position={:.2} duration={:.2} paused={} buffering={} tracks={} hwdec={:?}",
+                state.position,
+                state.duration,
+                state.paused,
+                state.buffering,
+                state.tracks.len(),
+                state.hwdec
+            ));
         }
         glib::timeout_future(Duration::from_millis(100)).await;
     }
@@ -114,8 +122,46 @@ async fn run(
         state.hwdec,
         state.tracks.len()
     );
+    if std::env::args().any(|arg| arg == "--player-smoke") {
+        if !state.tracks.iter().any(|track| {
+            track.kind == TrackKind::Audio
+                && track.selected
+                && matches!(track.language.as_deref(), Some("ar" | "ara"))
+        }) || state
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Subtitle && track.selected)
+            || (state.subtitle_size - 42.0).abs() > 0.1
+            || (state.subtitle_position - 90.0).abs() > 0.1
+        {
+            return Err(
+                "Configured audio/subtitle defaults were not applied before loading".into(),
+            );
+        }
+        eprintln!(
+            "player-smoke: preferred Arabic audio, disabled subtitles, size 42 and position 90 verified"
+        );
+    }
     let id = state.session_id.ok_or("Missing native session")?;
     if std::env::args().any(|arg| arg == "--player-smoke") {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            if view
+                .evaluate_javascript_future(
+                    "Boolean(document.querySelector('.player-host'))",
+                    None,
+                    None,
+                )
+                .await
+                .is_ok_and(|value| value.to_boolean())
+            {
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err("Authenticated packaged player UI did not become ready".into());
+            }
+            glib::timeout_future(Duration::from_millis(100)).await;
+        }
         let path = std::env::var_os("NAHHASIO_PLAY_FILE").ok_or("Missing local fixture")?;
         player
             .play_saved(

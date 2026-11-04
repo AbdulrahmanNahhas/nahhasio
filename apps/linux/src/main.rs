@@ -21,7 +21,9 @@ mod media_gateway;
 mod media_range;
 mod media_storage;
 mod offline;
+mod opensubtitles;
 mod playback_header;
+mod playback_preferences;
 mod player;
 mod player_protocol;
 mod player_smoke;
@@ -592,6 +594,15 @@ fn build_window(
                             }
                             return;
                         }
+                        match boundary.playback_defaults().await {
+                            Ok(defaults) => player.set_defaults(defaults),
+                            Err(error) => {
+                                if let Some(view) = weak.upgrade() {
+                                    send_reply(&view, reply(&id, Err(error)));
+                                }
+                                return;
+                            }
+                        }
                         match boundary.check_revision(revision) {
                             Ok(()) => media_bridge::execute(player, media, runtime, command).await,
                             Err(error) => Err(error),
@@ -636,6 +647,38 @@ fn build_window(
             });
             return;
         }
+        if request.command == "opensubtitles.apply" {
+            let input = serde_json::from_value::<opensubtitles::Apply>(request.payload)
+                .map_err(|_| Error::new("bad_request", "طلب ترجمة غير صالح."));
+            let player = bridge_player.borrow().clone();
+            let weak = view.downgrade();
+            let runtime = runtime.clone();
+            glib::MainContext::default().spawn_local(async move {
+                let result = async {
+                    let input = input?;
+                    let player =
+                        player.ok_or_else(|| Error::new("playback", "المشغّل غير متاح."))?;
+                    player.require_session(&input.session_id)?;
+                    let worker_boundary = boundary.clone();
+                    let task = runtime.spawn(async move {
+                        let _operation = worker_boundary.operations.clone().read_owned().await;
+                        worker_boundary.check_revision(revision)?;
+                        worker_boundary.opensubtitle_file(input.file_id).await
+                    });
+                    let (path, remaining) = task
+                        .await
+                        .map_err(|_| Error::new("subtitle_service", "توقف طلب الترجمة."))??;
+                    boundary.check_revision(revision)?;
+                    player.apply_subtitle(&input.session_id, &path)?;
+                    Ok(serde_json::json!({"ok":true,"remaining":remaining}))
+                }
+                .await;
+                if let Some(view) = weak.upgrade() {
+                    send_reply(&view, reply(&id, result));
+                }
+            });
+            return;
+        }
         if request.command.starts_with("player.") {
             if matches!(
                 request.command.as_str(),
@@ -661,6 +704,21 @@ fn build_window(
                                 send_reply(&view, reply(&id, Err(error)));
                             }
                             return;
+                        }
+                        if matches!(
+                            &command,
+                            player_protocol::Command::Preview { .. }
+                                | player_protocol::Command::PickVideo {}
+                        ) {
+                            match boundary.playback_defaults().await {
+                                Ok(defaults) => player.set_defaults(defaults),
+                                Err(error) => {
+                                    if let Some(view) = weak.upgrade() {
+                                        send_reply(&view, reply(&id, Err(error)));
+                                    }
+                                    return;
+                                }
+                            }
                         }
                         match boundary.check_revision(revision) {
                             Ok(()) => player.execute(command).await,
@@ -805,6 +863,15 @@ fn build_window(
         .build();
     window.set_size_request(520, 480);
     let player = player::Player::new(&window, &video_surface);
+    if std::env::args().any(|arg| arg == "--player-smoke") {
+        player.set_defaults(native_player::PlaybackDefaults {
+            audio_languages: "ar,ara".into(),
+            subtitle_languages: "ar,ara,en,eng".into(),
+            subtitles_enabled: false,
+            subtitle_size: 42.0,
+            subtitle_position: 90.0,
+        });
+    }
     let fullscreen_player = std::rc::Rc::downgrade(&player);
     window.connect_fullscreened_notify(move |window| {
         if let Some(player) = fullscreen_player.upgrade() {

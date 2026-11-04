@@ -103,6 +103,8 @@ function ActivePlayer({
   const root = useRef<HTMLElement>(null);
   const footer = useRef<HTMLElement>(null);
   const sourceTrigger = useRef<HTMLButtonElement>(null);
+  const episodesTrigger = useRef<HTMLButtonElement>(null);
+  const [episodesViaSettings, setEpisodesViaSettings] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionId = s.sessionId!;
   const keepVisible =
@@ -173,6 +175,12 @@ function ActivePlayer({
         if (
           event.target instanceof Element &&
           event.target.closest('[data-slot="slider"][data-drafting]')
+        )
+          return;
+        // Nested overlays own their dismissal; one Escape must not also close the player panel.
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[role="menu"],[role="listbox"],[data-slot="dialog-content"]')
         )
           return;
         event.preventDefault();
@@ -366,10 +374,14 @@ function ActivePlayer({
                   title="الحلقات"
                   icon={<ListVideo data-icon="inline-start" />}
                   open={panel === "episodes"}
-                  onOpenChange={(open) => changePanel("episodes", open)}
+                  onOpenChange={(open) => {
+                    if (open) setEpisodesViaSettings(false);
+                    changePanel("episodes", open);
+                  }}
                   anchor={footer}
                   wide
-                  returnFocus={sourceTrigger}
+                  triggerRef={episodesTrigger}
+                  returnFocus={episodesViaSettings ? sourceTrigger : episodesTrigger}
                 >
                   {episodes?.length ? (
                     <EpisodePanel
@@ -490,7 +502,14 @@ function ActivePlayer({
                 snapshot={s}
                 player={player}
                 onSource={() => changePanel("source", true)}
-                onEpisodes={!hideEpisodes ? () => changePanel("episodes", true) : undefined}
+                onEpisodes={
+                  !hideEpisodes
+                    ? () => {
+                        setEpisodesViaSettings(true);
+                        changePanel("episodes", true);
+                      }
+                    : undefined
+                }
               />
             </PlayerPopover>
             <PlayerControl

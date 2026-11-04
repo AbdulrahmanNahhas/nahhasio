@@ -13,8 +13,28 @@ on demand; server connections, testing and editing are available inline. Library
 presentation remains in Browse, not Settings. Narrow layouts use a five-destination
 Home/Library/Search/Downloads/More dock; desktop retains its navigation rail. Existing profile,
 password, download-cache, server-connection and Flatpak-update services remain
-the owners of their controls. OpenSubtitles, debrid and addon installation are future integrations,
-not active settings. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
+the owners of their controls. Playback Settings now persist preferred audio/subtitle language,
+subtitle enablement, size and position for each account on this device. mpv receives these defaults
+before a new local, saved, torrent or compatible direct source loads; manual track/style changes
+remain session-local. Arabic subtitle preference falls back to English. Debrid and addon
+installation remain future integrations.
+
+OpenSubtitles.com setup is in Settings → Subtitles in the Linux client: each person supplies an
+API key, username and password. The password is used only for login; the API key and returned
+token are encrypted through the device Secret portal, bound to the selected server/account.
+Unavailable secure storage disables connection setup rather than storing plaintext. Forgetting an
+account removes its provider credentials. No provider credentials or video are sent through the
+Nahhasio server. The browser development preview does not accept these secrets.
+
+The player subtitle panel offers explicit title/language/year/season/episode search, paginated
+release results with provider-reported accessibility/translation flags, and Download and apply.
+Only that action requests a download link and consumes the provider's download allowance. Requests
+are bounded and use fixed API hosts; download redirects are bounded and revalidated, without
+forwarding API credentials. Downloaded UTF-8 SRT files use a bounded account-local disposable cache.
+Expired sessions, quota refusal, network failures and unsupported content produce actionable errors.
+Hash matching, persistent attachment beside saved videos and other subtitle providers are deferred.
+Real OpenSubtitles acceptance still needs a user's configured key/account; controlled fixtures do
+not establish provider availability, quota or subtitle synchronization. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
 credentials, URLs and local file paths; nothing is sent automatically.
 
 Saved connections support an explicit address-update review: probe anonymously with the saved

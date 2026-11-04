@@ -68,6 +68,7 @@ pub struct Services {
     offline: crate::offline::Store,
     revision: Arc<std::sync::atomic::AtomicU64>,
     artwork_cache: Arc<crate::artwork_cache::Cache>,
+    subtitles: Arc<crate::opensubtitles::Service>,
     pending: tokio::sync::watch::Sender<()>,
     pub permits: Arc<Semaphore>,
     pub operations: Arc<AsyncRwLock<()>>,
@@ -199,6 +200,14 @@ impl Services {
     pub async fn catalog_scope(&self) -> Result<String, Error> {
         self.offline.scope().await
     }
+    pub async fn opensubtitle_file(&self, file_id: u64) -> Result<(PathBuf, Option<u64>), Error> {
+        let scope = self.catalog_scope().await?;
+        self.subtitles.download(&self.root, &scope, file_id).await
+    }
+    pub async fn playback_defaults(&self) -> Result<native_player::PlaybackDefaults, Error> {
+        let scope = self.catalog_scope().await?;
+        Ok(crate::playback_preferences::load(&self.root, &scope)?.native())
+    }
     pub async fn saved_work(&self, id: &str) -> Result<Value, Error> {
         self.offline.read("work", &json!({"id":id})).await
     }
@@ -278,6 +287,7 @@ impl Services {
             settings: Arc::new(Mutex::new(settings)),
             offline: crate::offline::Store::new(root.clone()),
             artwork_cache: Arc::new(crate::artwork_cache::Cache::new(&root)),
+            subtitles: Arc::new(crate::opensubtitles::Service::default()),
             root,
             operations: Arc::new(AsyncRwLock::new(())),
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -413,7 +423,7 @@ impl Services {
             let info = self.snapshot()?.probe().await?;
             let roots = Roots::discover().map_err(|_| storage())?;
             return Ok(
-                json!({"version":env!("CARGO_PKG_VERSION"),"platform":"linux","serverVersion":info.version,"apiVersion":info.api_version,"videoRoot":roots.videos,"capabilities":{"nativePlayback":true,"offlineLibrary":true,"artworkVariants":info.capabilities.artwork_variants,"rememberedAccounts":info.capabilities.remembered_accounts,"subtitleSearch":false,"debrid":false}}),
+                json!({"version":env!("CARGO_PKG_VERSION"),"platform":"linux","serverVersion":info.version,"apiVersion":info.api_version,"videoRoot":roots.videos,"capabilities":{"nativePlayback":true,"offlineLibrary":true,"artworkVariants":info.capabilities.artwork_variants,"rememberedAccounts":info.capabilities.remembered_accounts,"subtitleSearch":true,"debrid":false}}),
             );
         }
         if request.command == "artwork.url" {
@@ -439,6 +449,26 @@ impl Services {
                     self.artwork_cache.status().await
                 }
                 _ => Err(Error::new("bad_request", "عملية غير صالحة.")),
+            };
+        }
+        if request.command.starts_with("opensubtitles.") {
+            let scope = self.catalog_scope().await?;
+            return self
+                .subtitles
+                .execute(&self.root, &scope, &request.command, request.payload)
+                .await;
+        }
+        if request.command.starts_with("playbackPreferences.") {
+            let scope = self.catalog_scope().await?;
+            return match request.command.as_str() {
+                "playbackPreferences.load" => {
+                    serde_json::to_value(crate::playback_preferences::load(&self.root, &scope)?)
+                        .map_err(|_| storage())
+                }
+                "playbackPreferences.save" => {
+                    crate::playback_preferences::save(&self.root, &scope, request.payload)
+                }
+                _ => Err(storage()),
             };
         }
         if request.command.starts_with("browsePreferences.") {
@@ -646,6 +676,14 @@ impl Services {
             let restore = request.command == "accounts.forget"
                 || (request.command == "accounts.switch"
                     && request.payload["accountId"].is_string());
+            let forgotten_scope = if request.command == "accounts.forget" {
+                request.payload["accountId"]
+                    .as_str()
+                    .map(|id| self.offline.account_scope(session.address(), id))
+                    .transpose()?
+            } else {
+                None
+            };
             self.advance();
             if request.command == "accounts.forget" {
                 self.offline
@@ -653,6 +691,9 @@ impl Services {
                     .await?;
             }
             session.execute(request).await?;
+            if let Some(scope) = forgotten_scope {
+                crate::opensubtitles::Service::forget(&self.root, &scope)?;
+            }
             self.offline.reset().await;
             if restore {
                 let info = session.probe().await?;
@@ -767,6 +808,7 @@ mod tests {
             settings: Arc::new(Mutex::new(settings)),
             offline: crate::offline::Store::new(root.clone()),
             artwork_cache: Arc::new(crate::artwork_cache::Cache::new(&root)),
+            subtitles: Arc::new(crate::opensubtitles::Service::default()),
             root,
             operations: Arc::new(AsyncRwLock::new(())),
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),

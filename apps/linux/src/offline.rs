@@ -207,6 +207,16 @@ impl Store {
     pub async fn reset(&self) {
         *self.owner.lock().await = None;
     }
+    pub fn account_scope(&self, server: &str, account: &str) -> Result<String, Error> {
+        if !valid_id(account) {
+            return Err(bad());
+        }
+        Ok(format!(
+            "{}-{}",
+            hash(&self.canonical_server(server)?),
+            hash(account)
+        ))
+    }
     pub async fn scope(&self) -> Result<String, Error> {
         let owner = self.owner().await?;
         Ok(format!("{}-{}", hash(&owner.server), hash(&owner.account)))

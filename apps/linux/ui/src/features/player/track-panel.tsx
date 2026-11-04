@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup } from "@/components/ui/radio-group";
 
 import type { PlayerSnapshot, PlayerTrack } from "./bridge";
+import { OpenSubtitlesSearch } from "./opensubtitles";
 import { PlayerSlider } from "./player-slider";
 import { groupTracks, trackFlag, trackLabel, trackLanguage, trackSecondary } from "./track-format";
 import type { PlayerController } from "./use-player-snapshot";
@@ -154,6 +155,9 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
               <Upload data-icon="inline-start" />
               إضافة ملف ترجمة
             </Button>
+          )}
+          {kind === "subtitle" && sessionId && (
+            <OpenSubtitlesSearch sessionId={sessionId} title={snapshot.title} disabled={disabled} />
           )}
           {tracks.length > 1 && (
             <FieldGroup>

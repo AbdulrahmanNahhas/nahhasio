@@ -49,7 +49,9 @@ import { loginAccountsOptions } from "../auth/login-accounts";
 import { switchAccount } from "../auth/remembered-accounts";
 import { ServerConnections } from "../auth/server-connections";
 import { CacheControl } from "../player/cache-control";
+import { OpenSubtitlesSettings } from "../player/opensubtitles";
 import { navigate, useViewerRoute } from "../shell/navigation";
+import { PlaybackPreferences } from "./playback-preferences";
 import {
   artworkCacheOptions,
   artworkCacheSchema,
@@ -477,6 +479,13 @@ export function SettingsPage() {
               <ShieldCheck data-icon="inline-start" />
               فتح إعدادات إدارة الخادم
             </Button>
+          )}
+          {active === "playback" && <PlaybackPreferences />}
+          {active === "subtitles" && (
+            <>
+              <PlaybackPreferences subtitles />
+              <OpenSubtitlesSettings />
+            </>
           )}
           <UpcomingSettings section={active} />
         </section>

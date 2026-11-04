@@ -127,13 +127,6 @@ const plannedGroups: PlannedGroup[] = [
     title: "إعدادات التشغيل الافتراضية",
     description: "تُنفّذ المشاهدة على جهازك. تظل أدوات المشغّل الحالية متاحة أثناء المشاهدة.",
     controls: [
-      // TODO(settings-audio-language): Persist and apply ordered native-player audio language preferences.
-      {
-        id: "audio-language",
-        label: "لغة الصوت المفضلة",
-        description: "اختيار المسار المناسب عندما يقدم الملف أكثر من لغة.",
-        kind: "select",
-      },
       // TODO(settings-audio-fallback): Add an explicit secondary audio language preference.
       {
         id: "audio-fallback",
@@ -237,28 +230,13 @@ const plannedGroups: PlannedGroup[] = [
   {
     section: "subtitles",
     title: "اللغات واختيار الترجمة",
-    description:
-      "تفضيلات افتراضية مستقبلية؛ إضافة ملف ترجمة وتعديل التوقيت متاحان حاليًا داخل المشغّل.",
+    description: "خيارات إضافية مخططة؛ تفضيلات اللغة والتفعيل والحجم والموضع متاحة أعلاه.",
     controls: [
-      // TODO(settings-subtitle-language): Persist Arabic-first ordered subtitle language preferences.
-      {
-        id: "subtitle-language",
-        label: "لغة الترجمة المفضلة",
-        description: "العربية أولًا مع إمكانية اختيار لغة أخرى.",
-        kind: "select",
-      },
       // TODO(settings-subtitle-fallback): Apply secondary subtitle language matching.
       {
         id: "subtitle-fallback",
         label: "لغة الترجمة البديلة",
         description: "تُستخدم إذا لم تتوفر الترجمة المفضلة.",
-        kind: "select",
-      },
-      // TODO(settings-subtitle-default): Persist embedded/local subtitle selection rules.
-      {
-        id: "subtitle-default",
-        label: "اختيار الترجمة افتراضيًا",
-        description: "قواعد اختيار المسارات المضمّنة والملفات المحلية.",
         kind: "select",
       },
       // TODO(settings-subtitle-forced): Add explicit forced-track preference and evidence labels.
@@ -296,26 +274,12 @@ const plannedGroups: PlannedGroup[] = [
         description: "خط يدعم العربية مع مراعاة تنسيق ASS الأصلي.",
         kind: "select",
       },
-      // TODO(settings-subtitle-size): Persist validated default subtitle sizing.
-      {
-        id: "subtitle-size",
-        label: "حجم خط الترجمة",
-        description: "حجم افتراضي قابل للتعديل أثناء المشاهدة.",
-        kind: "number",
-      },
       // TODO(settings-subtitle-outline): Persist outline/background appearance through the player adapter.
       {
         id: "subtitle-outline",
         label: "حدود وخلفية الترجمة",
         description: "تحسين قابلية القراءة فوق المشاهد الفاتحة والداكنة.",
         kind: "select",
-      },
-      // TODO(settings-subtitle-position): Persist a bounded subtitle position default.
-      {
-        id: "subtitle-position",
-        label: "موضع الترجمة",
-        description: "المسافة عن الحافة السفلية للفيديو.",
-        kind: "number",
       },
       // TODO(settings-subtitle-encoding): Add an explicit import-encoding override and Arabic fixtures.
       {
@@ -328,24 +292,10 @@ const plannedGroups: PlannedGroup[] = [
   },
   {
     section: "subtitles",
-    title: "OpenSubtitles",
+    title: "خيارات الترجمة المتقدمة — مستقبلًا",
     description:
       "اتصال شخصي على هذا الجهاز. البحث والتنزيل صريحان؛ فتح العمل لن ينزّل ترجمة تلقائيًا.",
     controls: [
-      // TODO(settings-opensubtitles-login): Add native REST authentication with registered application credentials and local secret storage.
-      {
-        id: "opensubtitles-login",
-        label: "ربط حساب OpenSubtitles",
-        description: "تسجيل الدخول الشخصي مع احترام شروط المزود وحصته.",
-        kind: "action",
-      },
-      // TODO(settings-opensubtitles-test): Add a bounded connection/expiry/quota check without downloading subtitles.
-      {
-        id: "opensubtitles-test",
-        label: "اختبار الاتصال وحصة التنزيل",
-        description: "عرض حالة الحساب وحدود الخدمة دون بدء تنزيل.",
-        kind: "action",
-      },
       // TODO(settings-subtitle-release-match): Implement release/hash/language evidence and manual result review.
       {
         id: "subtitle-release-match",

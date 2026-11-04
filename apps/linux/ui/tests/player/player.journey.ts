@@ -2,9 +2,22 @@ import { expect, test, type Page } from "@playwright/test";
 
 import type { PlayerRequest, PlayerSnapshot } from "../../src/features/player/bridge";
 import type { ProviderOffer } from "../../src/features/player/stream-providers";
+import { installArtworkFixture } from "../fixtures/artwork";
 
 type TestRequest =
   | PlayerRequest
+  | {
+      command: "opensubtitles.search";
+      payload: {
+        query: string;
+        language: string;
+        page: number;
+        year: number | null;
+        season: number | null;
+        episode: number | null;
+      };
+    }
+  | { command: "opensubtitles.apply"; payload: { sessionId: string; fileId: number } }
   | { command: "anime.search"; payload: { sessionId: string; provider: string; query: string } }
   | { command: "anime.resolve"; payload: { sessionId: string; candidateId: string } }
   | { command: "anime.play"; payload: { sessionId: string; streamId: string } }
@@ -29,7 +42,7 @@ type TestRequest =
   | { command: "media.keep"; payload: { sessionId: string } }
   | { command: "media.local"; payload: { sessionId: string } }
   | { command: "media.deleteCache"; payload: Record<string, never> }
-  | { command: "artwork"; payload: { id: string } };
+  | { command: "artwork.url"; payload: { id: string; width: number } };
 
 declare global {
   interface Window {
@@ -82,6 +95,7 @@ const initial: PlayerSnapshot = {
 };
 
 async function mock(page: Page, snapshot = initial, scenario = "") {
+  await installArtworkFixture(page);
   await page.addInitScript((fixture: PlayerSnapshot) => {
     let state = fixture;
     let staleAfterClose: PlayerSnapshot | null = null;
@@ -106,6 +120,39 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
             const request = JSON.parse(message) as { id: string } & TestRequest;
             requests.push(request);
             switch (request.command) {
+              case "opensubtitles.search":
+                queueMicrotask(() =>
+                  window["__nahhasioReply"]?.({
+                    id: request.id,
+                    ok: true,
+                    result: {
+                      items: [
+                        {
+                          fileId: 42,
+                          release: "Fixture Arabic 1080p",
+                          fileName: "fixture.ar.srt",
+                          language: "ar",
+                          downloads: 10,
+                          hearingImpaired: false,
+                          machineTranslated: false,
+                          aiTranslated: false,
+                        },
+                      ],
+                      page: 1,
+                      totalPages: 1,
+                    },
+                  }),
+                );
+                return;
+              case "opensubtitles.apply":
+                queueMicrotask(() =>
+                  window["__nahhasioReply"]?.({
+                    id: request.id,
+                    ok: true,
+                    result: { ok: true, remaining: 8 },
+                  }),
+                );
+                return;
               case "stream.providers": {
                 const anime =
                   window.location.search.includes("scenario=embed-anime") ||
@@ -315,25 +362,13 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                 });
                 return;
               }
-              case "artwork": {
-                const canvas = document.createElement("canvas");
-                canvas.width = 320;
-                canvas.height = 180;
-                const ctx = canvas.getContext("2d")!;
-                const hue = Number(request.payload.id.slice(-3)) * 27;
-                const gradient = ctx.createLinearGradient(0, 0, 320, 180);
-                gradient.addColorStop(0, `hsl(${hue}, 40%, 18%)`);
-                gradient.addColorStop(1, `hsl(${hue + 70}, 55%, 55%)`);
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, 320, 180);
-                ctx.fillStyle = "rgba(255,255,255,.3)";
-                ctx.beginPath();
-                ctx.arc(245, 65, 35, 0, Math.PI * 2);
-                ctx.fill();
+              case "artwork.url": {
                 window["__nahhasioReply"]?.({
                   id: request.id,
                   ok: true,
-                  result: { dataUrl: canvas.toDataURL("image/png") },
+                  result: {
+                    url: `nahhasio://app/_artwork/${request.payload.id}?width=${request.payload.width}`,
+                  },
                 });
                 return;
               }
@@ -601,7 +636,7 @@ test("typed controls and keyboard use native commands, not HTML video", async ({
   await expect(page.getByRole("button", { name: "الخروج من ملء الشاشة" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "ملء الشاشة", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "الصوت", exact: true }).click();
+  await openPanel(page, "الصوت");
   await expect(page.getByRole("radio", { name: /العربية/ })).toBeChecked();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "الصوت", exact: true })).toBeFocused();
@@ -631,16 +666,23 @@ test("preview panels never invent playback progress or tracks", async ({ page })
   await expect(page.getByText("تظهر المسارات الفعلية بعد فتح الفيديو.")).toBeVisible();
 });
 
+async function openPanel(page: Page, name: string) {
+  const direct = page.getByRole("button", { name, exact: true });
+  if (!(await direct.isVisible()))
+    await page.getByRole("button", { name: "إعدادات التشغيل", exact: true }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
 test("honest source, episode, subtitle and codec panels", async ({ page }) => {
   await mock(page);
-  await page.getByRole("button", { name: "الحلقات", exact: true }).click();
+  await openPanel(page, "الحلقات");
   await expect(page.getByText("هذا الملف غير مرتبط بحلقات")).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "مصدر الفيديو", exact: true }).click();
+  await openPanel(page, "مصدر الفيديو");
   await expect(page.getByText("مصادر الشبكة غير متاحة في هذا الإصدار.")).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "الترجمة", exact: true }).click();
-  await page.getByRole("radio", { name: "إيقاف الترجمة", exact: true }).check();
+  await page.getByRole("radio", { name: "إيقاف الترجمة", exact: true }).click();
   await expect
     .poll(() => calls(page, "player.track"))
     .toEqual([
@@ -653,14 +695,15 @@ test("honest source, episode, subtitle and codec panels", async ({ page }) => {
   await expect(page.getByRole("region", { name: "مشغّل الفيديو", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "إعدادات التشغيل" }).click();
-  await expect(page.getByText("h264")).toBeVisible();
-  await expect(page.getByText("غير متاح", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "سرعة التشغيل", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "نافذة عائمة", exact: true })).toBeDisabled();
 });
 
 test("saved video plays locally before any Torrentio lookup", async ({ page }) => {
   await mock(page, { ...initial, active: false, sessionId: null }, "saved");
   await page.getByRole("button", { name: "Watch test work" }).click();
-  await expect(page.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeVisible();
+  await openPanel(page, "مصدر الفيديو");
+  await expect(page.getByRole("dialog", { name: "مصدر الفيديو", exact: true })).toBeVisible();
   await expect.poll(async () => (await calls(page, "media.local")).length).toBe(1);
   expect(await calls(page, "media.search")).toHaveLength(0);
   expect(await calls(page, "media.play")).toHaveLength(0);
@@ -723,16 +766,16 @@ test("radio values select numeric native audio and subtitle tracks", async ({ pa
       },
     ],
   });
-  await page.getByRole("button", { name: "الصوت", exact: true }).click();
+  await openPanel(page, "الصوت");
   await page.getByRole("button", { name: /الإنجليزية · 1 مسارات/ }).click();
-  const dub = page.getByRole("radio", { name: /English dub/ });
-  await dub.check();
-  await expect(dub).toBeChecked();
+  await expect
+    .poll(async () => (await calls(page, "player.track"))[0])
+    .toMatchObject({ payload: { kind: "audio", trackId: 7 } });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "الترجمة", exact: true }).click();
-  await page.getByRole("radio", { name: "إيقاف الترجمة", exact: true }).check();
+  await page.getByRole("radio", { name: "إيقاف الترجمة", exact: true }).click();
   const subtitle = page.getByRole("radio", { name: /ترجمة الملف/ });
-  await subtitle.check();
+  await subtitle.click();
   await expect(subtitle).toBeChecked();
   await expect
     .poll(() => calls(page, "player.track"))
@@ -793,7 +836,7 @@ test("auto hide protects menus, focus, pause, ended and errors at 480px RTL", as
   await expect(page.getByRole("slider", { name: "موضع التشغيل", exact: true })).toBeFocused();
   await expect(page.locator(".player-host")).toHaveAttribute("data-controls-hidden", "false");
   await page.mouse.move(200, 300);
-  await page.getByRole("button", { name: "الصوت", exact: true }).click();
+  await openPanel(page, "الصوت");
   await page.waitForTimeout(3200);
   await expect(page.locator(".player-host")).toHaveAttribute("data-controls-hidden", "false");
   await page.keyboard.press("Escape");
@@ -850,7 +893,7 @@ test("wide episode shelf shows artwork, exact labels and RTL keyboard navigation
   await page.setViewportSize({ width: 1440, height: 900 });
   await mock(page, initial, "episodes");
   await expect(page.locator(".player-host header")).toHaveCount(0);
-  await page.getByRole("button", { name: "الحلقات", exact: true }).click();
+  await openPanel(page, "الحلقات");
   const panel = page.getByRole("dialog", { name: "الحلقات", exact: true });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole("heading", { name: "الموسم الأول" })).toBeVisible();
@@ -869,7 +912,12 @@ test("wide episode shelf shows artwork, exact labels and RTL keyboard navigation
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "الحلقات", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "الحلقات", exact: true })).toBeFocused();
+  await expect(
+    page.getByRole("button", {
+      name: page.viewportSize()!.width < 640 ? "إعدادات التشغيل" : "الحلقات",
+      exact: true,
+    }),
+  ).toBeFocused();
   await expect(page.getByRole("status", { name: "الحلقة المختارة" })).toHaveText("episode-6");
 });
 
@@ -878,7 +926,7 @@ test("episode panel remains contained at narrow width and blocks upcoming episod
 }) => {
   await page.setViewportSize({ width: 480, height: 720 });
   await mock(page, initial, "episodes");
-  await page.getByRole("button", { name: "الحلقات", exact: true }).click();
+  await openPanel(page, "الحلقات");
   const panel = page.getByRole("dialog", { name: "الحلقات", exact: true });
   const bounds = await panel.boundingBox();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -886,7 +934,12 @@ test("episode panel remains contained at narrow width and blocks upcoming episod
   await expect(panel.getByRole("button", { name: "عنوان الحلقة 12", exact: true })).toBeDisabled();
   await page.screenshot({ path: "test-results/player-episodes-480.png" });
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("button", { name: "الحلقات", exact: true })).toBeFocused();
+  await expect(
+    page.getByRole("button", {
+      name: page.viewportSize()!.width < 640 ? "إعدادات التشغيل" : "الحلقات",
+      exact: true,
+    }),
+  ).toBeFocused();
 });
 
 test("Watch opens the right source drawer and never auto-selects a torrent", async ({ page }) => {
@@ -939,7 +992,7 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   await drawer.getByRole("button", { name: "تشغيل هذا المصدر", exact: true }).click();
   await expect(drawer).toHaveCount(0);
   expect(await calls(page, "media.play")).toHaveLength(1);
-  await expect(page.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeFocused();
+  await expect(page.getByRole("button", { name: "إعدادات التشغيل", exact: true })).toBeFocused();
 });
 
 for (const width of [1440, 520]) {
@@ -985,7 +1038,7 @@ for (const width of [1440, 520]) {
     expect(await calls(page, "media.search")).toHaveLength(1);
     expect(await calls(page, "media.play")).toHaveLength(0);
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "إعدادات التشغيل", exact: true })).toBeFocused();
   });
 }
 
@@ -1035,7 +1088,6 @@ test("grouped subtitles search and customization use actual tracks and bounded c
   await panel.getByRole("searchbox", { name: "البحث في الترجمات" }).fill("العربية");
   await expect(panel.getByRole("button", { name: /الإنجليزية · 2 مسارات/ })).toHaveCount(0);
   await panel.getByRole("button", { name: /العربية · 1 مسارات/ }).click();
-  await panel.getByRole("radio", { name: /ترجمة عربية/ }).check();
   await expect
     .poll(() => calls(page, "player.track"))
     .toEqual([
@@ -1062,6 +1114,7 @@ test("speed presets, bottom fullscreen control and torrent keep-download remain 
     page.locator(".player-tools").getByRole("button", { name: "البث إلى جهاز آخر غير متاح" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "إعدادات التشغيل", exact: true }).click();
+  await page.getByRole("button", { name: "سرعة التشغيل", exact: true }).click();
   await page.getByRole("button", { name: "السرعة 1.5×", exact: true }).click();
   await expect
     .poll(() => calls(page, "player.speed"))
@@ -1183,3 +1236,35 @@ test("anime direct missing dub stays recoverable without sub fallback", async ({
   await expect(drawer.getByRole("button", { name: "AniDBApp", exact: true })).toBeEnabled();
   expect(await calls(page, "anime.play")).toHaveLength(0);
 });
+
+for (const width of [520, 1440]) {
+  test(`OpenSubtitles explicit search and apply at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mock(page);
+    await page.getByRole("button", { name: "الترجمة", exact: true }).click();
+    await page
+      .getByRole("button", { name: "البحث عن ترجمة عبر OpenSubtitles", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "ترجمة من OpenSubtitles", exact: true });
+    await expect(dialog).toBeVisible();
+    expect(await calls(page, "opensubtitles.search")).toHaveLength(0);
+    expect(await calls(page, "opensubtitles.apply")).toHaveLength(0);
+    await dialog.getByLabel("عنوان العمل أو اسم الإصدار", { exact: true }).fill("Fixture");
+    await dialog.getByRole("button", { name: "بحث", exact: true }).click();
+    await expect(dialog.getByText("Fixture Arabic 1080p", { exact: true })).toBeVisible();
+    expect(await calls(page, "opensubtitles.apply")).toHaveLength(0);
+    await dialog.getByRole("button", { name: "تنزيل وإضافة إلى المشغّل", exact: true }).click();
+    await expect(dialog.getByRole("status")).toContainText("8");
+    expect(await calls(page, "opensubtitles.apply")).toEqual([
+      expect.objectContaining({
+        command: "opensubtitles.apply",
+        payload: { sessionId: "test-1", fileId: 42 },
+      }),
+    ]);
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+}

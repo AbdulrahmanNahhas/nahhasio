@@ -34,6 +34,7 @@ pub struct Player {
     restore_fullscreen: Cell<bool>,
     session: RefCell<Option<Session>>,
     generation: Cell<u64>,
+    defaults: RefCell<native_player::PlaybackDefaults>,
     dialog: Cell<bool>,
 }
 
@@ -47,10 +48,18 @@ impl Player {
             restore_fullscreen: Cell::new(false),
             session: RefCell::new(None),
             generation: Cell::new(0),
+            defaults: RefCell::new(native_player::PlaybackDefaults::default()),
             dialog: Cell::new(false),
         })
     }
 
+    pub fn apply_subtitle(&self, session_id: &str, path: &Path) -> Result<(), Error> {
+        self.require_session(session_id)?;
+        self.with_player(|player| player.add_subtitle(path))
+    }
+    pub fn set_defaults(&self, defaults: native_player::PlaybackDefaults) {
+        *self.defaults.borrow_mut() = defaults;
+    }
     fn clear_surface(&self) {
         if let Some(surface) = self.surface.upgrade() {
             while let Some(child) = surface.first_child() {
@@ -89,6 +98,9 @@ impl Player {
             .ok_or_else(interrupted)?;
         self.generation.set(generation);
         self.cancel_stream();
+        player
+            .defaults(self.defaults.borrow().clone())
+            .map_err(playback_error)?;
         self.attach_surface(player.area())?;
         *self.session.borrow_mut() = Some(Session {
             id: format!("media-{generation}"),
@@ -373,6 +385,9 @@ impl Player {
         self.require_session(id)?;
         let player = NativePlayer::loopback(gateway.endpoint()).map_err(playback_error)?;
         self.cancel_stream();
+        player
+            .defaults(self.defaults.borrow().clone())
+            .map_err(playback_error)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
@@ -388,6 +403,9 @@ impl Player {
         self.require_session(id)?;
         let player = NativePlayer::local(path).map_err(playback_error)?;
         self.cancel_stream();
+        player
+            .defaults(self.defaults.borrow().clone())
+            .map_err(playback_error)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
@@ -414,6 +432,9 @@ impl Player {
                 .map_err(playback_error)?;
         }
         self.cancel_stream();
+        player
+            .defaults(self.defaults.borrow().clone())
+            .map_err(playback_error)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);

@@ -65,7 +65,28 @@ impl Default for PlaybackState {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct PlaybackDefaults {
+    pub audio_languages: String,
+    pub subtitle_languages: String,
+    pub subtitles_enabled: bool,
+    pub subtitle_size: f64,
+    pub subtitle_position: f64,
+}
+impl Default for PlaybackDefaults {
+    fn default() -> Self {
+        Self {
+            audio_languages: String::new(),
+            subtitle_languages: "ar,ara,en,eng".into(),
+            subtitles_enabled: true,
+            subtitle_size: 55.0,
+            subtitle_position: 100.0,
+        }
+    }
+}
+
 struct State {
+    defaults: PlaybackDefaults,
     engine: Option<backend::Engine>,
     source: Option<glib::SourceId>,
     playback: PlaybackState,
@@ -80,6 +101,28 @@ pub struct NativePlayer {
 }
 
 impl NativePlayer {
+    /// Set validated preferences before attaching/realizing the video surface.
+    pub fn defaults(&self, defaults: PlaybackDefaults) -> Result<(), String> {
+        if self.state.borrow().engine.is_some() {
+            return Err("Playback defaults must precede loading".into());
+        }
+        if defaults.audio_languages.len() > 100
+            || defaults.subtitle_languages.len() > 100
+            || !defaults
+                .audio_languages
+                .bytes()
+                .chain(defaults.subtitle_languages.bytes())
+                .all(|b| b.is_ascii_lowercase() || b == b',')
+            || !defaults.subtitle_size.is_finite()
+            || !(10.0..=120.0).contains(&defaults.subtitle_size)
+            || !defaults.subtitle_position.is_finite()
+            || !(0.0..=100.0).contains(&defaults.subtitle_position)
+        {
+            return Err("Invalid playback defaults".into());
+        }
+        self.state.borrow_mut().defaults = defaults;
+        Ok(())
+    }
     pub fn local(path: &Path) -> Result<Self, String> {
         let path = path
             .canonicalize()
@@ -132,6 +175,7 @@ impl NativePlayer {
         area.set_required_version(3, 3);
         area.set_allowed_apis(gtk::gdk::GLAPI::GL);
         let state = Rc::new(RefCell::new(State {
+            defaults: PlaybackDefaults::default(),
             engine: None,
             source: None,
             playback: PlaybackState::default(),
@@ -151,9 +195,11 @@ impl NativePlayer {
                 let result = if let Some(engine) = state_ref.engine.as_mut() {
                     engine.reattach(area)
                 } else {
-                    backend::Engine::playback(area, &source, network, hls).map(|engine| {
-                        state_ref.engine = Some(engine);
-                    })
+                    backend::Engine::playback(area, &source, network, hls, &state_ref.defaults).map(
+                        |engine| {
+                            state_ref.engine = Some(engine);
+                        },
+                    )
                 };
                 if let Err(error) = result {
                     state_ref.playback.error = Some(error);

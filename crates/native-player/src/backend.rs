@@ -133,7 +133,7 @@ pub(super) struct Engine {
 impl Engine {
     pub(super) fn new(area: &gtk::GLArea, path: &Path) -> Result<Self, String> {
         let path = path.to_str().ok_or("Local path must be valid UTF-8")?;
-        Self::create(area, path, false, true, false)
+        Self::create(area, path, false, true, false, None)
     }
 
     pub(super) fn playback(
@@ -141,8 +141,9 @@ impl Engine {
         source: &str,
         network: bool,
         hls: bool,
+        defaults: &crate::PlaybackDefaults,
     ) -> Result<Self, String> {
-        Self::create(area, source, network, false, hls)
+        Self::create(area, source, network, false, hls, Some(defaults))
     }
 
     fn create(
@@ -151,6 +152,7 @@ impl Engine {
         network: bool,
         diagnostic: bool,
         hls: bool,
+        defaults: Option<&crate::PlaybackDefaults>,
     ) -> Result<Self, String> {
         let context = area.context().ok_or("No GLArea context")?;
         context.make_current();
@@ -201,6 +203,26 @@ impl Engine {
         check(unsafe { mpv::mpv_initialize(core.as_ptr()) })?;
         engine.observe()?;
         engine.attach()?;
+        if let Some(defaults) = defaults {
+            // Queue typed preferences before loadfile so automatic track selection sees them.
+            for (key, value) in [
+                ("alang", defaults.audio_languages.clone()),
+                ("slang", defaults.subtitle_languages.clone()),
+                (
+                    "sid",
+                    if defaults.subtitles_enabled {
+                        "auto"
+                    } else {
+                        "no"
+                    }
+                    .into(),
+                ),
+                ("sub-font-size", defaults.subtitle_size.to_string()),
+                ("sub-pos", defaults.subtitle_position.to_string()),
+            ] {
+                engine.command(&["set", key, &value])?;
+            }
+        }
         engine.command(&["loadfile", source, "replace"])?;
         if diagnostic {
             eprintln!("proof: libmpv OpenGL renderer created; hwdec=no; source=local-file");
