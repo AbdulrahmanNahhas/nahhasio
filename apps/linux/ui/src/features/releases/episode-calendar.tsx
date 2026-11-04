@@ -1,21 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowLeft, ArrowRight, Film, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, CalendarDays, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { Artwork } from "../../components/artwork";
 import { Choice } from "../../components/choice";
-import { Failure } from "../../components/status";
+import { ContentScrollArea } from "../../components/content-scroll-area";
+import { Failure, NoResults } from "../../components/status";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   Drawer,
-  DrawerTrigger,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
   DrawerClose,
 } from "../../components/ui/drawer";
-import { gateway } from "../../lib/bridge";
+import { useIsMobile } from "../../hooks/use-mobile";
+import { gateway, type ReleasesQuery } from "../../lib/bridge";
 import { watchRequestEvent } from "../player/watch-request";
 import { ReleaseFeed } from "./release-feed";
 import { dateLabel, dayDate, months, releaseTitle } from "./release-model";
@@ -23,29 +25,31 @@ import { dateLabel, dayDate, months, releaseTitle } from "./release-model";
 export function EpisodeCalendar({
   year,
   month,
+  kind = "all",
+  selectedDay,
+  onDay,
+  onKind,
   onMonth,
   onSelectMonth,
   onToday,
 }: {
   year: number;
   month: number;
+  kind: ReleasesQuery["kind"];
+  selectedDay: number | null;
+  onDay: (day: number | null) => void;
+  onKind: (kind: string) => void;
   onMonth: (direction: -1 | 1) => void;
   onSelectMonth: (month: number) => void;
   onToday: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener(watchRequestEvent, close);
-    return () => window.removeEventListener(watchRequestEvent, close);
-  }, [open]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const mobile = useIsMobile();
   const grid = useRef<HTMLDivElement>(null);
+  const lastTrigger = useRef<HTMLButtonElement>(null);
   const overview = useQuery({
-    queryKey: ["releases", "calendar", year, month],
-    queryFn: ({ signal }) =>
-      gateway.releases({ year, month, kind: "episodes", pageSize: 1 }, signal),
+    queryKey: ["releases", "calendar", year, month, kind],
+    // The month is bounded and paginated. Day counts remain complete even above 100 events.
+    queryFn: ({ signal }) => gateway.releases({ year, month, kind, pageSize: 100 }, signal),
     staleTime: 60000,
   });
   const first = new Date(0);
@@ -53,15 +57,44 @@ export function EpisodeCalendar({
   const last = new Date(0);
   last.setUTCFullYear(year, month, 0);
   const days = last.getUTCDate();
+  const selected = selectedDay && selectedDay <= days ? selectedDay : null;
   const entries = new Map(overview.data?.days.map((day) => [Number(day.date.slice(8)), day]));
+  const initialDay = overview.data?.days.find((day) => day.count > 0)?.date.slice(8);
+  const detailDay = selected ?? (initialDay ? Number(initialDay) : null);
+  useEffect(() => {
+    if (!mobile || selected === null) return;
+    const close = () => onDay(null);
+    window.addEventListener(watchRequestEvent, close);
+    return () => window.removeEventListener(watchRequestEvent, close);
+  }, [mobile, selected, onDay]);
+  const detail =
+    detailDay !== null ? (
+      <ReleaseFeed
+        query={{ year, month, day: detailDay, kind }}
+        grouped={false}
+        singleColumn
+        empty="لا توجد مواعيد مسجّلة في هذا اليوم. جرّب يومًا آخر أو غيّر نوع المواعيد."
+      />
+    ) : (
+      <NoResults
+        title="اختر يومًا"
+        description="ستظهر هنا الأفلام، بدايات المواسم، والحلقات المسجّلة لهذا اليوم."
+      />
+    );
   return (
-    <Drawer swipeDirection="left" open={open} onOpenChange={setOpen}>
-      <div className="flex min-w-0 flex-col gap-7">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+    <Drawer
+      open={mobile && selected !== null}
+      onOpenChange={(open) => {
+        if (!open) onDay(null);
+      }}
+      showSwipeHandle
+    >
+      <div className="flex min-w-0 flex-col gap-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border p-4">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
               aria-label="الشهر السابق"
               disabled={year === 1 && month === 1}
               onClick={() => onMonth(-1)}
@@ -71,49 +104,64 @@ export function EpisodeCalendar({
             <Choice
               label="شهر التقويم"
               value={String(month)}
-              options={months.map((label, index) => ({ value: String(index + 1), label }))}
+              options={months.map((label, index) => ({ label, value: String(index + 1) }))}
               onChange={(value) => onSelectMonth(Number(value))}
             />
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
               aria-label="الشهر التالي"
               disabled={year === 9999 && month === 12}
               onClick={() => onMonth(1)}
             >
               <ArrowLeft />
             </Button>
+            <Button variant="ghost" size="sm" onClick={onToday}>
+              اليوم
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelected(null);
-              onToday();
-            }}
-          >
-            هذا الشهر
-          </Button>
-          <p className="text-sm text-muted-foreground" role="status">
-            {overview.data ? `${overview.data.total} حلقة لها موعد مسجّل` : "جارٍ تحميل المواعيد…"}
-          </p>
+          <div className="w-full sm:w-52">
+            <Choice
+              label="مواعيد التقويم"
+              value={kind ?? "all"}
+              options={[
+                { value: "all", label: "كل المواعيد" },
+                { value: "installments", label: "الأفلام والمواسم" },
+                { value: "episodes", label: "الحلقات" },
+              ]}
+              onChange={onKind}
+            />
+          </div>
         </header>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">
+            {months[month - 1]} {year}
+          </h2>
+          <p className="text-xs text-muted-foreground" role="status">
+            {overview.data
+              ? `${overview.data.total} موعد مسجّل · ${overview.data.days.length} أيام إصدار`
+              : "جارٍ تحميل المواعيد…"}
+          </p>
+        </div>
         {overview.error && <Failure error={overview.error} retry={() => void overview.refetch()} />}
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card p-3 sm:p-4">
-          <div className="min-w-[700px]">
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-3">
+          <section
+            aria-label="أيام التقويم"
+            className="min-w-0 rounded-2xl border border-border p-2 sm:p-4 xl:col-span-2"
+          >
             <div
               className="mb-2 grid grid-cols-7 text-center text-xs text-muted-foreground"
               aria-hidden="true"
             >
-              {["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"].map((day) => (
-                <span key={day} className="py-2">
-                  {day}
+              {["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"].map((label) => (
+                <span key={label} className="py-2">
+                  {label}
                 </span>
               ))}
             </div>
             <div
               ref={grid}
-              className="grid grid-cols-7 gap-2"
+              className="grid grid-cols-7 gap-1 sm:gap-2"
               aria-busy={overview.isFetching}
               onKeyDown={(event) => {
                 if (
@@ -148,17 +196,30 @@ export function EpisodeCalendar({
                 const date = dayDate(year, month, day);
                 const entry = entries.get(day);
                 const count = entry?.count ?? 0;
-                const previews = entry?.previews ?? [];
+                const seen = new Set<string>();
+                const previews = (
+                  entry?.previews?.length
+                    ? entry.previews
+                    : (overview.data?.items.filter((item) => item.releaseDate === date) ?? [])
+                )
+                  .filter((item) => {
+                    if (seen.has(item.installmentId)) return false;
+                    seen.add(item.installmentId);
+                    return true;
+                  })
+                  .slice(0, 2);
                 return (
-                  <DrawerTrigger
+                  <Button
                     key={day}
-                    render={<Button variant="ghost" />}
+                    variant={detailDay === day ? "secondary" : "outline"}
                     data-day={day}
                     aria-label={
                       overview.data
-                        ? `${dateLabel(date)}، ${count} حلقة`
+                        ? `${dateLabel(date)}، ${count} موعد`
                         : `${dateLabel(date)}، جارٍ تحميل المواعيد`
                     }
+                    aria-pressed={detailDay === day}
+                    aria-current={overview.data?.asOf === date ? "date" : undefined}
                     title={
                       previews
                         .map(
@@ -166,15 +227,13 @@ export function EpisodeCalendar({
                         )
                         .join("، ") || undefined
                     }
-                    aria-pressed={selected === day}
-                    aria-current={overview.data?.asOf === date ? "date" : undefined}
-                    onClick={() => setSelected(day)}
-                    className={cn(
-                      "flex h-auto min-h-44 min-w-0 flex-col items-stretch justify-start gap-2 rounded-xl border border-border bg-background p-2 text-start",
-                      selected === day && "border-primary bg-secondary",
-                    )}
+                    onClick={(event) => {
+                      lastTrigger.current = event.currentTarget;
+                      onDay(day);
+                    }}
+                    className="flex h-auto min-h-20 min-w-0 flex-col items-stretch justify-start gap-2 rounded-xl p-1.5 sm:min-h-28 sm:p-2"
                   >
-                    <span className="flex items-center justify-between gap-2">
+                    <span className="flex flex-wrap items-center justify-between gap-1">
                       <span
                         className={cn(
                           "text-sm font-medium tabular-nums",
@@ -184,59 +243,73 @@ export function EpisodeCalendar({
                         {day}
                       </span>
                       {count > 0 && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+                        <Badge variant="secondary" className="hidden sm:inline-flex">
+                          {count}
+                        </Badge>
                       )}
                     </span>
-                    <span className="flex gap-1">
+                    {count > 0 && (
+                      <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
+                        {count} موعد
+                      </span>
+                    )}
+                    <span className="hidden gap-1 sm:flex">
                       {previews.map((item) => (
                         <Artwork
                           key={item.id}
                           id={item.poster?.id}
-                          alt={`${item.workTitleAr || item.workTitle}، ${releaseTitle(item)}`}
-                          className="aspect-2/3 w-1/3 min-w-0 self-start rounded-md object-cover"
-                          fallback={<Film className="size-3" aria-hidden="true" />}
+                          width={320}
+                          alt=""
+                          className="h-10 w-7 min-w-0 rounded-sm object-cover"
+                          fallback={<CalendarDays className="size-3" aria-hidden="true" />}
                         />
                       ))}
                     </span>
-                    {count > previews.length && count > 0 && (
-                      <span className="mt-auto text-xs text-muted-foreground">
-                        {previews.length ? `+${count - previews.length} أخرى` : "عرض الحلقات"}
+                    {count > 0 && (
+                      <span className="mt-auto hidden truncate text-xs text-muted-foreground sm:block">
+                        {previews[0]?.workTitleAr || previews[0]?.workTitle || "عرض المواعيد"}
                       </span>
                     )}
-                  </DrawerTrigger>
+                  </Button>
                 );
               })}
             </div>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          اختر يومًا لعرض حلقاته. يمكنك تحريك التقويم أفقيًا على الشاشات الصغيرة.
-        </p>
-      </div>
-      <DrawerContent className="data-[swipe-direction=left]:start-auto data-[swipe-direction=left]:left-0">
-        <DrawerHeader className="pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <DrawerTitle>
-              {selected !== null ? dateLabel(dayDate(year, month, selected)) : "حلقات اليوم"}
-            </DrawerTitle>
-            <DrawerClose
-              render={<Button variant="ghost" size="icon-sm" aria-label="إغلاق حلقات اليوم" />}
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+              اختر يومًا لعرض تفاصيله. الأيام الفارغة لا تحتوي على مواعيد مسجّلة.
+            </p>
+          </section>
+          {!mobile && (
+            <aside
+              aria-label="مواعيد اليوم المحدّد"
+              className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border p-4"
             >
-              <X />
-            </DrawerClose>
-          </div>
-        </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {selected !== null && (
-            <ReleaseFeed
-              query={{ year, month, day: selected, kind: "episodes" }}
-              grouped={false}
-              episodeCards
-              empty="لا توجد حلقات مسجّلة في هذا اليوم."
-            />
+              <h3 className="font-semibold">
+                {detailDay !== null ? dateLabel(dayDate(year, month, detailDay)) : "تفاصيل اليوم"}
+              </h3>
+              {detail}
+            </aside>
           )}
         </div>
-      </DrawerContent>
+      </div>
+      {mobile && (
+        <DrawerContent className="max-h-5/6" finalFocus={lastTrigger}>
+          <DrawerHeader>
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle>
+                {selected !== null ? dateLabel(dayDate(year, month, selected)) : "مواعيد اليوم"}
+              </DrawerTitle>
+              <DrawerClose
+                render={<Button variant="ghost" size="icon-sm" aria-label="إغلاق مواعيد اليوم" />}
+              >
+                <X />
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <ContentScrollArea>
+            <div className="px-4 pt-3 pb-safe">{detail}</div>
+          </ContentScrollArea>
+        </DrawerContent>
+      )}
     </Drawer>
   );
 }

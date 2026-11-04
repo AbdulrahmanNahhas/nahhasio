@@ -3,10 +3,10 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  Clapperboard,
   Layers,
   List,
   Sparkles,
-  Clapperboard,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -23,20 +23,10 @@ import { months, seasons, numberParam } from "./release-model";
 
 const views = [
   { value: "seasons", label: "المواسم", icon: Layers },
-  { value: "calendar", label: "تقويم الحلقات", icon: CalendarDays },
-  { value: "timeline", label: "الخط الزمني", icon: List },
+  { value: "calendar", label: "التقويم", icon: CalendarDays },
+  { value: "timeline", label: "القائمة", icon: List },
   { value: "upcoming", label: "القادم", icon: Sparkles },
 ];
-type ReleaseSetting =
-  | "view"
-  | "year"
-  | "month"
-  | "season"
-  | "kind"
-  | "timelineMonth"
-  | "layout"
-  | "size"
-  | "seasonScope";
 export function ReleasesPage({ params }: { params: URLSearchParams }) {
   const [now] = useState(() => new Date());
   const year = numberParam(params, "year", now.getUTCFullYear(), 9999);
@@ -50,14 +40,8 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
       : params.get("kind") === "installments"
         ? "installments"
         : "all";
-  const layout =
-    params.get("layout") === "banner"
-      ? "banner"
-      : params.get("layout") === "logo"
-        ? "logo"
-        : "poster";
-  const size =
-    params.get("size") === "large" ? "large" : params.get("size") === "small" ? "small" : "medium";
+  const layout = params.get("layout") === "logo" ? "logo" : "poster";
+  const size = params.get("size") === "medium" ? "medium" : "small";
   const metadata = useQuery({
     queryKey: ["releases", "years"],
     queryFn: ({ signal }) => gateway.releases({ pageSize: 1 }, signal),
@@ -66,40 +50,59 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
   const years = [
     ...new Set([year, now.getUTCFullYear(), ...(metadata.data?.years ?? [])]),
   ].toSorted((a, b) => b - a);
-  const update = (key: ReleaseSetting, value: string) => {
+  const change = (values: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
-    if ((key === "view" && value === "seasons") || (key === "timelineMonth" && value === "all"))
-      next.delete(key);
-    else next.set(key, value);
-    replaceParams("/releases", next);
-  };
-  const moveMonth = (direction: -1 | 1) => {
-    const nextMonth = month + direction;
-    const next = new URLSearchParams(params);
-    next.set("month", String(nextMonth < 1 ? 12 : nextMonth > 12 ? 1 : nextMonth));
-    next.set("year", String(nextMonth < 1 ? year - 1 : nextMonth > 12 ? year + 1 : year));
-    replaceParams("/releases", next);
-  };
-  const moveSeason = (direction: -1 | 1) => {
-    const next = new URLSearchParams(params);
-    if (wholeYear) next.set("year", String(year + direction));
-    else {
-      const period = season + direction;
-      next.set("season", String(period < 1 ? 4 : period > 4 ? 1 : period));
-      next.set("year", String(period < 1 ? year - 1 : period > 4 ? year + 1 : year));
+    for (const [key, value] of Object.entries(values)) {
+      if (value === null) next.delete(key);
+      else next.set(key, value);
     }
     replaceParams("/releases", next);
+  };
+  const update = (key: string, value: string) => {
+    if (key === "month")
+      change({ month: value, season: String(Math.ceil(Number(value) / 3)), day: null });
+    else if (["year", "kind"].includes(key)) change({ [key]: value, day: null });
+    else change({ [key]: value });
+  };
+  const moveMonth = (direction: -1 | 1) => {
+    const period = month + direction;
+    change({
+      month: String(period < 1 ? 12 : period > 12 ? 1 : period),
+      season: String(Math.ceil((period < 1 ? 12 : period > 12 ? 1 : period) / 3)),
+      year: String(period < 1 ? year - 1 : period > 12 ? year + 1 : year),
+      day: null,
+    });
+  };
+  const moveSeason = (direction: -1 | 1) => {
+    if (wholeYear) change({ year: String(year + direction), day: null });
+    else {
+      const period = season + direction;
+      change({
+        season: String(period < 1 ? 4 : period > 4 ? 1 : period),
+        month: String(((period < 1 ? 4 : period > 4 ? 1 : period) - 1) * 3 + 1),
+        year: String(period < 1 ? year - 1 : period > 4 ? year + 1 : year),
+        day: null,
+      });
+    }
   };
   const seasonQuery: ReleasesQuery = { year, kind: "installments" };
   if (!wholeYear) seasonQuery.season = season;
   const timeline: ReleasesQuery = { year, kind };
   if (params.has("timelineMonth") && params.get("timelineMonth") !== "all")
     timeline.month = numberParam(params, "timelineMonth", month, 12);
+  const display = (
+    <ReleaseDisplay
+      layout={layout}
+      size={size}
+      onLayout={(value) => update("layout", value)}
+      onSize={(value) => update("size", value)}
+    />
+  );
   return (
     <PublicPage as="article" className="flex flex-col gap-6" aria-label="الإصدارات">
       <PublicPageHeader
         title="تقويم المكتبة"
-        description="مواسم الإصدارات ومواعيد الحلقات"
+        description="الأفلام، بدايات المواسم، ومواعيد الحلقات المسجّلة في مكتبتك."
         actions={
           <a className={buttonVariants({ variant: "outline", size: "sm" })} href="#/episodes">
             <Clapperboard data-icon="inline-start" />
@@ -110,12 +113,13 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
       <Tabs
         value={view}
         onValueChange={(value) => {
-          if (views.some((item) => item.value === value)) update("view", String(value));
+          if (views.some((item) => item.value === value))
+            change({ view: String(value), day: null });
         }}
-        className="gap-7"
+        className="gap-6"
       >
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
-          <TabsList variant="line" className="h-auto flex-wrap" aria-label="طرق عرض الإصدارات">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <TabsList className="w-full sm:w-fit" aria-label="طرق عرض الإصدارات">
             {views.map(({ value, label, icon: Icon }) => (
               <TabsTrigger key={value} value={value}>
                 <Icon data-icon="inline-start" />
@@ -123,108 +127,100 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="flex flex-wrap items-center gap-3">
-            {view !== "upcoming" && (
-              <div className="flex items-center gap-1">
-                {view !== "seasons" && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="السنة السابقة"
-                    disabled={year === 1}
-                    onClick={() => update("year", String(year - 1))}
-                  >
-                    <ArrowRight />
-                  </Button>
-                )}
-                <Choice
-                  label="سنة الإصدار"
-                  value={String(year)}
-                  options={years.map((value) => ({ value: String(value), label: String(value) }))}
-                  onChange={(value) => update("year", value)}
-                />
-                {view !== "seasons" && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="السنة التالية"
-                    disabled={year === 9999}
-                    onClick={() => update("year", String(year + 1))}
-                  >
-                    <ArrowLeft />
-                  </Button>
-                )}
-              </div>
-            )}
-            {view === "timeline" && (
+          {view !== "upcoming" && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="السنة السابقة"
+                disabled={year === 1}
+                onClick={() => update("year", String(year - 1))}
+              >
+                <ArrowRight />
+              </Button>
               <Choice
-                label="نوع الإصدار"
-                value={kind ?? "all"}
-                options={[
-                  { value: "all", label: "الأجزاء والحلقات" },
-                  { value: "installments", label: "الأجزاء فقط" },
-                  { value: "episodes", label: "الحلقات فقط" },
-                ]}
-                onChange={(value) => update("kind", value)}
+                label="سنة الإصدار"
+                value={String(year)}
+                options={years.map((value) => ({ value: String(value), label: String(value) }))}
+                onChange={(value) => update("year", value)}
               />
-            )}
-          </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="السنة التالية"
+                disabled={year === 9999}
+                onClick={() => update("year", String(year + 1))}
+              >
+                <ArrowLeft />
+              </Button>
+            </div>
+          )}
         </div>
         <TabsContent value="seasons" className="flex flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-              <h2 className="text-2xl font-semibold">
-                {wholeYear ? "إصدارات" : seasons[season - 1]} {year}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {wholeYear
-                  ? "الأفلام والمواسم التي تبدأ خلال السنة"
-                  : `${months[(season - 1) * 3]} — ${months[season * 3 - 1]}`}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-1">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
-                  size="icon"
-                  aria-label={wholeYear ? "السنة السابقة" : "الموسم السابق"}
+                  size="icon-sm"
+                  aria-label={wholeYear ? "فترة السنة السابقة" : "الموسم السابق"}
                   disabled={year === 1 && (wholeYear || season === 1)}
                   onClick={() => moveSeason(-1)}
                 >
                   <ArrowRight />
                 </Button>
-                {!wholeYear && (
-                  <Choice
-                    label="موسم السنة"
-                    value={String(season)}
-                    options={seasons.map((label, index) => ({ label, value: String(index + 1) }))}
-                    onChange={(value) => update("season", value)}
-                  />
-                )}
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {wholeYear ? "إصدارات" : seasons[season - 1]} {year}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {wholeYear
+                      ? "كل الأفلام وبدايات المواسم خلال السنة"
+                      : `${months[(season - 1) * 3]} — ${months[season * 3 - 1]}`}
+                  </p>
+                </div>
                 <Button
                   variant="outline"
-                  size="icon"
-                  aria-label={wholeYear ? "السنة التالية" : "الموسم التالي"}
+                  size="icon-sm"
+                  aria-label={wholeYear ? "فترة السنة التالية" : "الموسم التالي"}
                   disabled={year === 9999 && (wholeYear || season === 4)}
                   onClick={() => moveSeason(1)}
                 >
                   <ArrowLeft />
                 </Button>
               </div>
+              {display}
+            </div>
+            <div
+              className="grid grid-cols-2 gap-2 sm:grid-cols-5"
+              role="group"
+              aria-label="موسم السنة"
+            >
+              {seasons.map((label, index) => (
+                <Button
+                  key={label}
+                  variant={!wholeYear && season === index + 1 ? "secondary" : "outline"}
+                  aria-pressed={!wholeYear && season === index + 1}
+                  onClick={() =>
+                    change({
+                      season: String(index + 1),
+                      month: String(index * 3 + 1),
+                      seasonScope: null,
+                      day: null,
+                    })
+                  }
+                >
+                  {label}
+                </Button>
+              ))}
               <Button
                 variant={wholeYear ? "secondary" : "outline"}
                 aria-pressed={wholeYear}
-                onClick={() => update("seasonScope", wholeYear ? "season" : "year")}
+                onClick={() => change({ seasonScope: wholeYear ? null : "year", day: null })}
               >
                 <CalendarDays data-icon="inline-start" />
                 السنة كاملة
               </Button>
-              <ReleaseDisplay
-                layout={layout}
-                size={size}
-                onLayout={(value) => update("layout", value)}
-                onSize={(value) => update("size", value)}
-              />
             </div>
           </div>
           <ReleaseFeed
@@ -235,32 +231,46 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
             grouped={false}
             empty={
               wholeYear
-                ? "لا توجد إصدارات لها تاريخ بداية مسجّل في هذه السنة."
-                : "لا توجد أفلام أو مواسم لها تاريخ بداية مسجّل في هذا الموسم."
+                ? "لا توجد أفلام أو بدايات مواسم بتاريخ مسجّل في هذه السنة."
+                : "لا توجد أفلام أو بدايات مواسم بتاريخ مسجّل في هذا الموسم. جرّب موسمًا آخر أو السنة كاملة."
             }
           />
         </TabsContent>
         <TabsContent value="calendar">
           <EpisodeCalendar
-            key={`${year}-${month}`}
+            key={`${year}-${month}-${kind}`}
             year={year}
             month={month}
+            kind={kind}
+            selectedDay={numberParam(params, "day", 0, 31) || null}
+            onDay={(day) => change({ day: day === null ? null : String(day) })}
+            onKind={(value) => change({ kind: value, day: null })}
             onMonth={moveMonth}
             onSelectMonth={(value) => update("month", String(value))}
-            onToday={() => {
-              const next = new URLSearchParams(params);
-              next.set("year", String(now.getUTCFullYear()));
-              next.set("month", String(now.getUTCMonth() + 1));
-              replaceParams("/releases", next);
-            }}
+            onToday={() =>
+              change({
+                year: String(now.getUTCFullYear()),
+                month: String(now.getUTCMonth() + 1),
+                season: String(Math.ceil((now.getUTCMonth() + 1) / 3)),
+                day: String(now.getUTCDate()),
+              })
+            }
           />
         </TabsContent>
-        <TabsContent value="timeline" className="flex flex-col gap-6">
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold">على امتداد {year}</h2>
-            </div>
-            <div className="w-48">
+        <TabsContent value="timeline" className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">مواعيد {year}</h2>
+            <div className="flex flex-wrap gap-2">
+              <Choice
+                label="نوع الإصدار"
+                value={kind ?? "all"}
+                options={[
+                  { value: "all", label: "كل المواعيد" },
+                  { value: "installments", label: "الأفلام والمواسم" },
+                  { value: "episodes", label: "الحلقات" },
+                ]}
+                onChange={(value) => update("kind", value)}
+              />
               <Choice
                 label="شهر الخط الزمني"
                 value={params.get("timelineMonth") ?? "all"}
@@ -271,36 +281,36 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
                 onChange={(value) => update("timelineMonth", value)}
               />
             </div>
-          </header>
+          </div>
           <ReleaseFeed query={timeline} groupBy="month" />
         </TabsContent>
-        <TabsContent value="upcoming">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
-            <header className="flex flex-col gap-2">
-              <h2 className="text-2xl font-semibold">في الأفق</h2>
-              <p className="text-sm text-muted-foreground">الأفلام والمواسم القادمة، الأقرب أولًا</p>
-            </header>
+        <TabsContent value="upcoming" className="flex flex-col gap-8">
+          <section className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">القادم من اليوم</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                أفلام وبدايات مواسم من كل السنوات، مرتّبة حسب موعدها.
+              </p>
+            </div>
             <ReleaseFeed
               query={{ scope: "upcoming", kind: "installments" }}
-              cards
-              size="medium"
               groupBy="month"
-              empty="لا توجد مواعيد قادمة مسجّلة."
+              empty="لا توجد أفلام أو مواسم بمواعيد قادمة مسجّلة."
             />
-            <section className="flex flex-col gap-5 border-t border-border pt-6">
-              <header className="flex flex-col gap-2">
-                <h2 className="text-lg font-semibold">بانتظار الموعد</h2>
-                <p className="text-sm text-muted-foreground">أفلام ومواسم معلنة دون تاريخ محدد</p>
-              </header>
-              <ReleaseFeed
-                query={{ scope: "undated", kind: "installments" }}
-                cards
-                size="medium"
-                grouped={false}
-                empty="لا توجد إصدارات منتظرة دون موعد."
-              />
-            </section>
-          </div>
+          </section>
+          <section className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">بانتظار تحديد الموعد</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                إصدارات معلنة دون تاريخ مسجّل؛ لا توضع في يوم أو موسم تقديري.
+              </p>
+            </div>
+            <ReleaseFeed
+              query={{ scope: "undated", kind: "installments" }}
+              grouped={false}
+              empty="لا توجد إصدارات معلنة دون موعد."
+            />
+          </section>
         </TabsContent>
       </Tabs>
     </PublicPage>

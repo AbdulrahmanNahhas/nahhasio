@@ -30,9 +30,10 @@ export function numberParam(params: URLSearchParams, key: string, fallback: numb
   return Number.isInteger(value) && value >= 1 && value <= max ? value : fallback;
 }
 export function releaseTitle(item: ReleaseEntry) {
-  return item.kind === "episode"
-    ? `الحلقة ${episodeNumberLabel(item.episodeNumber ?? "")}${item.title ? `: ${item.title}` : ""}`
-    : item.title || (item.installmentKind === "movie" ? "فيلم" : "جزء جديد");
+  if (item.kind !== "episode")
+    return item.title || (item.installmentKind === "movie" ? "فيلم" : "جزء جديد");
+  const label = `الحلقة ${episodeNumberLabel(item.episodeNumber ?? "")}`;
+  return item.title && item.title.trim() !== label ? `${label}: ${item.title}` : label;
 }
 export function releaseLink(item: ReleaseEntry) {
   return (

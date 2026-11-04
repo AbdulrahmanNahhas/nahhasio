@@ -14,10 +14,9 @@ import { gateway, type ReleasesQuery } from "../../lib/bridge";
 import { ViewingCard } from "../home/viewing-card";
 import { dateLabel, months, releaseLink, releaseTitle } from "./release-model";
 
-export type ReleaseLayout = "poster" | "banner" | "logo";
-export type ReleaseSize = "large" | "medium" | "small";
+export type ReleaseLayout = "poster" | "logo";
+export type ReleaseSize = "medium" | "small";
 const grids = {
-  large: "grid-cols-2 md:grid-cols-3",
   medium: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
   small: "grid-cols-2 md:grid-cols-4 xl:grid-cols-5",
 } satisfies Record<ReleaseSize, string>;
@@ -51,6 +50,10 @@ function timelineEvents(items: ReleaseEntry[]) {
   }
   return [...events.values()];
 }
+const weekdayFormat = new Intl.DateTimeFormat("ar-u-nu-latn", {
+  weekday: "short",
+  timeZone: "UTC",
+});
 function TimelineEvent({
   entries,
   asOf,
@@ -65,60 +68,81 @@ function TimelineEvent({
   if (!item) return null;
   const starts = entries.some((entry) => entry.kind === "installment");
   const episodes = entries.filter((entry) => entry.kind === "episode");
+  const title = item.workTitleAr || item.workTitle;
+  const today = item.releaseDate === asOf;
   return (
-    <article className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-card p-3">
+    <article className="group/release flex h-full min-h-32 min-w-0 overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40 motion-reduce:transition-none">
       <a
         {...navigation}
         href={releaseLink(item)}
-        className="shrink-0 rounded-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
-        aria-label={`تفاصيل ${item.workTitleAr || item.workTitle}`}
+        className="flex w-20 shrink-0 self-stretch outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:w-24"
+        aria-label={`تفاصيل ${title}`}
       >
-        <Artwork id={item.poster?.id} alt="" className="h-20 w-14 rounded-lg object-cover" />
+        <Artwork
+          id={item.poster?.id}
+          width={320}
+          alt=""
+          className="h-full min-h-32 w-full object-cover"
+        />
       </a>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <a
-          {...navigation}
-          href={releaseLink(item)}
-          className="line-clamp-2 text-sm font-semibold hover:text-primary"
-          dir="auto"
-        >
-          {item.workTitleAr || item.workTitle}
-        </a>
-        {showDate && item.releaseDate && (
-          <time dateTime={item.releaseDate} className="text-xs font-medium text-primary">
-            {new Intl.DateTimeFormat("ar-u-nu-latn", {
-              day: "numeric",
-              weekday: "short",
-              timeZone: "UTC",
-            }).format(new Date(`${item.releaseDate}T12:00:00Z`))}
-          </time>
-        )}
-        <span className="text-xs text-muted-foreground" dir="auto">
-          {item.installmentTitle}
-        </span>
-        {starts && (
-          <p className="text-xs font-medium text-primary">
-            {item.releaseDate === asOf
-              ? "يبدأ اليوم"
-              : item.installmentKind === "season"
-                ? "بداية الموسم"
-                : "إصدار جديد"}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 px-3 py-3 sm:px-4">
+        <h3 className="font-display text-base leading-relaxed font-semibold">
+          <a
+            {...navigation}
+            href={releaseLink(item)}
+            className="line-clamp-2 rounded-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            dir="auto"
+          >
+            {title}
+          </a>
+        </h3>
+        {item.installmentTitle !== title && (
+          <p className="line-clamp-1 text-xs text-muted-foreground" dir="auto">
+            {item.installmentTitle}
           </p>
         )}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
+          {starts && (
+            <Badge variant="outline">
+              {item.installmentKind === "season"
+                ? "بداية الموسم"
+                : item.installmentKind === "movie"
+                  ? "فيلم"
+                  : "إصدار جديد"}
+            </Badge>
+          )}
           {episodes.map((episode) => (
-            <a
-              {...navigation}
+            <Badge
               key={episode.id}
-              href={releaseLink(episode)}
-              className="rounded-md bg-secondary px-2 py-1 text-xs hover:text-primary"
+              variant="secondary"
+              className="max-w-full"
+              render={<a {...navigation} href={releaseLink(episode)} />}
             >
-              {releaseTitle(episode)}
-            </a>
+              <span className="truncate">{releaseTitle(episode)}</span>
+            </Badge>
           ))}
-          {item.releaseDate === asOf && !starts && <Badge variant="secondary">اليوم</Badge>}
+          {today && <Badge variant="secondary">اليوم</Badge>}
         </div>
       </div>
+      {showDate && item.releaseDate && (
+        <time
+          dateTime={item.releaseDate}
+          aria-label={dateLabel(item.releaseDate)}
+          className="flex w-14 shrink-0 flex-col items-center justify-center gap-1 border-s border-border px-2 sm:w-16"
+        >
+          <span
+            className={cn(
+              "font-display text-2xl font-semibold tabular-nums",
+              today && "text-primary",
+            )}
+          >
+            {Number(item.releaseDate.slice(8))}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {weekdayFormat.format(new Date(`${item.releaseDate}T12:00:00Z`))}
+          </span>
+        </time>
+      )}
     </article>
   );
 }
@@ -131,7 +155,8 @@ export function ReleaseFeed({
   cards = false,
   episodeCards = false,
   layout = "poster",
-  size = "medium",
+  size = "small",
+  singleColumn = false,
 }: {
   query: ReleasesQuery;
   empty?: string;
@@ -141,6 +166,7 @@ export function ReleaseFeed({
   episodeCards?: boolean;
   layout?: ReleaseLayout;
   size?: ReleaseSize;
+  singleColumn?: boolean;
 }) {
   const loadMore = useLoadMoreNavigation();
   const feed = useInfiniteQuery({
@@ -208,12 +234,14 @@ export function ReleaseFeed({
             <div
               className={cn(
                 "grid gap-x-4",
-                cards || episodeCards ? "gap-y-6" : "items-start gap-y-3",
+                cards || episodeCards ? "gap-y-6" : "items-stretch gap-y-3",
                 cards
                   ? grids[size]
                   : episodeCards
                     ? "grid-cols-1"
-                    : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+                    : singleColumn
+                      ? "grid-cols-1"
+                      : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
               )}
             >
               {cards

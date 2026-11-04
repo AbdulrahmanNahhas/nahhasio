@@ -264,9 +264,20 @@ test.beforeEach(async ({ page }) => {
                     },
                     {
                       ...base,
+                      id: "00000000-0000-4000-8000-000000000010",
+                      installmentId: "00000000-0000-4000-8000-000000000010",
+                      installmentKind: "movie",
+                      installmentTitle: "فيلم الموعد",
+                      kind: "installment",
+                      title: "فيلم الموعد",
+                      releaseDate: "2027-01-02",
+                    },
+                    {
+                      ...base,
                       id: "00000000-0000-4000-8000-000000000009",
                       kind: "installment",
                       title: "جزء بلا موعد",
+                      installmentTitle: "جزء بلا موعد",
                       releaseDate: null,
                     },
                   ];
@@ -284,6 +295,8 @@ test.beforeEach(async ({ page }) => {
                         item.releaseDate !== null &&
                         Number(item.releaseDate.slice(0, 4)) === (query.year ?? 2026) &&
                         (!query.month || Number(item.releaseDate.slice(5, 7)) === query.month) &&
+                        (!query.season ||
+                          Math.ceil(Number(item.releaseDate.slice(5, 7)) / 3) === query.season) &&
                         (!query.day || Number(item.releaseDate.slice(8)) === query.day),
                     );
                   const counts = new Map<string, number>();
@@ -300,7 +313,7 @@ test.beforeEach(async ({ page }) => {
                         workTitle: item.workTitle,
                         workTitleAr: item.workTitleAr,
                         title: item.title ?? "",
-                        kind: "season",
+                        kind: item.installmentKind,
                         releaseDate: item.releaseDate,
                         runtimeMinutes: item.runtimeMinutes,
                         episodeCount: item.episodeCount ?? 0,
@@ -662,33 +675,52 @@ test("releases calendar, timeline, seasons and upcoming use bounded real-shaped 
   await expect(page.getByRole("heading", { name: "تقويم المكتبة", exact: true })).toBeVisible();
   await page.goto("/#/releases?year=2027&month=1&view=calendar");
   const second = page.locator('button[data-day="2"]');
-  await expect(second).toHaveAccessibleName(/1 حلقة/);
+  await expect(second).toHaveAccessibleName(/3 موعد/);
   await second.focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator('button[data-day="3"]')).toBeFocused();
   await second.click();
-  const day = page.getByRole("dialog");
+  const day = page.getByRole("complementary", { name: "مواعيد اليوم المحدّد" });
   await expect(day.getByRole("link", { name: /بداية جديدة/ })).toHaveAttribute(
     "href",
     /episode=00000000-0000-4000-8000-000000000008/,
   );
-  await day.getByRole("button", { name: "إغلاق حلقات اليوم" }).click();
-  await page.getByRole("tab", { name: "الخط الزمني", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "على امتداد 2027" })).toBeVisible();
+  await expect(day.getByText("فيلم الموعد", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/day=2/);
+  await page.getByRole("tab", { name: "القائمة", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "مواعيد 2027" })).toBeVisible();
   await expect(page.getByRole("tabpanel").getByRole("link", { name: /بداية جديدة/ })).toBeVisible();
   await page.getByRole("tab", { name: "المواسم", exact: true }).click();
   await expect(page.getByRole("heading", { name: "الشتاء 2027", exact: true })).toBeVisible();
-  await expect(page.getByRole("tabpanel").locator("article[data-layout]")).toHaveCount(1);
+  await expect(page.getByRole("tabpanel").locator("article[data-layout]")).toHaveCount(2);
+  await page.getByRole("button", { name: "الربيع", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "الربيع 2027", exact: true })).toBeVisible();
+  await expect(page.getByText("لا توجد إصدارات", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "السنة كاملة", exact: true }).click();
+  await expect(page.getByRole("tabpanel").locator("article[data-layout]")).toHaveCount(2);
   await page.getByRole("tab", { name: "القادم", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "في الأفق" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "جزء بلا موعد", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "القادم من اليوم" })).toBeVisible();
+  await expect(page.getByText("جزء بلا موعد", { exact: true })).toBeVisible();
 });
-for (const width of [480, 1440]) {
+for (const width of [360, 480, 1440]) {
   test(`releases responsive ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await login(page);
     await page.goto("/#/releases?year=2027&month=1&view=calendar");
-    await expect(page.locator('button[data-day="2"]')).toHaveAccessibleName(/1 حلقة/);
+    const selected = page.locator('button[data-day="2"]');
+    await expect(selected).toHaveAccessibleName(/3 موعد/);
+    await selected.click();
+    const dayDetail =
+      width < 768
+        ? page.getByRole("dialog")
+        : page.getByRole("complementary", { name: "مواعيد اليوم المحدّد" });
+    await expect(dayDetail.getByText("فيلم الموعد", { exact: true })).toBeVisible();
+    await expect(dayDetail.getByRole("link", { name: /بداية جديدة/ })).toBeVisible();
+    if (width < 768) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(selected).toBeFocused();
+    }
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);

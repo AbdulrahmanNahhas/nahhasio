@@ -1,11 +1,4 @@
-import {
-  Grid2X2,
-  Grid3X3,
-  LayoutGrid,
-  RectangleHorizontal,
-  RectangleVertical,
-  Type,
-} from "lucide-react";
+import { Grid3X3, LayoutGrid, RectangleVertical, Type } from "lucide-react";
 
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import {
@@ -18,12 +11,10 @@ import type { ReleaseLayout, ReleaseSize } from "./release-feed";
 
 const layouts = [
   { value: "poster", label: "ملصقات", icon: RectangleVertical },
-  { value: "banner", label: "لافتات", icon: RectangleHorizontal },
   { value: "logo", label: "شعارات", icon: Type },
 ] as const;
 const sizes = [
-  { value: "large", label: "كبير · 3 بطاقات", icon: Grid2X2 },
-  { value: "medium", label: "متوسط · 4 بطاقات", icon: LayoutGrid },
+  { value: "medium", label: "كبير · 4 بطاقات", icon: LayoutGrid },
   { value: "small", label: "صغير · 5 بطاقات", icon: Grid3X3 },
 ] as const;
 export function ReleaseDisplay({
