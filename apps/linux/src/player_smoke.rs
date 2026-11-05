@@ -26,7 +26,7 @@ pub fn install(
     glib::MainContext::default().spawn_local(async move {
         #[cfg(feature = "native-diagnostics")]
         let fixture = if std::env::args().any(|arg| arg == "--torrent-smoke") {
-            match crate::torrent_smoke::install(&player, runtime).await {
+            match crate::torrent_smoke::install(&player, runtime.clone()).await {
                 Ok(fixture) => Some(fixture),
                 Err(error) => {
                     eprintln!("torrent-smoke: FAIL {error}");
@@ -37,10 +37,23 @@ pub fn install(
         } else {
             None
         };
+        #[cfg(feature = "native-diagnostics")]
+        let home_fixture = if std::env::args().any(|arg| arg == "--home-smoke") {
+            match crate::home_smoke::install(&player, runtime).await {
+                Ok(fixture) => Some(fixture),
+                Err(error) => {
+                    eprintln!("home-smoke: FAIL {error}");
+                    app.quit();
+                    return;
+                }
+            }
+        } else {
+            None
+        };
         #[cfg(not(feature = "native-diagnostics"))]
         {
             let _ = runtime;
-            if std::env::args().any(|arg| arg == "--torrent-smoke") {
+            if std::env::args().any(|arg| arg == "--torrent-smoke" || arg == "--home-smoke") {
                 eprintln!("torrent-smoke: enable the native-diagnostics build feature");
                 app.quit();
                 return;
@@ -56,7 +69,7 @@ pub fn install(
         }
         player.close();
         #[cfg(feature = "native-diagnostics")]
-        drop(fixture);
+        drop((fixture, home_fixture));
         app.quit();
     });
 }
@@ -122,7 +135,7 @@ async fn run(
         state.hwdec,
         state.tracks.len()
     );
-    if std::env::args().any(|arg| arg == "--player-smoke") {
+    if std::env::args().any(|arg| arg == "--player-smoke" || arg == "--home-smoke") {
         if !state.tracks.iter().any(|track| {
             track.kind == TrackKind::Audio
                 && track.selected
@@ -143,7 +156,7 @@ async fn run(
         );
     }
     let id = state.session_id.ok_or("Missing native session")?;
-    if std::env::args().any(|arg| arg == "--player-smoke") {
+    if std::env::args().any(|arg| arg == "--player-smoke" || arg == "--home-smoke") {
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if view

@@ -3318,6 +3318,194 @@ export const RenewalRequestSchema = z.strictObject({
 });
 export type RenewalRequest = z.infer<typeof RenewalRequestSchema>;
 
+export const ServerMediaFileSchema = z.strictObject({
+  id: z.string().uuid(),
+  workId: z.string().uuid(),
+  workTitle: z.string(),
+  installmentId: z.string().uuid(),
+  installmentTitle: z.string(),
+  episodeId: z.string().uuid().nullable(),
+  episodeTitle: z.string().nullable(),
+  episodeNumber: z.string().nullable(),
+  relativePath: z.string().nullable(),
+  byteSize: z.number().int().min(0).nullable(),
+  durationSeconds: z.number().int().min(0).nullable(),
+  availability: z.enum(["unknown", "present", "missing", "unreadable"]),
+  probeMetadata: z.json(),
+  lastVerifiedAt: z.string().nullable(),
+  sha256: z.string().nullable(),
+  isTrashed: z.boolean(),
+  trashExpiresAt: z.string().nullable(),
+  revision: z.string().optional(),
+});
+export type ServerMediaFile = z.infer<typeof ServerMediaFileSchema>;
+
+export const ServerMediaFilesSchema = z.array(ServerMediaFileSchema);
+export type ServerMediaFiles = z.infer<typeof ServerMediaFilesSchema>;
+
+export const ServerMediaPageSchema = z.strictObject({
+  items: ServerMediaFilesSchema,
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  trashBytes: z.number().int().min(0),
+  trashFiles: z.number().int().min(0),
+});
+export type ServerMediaPage = z.infer<typeof ServerMediaPageSchema>;
+
+export const MediaIncomingFileSchema = z.strictObject({
+  relativePath: z.string(),
+  byteSize: z.number().int(),
+  modifiedSeconds: z.number().int(),
+});
+export type MediaIncomingFile = z.infer<typeof MediaIncomingFileSchema>;
+
+export const MediaIncomingSchema = z.strictObject({
+  files: z.array(MediaIncomingFileSchema),
+  folders: z.array(z.string()),
+  truncated: z.boolean(),
+  total: z.number().int().min(0),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+});
+export type MediaIncoming = z.infer<typeof MediaIncomingSchema>;
+
+export const MediaImportItemSchema = z.strictObject({
+  relativePath: z.string(),
+  installmentId: z.string().uuid(),
+  episodeId: z.string().uuid().nullable(),
+  byteSize: z.number().int().min(0),
+  modifiedSeconds: z.number().int(),
+  copy: z.boolean(),
+  youtubeId: z.string().nullable().optional(),
+  quality: z.enum(["720", "1080", "best"]).nullable().optional(),
+  sourceRoot: z.enum(["incoming", "library"]).optional(),
+});
+export type MediaImportItem = z.infer<typeof MediaImportItemSchema>;
+
+export const MediaImportRequestSchema = z.strictObject({
+  workId: z.string().uuid(),
+  items: z.array(MediaImportItemSchema),
+  idempotencyKey: z.string().min(1).max(100),
+});
+export type MediaImportRequest = z.infer<typeof MediaImportRequestSchema>;
+
+export const MediaQueuedSchema = z.strictObject({
+  id: z.string().uuid(),
+});
+export type MediaQueued = z.infer<typeof MediaQueuedSchema>;
+
+export const MediaJobSchema = z.strictObject({
+  id: z.string().uuid(),
+  type: z.string(),
+  status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
+  progress: z.number().int().min(0).max(100),
+  result: z.json(),
+  error: z.string().nullable(),
+  createdAt: z.string(),
+  cancelRequested: z.boolean(),
+  label: z.string().optional(),
+});
+export type MediaJob = z.infer<typeof MediaJobSchema>;
+
+export const MediaJobsSchema = z.array(MediaJobSchema);
+export type MediaJobs = z.infer<typeof MediaJobsSchema>;
+
+export const MediaJobControlSchema = z.strictObject({
+  action: z.enum(["cancel", "retry"]),
+});
+export type MediaJobControl = z.infer<typeof MediaJobControlSchema>;
+
+export const MediaActionResultSchema = z.strictObject({
+  ok: z.boolean(),
+});
+export type MediaActionResult = z.infer<typeof MediaActionResultSchema>;
+
+export const YoutubePreviewRequestSchema = z.strictObject({
+  url: z.string(),
+});
+export type YoutubePreviewRequest = z.infer<typeof YoutubePreviewRequestSchema>;
+
+export const YoutubePreviewEntrySchema = z.strictObject({
+  videoId: z.string().nullable(),
+  title: z.string(),
+  durationSeconds: z.number().nullable(),
+  available: z.boolean(),
+});
+export type YoutubePreviewEntry = z.infer<typeof YoutubePreviewEntrySchema>;
+
+export const YoutubePreviewSchema = z.strictObject({
+  phase: z.enum(["preview"]),
+  title: z.string().nullable(),
+  entries: z.array(YoutubePreviewEntrySchema),
+});
+export type YoutubePreview = z.infer<typeof YoutubePreviewSchema>;
+
+export const MediaFileActionSchema = z.strictObject({
+  action: z.enum(["trash", "restore", "purge", "verify", "reassign"]),
+  workId: z.string().uuid().nullable().optional(),
+  installmentId: z.string().uuid().nullable().optional(),
+  episodeId: z.string().uuid().nullable().optional(),
+  expectedRevision: z.string().nullable().optional(),
+});
+export type MediaFileAction = z.infer<typeof MediaFileActionSchema>;
+
+export const UploadStartSchema = z.strictObject({
+  name: z.string(),
+  byteSize: z.number().int().min(0),
+  idempotencyKey: z.string(),
+  sha256: z.string().min(64).max(64),
+});
+export type UploadStart = z.infer<typeof UploadStartSchema>;
+
+export const UploadStartedSchema = z.strictObject({
+  id: z.string().uuid(),
+  offset: z.number().int().min(0),
+  complete: z.boolean(),
+});
+export type UploadStarted = z.infer<typeof UploadStartedSchema>;
+
+export const UploadOffsetSchema = z.strictObject({
+  offset: z.number().int().min(0),
+});
+export type UploadOffset = z.infer<typeof UploadOffsetSchema>;
+
+export const UploadCompletedSchema = z.strictObject({
+  relativePath: z.string(),
+});
+export type UploadCompleted = z.infer<typeof UploadCompletedSchema>;
+
+export const NativeUploadSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  bytes: z.number().int().min(0),
+  offset: z.number().int().min(0),
+  status: z.string(),
+  error: z.string().nullable(),
+});
+export type NativeUpload = z.infer<typeof NativeUploadSchema>;
+
+export const NativeUploadsSchema = z.array(NativeUploadSchema);
+export type NativeUploads = z.infer<typeof NativeUploadsSchema>;
+
+export const MediaCoverageSchema = z.strictObject({
+  workId: z.string().uuid(),
+  workTitle: z.string(),
+  expectedUnits: z.number().int().min(0),
+  availableUnits: z.number().int().min(0),
+  missingUnits: z.number().int().min(0),
+  fileCount: z.number().int().min(0),
+});
+export type MediaCoverage = z.infer<typeof MediaCoverageSchema>;
+
+export const MediaCoveragePageSchema = z.strictObject({
+  items: z.array(MediaCoverageSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type MediaCoveragePage = z.infer<typeof MediaCoveragePageSchema>;
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly token: () => string | null;
@@ -3334,6 +3522,9 @@ export class ApiClient {
       | DeviceRegistration
       | FavoriteRequest
       | LoginRequest
+      | MediaFileAction
+      | MediaImportRequest
+      | MediaJobControl
       | PasswordUpdate
       | ProfileUpdate
       | ProviderUpdate
@@ -3341,10 +3532,12 @@ export class ApiClient {
       | ServerOperationRequest
       | ServerRename
       | TrackingChange
+      | UploadStart
       | WatchedRequest
       | WorkReadRequest
       | WorkReviewRequest
-      | WorkSaveRequest,
+      | WorkSaveRequest
+      | YoutubePreviewRequest,
     signal?: AbortSignal,
   ): Promise<Response> {
     const headers = new Headers();
@@ -3868,5 +4061,152 @@ export class ApiClient {
   async renewSession(body: RenewalRequest, signal?: AbortSignal): Promise<LoginResponse> {
     const response = await this.request("/api/v1/auth/renew", "POST", body, signal);
     return LoginResponseSchema.parse(await response.json());
+  }
+  async getWorkMedia(id: string, signal?: AbortSignal): Promise<ServerMediaFiles> {
+    const response = await this.request(
+      `/api/v1/works/${encodeURIComponent(id)}/media`,
+      "GET",
+      undefined,
+      signal,
+    );
+    return ServerMediaFilesSchema.parse(await response.json());
+  }
+  async getServerMedia(
+    query: {
+      page?: number;
+      pageSize?: number;
+      q?: string;
+      workId?: string;
+      mediaState?: "all" | "present" | "needs-review" | "trash" | "missing";
+      mediaSource?: "all" | "server-folder" | "upload" | "youtube";
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<ServerMediaPage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/media" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return ServerMediaPageSchema.parse(await response.json());
+  }
+  async getMediaIncoming(
+    query: {
+      page?: number;
+      pageSize?: number;
+      q?: string;
+      workId?: string;
+      sourceRoot?: "incoming" | "library";
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<MediaIncoming> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/media/incoming" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return MediaIncomingSchema.parse(await response.json());
+  }
+  async getMediaJobs(
+    query: { page?: number; pageSize?: number; q?: string; workId?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<MediaJobs> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/media/jobs" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return MediaJobsSchema.parse(await response.json());
+  }
+  async queueMediaImport(body: MediaImportRequest, signal?: AbortSignal): Promise<MediaQueued> {
+    const response = await this.request("/api/v1/admin/media/jobs", "POST", body, signal);
+    return MediaQueuedSchema.parse(await response.json());
+  }
+  async controlMediaJob(
+    id: string,
+    body: MediaJobControl,
+    signal?: AbortSignal,
+  ): Promise<MediaActionResult> {
+    const response = await this.request(
+      `/api/v1/admin/media/jobs/${encodeURIComponent(id)}`,
+      "POST",
+      body,
+      signal,
+    );
+    return MediaActionResultSchema.parse(await response.json());
+  }
+  async getMediaContent(id: string, signal?: AbortSignal): Promise<Response> {
+    const response = await this.request(
+      `/api/v1/media/${encodeURIComponent(id)}/content`,
+      "GET",
+      undefined,
+      signal,
+    );
+    return response;
+  }
+  async previewYoutubeMedia(
+    body: YoutubePreviewRequest,
+    signal?: AbortSignal,
+  ): Promise<MediaQueued> {
+    const response = await this.request("/api/v1/admin/media/youtube", "POST", body, signal);
+    return MediaQueuedSchema.parse(await response.json());
+  }
+  async manageMediaFile(
+    id: string,
+    body: MediaFileAction,
+    signal?: AbortSignal,
+  ): Promise<MediaQueued> {
+    const response = await this.request(
+      `/api/v1/admin/media/${encodeURIComponent(id)}`,
+      "POST",
+      body,
+      signal,
+    );
+    return MediaQueuedSchema.parse(await response.json());
+  }
+  async startMediaUpload(body: UploadStart, signal?: AbortSignal): Promise<UploadStarted> {
+    const response = await this.request("/api/v1/admin/media/uploads", "POST", body, signal);
+    return UploadStartedSchema.parse(await response.json());
+  }
+  async completeMediaUpload(id: string, signal?: AbortSignal): Promise<UploadCompleted> {
+    const response = await this.request(
+      `/api/v1/admin/media/uploads/${encodeURIComponent(id)}/complete`,
+      "POST",
+      undefined,
+      signal,
+    );
+    return UploadCompletedSchema.parse(await response.json());
+  }
+  async getMediaCoverage(
+    query: {
+      page?: number;
+      pageSize?: number;
+      q?: string;
+      workId?: string;
+      mediaState?: "all" | "present" | "needs-review" | "trash" | "missing";
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<MediaCoveragePage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/media/coverage" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return MediaCoveragePageSchema.parse(await response.json());
   }
 }

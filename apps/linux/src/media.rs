@@ -45,6 +45,20 @@ pub struct ResolvedTarget {
     deny_unknown_fields
 )]
 pub enum Command {
+    #[serde(rename = "media.uploadFiles")]
+    UploadFiles {},
+    #[serde(rename = "media.uploadStatus")]
+    UploadStatus {},
+    #[serde(rename = "media.uploadRetry")]
+    UploadRetry { id: String },
+    #[serde(rename = "media.homeDownload")]
+    HomeDownload { target: Target, file_id: String },
+    #[serde(rename = "media.homePlay")]
+    HomePlay {
+        session_id: String,
+        target: Target,
+        file_id: String,
+    },
     #[serde(rename = "media.library")]
     Library {},
     #[serde(rename = "media.forgetDownload")]
@@ -132,7 +146,8 @@ impl Command {
     }
     pub fn session(&self) -> Option<&str> {
         match self {
-            Self::Search { session_id, .. }
+            Self::HomePlay { session_id, .. }
+            | Self::Search { session_id, .. }
             | Self::Play { session_id, .. }
             | Self::Local { session_id, .. }
             | Self::Keep { session_id } => Some(session_id),
@@ -151,6 +166,8 @@ struct Source {
 pub struct Media {
     services: Services,
     roots: Roots,
+    pub(crate) uploads: crate::uploads::Uploads,
+    home_downloads: crate::home_downloads::Downloads,
     engine: OnceCell<Engine>,
     sources: Mutex<BTreeMap<(String, String), Source>>,
 }
@@ -195,6 +212,14 @@ impl Media {
     }
     pub fn new(services: Services) -> Result<Arc<Self>, Error> {
         Ok(Arc::new(Self {
+            home_downloads: crate::home_downloads::Downloads::new(
+                services.clone(),
+                &Roots::discover().map_err(|_| transfer_error())?,
+            ),
+            uploads: crate::uploads::Uploads::new(
+                services.clone(),
+                &Roots::discover().map_err(|_| transfer_error())?,
+            ),
             services,
             roots: Roots::discover().map_err(|_| transfer_error())?,
             engine: OnceCell::new(),
@@ -258,6 +283,20 @@ impl Media {
             })
             .await?;
         let resolved = resolve_target_for(&work_data, &target, true)?;
+        for file in self.home_downloads.library().await? {
+            if file["available"] == true
+                && file["target"]["workId"] == resolved.work_id
+                && file["target"]["installmentId"] == resolved.installment_id
+                && file["target"]["episodeId"].as_str() == resolved.episode_id.as_deref()
+            {
+                let id = file["id"]
+                    .as_str()
+                    .and_then(|id| id.strip_prefix("home:"))
+                    .ok_or_else(transfer_error)?;
+                let (path, _) = self.home_downloads.path(id).await?;
+                return Ok(Some((path, resolved)));
+            }
+        }
         let scope = self.services.catalog_scope().await?;
         let engine = self.engine().await?;
         let work = resolved.work_id.clone();
@@ -556,6 +595,73 @@ impl Media {
         .map_err(|_| transfer_error())
     }
     pub async fn jobs(&self) -> Result<Value, Error> {
+        let mut result = self.torrent_jobs().await?;
+        let entries = self.home_downloads.jobs().await?;
+        result
+            .as_array_mut()
+            .ok_or_else(transfer_error)?
+            .extend(entries);
+        Ok(result)
+    }
+    pub async fn library(&self) -> Result<Value, Error> {
+        let mut result = self.torrent_library().await?;
+        let entries = self.home_downloads.library().await?;
+        let used: u64 = entries
+            .iter()
+            .filter(|e| e["available"] == true)
+            .filter_map(|e| e["size"].as_u64())
+            .sum();
+        result["usedBytes"] = json!(result["usedBytes"].as_u64().unwrap_or(0) + used);
+        result["files"]
+            .as_array_mut()
+            .ok_or_else(transfer_error)?
+            .extend(entries);
+        Ok(result)
+    }
+    pub async fn home_download(&self, target: Target, file_id: String) -> Result<Value, Error> {
+        let revision = self.services.revision();
+        if !valid_id(&file_id) {
+            return Err(transfer_error());
+        }
+        let work = self.source_catalog(&target).await?;
+        let resolved = resolve_target_for(&work, &target, true)?;
+        let files = self
+            .services
+            .execute(Request {
+                id: "home-download".into(),
+                command: "homeMedia".into(),
+                payload: json!({"id":target.work_id}),
+            })
+            .await?;
+        let file = files
+            .as_array()
+            .and_then(|files| {
+                files.iter().find(|file| {
+                    file["id"] == file_id
+                        && file["episodeId"].as_str() == resolved.episode_id.as_deref()
+                        && file["installmentId"] == resolved.installment_id
+                        && file["availability"] == "present"
+                })
+            })
+            .ok_or_else(transfer_error)?;
+        let size = file["byteSize"].as_u64().ok_or_else(transfer_error)?;
+        let hash = file["sha256"]
+            .as_str()
+            .ok_or_else(transfer_error)?
+            .to_owned();
+        let extension =
+            std::path::Path::new(file["relativePath"].as_str().ok_or_else(transfer_error)?)
+                .extension()
+                .and_then(|e| e.to_str())
+                .ok_or_else(transfer_error)?
+                .to_string();
+        self.services.save_work_required(&target.work_id).await?;
+        self.services.check_revision(revision)?;
+        self.home_downloads
+            .start(file_id, resolved, size, hash, extension)
+            .await
+    }
+    async fn torrent_jobs(&self) -> Result<Value, Error> {
         let engine = self.engine().await?;
         let scope = self.services.catalog_scope().await.ok();
         tokio::task::spawn_blocking(move || {
@@ -578,6 +684,9 @@ impl Media {
         }).await.map_err(|_| transfer_error())?.map_err(|_| transfer_error())
     }
     pub async fn set_paused(&self, id: String, paused: bool) -> Result<(), Error> {
+        if let Some(id) = id.strip_prefix("home:") {
+            return self.home_downloads.pause(id, paused).await;
+        }
         if id.len() > 80
             || !id
                 .bytes()
@@ -608,6 +717,42 @@ impl Media {
         .await
         .map_err(|_| transfer_error())?
         .map_err(|_| transfer_error())
+    }
+    pub(crate) async fn home(
+        &self,
+        target: Target,
+        file_id: String,
+    ) -> Result<(ResolvedTarget, crate::home_gateway::HomeGateway), Error> {
+        if !valid_id(&file_id) {
+            return Err(Error::new("bad_request", "Invalid media identity"));
+        }
+        let work = self.source_catalog(&target).await?;
+        let resolved = resolve_target_for(&work, &target, true)?;
+        let files = self
+            .services
+            .execute(Request {
+                id: "home-media".into(),
+                command: "homeMedia".into(),
+                payload: json!({"id":target.work_id}),
+            })
+            .await?;
+        let valid = files.as_array().is_some_and(|files| {
+            files.iter().any(|file| {
+                file["id"] == file_id
+                    && file["installmentId"] == resolved.installment_id
+                    && file["episodeId"].as_str() == resolved.episode_id.as_deref()
+                    && file["availability"] == "present"
+            })
+        });
+        if !valid {
+            return Err(Error::new(
+                "home_media",
+                "ملف الحلقة غير متاح في مكتبة المنزل.",
+            ));
+        }
+        let transport = self.services.snapshot()?;
+        let gateway = crate::home_gateway::HomeGateway::start(transport, file_id).await?;
+        Ok((resolved, gateway))
     }
     pub(crate) async fn resolve(&self, target: &Target) -> Result<ResolvedTarget, Error> {
         let work = self.source_catalog(target).await?;
@@ -679,7 +824,7 @@ impl Media {
             })
             .await
     }
-    pub async fn library(&self) -> Result<Value, Error> {
+    async fn torrent_library(&self) -> Result<Value, Error> {
         use gtk::gio::prelude::*;
         let engine = self.engine().await?;
         let root = self.roots.videos.clone();
@@ -697,6 +842,9 @@ impl Media {
         id: String,
         file: u32,
     ) -> Result<(std::path::PathBuf, String), Error> {
+        if let Some(id) = id.strip_prefix("home:") {
+            return self.home_downloads.path(id).await;
+        }
         let engine = self.engine().await?;
         let scope = self.services.catalog_scope().await?;
         tokio::task::spawn_blocking(move || {
@@ -733,6 +881,9 @@ impl Media {
         })
     }
     pub async fn saved_context(&self, id: String, file: u32) -> Option<ResolvedTarget> {
+        if let Some(id) = id.strip_prefix("home:") {
+            return self.home_downloads.context(id).await;
+        }
         let scope = self.services.catalog_scope().await.ok()?;
         let engine = self.engine().await.ok()?;
         let record = tokio::task::spawn_blocking(move || {
@@ -761,6 +912,13 @@ impl Media {
         file: Option<u32>,
         action: Option<SavedAction>,
     ) -> Result<(), Error> {
+        if let Some(id) = id.strip_prefix("home:") {
+            return match action {
+                Some(SavedAction::Retry) => self.home_downloads.pause(id, false).await,
+                Some(SavedAction::DeleteVideo) => self.home_downloads.remove(id, true).await,
+                _ => self.home_downloads.remove(id, false).await,
+            };
+        }
         let engine = self.engine().await?;
         let scope = self.services.catalog_scope().await?;
         tokio::task::spawn_blocking(move|| {

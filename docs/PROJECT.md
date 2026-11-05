@@ -1,6 +1,6 @@
 # Nahhasio project guide
 
-Updated 2026-10-25. This guide owns product decisions; [ROADMAP](ROADMAP.md) owns the future
+Updated 2026-11-04. This guide owns product decisions; [ROADMAP](ROADMAP.md) owns the future
 inventory, and [DEPLOYMENT](DEPLOYMENT.md) owns the current hosting release.
 
 ## Product and current release
@@ -19,8 +19,8 @@ The current release covers rootless hosting, coordinated backup/restore, catalog
 independent laptop development, signed server/Flatpak delivery and app maintenance controls.
 The 0.1.0 server/Flatpak build and signed draft preparation passed. Publication and installed
 Fedora acceptance remain pending.
-Player/provider testing, Jellyfin and files-only playback are outside this release. Remaining
-catalog/admin improvements can follow installation.
+The following media checkpoint replaces the former Jellyfin integration plan. It needs its own
+packaged/native and installed acceptance; it is not part of the already installed hosting release.
 
 ## Family use and ownership
 
@@ -45,9 +45,19 @@ These actions have distinct state, ownership and recovery rules.
 
 Torrent streaming runs on the client only. The server acquires torrents only after an explicit
 Download to server request. Whole-work files-only policy suppresses torrent actions; there are
-no per-part/episode overrides initially. Existing files should be scanned and linked without
-moving or renaming originals. Stored-media integration is deferred; Jellyfin, if used, supplies
-media delivery and minimal track identities, never catalog/artwork authority or tracking sync.
+no per-part/episode overrides initially. Existing files enter an explicit reviewed import. Same-filesystem moves avoid copying video;
+copy is optional, and uploads always preserve the device original. Imported files use managed
+roots under `~/Nahhasio`; source names are normalized only after episode identity is reviewed.
+
+Stored media is delivered by Nahhasio with authenticated byte-range requests, through a
+native-only relay to mpv. Jellyfin is retired. Server copies are allowed for any work; files-only
+is a separate whole-work restriction on internet sources. No transcoding, remote-home access,
+server torrents or generic URL downloader ships in this first media checkpoint.
+
+Admin imports support existing server folders, resumable native-picked uploads, and reviewed
+YouTube videos/playlists. A separate rootless worker owns acquisition, probing and publication.
+Only existing works are targets; missing parts/episodes use the existing review/save editor.
+Deleting video preserves catalog/tracking and uses seven-day trash, with explicit purge.
 
 Saved browsing and downloaded files work without the home server. Online source resolution
 still needs internet. Server/account-scoped offline mutations are progress and watched/unwatched

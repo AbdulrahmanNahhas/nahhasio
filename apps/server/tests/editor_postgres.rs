@@ -546,7 +546,7 @@ async fn work_acceptance(api: &Router, pool: &PgPool) {
         call(api, "save", json!({"ticket":review["ticket"]}), Some(true))
             .await
             .0,
-        StatusCode::CONFLICT
+        StatusCode::OK
     );
     let after = ok(api, "read", json!({"ids":[id]})).await[0].clone();
     assert_eq!(after["document"]["summary"], "بعد");

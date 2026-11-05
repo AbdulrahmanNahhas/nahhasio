@@ -15,6 +15,10 @@ mod embed;
 mod embed_privacy;
 #[cfg(feature = "native-diagnostics")]
 mod embed_smoke;
+mod home_downloads;
+mod home_gateway;
+#[cfg(feature = "native-diagnostics")]
+mod home_smoke;
 mod media;
 mod media_bridge;
 mod media_gateway;
@@ -41,6 +45,7 @@ mod torrent_smoke;
 mod torrent_sources;
 mod torrentio;
 mod updater;
+mod uploads;
 
 use adw::prelude::*;
 use bridge::{Error, Request, reply};
@@ -174,8 +179,8 @@ fn main() -> glib::ExitCode {
             return glib::ExitCode::FAILURE;
         }
     };
-    let player_smoke =
-        std::env::args().any(|arg| arg == "--player-smoke" || arg == "--torrent-smoke");
+    let player_smoke = std::env::args()
+        .any(|arg| arg == "--player-smoke" || arg == "--torrent-smoke" || arg == "--home-smoke");
     let smoke_mode = smoke.is_some() || player_smoke;
     let application = adw::Application::builder()
         .application_id("io.nahhasio.Linux")
@@ -863,7 +868,7 @@ fn build_window(
         .build();
     window.set_size_request(520, 480);
     let player = player::Player::new(&window, &video_surface);
-    if std::env::args().any(|arg| arg == "--player-smoke") {
+    if std::env::args().any(|arg| arg == "--player-smoke" || arg == "--home-smoke") {
         player.set_defaults(native_player::PlaybackDefaults {
             audio_languages: "ar,ara".into(),
             subtitle_languages: "ar,ara,en,eng".into(),
@@ -879,7 +884,7 @@ fn build_window(
         }
     });
     *player_handle.borrow_mut() = Some(player.clone());
-    if !std::env::args().any(|arg| arg == "--torrent-smoke")
+    if !std::env::args().any(|arg| arg == "--torrent-smoke" || arg == "--home-smoke")
         && let Some(path) = &config.playback_file
         && let Err(error) = player.open_local(path)
     {
@@ -977,7 +982,9 @@ fn build_window(
     window.add_controller(keys);
     view.load_uri(&config.ui);
     window.present();
-    if std::env::args().any(|arg| arg == "--player-smoke" || arg == "--torrent-smoke") {
+    if std::env::args()
+        .any(|arg| arg == "--player-smoke" || arg == "--torrent-smoke" || arg == "--home-smoke")
+    {
         if config.playback_file.is_none() {
             eprintln!("player-smoke: NAHHASIO_PLAY_FILE must name a generated local fixture");
             app.quit();

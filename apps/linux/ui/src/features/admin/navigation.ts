@@ -59,7 +59,7 @@ export function adminSection(slug: string) {
 const implementedAdminSections: ReadonlySet<string> = new Set(
   adminGroups.flatMap((group) =>
     group.items
-      .filter((item) => !["downloads", "library", "tables", "revisions"].includes(item.slug))
+      .filter((item) => !["tables", "revisions"].includes(item.slug))
       .map((item) => item.slug),
   ),
 );

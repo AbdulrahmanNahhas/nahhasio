@@ -141,7 +141,7 @@ request_models = sorted(
         ]
         for operations in document["paths"].values()
         for op in operations.values()
-        if "requestBody" in op
+        if "requestBody" in op and not op.get("x-native-only")
     }
 )
 request_type = " | ".join(request_models) if request_models else "never"
@@ -163,7 +163,7 @@ typescript += [
 ]
 for path, operations in document["paths"].items():
     for method, op in operations.items():
-        if op["operationId"] == "getArtwork":
+        if op["operationId"] == "getArtwork" or op.get("x-native-only"):
             continue
         args = []
         path_expression = json.dumps(path)
@@ -193,7 +193,8 @@ for path, operations in document["paths"].items():
             )
         args.append("signal?: AbortSignal")
         success = op["responses"].get("200", op["responses"].get("204"))
-        result = (
+        binary = "application/octet-stream" in success.get("content", {})
+        result = "Response" if binary else (
             ts_type(success["content"]["application/json"]["schema"])
             if "content" in success
             else "void"
@@ -210,7 +211,9 @@ for path, operations in document["paths"].items():
         typescript.append(
             f'    const response = await this.request({path_expression}, "{method.upper()}", {"body" if "requestBody" in op else "undefined"}, signal);'
         )
-        if result == "void":
+        if binary:
+            typescript.append("    return response;")
+        elif result == "void":
             typescript.append(
                 '    if (response.status !== 204) throw new globalThis.Error("Invalid logout response");'
             )

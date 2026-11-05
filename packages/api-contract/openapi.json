@@ -2746,6 +2746,585 @@
           }
         }
       }
+    },
+    "/api/v1/works/{id}/media": {
+      "get": {
+        "operationId": "getWorkMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerMediaFiles"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media": {
+      "get": {
+        "operationId": "getServerMedia",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mediaState",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "present", "needs-review", "trash", "missing"]
+            }
+          },
+          {
+            "name": "mediaSource",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "server-folder", "upload", "youtube"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerMediaPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/incoming": {
+      "get": {
+        "operationId": "getMediaIncoming",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sourceRoot",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["incoming", "library"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaIncoming"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/jobs": {
+      "get": {
+        "operationId": "getMediaJobs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaJobs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        }
+      },
+      "post": {
+        "operationId": "queueMediaImport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaQueued"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaImportRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/jobs/{id}": {
+      "post": {
+        "operationId": "controlMediaJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaJobControl"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/media/{id}/content": {
+      "get": {
+        "operationId": "getMediaContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        },
+        "description": "Authenticated original file. Supports HEAD, byte ranges, conditional requests; requires current work visibility and an available managed file."
+      }
+    },
+    "/api/v1/admin/media/youtube": {
+      "post": {
+        "operationId": "previewYoutubeMedia",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YoutubePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaQueued"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/{id}": {
+      "post": {
+        "operationId": "manageMediaFile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaFileAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaQueued"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/media/uploads": {
+      "post": {
+        "operationId": "startMediaUpload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStarted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/uploads/{id}/complete": {
+      "post": {
+        "operationId": "completeMediaUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadCompleted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/uploads/{id}": {
+      "put": {
+        "operationId": "uploadMediaChunk",
+        "x-native-only": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durably acknowledged offset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOffset"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/media/coverage": {
+      "get": {
+        "operationId": "getMediaCoverage",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mediaState",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "present", "needs-review", "trash", "missing"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCoveragePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5234,7 +5813,9 @@
           "required": {
             "description": "All of these values must match, independently of the any-of include choices. Used to preserve library category constraints.",
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "include": {
             "type": "array",
@@ -14138,6 +14719,577 @@
             "maxLength": 68
           }
         }
+      },
+      "ServerMediaFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workTitle": {
+            "type": "string"
+          },
+          "installmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "installmentTitle": {
+            "type": "string"
+          },
+          "episodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "episodeTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "episodeNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "relativePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "availability": {
+            "type": "string",
+            "enum": ["unknown", "present", "missing", "unreadable"]
+          },
+          "probeMetadata": {
+            "x-zod-json": true
+          },
+          "lastVerifiedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTrashed": {
+            "type": "boolean"
+          },
+          "trashExpiresAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workId",
+          "workTitle",
+          "installmentId",
+          "installmentTitle",
+          "episodeId",
+          "episodeTitle",
+          "episodeNumber",
+          "relativePath",
+          "byteSize",
+          "durationSeconds",
+          "availability",
+          "probeMetadata",
+          "lastVerifiedAt",
+          "sha256",
+          "isTrashed",
+          "trashExpiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "ServerMediaFiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ServerMediaFile"
+        }
+      },
+      "ServerMediaPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "$ref": "#/components/schemas/ServerMediaFiles"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "trashBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trashFiles": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["items", "total", "page", "pageSize", "trashBytes", "trashFiles"],
+        "additionalProperties": false
+      },
+      "MediaIncomingFile": {
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "modifiedSeconds": {
+            "type": "integer"
+          }
+        },
+        "required": ["relativePath", "byteSize", "modifiedSeconds"],
+        "additionalProperties": false
+      },
+      "MediaIncoming": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaIncomingFile"
+            }
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": ["files", "folders", "truncated", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "MediaImportItem": {
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "installmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "episodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modifiedSeconds": {
+            "type": "integer"
+          },
+          "copy": {
+            "type": "boolean"
+          },
+          "youtubeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "quality": {
+            "type": "string",
+            "enum": ["720", "1080", "best"],
+            "nullable": true
+          },
+          "sourceRoot": {
+            "type": "string",
+            "enum": ["incoming", "library"]
+          }
+        },
+        "required": [
+          "relativePath",
+          "installmentId",
+          "episodeId",
+          "byteSize",
+          "modifiedSeconds",
+          "copy"
+        ],
+        "additionalProperties": false
+      },
+      "MediaImportRequest": {
+        "type": "object",
+        "properties": {
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaImportItem"
+            }
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": ["workId", "items", "idempotencyKey"],
+        "additionalProperties": false
+      },
+      "MediaQueued": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "MediaJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "completed", "failed", "cancelled"]
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "result": {
+            "x-zod-json": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "cancelRequested": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "progress",
+          "result",
+          "error",
+          "createdAt",
+          "cancelRequested"
+        ],
+        "additionalProperties": false
+      },
+      "MediaJobs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MediaJob"
+        }
+      },
+      "MediaJobControl": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["cancel", "retry"]
+          }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      },
+      "MediaActionResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"],
+        "additionalProperties": false
+      },
+      "YoutubePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      },
+      "YoutubePreviewEntry": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": ["videoId", "title", "durationSeconds", "available"],
+        "additionalProperties": false
+      },
+      "YoutubePreview": {
+        "type": "object",
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": ["preview"]
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/YoutubePreviewEntry"
+            }
+          }
+        },
+        "required": ["phase", "title", "entries"],
+        "additionalProperties": false
+      },
+      "MediaFileAction": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["trash", "restore", "purge", "verify", "reassign"]
+          },
+          "workId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "installmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "episodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "expectedRevision": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      },
+      "UploadStart": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": ["name", "byteSize", "idempotencyKey", "sha256"],
+        "additionalProperties": false
+      },
+      "UploadStarted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "offset", "complete"],
+        "additionalProperties": false
+      },
+      "UploadOffset": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["offset"],
+        "additionalProperties": false
+      },
+      "UploadCompleted": {
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          }
+        },
+        "required": ["relativePath"],
+        "additionalProperties": false
+      },
+      "NativeUpload": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["id", "name", "bytes", "offset", "status", "error"],
+        "additionalProperties": false
+      },
+      "NativeUploads": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/NativeUpload"
+        }
+      },
+      "MediaCoverage": {
+        "type": "object",
+        "properties": {
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workTitle": {
+            "type": "string"
+          },
+          "expectedUnits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "availableUnits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missingUnits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fileCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "workId",
+          "workTitle",
+          "expectedUnits",
+          "availableUnits",
+          "missingUnits",
+          "fileCount"
+        ],
+        "additionalProperties": false
+      },
+      "MediaCoveragePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaCoverage"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
       }
     }
   }

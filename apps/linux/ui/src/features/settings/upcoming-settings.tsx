@@ -671,13 +671,6 @@ const plannedGroups: PlannedGroup[] = [
     title: "الوسائط والعمليات — مراحل لاحقة",
     description: "تبقى إدارة البيانات المتاحة في لوحة الإدارة. الخيارات التالية لم تُنفّذ بعد.",
     controls: [
-      // TODO(settings-jellyfin): Implement optional delivery-only matching; never synchronize metadata or viewing history from Jellyfin.
-      {
-        id: "jellyfin",
-        label: "ربط Jellyfin",
-        description: "مصدر ملفات اختياري؛ تبقى البيانات والصور والتتبع مملوكة لنحّاسيو.",
-        kind: "action",
-      },
       // TODO(settings-server-roots): Add reviewed server media/staging root configuration without implicit moves.
       {
         id: "server-roots",

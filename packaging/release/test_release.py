@@ -68,6 +68,35 @@ class ReleaseBoundaries(unittest.TestCase):
             self.assertIn("After=nahhasio-postgres.service\n", server)
             self.assertIn(f"EnvironmentFile={config}/server.env\n", server)
 
+    def test_media_worker_has_one_media_mount_and_no_private_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / "config"
+            config.mkdir(mode=0o700)
+            (config / "runtime-password").write_text("fixture-runtime-only")
+            quadlets = root / "quadlets"
+            quadlets.mkdir(mode=0o700)
+            image = "ghcr.io/example/server@sha256:" + "a" * 64
+            metadata = {"serverImage": image, "quadletRoot": str(quadlets),
+                        "databaseRuntime": "nahhasio_runtime", "database": "nahhasio"}
+            args = argparse.Namespace(root=str(root / "Nahhasio"), worker_image=image)
+            with patch.object(installer, "load", return_value=metadata), contextlib.redirect_stdout(io.StringIO()):
+                installer.media_prepare(args, config)
+            worker = (quadlets / "nahhasio-media-worker.container").read_text()
+            self.assertIn("NAHHASIO_IMPORT_ROOT=/var/lib/nahhasio/videos/.incoming", worker)
+            self.assertEqual(sum(line.startswith("Volume=") for line in worker.splitlines()), 2)
+            self.assertNotIn("operator.env", worker)
+            self.assertNotIn("/config:", worker)
+            self.assertNotIn("podman.sock", worker)
+            alias = root / "Nahhasio/imports/incoming"
+            self.assertEqual(alias.resolve(), root / "Nahhasio/videos/.incoming")
+            self.assertEqual((root / "Nahhasio/trash").resolve(), root / "Nahhasio/videos/.trash")
+            self.assertEqual((quadlets / "nahhasio-media-worker.container.d/20-release.conf").read_text(),
+                             (quadlets / "nahhasio-server.container.d/20-release.conf").read_text())
+            api = (quadlets / "nahhasio-server.container.d/30-media.conf").read_text()
+            self.assertIn("videos:/var/lib/nahhasio/videos:ro,z", api)
+            self.assertEqual((config / "media-worker.env").stat().st_mode & 0o777, 0o600)
+
     def archive(self, root, entries):
         path = root / "repo.tar.gz"
         with tarfile.open(path, "w:gz") as output:

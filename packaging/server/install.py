@@ -291,6 +291,90 @@ def maintenance_install(config):
     print("Installed host maintenance units; review their configuration before enabling timers.")
 
 
+def media_prepare(args, config):
+    installed = load(config)
+    root = absolute_root(args.root)
+    image = pinned_image(args.worker_image)
+    if image != installed["serverImage"]:
+        fail("Media worker must use the installed, verified server image")
+    quadlets = Path(installed["quadletRoot"])
+    worker = quadlets / "nahhasio-media-worker.container"
+    if worker.exists():
+        fail("Existing media worker requires explicit operator reconciliation")
+    aliases = {"imports/incoming": "videos/.incoming", "downloads/uploads": "videos/.incoming/.uploads",
+               "downloads/jobs": "videos/.staging", "trash": "videos/.trash"}
+    for name, target in aliases.items():
+        path = root / name
+        if path.is_symlink():
+            if path.resolve() != (root / target).resolve():
+                fail("Media alias points outside its managed target")
+        elif path.exists() and (not path.is_dir() or any(path.iterdir())):
+            fail("Existing nonempty import/staging/trash roots need a reviewed relocation first")
+    for name in ["videos", "videos/series", "videos/movies", "videos/.incoming", "videos/.incoming/.uploads",
+                 "videos/.staging", "videos/.trash", "imports", "downloads", "data/media-operations"]:
+        path = root / name
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if path.is_symlink() or path.stat().st_uid != os.getuid():
+            fail("Media roots must be real directories owned by this account")
+        path.chmod(0o700)
+        private_directory(path)
+    for name, target in aliases.items():
+        path = root / name
+        if not path.is_symlink():
+            if path.exists():
+                path.rmdir()  # Preflight established that this directory is empty.
+            path.symlink_to(os.path.relpath(root / target, path.parent), target_is_directory=True)
+    password = (config / "runtime-password").read_text().strip()
+    write(config / "media-worker.env", f"DATABASE_URL=postgresql://{installed['databaseRuntime']}:{quote(password, safe='')}@nahhasio-postgres/{installed['database']}\n")
+    write(worker, f"""[Unit]
+Description=Nahhasio media import worker
+Requires=nahhasio-postgres.service
+After=nahhasio-postgres.service
+
+[Container]
+Image={image}
+ContainerName=nahhasio-media-worker
+Network=nahhasio.network
+UserNS=keep-id
+User=%U
+Entrypoint=/usr/local/bin/nahhasio-media-worker
+EnvironmentFile={config}/media-worker.env
+Environment=NAHHASIO_LIBRARY_ROOT=/var/lib/nahhasio/videos
+Environment=NAHHASIO_IMPORT_ROOT=/var/lib/nahhasio/videos/.incoming
+Environment=NAHHASIO_TRASH_ROOT=/var/lib/nahhasio/videos/.trash
+Environment=NAHHASIO_MEDIA_OPERATIONS_ROOT=/var/lib/nahhasio/media-operations
+Volume={root}/videos:/var/lib/nahhasio/videos:z
+Volume={root}/data/media-operations:/var/lib/nahhasio/media-operations:z
+ReadOnly=true
+Tmpfs=/tmp:rw,nosuid,nodev,size=256m
+DropCapability=ALL
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
+""")
+    private_directory(quadlets / "nahhasio-server.container.d")
+    write(quadlets / "nahhasio-server.container.d/30-media.conf", f"""[Container]
+Environment=NAHHASIO_LIBRARY_ROOT=/var/lib/nahhasio/videos
+Environment=NAHHASIO_IMPORT_ROOT=/var/lib/nahhasio/incoming
+Volume={root}/videos:/var/lib/nahhasio/videos:ro,z
+Volume={root}/imports/incoming:/var/lib/nahhasio/incoming:z
+""")
+    release = quadlets / "nahhasio-server.container.d/20-release.conf"
+    if not release.exists():
+        write(release, f"[Container]\nImage={image}\n")
+    private_directory(quadlets / "nahhasio-media-worker.container.d")
+    (quadlets / "nahhasio-media-worker.container.d/20-release.conf").symlink_to("../nahhasio-server.container.d/20-release.conf")
+    installed.update(mediaRoot=str(root), mediaWorkerUnit="nahhasio-media-worker.service")
+    write(config / "installation.json", json.dumps(installed, indent=2) + "\n")
+    print("Prepared media roots, read-only API video mount, and isolated worker. No services started.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-root", default=str(Path.home() / ".config/nahhasio-server"))
@@ -318,6 +402,9 @@ def main():
     sub.add_parser("start", help="start installed server; does not migrate or seed")
     sub.add_parser("status", help="read systemd service status")
     sub.add_parser("maintenance-install", help="install the host backup/update worker units")
+    media = sub.add_parser("media-prepare", help="explicitly prepare managed video storage and worker; do not start services")
+    media.add_argument("--root", default=str(Path.home() / "Nahhasio"))
+    media.add_argument("--worker-image", required=True)
     args = parser.parse_args()
     if os.getuid() == 0:
         fail("Run as the dedicated unprivileged service user; rootful installation is unsupported")
@@ -325,6 +412,8 @@ def main():
     config = absolute_root(args.config_root)
     if args.command == "prepare":
         prepare(args, config)
+    elif args.command == "media-prepare":
+        media_prepare(args, config)
     elif args.command == "certificates":
         certificates(args, config)
     elif args.command == "bootstrap":

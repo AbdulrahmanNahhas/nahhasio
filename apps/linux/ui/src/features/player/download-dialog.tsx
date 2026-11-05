@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { DownloadQueue } from "./download-queue";
+import { HomeDownloadSources } from "./home-sources";
 import { DownloadSources } from "./source-controls";
 import type { WatchTarget } from "./watch-request";
 
@@ -45,6 +46,7 @@ export function DownloadDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto overscroll-contain">
+          {!queued && <HomeDownloadSources target={target} onQueued={() => setQueued(true)} />}
           {queued ? (
             <DownloadQueue />
           ) : (

@@ -13,6 +13,7 @@ use url::Url;
 pub(crate) struct ServerSession {
     session_store: Option<Arc<crate::session_store::SessionStore>>,
     client: Client,
+    media_client: Client,
     base: Url,
     token: Arc<Mutex<Option<String>>>,
     pub permits: Arc<Semaphore>,
@@ -533,6 +534,11 @@ impl ServerSession {
             .timeout(Duration::from_secs(15))
             .connect_timeout(Duration::from_secs(3))
             .redirect(reqwest::redirect::Policy::none());
+        let mut media_builder = Client::builder()
+            .no_proxy()
+            .connect_timeout(Duration::from_secs(3))
+            .read_timeout(Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none());
         if let Some(trust) = trust {
             if base.scheme() != "https" {
                 return Err(Error::new(
@@ -541,11 +547,14 @@ impl ServerSession {
                 ));
             }
             builder = builder.add_root_certificate(trust.certificate()?);
+            media_builder = media_builder.add_root_certificate(trust.certificate()?);
         }
         let client = builder.build().map_err(network)?;
+        let media_client = media_builder.build().map_err(network)?;
         Ok(Self {
             session_store: None,
             client,
+            media_client,
             base,
             token: Arc::new(Mutex::new(None)),
             permits: Arc::new(Semaphore::new(64)),
@@ -710,6 +719,74 @@ impl ServerSession {
             .client
             .request(method, self.url(path))
             .bearer_auth(token))
+    }
+    pub(crate) async fn upload_start(&self, data: Value) -> Result<Value, Error> {
+        let response = self
+            .authorized(Method::POST, "api/v1/admin/media/uploads")
+            .await?
+            .json(&data)
+            .send()
+            .await
+            .map_err(network)?;
+        self.json(response).await
+    }
+    pub(crate) async fn upload_chunk(
+        &self,
+        id: &str,
+        offset: u64,
+        bytes: Vec<u8>,
+    ) -> Result<Value, Error> {
+        if !valid_id(id) || bytes.len() > 8 * 1024 * 1024 {
+            return Err(Error::new("bad_request", "Invalid upload chunk"));
+        }
+        let response = self
+            .authorized(Method::PUT, &format!("api/v1/admin/media/uploads/{id}"))
+            .await?
+            .query(&[("offset", offset)])
+            .body(bytes)
+            .send()
+            .await
+            .map_err(network)?;
+        self.json(response).await
+    }
+    pub(crate) async fn upload_complete(&self, id: &str) -> Result<Value, Error> {
+        if !valid_id(id) {
+            return Err(Error::new("bad_request", "Invalid upload identity"));
+        }
+        let response = self
+            .authorized(
+                Method::POST,
+                &format!("api/v1/admin/media/uploads/{id}/complete"),
+            )
+            .await?
+            .timeout(Duration::from_secs(1800))
+            .send()
+            .await
+            .map_err(network)?;
+        self.json(response).await
+    }
+    pub(crate) async fn media_response(
+        &self,
+        id: &str,
+        method: Method,
+        range: Option<&str>,
+    ) -> Result<Response, Error> {
+        if !valid_id(id) {
+            return Err(Error::new("bad_request", "Invalid media identity"));
+        }
+        let mut request = self
+            .authorized(method, &format!("api/v1/media/{id}/content"))
+            .await?;
+        if let Some(range) = range {
+            if range.len() > 256 || !range.starts_with("bytes=") {
+                return Err(Error::new("bad_request", "Invalid byte range"));
+            }
+            request = request.header(reqwest::header::RANGE, range);
+        }
+        self.media_client
+            .execute(request.build().map_err(network)?)
+            .await
+            .map_err(network)
     }
     pub async fn ensure_authenticated(&self) -> Result<(), Error> {
         self.renew_if_needed().await?;
@@ -1068,6 +1145,63 @@ impl ServerSession {
                     .await
                     .map_err(network)?;
                 self.json_limit(response, 16 * 1024 * 1024).await
+            }
+            "homeMedia" => {
+                let input: Resource = parse(request.payload)?;
+                if !valid_id(&input.id) {
+                    return Err(Error::new("bad_request", "Invalid work identity"));
+                }
+                let response = self
+                    .authorized(Method::GET, &format!("api/v1/works/{}/media", input.id))
+                    .await?
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
+            "adminMedia" | "adminMediaCoverage" | "adminMediaIncoming" | "adminMediaJobs"
+            | "adminMediaImport" | "adminMediaControl" | "adminMediaYoutube" | "adminMediaFile" => {
+                let path = match request.command.as_str() {
+                    "adminMediaFile" => {
+                        let id = request.payload["id"]
+                            .as_str()
+                            .filter(|id| valid_id(id))
+                            .ok_or_else(|| Error::new("bad_request", "Invalid media identity"))?;
+                        format!("api/v1/admin/media/{id}")
+                    }
+                    "adminMediaYoutube" => "api/v1/admin/media/youtube".to_string(),
+                    "adminMedia" => "api/v1/admin/media".to_string(),
+                    "adminMediaCoverage" => "api/v1/admin/media/coverage".to_string(),
+                    "adminMediaIncoming" => "api/v1/admin/media/incoming".to_string(),
+                    "adminMediaJobs" | "adminMediaImport" => "api/v1/admin/media/jobs".to_string(),
+                    _ => {
+                        let id = request.payload["id"]
+                            .as_str()
+                            .filter(|id| valid_id(id))
+                            .ok_or_else(|| Error::new("bad_request", "Invalid job identity"))?;
+                        format!("api/v1/admin/media/jobs/{id}")
+                    }
+                };
+                let post = matches!(
+                    request.command.as_str(),
+                    "adminMediaImport"
+                        | "adminMediaControl"
+                        | "adminMediaYoutube"
+                        | "adminMediaFile"
+                );
+                let mut call = self
+                    .authorized(if post { Method::POST } else { Method::GET }, &path)
+                    .await?;
+                if request.command == "adminMediaFile" {
+                    call=call.json(&json!({"action":request.payload["action"],"workId":request.payload["workId"],"installmentId":request.payload["installmentId"],"episodeId":request.payload["episodeId"],"expectedRevision":request.payload["expectedRevision"]}));
+                } else if request.command == "adminMediaControl" {
+                    call = call.json(&json!({"action":request.payload["action"]}));
+                } else if post {
+                    call = call.json(&request.payload);
+                } else {
+                    call = call.query(&request.payload);
+                }
+                self.json(call.send().await.map_err(network)?).await
             }
             "adminWorks" | "adminWorksSelection" => {
                 let input: AdminWorksQuery = parse(request.payload)?;

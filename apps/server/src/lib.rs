@@ -2,7 +2,9 @@ mod admin;
 mod auth;
 mod catalog;
 mod database;
+mod media;
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+pub use media::run_worker as run_media_worker;
 use serde::Serialize;
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
@@ -29,11 +31,12 @@ pub fn router_with_admin(pool: PgPool, token: Option<String>) -> Router {
         .route("/api/health/live", get(live))
         .route("/api/health/ready", get(ready))
         .layer(TraceLayer::new_for_http())
-        .with_state(pool)
+        .with_state(pool.clone())
         .merge(catalog)
         .merge(client)
         .merge(auth)
         .merge(admin)
+        .merge(media::routes(pool.clone()))
 }
 
 async fn server_info(State(pool): State<PgPool>) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -43,7 +46,7 @@ async fn server_info(State(pool): State<PgPool>) -> Result<Json<serde_json::Valu
             .await
             .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
     Ok(Json(
-        serde_json::json!({"product":"nahhasio","serverId":id,"name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1,"capabilities":{"artworkVariants":true,"rememberedAccounts":true}}),
+        serde_json::json!({"product":"nahhasio","serverId":id,"name":name,"version":env!("CARGO_PKG_VERSION"),"apiVersion":1,"capabilities":{"artworkVariants":true,"rememberedAccounts":true,"storedMedia":std::env::var_os("NAHHASIO_LIBRARY_ROOT").is_some()}}),
     ))
 }
 

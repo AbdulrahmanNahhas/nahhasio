@@ -2,7 +2,8 @@
 
 This bundle installs the catalog server and PostgreSQL only. The Linux Flatpak runs as a
 normal desktop application on the TV PC or another LAN machine. There is no website, Jellyfin
-service, video scanner or server torrent worker in this release. Installation does not need
+service or server torrent worker. The subsequent media source checkpoint adds a separate
+rootless Rust import worker and original-file streaming; it needs independent installed acceptance. Installation does not need
 Nix, Cargo, Node or the source checkout once the release installer/operations artifacts exist.
 
 Implementation is ready for installation acceptance; no Fedora installation is claimed by the
@@ -36,7 +37,7 @@ history, contracts and account avatar assets. Build from the repository root:
 podman build -f packaging/server/Containerfile -t localhost/nahhasio-server:0.1.0 .
 ```
 
-Release CI should pass digest-qualified `RUST_IMAGE` and `RUNTIME_IMAGE` build arguments and
+Release CI should pass digest-qualified `RUST_IMAGE`, `RUNTIME_IMAGE` and `DENO_IMAGE` build arguments and
 record those inputs. The local defaults are build conveniences, not pinned release provenance.
 The final runtime contains no source checkout/Node toolchain. The installation accepts only
 fully qualified digest references, for example `registry.example/repository@sha256:<digest>`.
@@ -193,3 +194,23 @@ guide for activation, retention, update verification and restore recovery.
 Removing/replacing application images or Quadlet definitions does not delete the persistent roots
 or database volume. PostgreSQL backups use database tools through the private container, not
 copies of a running `PGDATA` directory. Local same-disk backups do not survive disk loss.
+
+## Explicit media setup
+
+The media-capable image also contains the separate `nahhasio-media-worker` executable,
+FFmpeg/ffprobe, pinned yt-dlp/EJS and Deno. The API never runs acquisition subprocesses.
+After installing a verified media-capable release, prepare its storage without starting services:
+
+```sh
+python3 install.py --config-root "$HOME/Nahhasio/config" media-prepare \
+  --root "$HOME/Nahhasio" --worker-image '<same installed digest-qualified server image>'
+```
+
+The worker gets only runtime database credentials, a single managed media filesystem and
+operation journals. Its release override follows the API's signed image selection. The API sees
+completed videos read-only and incoming uploads read/write. Setup writes a Quadlet and API
+drop-in; operator review/reload and an explicit restart/start are separate actions. It does not
+migrate, seed, scan, enqueue acquisition or change the catalog.
+
+See [operations](../../docs/OPERATIONS.md) for directory aliases, backup boundaries and recovery.
+The current installed 0.1.3 release does not gain these source changes without a new build.

@@ -4,7 +4,7 @@
 mod bridge;
 mod exports;
 use bridge::ffi;
-pub use exports::SavedFile;
+pub use exports::{SavedFile, work_directory};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::{

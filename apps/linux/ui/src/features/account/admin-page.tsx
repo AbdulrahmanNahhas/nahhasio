@@ -17,6 +17,7 @@ import { gateway } from "@/lib/bridge";
 
 import { AdminWorkspacePage, isAdminWorkspace } from "../admin/admin-workspaces";
 import { DatabaseInspector, inspectionSections } from "../admin/database-inspector";
+import { MediaLibraryPage, MediaJobsPage } from "../admin/media/media-page";
 import { adminSection } from "../admin/navigation";
 import { ServerOverviewPage } from "../admin/server/server-pages";
 
@@ -62,6 +63,8 @@ export function AdminPage() {
 }
 export function AdminSectionPage({ section = "", tab = "" }: { section?: string; tab?: string }) {
   if (!section) return <ServerOverviewPage />;
+  if (section === "library") return <MediaLibraryPage />;
+  if (section === "downloads") return <MediaJobsPage />;
   if (isAdminWorkspace(section)) return <AdminWorkspacePage section={section} tab={tab} />;
   const item = adminSection(section);
   const title = section ? (item?.title ?? "صفحة غير موجودة") : "نظرة عامة";

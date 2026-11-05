@@ -17,8 +17,11 @@ Rust/Axum/SQLx server, PostgreSQL catalog, Rust GTK4/libadwaita/WebKitGTK/libmpv
 React/Vite/TanStack Router/Query/Tailwind/shadcn UI. Accounts/discovery/viewer/playback/device
 code exists; the complete admin work/bulk/JSON editor is committed as `8aa716a`.
 
-The installed server and operator CLI are Rust-only. Jellyfin is the confirmed future backend
-for stored-media playback/streaming; Nahhasio owns catalog metadata, artwork and tracking.
+The server and operator CLI are Rust. Stored media uses authenticated Nahhasio original-file
+streams through the native mpv client; Jellyfin is retired. A separate rootless media worker
+uses FFmpeg/ffprobe and packaged yt-dlp/Deno tools for reviewed imports. Catalog metadata,
+artwork and tracking remain owned by Nahhasio. The new media source checkpoint still requires
+packaged native and installed acceptance; it is not enabled by upgrading the client alone.
 The retired web dashboard and Hono API are removed. React/TypeScript remains the desktop UI,
 with Node/pnpm required only for development/build and recovery/reference tooling.
 

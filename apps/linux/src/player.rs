@@ -21,6 +21,7 @@ struct Session {
     player: Option<NativePlayer>,
     gateway: Option<Gateway>,
     direct_gateway: Option<crate::direct_gateway::DirectGateway>,
+    home_gateway: Option<crate::home_gateway::HomeGateway>,
     target: Option<ResolvedTarget>,
     pending: bool,
     error: Option<String>,
@@ -111,6 +112,7 @@ impl Player {
             player: Some(player),
             gateway: None,
             direct_gateway: None,
+            home_gateway: None,
             target: None,
             pending: false,
             error: None,
@@ -182,13 +184,15 @@ impl Player {
                 .as_ref()
                 .and_then(|target| target.episode_id.clone()),
             title: session.title.clone(),
-            source_kind: Some(if session.direct_gateway.is_some() {
-                SourceKind::Direct
-            } else if session.gateway.is_some() {
-                SourceKind::Torrent
-            } else {
-                SourceKind::Local
-            }),
+            source_kind: Some(
+                if session.direct_gateway.is_some() || session.home_gateway.is_some() {
+                    SourceKind::Direct
+                } else if session.gateway.is_some() {
+                    SourceKind::Torrent
+                } else {
+                    SourceKind::Local
+                },
+            ),
             paused: state.paused,
             position: state.position,
             duration: state.duration,
@@ -261,6 +265,7 @@ impl Player {
                     player: None,
                     gateway: None,
                     direct_gateway: None,
+                    home_gateway: None,
                     target: None,
                     pending: false,
                     error: None,
@@ -356,6 +361,7 @@ impl Player {
         if let Some(session) = self.session.borrow_mut().as_mut() {
             drop(session.gateway.take());
             drop(session.direct_gateway.take());
+            drop(session.home_gateway.take());
         }
     }
     pub fn loading(&self, id: &str, pending: bool, error: Option<String>) -> Result<(), Error> {
@@ -392,6 +398,29 @@ impl Player {
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
             session.gateway = Some(gateway);
+            session.title = target.title.clone();
+            session.target = Some(target);
+            session.pending = false;
+            session.error = None;
+        }
+        Ok(())
+    }
+    pub fn play_home(
+        &self,
+        id: &str,
+        target: ResolvedTarget,
+        gateway: crate::home_gateway::HomeGateway,
+    ) -> Result<(), Error> {
+        self.require_session(id)?;
+        let player = NativePlayer::loopback(gateway.endpoint()).map_err(playback_error)?;
+        self.cancel_stream();
+        player
+            .defaults(self.defaults.borrow().clone())
+            .map_err(playback_error)?;
+        self.attach_surface(player.area())?;
+        if let Some(session) = self.session.borrow_mut().as_mut() {
+            session.player = Some(player);
+            session.home_gateway = Some(gateway);
             session.title = target.title.clone();
             session.target = Some(target);
             session.pending = false;
@@ -483,6 +512,36 @@ impl Player {
         action(player).map_err(playback_error)
     }
 
+    pub(crate) async fn pick_import_files(&self) -> Result<Vec<std::path::PathBuf>, Error> {
+        let window = self.window.upgrade().ok_or_else(interrupted)?;
+        let dialog = gtk::FileDialog::builder()
+            .title("اختر فيديوهات لرفعها إلى الخادم")
+            .modal(true)
+            .build();
+        match dialog.open_multiple_future(Some(&window)).await {
+            Ok(files) => {
+                if files.n_items() > 500 {
+                    return Err(Error::new("bad_request", "اختر خمسمئة ملف أو أقل."));
+                }
+                (0..files.n_items())
+                    .map(|index| {
+                        files
+                            .item(index)
+                            .and_then(|item| item.downcast::<gio::File>().ok())
+                            .and_then(|file| file.path())
+                            .ok_or_else(|| Error::new("upload", "اختر ملفات فيديو محلية."))
+                    })
+                    .collect()
+            }
+            Err(error)
+                if error.matches(gtk::DialogError::Dismissed)
+                    || error.matches(gtk::DialogError::Cancelled) =>
+            {
+                Ok(Vec::new())
+            }
+            Err(_) => Err(Error::new("upload", "تعذّر فتح نافذة اختيار الملفات.")),
+        }
+    }
     async fn pick_file(&self, subtitle: bool) -> Result<Option<std::path::PathBuf>, Error> {
         if self.dialog.replace(true) {
             return Err(Error::new("busy", "A media file dialog is already open"));

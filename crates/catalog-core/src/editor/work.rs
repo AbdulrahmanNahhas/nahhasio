@@ -883,6 +883,22 @@ pub(super) async fn execute(
             let records = array(&plan["records"]);
             let ids: Vec<_> = records.iter().map(|r| r["id"].clone()).collect();
             rows(c,"select to_jsonb(id) from titles where id in(select value::uuid from jsonb_array_elements_text($1->'ids')) order by id for update",json!({"ids":ids})).await?;
+            // A lost save response may be retried with the signed, actor-bound ticket.
+            // Only the exact reviewed result counts as a replay; later edits still conflict.
+            let mut already_saved = !records.is_empty();
+            for record in records {
+                if record["create"] == true {
+                    already_saved = false;
+                    break;
+                }
+                if fingerprint(&export(c, text(record, "id")).await?) != record["after"] {
+                    already_saved = false;
+                    break;
+                }
+            }
+            if already_saved {
+                return Ok(json!({"saved":records.len(),"createdId":null}));
+            }
             for record in records {
                 if record["create"] == true {
                     if !rows(

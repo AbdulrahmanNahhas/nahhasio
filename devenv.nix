@@ -41,6 +41,7 @@
     openssl
     mpv
     ffmpeg
+    yt-dlp
     chromium
     python3
     (import ./packaging/linux/anipy-resolver.nix { inherit pkgs; })

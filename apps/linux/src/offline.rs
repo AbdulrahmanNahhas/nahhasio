@@ -105,6 +105,38 @@ fn id(value: &Value, key: &str) -> Result<String, Error> {
         .ok_or_else(bad)
 }
 impl Store {
+    pub async fn save_required(&self, transport: &ServerSession, work: &str) -> Result<(), Error> {
+        let owner = self.owner().await?;
+        if owner.offline {
+            return Err(Error::new(
+                "offline_mode",
+                "اتصل بالخادم لحفظ بيانات العمل قبل تنزيل فيديوهاته.",
+            ));
+        }
+        let mut job = self.job.lock().await;
+        if job.as_ref().is_some_and(|job| job.running) {
+            return Err(Error::new(
+                "busy",
+                "انتظر اكتمال حفظ العمل الحالي ثم أعد التنزيل.",
+            ));
+        }
+        *job = Some(Job {
+            work_id: work.into(),
+            account: owner.account.clone(),
+            server: owner.server.clone(),
+            completed: 0,
+            total: 0,
+            running: true,
+            error: None,
+        });
+        drop(job);
+        let result = self.save(&owner, transport, work).await;
+        if let Some(job) = self.job.lock().await.as_mut() {
+            job.running = false;
+            job.error = result.as_ref().err().map(|e| e.message.clone());
+        }
+        result
+    }
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,

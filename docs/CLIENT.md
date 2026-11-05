@@ -311,12 +311,12 @@ session; GTK and server binaries must be rebuilt and relaunched for runtime acce
 | JSON                          | Whole-work and entity editors with review/save                                                          | Improve entry guidance for selecting records; retain schema validation                      |
 | Revision history              | Read-only editorial revisions                                                                           | Human-readable diffs and record links; restore needs its own guarded preview/service        |
 | All tables                    | Read-only schema/row inspector                                                                          | Keep as an advanced inspection tool, not a generic write console                            |
-| File library                  | Read-only roots/files/tracks/Jellyfin tables                                                            | A real file/link health workflow; never infer physical existence from rows                  |
-| Server downloads              | Read-only account-download rows                                                                         | Server job/queue services before adding acquisition controls                                |
+| File library                  | Connected media inventory, reviewed imports, verification, reassignment and trash jobs                  | Accept installed file coverage and recovery; inventory alone is not proof of playable bytes |
+| Server downloads              | Durable media import/preview/file jobs and native upload progress                                       | Accept worker restart/cancellation, capacity and real YouTube availability                  |
 | Accounts and access           | Users/devices/viewing/policy inspector tabs                                                             | Dedicated management with authorization and session/device handling                         |
 | Server activity               | Background-job and audit-log inspector tabs                                                             | Structured job details, errors and filters; controls only when backed by services           |
 | Maintenance                   | Library actions plus configured backup/restore and update services                                      | Accept installed backup/update recovery; add durable library jobs separately                |
-| Settings and connections      | Server name and write-only provider settings; Jellyfin table inspection                                 | Actual connection management and explicit connection tests                                  |
+| Settings and connections      | Server name and write-only provider settings; Jellyfin connection UI retired                            | Actual connection management and explicit connection tests                                  |
 
 Episodes, Relations, Contributions, References and Relationship Graph have no standalone admin
 pages. Related records remain available in their editors or All Tables. Statistics belongs in Overview.
@@ -335,3 +335,35 @@ pages. Related records remain available in their editors or All Tables. Statisti
   recovery image; cleanup handles it later. Navigation is blocked during active operations.
 - Overview reads do not fetch provider images, scan all storage, delete anything, or run migrations.
   Additions measure catalog record creation, not releases or viewing. Image-role counts can overlap.
+
+## Direct stored-media checkpoint — 2026-11-04
+
+Normal viewers keep Save work, device video downloads and server files separate. Saving a work
+retains its viewing details, source identities and images without starting video acquisition.
+Complete device videos take priority over an available home-library file. Internet torrents and
+providers remain explicit choices, and still need internet even when saved catalog data is local.
+Home streaming is LAN-only and original-quality through authenticated native transport to mpv.
+
+The device library includes torrent and server-file jobs. Server-file downloads first complete the
+viewing pack, retain scoped target metadata and use separate server/account video paths. They
+resume by byte range, verify SHA-256 before publication and remain
+separate from server administration. Local partial files are retained after errors; they are
+not advertised as playable. An explicit sign-out continues to restrict offline account access.
+
+Administration's media import dialog targets existing works. Server-folder imports preview
+file/episode mappings from incoming folders or unregistered library files, with pagination. The
+native picker uploads copies with durable offsets and a SHA-256 source fingerprint. YouTube previews
+run in the media worker and let the admin exclude entries, select quality, edit numbering/titles
+and choose episode thumbnails. The standard whole-work editor reviews catalog changes before
+saving; downloading is a separate subsequent job. Artwork staging can leave retained unassigned
+assets if a review is abandoned. A failed acquisition does not undo an already reviewed episode.
+
+File retirement uses seven-day trash, restore and explicit permanent purge. File reassignment
+changes catalog ownership links without moving video or rewriting tracking. The normal viewer
+never receives server filesystem paths or server credentials. The admin inventory exposes managed
+relative paths, not arbitrary filesystem navigation.
+
+A fresh native binary/production-bundle loopback run verified mpv streaming, seeking and embedded
+tracks. It does not establish installed Flatpak/Fedora or physical-input acceptance. The retained
+three family collections have moved on Fedora, but have not been matched or published through a
+new installed media service in this checkpoint.

@@ -5,6 +5,7 @@ export const WatchTargetSchema = z.strictObject({
   title: z.string().trim().min(1).max(1024),
   installmentId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
+  homeFileId: z.string().uuid().optional(),
   intent: z.enum(["watch", "download"]).optional(),
 });
 export type WatchTarget = z.infer<typeof WatchTargetSchema>;

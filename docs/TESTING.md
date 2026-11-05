@@ -272,3 +272,31 @@ bootstrap with a fake systemctl. They verify signed-bundle hash/path bounds, imm
 legacy preservation, installed entrypoints without a release cache, image/tool rollback, crash
 recovery before/after metadata commit, and worker reload only after durable job/claim completion.
 Run `devenv shell -- python3 -m unittest discover -s packaging/release -p 'test_*.py' -v`.
+
+## Direct server media
+
+`devenv shell -- bash bin/test-server-media` owns a fresh socket-only PostgreSQL cluster and
+synthetic video bytes. It never reads ambient DATABASE_URL or uses family data. Video fixtures
+live in ignored project storage so the unchanged 5 GiB server reserve can be tested; `/tmp`
+on Shadow is only a 4 GiB tmpfs. The runner removes its fixture directories and cluster.
+
+It covers authenticated byte ranges/HEAD, paginated library-root selection and path guards,
+import request replay/conflict, real FFmpeg probing/import, source removal after registration,
+interrupted restore, trash/purge accounting, resumable upload offsets/hash verification and
+administrator revocation. Browser media cases live in `admin-server.spec.ts`.
+
+`cargo test --locked -p nahhasio-linux home_downloads::tests` uses a synthetic localhost origin
+and private device state. It checks byte-range restart, a transfer exceeding the ordinary API
+request deadline, account/server file isolation, offline pack/video access and failed-image refresh.
+`cargo test --locked -p nahhasio-server --lib media::` checks path safety, copy recovery and tool
+process-group cancellation without live acquisition.
+
+Build with `cargo build --locked -p nahhasio-linux --features native-diagnostics` to enable
+`--home-smoke`. Use the same authenticated isolated UI setup as `--player-smoke`, a generated local
+`NAHHASIO_PLAY_FILE` under 32 MiB containing Arabic audio/subtitles, a fresh production UI bundle
+and private HOME/XDG/video state. The diagnostic hosts these bytes on an authenticated loopback
+origin and plays through the real native relay; no public media, family data or installed application
+is used. It includes HEAD/range/origin checks and the existing player transport/track/seek/fullscreen
+assertions. The November 5 fresh binary/bundle run passed; inspect the retained private captures.
+Physical input, actual YouTube availability, OCI/Flatpak builds and installed worker/update/restore
+acceptance remain separate from these fixtures.

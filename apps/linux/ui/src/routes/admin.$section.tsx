@@ -8,6 +8,13 @@ export const Route = createFileRoute("/admin/$section")({
   validateSearch: z.object({
     tab: z.string().max(40).catch("").default(""),
     q: z.string().max(200).catch("").default(""),
+    workId: z
+      .union([z.string().uuid(), z.literal("")])
+      .catch("")
+      .default(""),
+    mediaView: z.enum(["files", "works", "missing"]).catch("files").default("files"),
+    mediaState: z.enum(["all", "present", "needs-review", "trash"]).catch("all").default("all"),
+    mediaSource: z.enum(["all", "server-folder", "youtube", "upload"]).catch("all").default("all"),
     page: z
       .string()
       .regex(/^[1-9][0-9]{0,5}$/)

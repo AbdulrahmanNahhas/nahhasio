@@ -1,3 +1,4 @@
+import { ServerMediaFilesSchema } from "@nahhasio/api-contract";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -147,26 +148,62 @@ export async function openWatch(
   const sessionId = snapshot.sessionId;
   if (client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.sessionId !== sessionId) return;
   if (target.intent !== "download") {
-    const local = z
-      .discriminatedUnion("found", [
-        z.object({ found: z.literal(false) }),
-        z.object({ found: z.literal(true), snapshot: PlayerSnapshotSchema }),
-      ])
-      .parse(
-        await nativeCall("media.local", {
-          sessionId,
-          target: {
-            workId: target.workId,
-            installmentId: target.installmentId ?? null,
-            episodeId: target.episodeId ?? null,
-          },
-        }),
+    if (!target.homeFileId) {
+      const local = z
+        .discriminatedUnion("found", [
+          z.object({ found: z.literal(false) }),
+          z.object({ found: z.literal(true), snapshot: PlayerSnapshotSchema }),
+        ])
+        .parse(
+          await nativeCall("media.local", {
+            sessionId,
+            target: {
+              workId: target.workId,
+              installmentId: target.installmentId ?? null,
+              episodeId: target.episodeId ?? null,
+            },
+          }),
+        );
+      if (client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.sessionId !== sessionId) return;
+      if (local.found) {
+        if (local.snapshot.sessionId !== sessionId) throw new Error("وصل تحديث قديم للمشغّل.");
+        client.setQueryData(playerSnapshotKey, local.snapshot);
+        return;
+      }
+    }
+    const [home] = await Promise.allSettled([
+      client.fetchQuery({
+        queryKey: ["viewer", "home-media", target.workId],
+        queryFn: async ({ signal }) =>
+          ServerMediaFilesSchema.parse(
+            await nativeCall("homeMedia", { id: target.workId }, signal),
+          ),
+        retry: false,
+      }),
+    ]);
+    // Failed availability stays visible in HomeSources; internet sources remain independent.
+    if (home.status === "fulfilled") {
+      const file = home.value.find(
+        (candidate) =>
+          candidate.installmentId === target.installmentId &&
+          candidate.episodeId === (target.episodeId ?? null) &&
+          (!target.homeFileId || candidate.id === target.homeFileId) &&
+          candidate.availability === "present",
       );
-    if (client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.sessionId !== sessionId) return;
-    if (local.found) {
-      if (local.snapshot.sessionId !== sessionId) throw new Error("وصل تحديث قديم للمشغّل.");
-      client.setQueryData(playerSnapshotKey, local.snapshot);
-      return;
+      if (file && client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.sessionId === sessionId) {
+        const playing = PlayerSnapshotSchema.parse(
+          await nativeCall("media.homePlay", {
+            sessionId,
+            fileId: file.id,
+            target: {
+              workId: target.workId,
+              installmentId: target.installmentId ?? null,
+              episodeId: target.episodeId ?? null,
+            },
+          }),
+        );
+        if (playing.sessionId === sessionId) client.setQueryData(playerSnapshotKey, playing);
+      }
     }
   }
   // Discovery is lazy: opening a work must not depend on Torrentio or contact an embed provider.

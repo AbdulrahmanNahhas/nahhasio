@@ -1,6 +1,5 @@
 import { AccountsPage } from "./accounts/accounts-page";
 import { ActivityPage } from "./activity/activity-page";
-import { JellyfinConnection } from "./server/jellyfin-connection";
 import { MaintenancePage } from "./server/maintenance-page";
 import { ServerSettingsPage } from "./server/server-pages";
 import { WorkspacePage } from "./workspace";
@@ -20,7 +19,6 @@ export function AdminWorkspacePage({ section, tab }: { section: Workspace; tab: 
       description="هوية المكتبة ومصادر البيانات والاتصالات المشتركة."
     >
       <ServerSettingsPage embedded />
-      <JellyfinConnection />
     </WorkspacePage>
   );
 }

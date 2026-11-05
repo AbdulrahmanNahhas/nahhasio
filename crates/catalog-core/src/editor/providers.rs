@@ -329,10 +329,25 @@ pub(super) fn image_endpoint(value: &str) -> Result<reqwest::Url> {
         || url.port().is_some_and(|p| p != 443)
         || !matches!(
             url.host_str(),
-            Some("image.tmdb.org" | "assets.fanart.tv" | "s4.anilist.co")
+            Some("image.tmdb.org" | "assets.fanart.tv" | "s4.anilist.co" | "i.ytimg.com")
         )
     {
         return Err(invalid("مصدر الصورة غير مسموح."));
+    }
+    if url.host_str() == Some("i.ytimg.com") {
+        let parts: Vec<_> = url.path().split('/').collect();
+        if parts.len() != 4
+            || parts[1] != "vi"
+            || parts[2].len() != 11
+            || !parts[2]
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
+            || parts[3] != "hqdefault.jpg"
+            || url.query().is_some()
+            || url.fragment().is_some()
+        {
+            return Err(invalid("Unsupported YouTube thumbnail URL"));
+        }
     }
     Ok(url)
 }
@@ -585,6 +600,12 @@ mod tests {
             assert!(image_endpoint(value).is_err());
         }
         assert!(image_endpoint("https://image.tmdb.org/t/p/original/file.png").is_ok());
+        assert!(image_endpoint("https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg").is_ok());
+        assert!(image_endpoint("https://i.ytimg.com/other/abcdefghijk/hqdefault.jpg").is_err());
+        assert!(
+            image_endpoint("https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg?redirect=other")
+                .is_err()
+        );
         assert!(!safe_image_path("/../secret"));
         assert!(safe_image_path("/file_name-1.jpg"));
     }

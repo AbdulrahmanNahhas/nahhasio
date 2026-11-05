@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImportMediaDialog } from "@/features/admin/media/import-media-dialog";
 import {
   ageChoices,
   audienceChoices,
@@ -146,9 +147,20 @@ export function WorkWorkspace({
             حلقة
           </p>
           {!create && (
-            <Button variant="secondary" render={<a href={`#/titles/${snapshot.document.id}`} />}>
-              عرض العمل
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" render={<a href={`#/titles/${snapshot.document.id}`} />}>
+                عرض العمل
+              </Button>
+              <Button
+                variant="outline"
+                render={<a href={`#/admin/library?workId=${snapshot.document.id}`} />}
+              >
+                إدارة الوسائط
+              </Button>
+              <ImportMediaDialog workId={snapshot.document.id}>
+                <Button variant="outline">استيراد وسائط</Button>
+              </ImportMediaDialog>
+            </div>
           )}
         </div>
       </header>

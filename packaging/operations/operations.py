@@ -257,12 +257,32 @@ class Maintenance:
         result = subprocess.run(["systemctl", "--user", "is-active", "--quiet", self.unit], check=False)
         return result.returncode == 0
 
+    def running_units(self):
+        units = [self.unit]
+        if self.config.get("mediaWorkerUnit"):
+            units.append(self.config["mediaWorkerUnit"])
+        return [unit for unit in units if subprocess.run(
+            ["systemctl", "--user", "is-active", "--quiet", unit], check=False).returncode == 0]
+
+    def resume_units(self, units):
+        allowed = {self.unit, self.config.get("mediaWorkerUnit")}
+        if not isinstance(units, list) or any(unit not in allowed or not unit for unit in units):
+            raise ValueError("Invalid service recovery state")
+        for unit in dict.fromkeys(units):
+            run(["systemctl", "--user", "start", unit], timeout=180)
+            if unit == self.unit:
+                self.ready()
+
     def stop(self):
+        if self.config.get("mediaWorkerUnit"):
+            run(["systemctl", "--user", "stop", self.config["mediaWorkerUnit"]], timeout=120)
         run(["systemctl", "--user", "stop", self.unit], timeout=120)
 
     def start(self):
         run(["systemctl", "--user", "start", self.unit], timeout=180)
         self.ready()
+        if self.config.get("mediaWorkerUnit"):
+            run(["systemctl", "--user", "start", self.config["mediaWorkerUnit"]], timeout=180)
 
     def ready(self):
         # The image health command checks the HTTPS readiness endpoint with its configured CA.
@@ -323,10 +343,12 @@ class Maintenance:
         identifier = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
         temporary = self.backups / (".pending-" + identifier)
         temporary.mkdir(mode=0o700)
-        restart = not stopped and self.active()
+        restart_units = [] if stopped else self.running_units()
+        restart = bool(restart_units)
         backup_journal = self.private / "backup-journal.json"
         atomic_json(backup_journal, {"formatVersion": VERSION, "id": identifier,
-                                     "stage": "capturing", "restartApi": restart})
+                                     "stage": "capturing", "restartApi": self.unit in restart_units,
+                                     "restartUnits": restart_units})
         try:
             database_bytes = int(self.sql("SELECT pg_database_size(current_database())"))
             artwork_bytes = sum(path.stat().st_size for path in self.artwork.rglob("*") if path.is_file())
@@ -360,6 +382,14 @@ class Maintenance:
             atomic_json(temporary / "installation.json", self.config)
             files = {name: sha256(temporary / name) for name in
                      ("database.dump", "artwork.tar.gz", "configuration.tar.gz", "host-recovery.tar.gz", "installation.json")}
+            if self.config.get("mediaRoot"):
+                media_root = Path(self.config["mediaRoot"])
+                journals = media_root / "data/media-operations"
+                self.archive(journals, temporary / "media-operations.tar.gz")
+                inventory = self.sql("SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'rootId',library_root_id,'relativePath',relative_path,'byteSize',byte_size,'sha256',sha256,'availability',availability)),'[]'::jsonb) FROM media_files")
+                atomic_json(temporary / "media-inventory.json", json.loads(inventory))
+                for name in ("media-operations.tar.gz", "media-inventory.json"):
+                    files[name] = sha256(temporary / name)
             manifest = {"formatVersion": VERSION, "id": identifier, "createdAt": now(), "reason": reason,
                         "version": self.config.get("version", "unknown"), "schema": self.config.get("schemaVersion", ""),
                         "byteSize": sum((temporary / name).stat().st_size for name in files),
@@ -387,9 +417,9 @@ class Maintenance:
             if temporary.exists():
                 shutil.rmtree(temporary)
             if restart:
-                self.start()
+                self.resume_units(restart_units)
             atomic_json(backup_journal, {"formatVersion": VERSION, "id": identifier,
-                                         "stage": "complete", "restartApi": False})
+                                         "stage": "complete", "restartApi": False,"restartUnits": []})
 
     def prune(self):
         daily = [item for item in self.inventory() if item["reason"] == "daily"]
@@ -411,9 +441,10 @@ class Maintenance:
             raise ValueError("Damaged-state recovery material cannot be restored as a verified backup")
         required = {"database.dump", "artwork.tar.gz", "configuration.tar.gz", "host-recovery.tar.gz", "installation.json"}
         if (manifest.get("formatVersion") != VERSION or manifest.get("id") != identifier
-                or set(manifest.get("files", {})) != required):
+                or not required.issubset(manifest.get("files", {}))
+                or set(manifest.get("files", {})) - required - {"media-operations.tar.gz", "media-inventory.json"}):
             raise ValueError("Unsupported or incomplete backup")
-        for name in required:
+        for name in manifest["files"]:
             path = root / name
             if path.is_symlink() or not path.is_file() or sha256(path) != manifest["files"][name]:
                 raise ValueError("Backup checksum verification failed")
@@ -447,7 +478,7 @@ class Maintenance:
         was_active = self.active()
         if initial:
             tables = int(self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"))
-            if tables != 0 or was_active:
+            if tables != 0 or self.running_units():
                 raise ValueError("Initial transfer requires an empty bootstrap database and an inactive API")
         source, manifest = self.validate_backup(identifier)
         suffix = uuid.uuid4().hex[:12]
@@ -486,6 +517,16 @@ class Maintenance:
             self.extract(source / "artwork.tar.gz", stage_art)
             self.extract(source / "configuration.tar.gz", stage_config)
             self.verify_artwork(stage_art, stage_db)
+            if "media-operations.tar.gz" in manifest["files"]:
+                recovery = self.data / "media-recovery" / identifier
+                recovery.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                if not recovery.exists():
+                    self.extract(source / "media-operations.tar.gz", recovery)
+                # Restoring catalog state must not move/delete videos or overwrite newer journals.
+                self.sql("UPDATE media_files SET availability='unknown',last_verified_at=NULL WHERE library_root_id IS NOT NULL", stage_db)
+                # A restored queue predates current staging/journals. Acquisition and trash
+                # expiration need an explicit review rather than replaying old side effects.
+                self.sql("UPDATE background_jobs SET status='failed',error='Restored media job requires review before retry',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,finished_at=now() WHERE type LIKE 'media.%' AND status IN ('queued','running')", stage_db)
             self.grants(stage_db)
             self.stop()
             paused = True
@@ -669,8 +710,8 @@ class Maintenance:
         try:
             self.write_override(override, image)
             run(["systemctl", "--user", "daemon-reload"], timeout=60)
-            run(["systemctl", "--user", "restart", self.unit], timeout=180)
-            self.ready()
+            self.stop()
+            self.start()
             self.tools.activate(target_tools)
             self.config.update(serverImage=image, version=manifest["version"], hostToolsVersion=manifest["version"])
             atomic_json(self.installation_path, self.config)
@@ -683,8 +724,8 @@ class Maintenance:
             else:
                 self.write_bytes(override, previous)
             run(["systemctl", "--user", "daemon-reload"], timeout=60)
-            run(["systemctl", "--user", "restart", self.unit], timeout=180)
-            self.ready()
+            self.stop()
+            self.start()
             journal["stage"] = "rolled-back"
             atomic_json(journal_path, journal)
             raise RuntimeError("Server update failed; the previous image was restored") from None
@@ -721,8 +762,8 @@ class Maintenance:
             else:
                 self.write_bytes(override, base64.b64decode(previous, validate=True))
             run(["systemctl", "--user", "daemon-reload"], timeout=60)
-            run(["systemctl", "--user", "restart", self.unit], timeout=180)
-            self.ready()
+            self.stop()
+            self.start()
             journal["stage"] = "rolled-back"
         atomic_json(journal_path, journal)
 
@@ -797,9 +838,10 @@ class Maintenance:
                 interrupted = read_json(backup_journal)
                 restore_journal = self.private / "restore-journal.json"
                 restore_safe = not restore_journal.exists() or read_json(restore_journal).get("stage") in ("complete", "rolled-back")
-                if interrupted.get("stage") == "capturing" and interrupted.get("restartApi") and restore_safe:
-                    self.start()
-                    interrupted.update(stage="interrupted", restartApi=False)
+                restart_units = interrupted.get("restartUnits", [self.unit] if interrupted.get("restartApi") else [])
+                if interrupted.get("stage") == "capturing" and restart_units and restore_safe:
+                    self.resume_units(restart_units)
+                    interrupted.update(stage="interrupted", restartApi=False, restartUnits=[])
                     atomic_json(backup_journal, interrupted)
             # A host crash must not turn an unknown result into a success or repeat a restore.
             for path in self.claimed.glob("*.json"):

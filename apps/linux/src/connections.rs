@@ -211,6 +211,11 @@ impl Services {
     pub async fn saved_work(&self, id: &str) -> Result<Value, Error> {
         self.offline.read("work", &json!({"id":id})).await
     }
+    pub async fn save_work_required(&self, id: &str) -> Result<(), Error> {
+        let revision = self.revision();
+        self.offline.save_required(&self.snapshot()?, id).await?;
+        self.check_revision(revision)
+    }
     pub fn new_persistent(default: &str) -> Result<Self, Error> {
         let root = Roots::discover().map_err(|_| storage())?.state;
         let default = address(default)?;
@@ -294,7 +299,7 @@ impl Services {
             pending: tokio::sync::watch::channel(()).0,
         })
     }
-    fn snapshot(&self) -> Result<ServerSession, Error> {
+    pub(crate) fn snapshot(&self) -> Result<ServerSession, Error> {
         self.active
             .read()
             .map(|value| value.clone())
@@ -781,7 +786,7 @@ impl Services {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use axum::{Router, http::HeaderMap, routing::get};
     const ID: &str = "97900000-0000-4000-8000-000000000001";
@@ -814,6 +819,11 @@ mod tests {
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             pending: tokio::sync::watch::channel(()).0,
         }
+    }
+    pub(crate) fn media_fixture(url: &str) -> (Services, PathBuf) {
+        let service = fixture(url, None);
+        let root = service.root.clone();
+        (service, root)
     }
     async fn candidate(id: Option<&str>) -> (String, tokio::task::JoinHandle<()>) {
         let info = json!({"serverId":id,"product":"nahhasio","name":"Household","version":"0.1.2","apiVersion":1});

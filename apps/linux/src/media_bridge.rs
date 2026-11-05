@@ -18,6 +18,37 @@ pub async fn execute(
     }
     let pause_requested = matches!(&command, Command::Pause { .. });
     match command {
+        Command::HomeDownload { target, file_id } => runtime
+            .spawn(async move { media.home_download(target, file_id).await })
+            .await
+            .map_err(|_| interrupted())?,
+        Command::UploadFiles {} => {
+            let paths = player.pick_import_files().await?;
+            runtime
+                .spawn(async move { media.uploads.start(paths).await })
+                .await
+                .map_err(|_| interrupted())?
+        }
+        Command::UploadStatus {} => runtime
+            .spawn(async move { media.uploads.status().await })
+            .await
+            .map_err(|_| interrupted())?,
+        Command::UploadRetry { id } => runtime
+            .spawn(async move { media.uploads.retry(&id).await })
+            .await
+            .map_err(|_| interrupted())?,
+        Command::HomePlay {
+            session_id,
+            target,
+            file_id,
+        } => {
+            let (target, gateway) = runtime
+                .spawn(async move { media.home(target, file_id).await })
+                .await
+                .map_err(|_| interrupted())??;
+            player.play_home(&session_id, target, gateway)?;
+            serde_json::to_value(player.snapshot()).map_err(|_| interrupted())
+        }
         Command::Library {} => runtime
             .spawn(async move { media.library().await })
             .await

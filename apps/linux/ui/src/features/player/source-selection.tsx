@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { AnimeSource } from "./anime-source";
+import { HomeSources } from "./home-sources";
 import { ProviderBrowser } from "./provider-browser";
 import { TorrentSources } from "./source-controls";
 import {
@@ -109,6 +110,7 @@ function SessionSelection({
       className="flex min-h-0 min-w-0 flex-1 flex-col gap-4"
       aria-label="اختيار طريقة المشاهدة"
     >
+      <HomeSources target={target} player={player} onPlaybackStarted={onPlaybackStarted} />
       {filesOnly ? (
         <>
           <Alert>

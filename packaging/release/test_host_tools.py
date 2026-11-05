@@ -39,6 +39,31 @@ def archive(files):
 
 
 class HostUpdates(unittest.TestCase):
+    def test_media_backup_quiesces_worker_when_api_is_inactive_and_preserves_service_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            worker, _, _, _ = self.setup_installation(Path(directory))
+            worker.config["mediaWorkerUnit"] = "nahhasio-media-worker.service"
+            def status(arguments, **kwargs):
+                return subprocess.CompletedProcess(arguments, 0 if arguments[-1] == worker.config["mediaWorkerUnit"] else 3)
+            with patch.object(operations.subprocess, "run", side_effect=status):
+                self.assertEqual(worker.running_units(), [worker.config["mediaWorkerUnit"]])
+            # Fail after quiescing writers: cleanup must still restore just the worker.
+            with patch.object(worker, "running_units", return_value=[worker.config["mediaWorkerUnit"]]), \
+                    patch.object(worker, "sql", return_value="1"), \
+                    patch.object(worker, "summary", side_effect=ValueError("fixture capture failed")), \
+                    patch.object(worker, "ready") as ready, patch.object(operations, "run") as run:
+                with self.assertRaisesRegex(ValueError, "fixture capture failed"):
+                    worker.backup()
+            self.assertEqual([call.args[0] for call in run.call_args_list], [
+                ["systemctl", "--user", "stop", "nahhasio-media-worker.service"],
+                ["systemctl", "--user", "stop", "nahhasio-server.service"],
+                ["systemctl", "--user", "start", "nahhasio-media-worker.service"],
+            ])
+            ready.assert_not_called()
+            self.assertEqual(operations.read_json(worker.private / "backup-journal.json")["restartUnits"], [])
+            with self.assertRaises(ValueError):
+                worker.resume_units(["unrelated.service"])
+
     def test_real_bootstrap_and_managed_entrypoints_work_without_release_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

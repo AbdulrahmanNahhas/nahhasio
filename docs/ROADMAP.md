@@ -3,7 +3,7 @@
 Current delivery order (2026-10-25): [the four-phase deployment checkpoint](DEPLOYMENT.md)
 owns the rootless installation, recovery/transfer, signed updates and maintenance checkpoint.
 The code is implemented; complete build and installation acceptance remains pending.
-Jellyfin/files-only playback and the wider admin backlog follow this release. Player/provider
+Direct stored-file playback and the wider admin backlog follow this release. Player/provider
 testing is not a release phase. Historical unchecked entries are not an implementation audit.
 
 Updated 2026-10-25. **Current milestone: 0.1 Alpha, a reliable base.**
@@ -31,7 +31,7 @@ Aqua's clarified priority is database/catalog, images and tracking first. Playba
 retention, device video and saved-work browsing build on that foundation. These are proposed
 checkpoints; detailed implementation order stays subject to review.
 
-- [x] **A01** Jellyfin supplies stored media; Nahhasio owns catalog, images and tracking.
+- [x] **A01** Nahhasio supplies stored-media streaming directly; Jellyfin is retired. Catalog, images and tracking remain authoritative.
 - [ ] **A02** Agree file organization; implement confirmed client streaming, explicit server downloads, whole-work policy and progress/watched offline sync.
 - [ ] **A03** Connect the Linux client to a chosen LAN server through the login/server UI.
 - [ ] **A04** Establish server identity, version/capabilities and connection/session ownership.
@@ -77,14 +77,14 @@ source-policy overrides or offline ratings/notes mutations in the initial scope.
 
 Complete remaining catalog/admin pages; provider imports and asset tools;
 advanced maintenance/revisions/restoration; durable server acquisition; offline sync; automatic
-subtitle retrieval; optional Jellyfin/transcoding; richer profiles/policies; statistics/graphs;
+subtitle retrieval; optional future transcoding; richer profiles/policies; statistics/graphs;
 production update automation and mature release compatibility. These are valuable backlog items,
 not prerequisites for every Alpha checkpoint.
 
 LAN is the confirmed initial network scope. Public access/VPN and non-Linux clients remain future.
 Guided explicit Alpha upgrades are the default; scheduled automatic upgrades can follow recovery.
 The initial accounts are admin and family user; more profiles/policy systems are optional future.
-Jellyfin-specific tasks below are conditional on the chosen integration, not mandatory Alpha work.
+The former Jellyfin integration is replaced by direct Nahhasio delivery; installed media acceptance remains separate from source checks.
 
 ## Suggested long-term grouping
 
@@ -267,22 +267,22 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-09-11** Retain audit history without leaking credentials or private tokens.
 - [ ] **NH-09-12** Keep the single migration history and test data changes on restored copies.
 
-### 10. Jellyfin connection and library matching
+### 10. Managed server media (decision updated 2026-11-04)
 
-- [ ] **NH-10-01** Confirm whether an existing Jellyfin instance/library must be retained.
-- [ ] **NH-10-02** Configure server connection, protected credentials and connection checks.
-- [ ] **NH-10-03** Define Jellyfin library and user mappings without conflating Nahhasio accounts.
-- [ ] **NH-10-04** Inspect/reuse jellyfin_servers and jellyfin_items mappings.
-- [ ] **NH-10-05** Implement an initial library scan and incremental reconciliation.
-- [ ] **NH-10-06** Match Jellyfin items/files to catalog identities using provider IDs and file evidence.
-- [ ] **NH-10-07** Provide manual resolution for unmatched and conflicting items.
-- [ ] **NH-10-08** Handle Jellyfin item-ID/path changes and missing items without deleting catalog data.
-- [ ] **NH-10-09** Expose connection state, last scan, failures and rescan controls.
-- [ ] **NH-10-10** Recover when Jellyfin is offline or credentials expire.
-- [ ] **NH-10-11** Keep curated Nahhasio classification/Arabic metadata authoritative.
-- [ ] **NH-10-12** DECISION: define one-way versus two-way progress synchronization and conflict ownership.
-- [ ] **NH-10-13** Reconcile Arabic-dubbed versions and multiple files for one catalog episode.
-- [ ] **NH-10-14** Ensure Jellyfin access cannot bypass required family/media authorization.
+- [x] **NH-10-01** Inspect the old library, retain the three selected collections and retire Jellyfin.
+- [x] **NH-10-02** Define managed roots and an explicit worker/API installation preparation command.
+- [x] **NH-10-03** Keep viewer access, device downloads and administrator acquisition separate.
+- [x] **NH-10-04** Reuse library_roots, media_files, media_tracks and background_jobs; retain historical Jellyfin tables.
+- [ ] **NH-10-05** Accept full scans and reconciliation on the installed library.
+- [x] **NH-10-06** Provide explicit work/part/episode file mapping and filename suggestions.
+- [x] **NH-10-07** Review creation of missing catalog parts/episodes before acquisition.
+- [x] **NH-10-08** Preserve catalog/tracking when files are missing, replaced or retired.
+- [ ] **NH-10-09** Complete installed library coverage, rescan and job observability acceptance.
+- [x] **NH-10-10** Report unavailable server files independently of internet providers.
+- [x] **NH-10-11** Keep curated Arabic metadata and artwork authoritative.
+- [x] **NH-10-12** Keep tracking in Nahhasio; no Jellyfin progress synchronization.
+- [x] **NH-10-13** Support multiple file records without introducing an edition/version model.
+- [ ] **NH-10-14** Accept native streaming, device isolation and revoked access on installed artifacts.
 
 ### 11. Server playback and viewing state
 
@@ -292,8 +292,8 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-11-04** Feed remote playback through the contained native player/gateway boundary.
 - [ ] **NH-11-05** Keep credentials out of exposed media URLs and logs.
 - [ ] **NH-11-06** Support audio/subtitle track metadata and selection for remote library files.
-- [ ] **NH-11-07** DECISION: implement Jellyfin remux/transcoding and quality selection if required for v1.0.
-- [ ] **NH-11-08** Recover cleanly when the selected server or Jellyfin becomes unavailable.
+- [ ] **NH-11-07** DECISION: implement future remux/transcoding and quality selection if required for v1.0.
+- [ ] **NH-11-08** Recover cleanly when the selected server becomes unavailable.
 - [ ] **NH-11-09** Persist progress/watched state under the chosen account/profile/server identity.
 - [ ] **NH-11-10** Keep manually watched state distinct from playback-derived completion.
 - [ ] **NH-11-11** Preserve resume positions across client/server restarts.
@@ -310,7 +310,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-12-07** Verify completed files before making them available in the library.
 - [ ] **NH-12-08** Identify/attach downloads to existing work/episode identities.
 - [ ] **NH-12-09** Commit safe completed-file placement and recover interrupted imports.
-- [ ] **NH-12-10** Trigger/reconcile Jellyfin library scanning after import.
+- [ ] **NH-12-10** Publish verified imported files directly to Nahhasio media inventory.
 - [ ] **NH-12-11** Keep server acquisition independent from the existing-file Arabic-dub workflow.
 - [ ] **NH-12-12** Expose queue/history and safe logs without leaking source credentials.
 - [ ] **NH-12-13** Keep media-transfer logic independent of the GTK client.
@@ -319,7 +319,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 
 - [ ] **NH-13-01** Confirm Arabic-dubbed and non-dubbed audio/subtitle defaults.
 - [ ] **NH-13-02** Discover/select embedded subtitle tracks and local sidecar subtitles.
-- [ ] **NH-13-03** Support Jellyfin-provided subtitle discovery and authorized delivery.
+- [ ] **NH-13-03** Support authorized stored-file subtitle discovery and delivery if required later.
 - [ ] **NH-13-04** Implement an OpenSubtitles provider behind a replaceable server-owned interface.
 - [ ] **NH-13-05** Provide search, result details, manual selection and download errors.
 - [ ] **NH-13-06** Match subtitles using work/episode/release/file evidence rather than title alone.
@@ -407,7 +407,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-18-08** Validate readiness after updating and report failed activation.
 - [ ] **NH-18-09** Provide application-image rollback and a separate database recovery plan.
 - [ ] **NH-18-10** Document that container rollback cannot automatically undo schema/data migrations.
-- [ ] **NH-18-11** DECISION: define Jellyfin/PostgreSQL update ownership separately from Nahhasio updates.
+- [ ] **NH-18-11** DECISION: define media-worker/PostgreSQL update ownership separately from Nahhasio updates.
 
 ### 19. Flatpak and signed release pipeline
 
@@ -437,7 +437,7 @@ The historical prototype remains recoverable in Git; no installed acceptance is 
 - [ ] **NH-20-04** Exercise create/edit/bulk/JSON/delete/restore, stale edits and failed transactions.
 - [ ] **NH-20-05** Exercise the supplied Arabic-dubbed library and uncertain/missing/duplicate-file scenarios.
 - [ ] **NH-20-06** Exercise remote direct play, selected audio/subtitles, resume and network loss.
-- [ ] **NH-20-07** Exercise required Jellyfin sync/transcoding and unavailable-service recovery.
+- [ ] **NH-20-07** Exercise required stored-media delivery and unavailable-service recovery.
 - [ ] **NH-20-08** Exercise server/device downloads, disk-full cases and restart recovery.
 - [ ] **NH-20-09** Exercise offline playback and reconnection under the agreed access policy.
 - [ ] **NH-20-10** Exercise Fedora boot, update, failed-update recovery and independent backup restore.
@@ -448,3 +448,71 @@ The historical prototype remains recoverable in Git; no installed acceptance is 
 - [ ] **NH-20-15** Remove unused legacy API/worker/provider/contract code only after consumer inventory.
 - [ ] **NH-20-16** Update active guides and commands to the final server/Linux-client product.
 - [ ] **NH-20-17** Publish v1.0 artifacts, installation/update/restore guides and known limitations.
+
+## Media implementation checkpoint — 2026-11-05
+
+Resumed from the November 4 pause in the main chat, without subagents. Source changes remain
+uncommitted and undeployed. Do not repeat the destructive family-server cleanup. Preserve the
+unrelated media-review skill edit and the existing 0.1.3 upgrade notes in FAMILY-SERVER.md.
+Committing, publishing and installing the new application builds still require separate authorization.
+No live catalog writes or additional family-server changes were made in this continuation.
+
+Implemented source includes authenticated original-file streaming/native relay, scoped server-file
+device downloads, admin inventory/import/job controls, YouTube preview and reviewed episode metadata,
+native resumable uploads, verification/reassignment and seven-day trash. Folder selection now exposes
+both incoming files and unregistered files beneath the configured library's series/movies roots,
+with stable pagination and traversal/symlink checks. Reviewed imports create readable UUID directories;
+existing directory identities and journal destinations survive title/number edits.
+
+Exact import request replays return their original job. Exact already-saved editor reviews can be
+retried without another catalog mutation; later edits still conflict. Duplicate episode selections
+and overlapping queued imports are rejected. The singleton worker serializes imports within one
+work and checks provenance before another YouTube acquisition. Completed items survive failures;
+job results show individual failures and retry skips registered items. Interrupted copies verify
+the retained prefix, and interrupted restores reconcile verified destination bytes. Journal writes
+are atomic and synced. Tool cancellation kills the process group, clears inherited credentials,
+and monitors acquisition capacity. Unreceipted YouTube remux outputs are retained separately.
+
+Administration now has work coverage/missing-unit views, source/availability filters, file inspection,
+trash usage, phase labels and work-editor import/manage entry points. Uploads fingerprint native
+source bytes and verify SHA-256 before publication; readable upload names support episode suggestions.
+Device download paths are isolated by server/account. A download waits for its viewing pack; failed
+pack refresh retains the previous valid pack. Long media responses use a separate trusted transport
+with an idle timeout, rather than the ordinary API's 15-second total deadline.
+
+The media installer remains explicit and shares the signed image override. Backups stop the worker
+when the API is inactive and restore the previous service states. Restored pending media jobs need
+review before retry, preserving newer files/journals instead of replaying old side effects.
+No new database migration was added.
+
+Remaining delivery work:
+
+1. Finish sidecar preservation/association during normalized imports, richer reviewed mapping and
+   replacement controls, and YouTube bulk ordering/numbering/thumbnail preview details. Do not
+   describe these remaining import UX requirements as accepted merely because queueing works.
+2. Exercise actual YouTube preview/acquisition with the versioned worker tools, larger mixed-error
+   batches, retry/provenance races and disk/cancellation boundaries. Finish viewer batch downloads
+   and remaining transfer/storage presentation. Existing local subtitle files have not been deleted.
+3. Rehearse media-enabled backup/update/restore on restored disposable data and actual containers.
+   Build the OCI and Flatpak artifacts with pinned release inputs. Podman/flatpak-builder were not
+   available in the current shell, and no Flatpak SDK was installed; no imperative tool/SDK install
+   was performed. Offline host-tool tests do not establish installed worker lifecycle acceptance.
+4. Review the three retained collections against catalog episodes before live normalization or
+   registration, then obtain installation authorization for the prepared builds. Physical input,
+   target Fedora acceptance and installed Flatpak behavior remain separate from scripted diagnostics.
+
+Verification in this continuation: repository `pnpm check`, workspace Rust tests, disposable
+`bin/test-server-media`, the complete `bin/test-rust-catalog` preservation/migration/export suite,
+17 offline packaging tests and three focused browser media tests passed. The media API fixture
+includes library-root pagination, ranges/HEAD, import replay/conflict, a real FFmpeg-probed import,
+interrupted restore, trash/purge accounting, upload hash rejection and administrator revocation.
+The native transfer fixture covers interruption/resume/restart, a body exceeding 15 seconds,
+account path isolation, offline saved details/video and failed-image pack refresh.
+
+Fresh native-diagnostics binary and production Vite bundle passed `--home-smoke` using a private,
+authenticated loopback fixture: gateway origin/HEAD/range checks, real mpv playback, Arabic audio,
+embedded subtitles, seek/fullscreen and advancing frames. The first unauthenticated UI harness did
+not mount the player; the corrected authenticated harness passed. Captures were inspected. This is
+not an installed Flatpak test or physical keyboard/GPU smoothness certification. CUDA/a11y/Vulkan
+warnings remain recorded in the ignored native logs. Keep private manifests, fixtures and captures
+out of Git.

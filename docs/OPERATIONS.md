@@ -171,3 +171,42 @@ activation. Neither setting changes catalog rows or migration history.
 Follow [RELEASE-0.1.1](RELEASE-0.1.1.md) for the one-time 0.1.0 worker bootstrap. Thereafter the
 same verified server update carries host tools; no routine SSH/file copying is needed. The
 `~/Nahhasio/releases` folder is only an installer cache, independent of installed tools/backups.
+
+## Managed media checkpoint (source, not installed acceptance)
+
+Jellyfin is retired. Explicit `install.py media-prepare --root ~/Nahhasio --worker-image <installed-digest>`
+prepares videos, incoming imports, staging, trash and media-operation journals.
+The worker mounts `videos/` once. Hidden `.incoming`, `.staging` and `.trash` directories live
+inside that filesystem; `imports/incoming`, `downloads/uploads`, `downloads/jobs` and `trash`
+are reviewed directory aliases to those targets. This avoids cross-bind-mount copies without
+exposing the installation configuration or private backups to the worker. Existing nonempty
+roots are rejected for explicit reconciliation; setup never silently relocates their contents. Run it with the
+installation's explicit `--config-root`. It does not start services or import/mutate the catalog.
+The worker uses the same verified image as the API, with only runtime database credentials.
+FFmpeg, yt-dlp, its EJS package and Deno are packaged tools, not host installations. Release
+builds must supply a digest-qualified DENO_IMAGE alongside the existing image inputs.
+
+The API receives read-only videos and writable incoming-upload storage. The separate rootless
+worker receives managed videos/incoming/trash/journals, with no owner credentials, provider
+settings, signing authority or Podman socket. Shared mounts retain SELinux `:z` labeling.
+
+Container roots are `NAHHASIO_LIBRARY_ROOT`, `NAHHASIO_IMPORT_ROOT`, `NAHHASIO_TRASH_ROOT` and
+`NAHHASIO_MEDIA_OPERATIONS_ROOT`. All are absolute and explicitly configured. They do not reuse
+artwork roots or change the independent client `NAHHASIO_VIDEO_ROOT`.
+
+The database worker uses existing durable job records and a separate advisory singleton lock.
+Acquisition concurrency is two; heavy probing is serialized. Imported files are checked before
+publication, with atomic synced journals and verified copy/restore recovery. Directory browsing
+selects incoming or unregistered series/movie files and paginates in filename order. Traversal,
+symlink escapes, hidden/macOS companion files and empty videos are rejected. Readable directory
+names retain UUID identity; title edits do not rename an existing managed folder. Server imports preserve a 5 GiB reserve; staging/capacity failures remain visible.
+Future admin deletion expires after seven days. Existing video backups are never implicitly
+created or pruned as disposable media cache.
+
+Maintenance stops the media worker alongside the API during coordinated operations. The worker
+shares the server's signed release-image override, so update/rollback must restart both services.
+Media-enabled backups include import journals and registered file identities/hashes, **not video
+bytes**. Backups preserve the prior API/worker activity states, including a worker running while
+the API is stopped. Restoring preserves physical videos and newer journals; restored availability
+becomes unknown and pending media jobs require review before retry. Large video copies require a separately
+chosen backup destination/process. Daily catalog/artwork backup frequency is unchanged.

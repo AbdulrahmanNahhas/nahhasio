@@ -5,6 +5,7 @@ type LibraryCall = { operation: string; data: z.infer<(typeof rpcInputs)[keyof t
 declare global {
   interface Window {
     fixtureLibraryCalls: LibraryCall[];
+    fixtureMediaCalls: { command: string; payload: Record<string, string> }[];
     fixtureMaintenanceCalls: ServerOperationRequest[];
   }
 }
@@ -13,6 +14,8 @@ import { expect, test } from "@playwright/test";
 test.use({ viewport: { width: 1440, height: 900 } });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
+    window.fixtureMediaCalls = [];
+    let trashed = false;
     const user = {
       id: "fixture-admin",
       accountId: "00000000-0000-4000-8000-000000000001",
@@ -61,6 +64,100 @@ test.beforeEach(async ({ page }) => {
             const request = JSON.parse(raw);
             let result;
             switch (request.command) {
+              case "adminMedia":
+                result = {
+                  items: [
+                    {
+                      id: "00000000-0000-4000-8000-000000000101",
+                      workId: "00000000-0000-4000-8000-000000000102",
+                      workTitle: "عائلة الأستاذ شلش",
+                      installmentId: "00000000-0000-4000-8000-000000000103",
+                      installmentTitle: "الموسم الأول",
+                      episodeId: "00000000-0000-4000-8000-000000000104",
+                      episodeTitle: "الحلقة الأولى",
+                      episodeNumber: "1",
+                      relativePath: "series/shalash/E001.mkv",
+                      byteSize: 1000000,
+                      durationSeconds: 1500,
+                      availability: trashed ? "missing" : "present",
+                      revision: "fixture-media-revision",
+                      probeMetadata: {
+                        source: "server-folder",
+                        probe: {
+                          streams: [
+                            {
+                              index: 0,
+                              codec_type: "video",
+                              codec_name: "h264",
+                              width: 1920,
+                              height: 1080,
+                            },
+                            {
+                              index: 1,
+                              codec_type: "audio",
+                              codec_name: "aac",
+                              tags: { language: "ar" },
+                            },
+                          ],
+                        },
+                      },
+                      lastVerifiedAt: "2026-11-04T12:00:00Z",
+                      sha256: "a".repeat(64),
+                      isTrashed: trashed,
+                      trashExpiresAt: trashed ? "2026-11-11T12:00:00Z" : null,
+                    },
+                  ],
+                  page: 1,
+                  pageSize: 30,
+                  total: 1,
+                  trashBytes: trashed ? 1000000 : 0,
+                  trashFiles: trashed ? 1 : 0,
+                };
+                break;
+              case "adminMediaFile":
+                window.fixtureMediaCalls.push(request);
+                if (request.payload.action === "trash") trashed = true;
+                if (request.payload.action === "restore") trashed = false;
+                result = { id: "00000000-0000-4000-8000-000000000105" };
+                break;
+              case "adminMediaCoverage":
+                result = {
+                  items: [
+                    {
+                      workId: "00000000-0000-4000-8000-000000000102",
+                      workTitle: "عائلة الأستاذ شلش",
+                      expectedUnits: 30,
+                      availableUnits: 15,
+                      missingUnits: 15,
+                      fileCount: 15,
+                    },
+                  ],
+                  total: 1,
+                  page: 1,
+                  pageSize: 30,
+                };
+                break;
+              case "adminMediaJobs":
+                result = [
+                  {
+                    id: "00000000-0000-4000-8000-000000000105",
+                    type: "media.import",
+                    status: "running",
+                    progress: 50,
+                    result: {},
+                    error: null,
+                    createdAt: "2026-11-04T12:00:00Z",
+                    cancelRequested: false,
+                  },
+                ];
+                break;
+              case "adminMediaControl":
+                window.fixtureMediaCalls.push(request);
+                result = { ok: true };
+                break;
+              case "adminWorks":
+                result = { items: [], page: 1, pageSize: 30, total: 0 };
+                break;
               case "session":
                 result = { user, expiresAt: "2099-01-01T00:00:00Z" };
                 break;
@@ -297,9 +394,7 @@ test("overview uses server status and settings save name and write-only keys", a
   await page.getByRole("link", { name: "إعدادات الخادم", exact: true }).click();
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(page.getByRole("table")).toHaveCount(0);
-  await expect(page.getByLabel("عنوان خادم Jellyfin", { exact: true })).toBeDisabled();
-  await expect(page.getByLabel("رمز الوصول", { exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "مطابقة المكتبات", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("عنوان خادم Jellyfin", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("مفتاح Fanart", { exact: true })).toBeVisible();
   await page.getByLabel("اسم الخادم", { exact: true }).fill("مكتبة أكوا");
   await page.getByRole("button", { name: "حفظ الاسم", exact: true }).click();
@@ -845,4 +940,68 @@ test("maintenance connection errors recover without blocking library inspection"
     )
     .toEqual(["backup"]);
   await expect(page.getByRole("button", { name: "إنشاء نسخة الآن", exact: true })).toBeDisabled();
+});
+
+test("server media retirement requires confirmation and keeps catalog navigation", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/library");
+  await expect(
+    page.getByRole("heading", { name: "مكتبة ملفات الخادم", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "عائلة الأستاذ شلش", exact: true })).toHaveAttribute(
+    "href",
+    /#\/titles\//,
+  );
+  await page.getByRole("button", { name: "نقل إلى المحذوفات", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(await page.evaluate(() => window.fixtureMediaCalls)).toEqual([]);
+  await page.getByRole("button", { name: "تأكيد", exact: true }).click();
+  await expect(page.getByRole("button", { name: "استعادة", exact: true })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.fixtureMediaCalls.map((call) => call.payload.action)))
+    .toEqual(["trash"]);
+  await page.getByRole("button", { name: "استعادة", exact: true }).click();
+  await expect(page.getByRole("button", { name: "نقل إلى المحذوفات", exact: true })).toBeVisible();
+  await page.screenshot({ path: "../../../data/previews/media-library-desktop.png" });
+  await page.setViewportSize({ width: 430, height: 900 });
+  await expect(page.getByRole("button", { name: "استيراد فيديوهات", exact: true })).toBeVisible();
+  await page.screenshot({ path: "../../../data/previews/media-library-narrow.png" });
+});
+
+test("server media queue cancellation and import dialog use their own controls", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/downloads");
+  await expect(page.getByRole("heading", { name: "مهام وسائط الخادم", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "إلغاء", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.fixtureMediaCalls.map((call) => call.payload.action)))
+    .toEqual(["cancel"]);
+  await page.goto("/#/admin/library");
+  const trigger = page.getByRole("button", { name: "استيراد فيديوهات", exact: true });
+  await trigger.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test("server media coverage and file inspection stay useful on narrow layouts", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/library?mediaView=missing");
+  await expect(
+    page.getByText("15 متاحًا من 30 حلقة أو فيلم · 15 لم تُستورد · 15 ملفًا مسجّلًا"),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "إدارة الفيديوهات", exact: true }).click();
+  await expect(page).toHaveURL(/workId=00000000-0000-4000-8000-000000000102/);
+  await page.getByRole("button", { name: "تفاصيل الملف", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("1920 × 1080 · h264");
+  await expect(page.getByRole("dialog")).toContainText("صوت · ar · aac");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 430, height: 900 });
+  await expect(page.getByRole("button", { name: "تفاصيل الملف", exact: true })).toBeVisible();
+  await expect(page.getByText(/المحذوفات: 0 ملفًا/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

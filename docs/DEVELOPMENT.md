@@ -276,8 +276,9 @@ and server library storage are distinct. Unknown mappings and failed transfers r
 
 [Streaming](STREAMING.md) documents provider isolation/diagnostics and [anime direct](ANIME-DIRECT.md)
 documents the bounded Python helper. These client features do not imply server acquisition or
-stored-file delivery. Player/provider testing and Jellyfin/files-only playback are outside the
-current hosting release. Do not relax protocol/CSP/TLS/auth restrictions for a provider failure.
+installed stored-file delivery. The media source checkpoint adds a separate Rust worker,
+explicit import jobs and native original-file streaming; it needs independent packaged/native
+acceptance after the hosting release. Do not relax protocol/CSP/TLS/auth restrictions for a provider failure.
 
 ## Build and verification
 
