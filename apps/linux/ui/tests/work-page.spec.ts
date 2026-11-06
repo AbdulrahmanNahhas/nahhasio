@@ -18,6 +18,8 @@ import type {
   WorkActivityPage,
   WorkDetail,
   WorkViewerState,
+  ServerMediaFile,
+  DeviceMediaBatchResult,
 } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -362,6 +364,7 @@ type BridgeRequest = {
     data?: CommentMutation;
     width?: number;
     height?: number;
+    fileIds?: string[];
   };
 };
 type WorkPageFixture = {
@@ -371,6 +374,7 @@ type WorkPageFixture = {
   holdFavorite: boolean;
   releaseFavorite: () => void;
   failWatched: boolean;
+  homeFiles: boolean;
 };
 declare global {
   interface Window {
@@ -393,6 +397,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
         holdFavorite: false,
         releaseFavorite: () => {},
         failWatched: false,
+        homeFiles: false,
       };
       window.workPageFixture = fixture;
       const summaryFor = (installmentId?: string): WatchSummary => {
@@ -434,6 +439,8 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   | WorkViewerState
                   | WorkActivityPage
                   | RecommendationPage
+                  | ServerMediaFile[]
+                  | DeviceMediaBatchResult
                   | z.infer<typeof offlineStatusSchema>,
               ) =>
                 queueMicrotask(() =>
@@ -452,6 +459,43 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   }),
                 );
               switch (request.command) {
+                case "homeMedia": {
+                  const part = fixtureWork.installments[0];
+                  success(
+                    fixture.homeFiles && part
+                      ? part.episodes.slice(0, 2).map((mediaEpisode, index) => ({
+                          id: `90000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+                          workId: fixtureWork.id,
+                          workTitle: fixtureWork.canonicalTitle,
+                          installmentId: part.id,
+                          installmentTitle: part.title,
+                          episodeId: mediaEpisode.id,
+                          episodeTitle: mediaEpisode.title,
+                          episodeNumber: mediaEpisode.number,
+                          relativePath: `series/episode-${index}.mp4`,
+                          byteSize: 1000,
+                          durationSeconds: 60,
+                          availability: "present",
+                          revision: "fixture",
+                          probeMetadata: {},
+                          sha256: "a".repeat(64),
+                          lastVerifiedAt: null,
+                          isTrashed: false,
+                          trashExpiresAt: null,
+                        }))
+                      : [],
+                  );
+                  return;
+                }
+                case "media.homeDownloadBatch":
+                  success(
+                    (request.payload.fileIds ?? []).map((fileId) => ({
+                      id: fileId,
+                      queued: true,
+                      error: null,
+                    })),
+                  );
+                  return;
                 case "player.status":
                 case "player.viewport":
                   success(playback);
@@ -926,6 +970,36 @@ for (const scope of ["work", "season"] as const) {
     expect((await currentState(page)).units.every((unit) => !unit.isPlayed)).toBe(true);
   });
 }
+
+test("batch home downloads require explicit selection and confirmation without starting playback", async ({
+  page,
+}) => {
+  await openWork(page);
+  await page.evaluate(() => {
+    window.workPageFixture.homeFiles = true;
+  });
+  expect(await requests(page, "media.homeDownloadBatch")).toEqual([]);
+  await page.getByRole("button", { name: "تنزيل حلقات من مكتبة المنزل", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "تنزيل فيديوهات إلى هذا الجهاز", exact: true });
+  await expect(dialog.getByRole("checkbox")).toHaveCount(2);
+  await expect(
+    dialog.getByRole("button", { name: "تأكيد التنزيل إلى الجهاز", exact: true }),
+  ).toBeDisabled();
+  await dialog
+    .getByRole("button", { name: "تحديد نسخة لكل حلقة أو فيلم — حتى 100", exact: true })
+    .click();
+  expect(await requests(page, "media.homeDownloadBatch")).toEqual([]);
+  await dialog.getByRole("button", { name: "تأكيد التنزيل إلى الجهاز", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("أُضيف 2 فيديو");
+  expect(await requests(page, "media.homeDownloadBatch")).toEqual([
+    {
+      workId,
+      fileIds: ["90000000-0000-4000-8000-000000000001", "90000000-0000-4000-8000-000000000002"],
+    },
+  ]);
+  expect(await requests(page, "player.preview")).toEqual([]);
+  expect(await requests(page, "media.play")).toEqual([]);
+});
 
 test("released dates and completed film are not watched state or playable availability", async ({
   page,
@@ -1773,7 +1847,7 @@ test("work media actions stay in context and upcoming episodes cannot start play
   page,
 }) => {
   await openWork(page);
-  await expect(page.getByLabel("لغات الدبلجة المسجّلة")).toContainText("العربية");
+  await expect(page.getByLabel("اللغات ومصدر التشغيل")).toContainText("العربية");
   const trailer = page.getByRole("link", {
     name: "مشاهدة الإعلان التشويقي على YouTube",
     exact: true,

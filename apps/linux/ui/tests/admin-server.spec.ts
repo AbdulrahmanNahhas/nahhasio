@@ -818,7 +818,15 @@ test("maintenance separates server and app updates and reviews installation firs
   page,
 }) => {
   await page.goto("/#/admin/maintenance?tab=updates");
-  for (const label of ["تنزيلات الخادم", "مكتبة الملفات", "جميع الجداول", "سجل التعديلات"]) {
+  await expect(page.getByRole("link", { name: "تنزيلات الخادم", exact: true })).toHaveAttribute(
+    "href",
+    /admin\/downloads/,
+  );
+  await expect(page.getByRole("link", { name: "مكتبة الملفات", exact: true })).toHaveAttribute(
+    "href",
+    /admin\/library/,
+  );
+  for (const label of ["جميع الجداول", "سجل التعديلات"]) {
     await expect(
       page.getByRole("button", { name: `${label} — غير متاح بعد`, exact: true }),
     ).toBeDisabled();
@@ -945,15 +953,16 @@ test("maintenance connection errors recover without blocking library inspection"
 test("server media retirement requires confirmation and keeps catalog navigation", async ({
   page,
 }) => {
-  await page.goto("/#/admin/library");
+  await page.goto("/#/admin/library?mediaView=files");
   await expect(
     page.getByRole("heading", { name: "مكتبة ملفات الخادم", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "عائلة الأستاذ شلش", exact: true })).toHaveAttribute(
     "href",
-    /#\/titles\//,
+    /#\/admin\/works\/.*section=structure/,
   );
-  await page.getByRole("button", { name: "نقل إلى المحذوفات", exact: true }).click();
+  await page.getByRole("button", { name: "المزيد من إجراءات الفيديو" }).click();
+  await page.getByRole("menuitem", { name: "نقل إلى المحذوفات", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   expect(await page.evaluate(() => window.fixtureMediaCalls)).toEqual([]);
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
@@ -962,7 +971,11 @@ test("server media retirement requires confirmation and keeps catalog navigation
     .poll(() => page.evaluate(() => window.fixtureMediaCalls.map((call) => call.payload.action)))
     .toEqual(["trash"]);
   await page.getByRole("button", { name: "استعادة", exact: true }).click();
-  await expect(page.getByRole("button", { name: "نقل إلى المحذوفات", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "المزيد من إجراءات الفيديو" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "نقل إلى المحذوفات", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.screenshot({ path: "../../../data/previews/media-library-desktop.png" });
   await page.setViewportSize({ width: 430, height: 900 });
   await expect(page.getByRole("button", { name: "استيراد فيديوهات", exact: true })).toBeVisible();
@@ -978,10 +991,27 @@ test("server media queue cancellation and import dialog use their own controls",
   await expect
     .poll(() => page.evaluate(() => window.fixtureMediaCalls.map((call) => call.payload.action)))
     .toEqual(["cancel"]);
-  await page.goto("/#/admin/library");
+  await page.goto("/#/admin/library?mediaView=files");
   const trigger = page.getByRole("button", { name: "استيراد فيديوهات", exact: true });
   await trigger.click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("وجهة الفيديوهات", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("أين ستظهر الفيديوهات؟", { exact: true })).toBeVisible();
+  const workPicker = dialog.getByRole("combobox", { name: "البحث عن عمل", exact: true });
+  await workPicker.fill("عمل غير موجود");
+  await expect(page.getByText("لا توجد أعمال مطابقة", { exact: true })).toBeVisible();
+  await workPicker.press("Escape");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "البحث عن عمل" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "YouTube", exact: true }).click();
+  await expect(dialog.getByText("فيديوهات YouTube", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 430, height: 900 });
+  await expect(dialog.getByRole("button", { name: "رفع من الجهاز", exact: true })).toBeVisible();
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: "/tmp/nahhasio-import-modal-narrow.png" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: "/tmp/nahhasio-import-modal-desktop.png" });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -995,7 +1025,10 @@ test("server media coverage and file inspection stay useful on narrow layouts", 
     page.getByText("15 متاحًا من 30 حلقة أو فيلم · 15 لم تُستورد · 15 ملفًا مسجّلًا"),
   ).toBeVisible();
   await page.getByRole("link", { name: "إدارة الفيديوهات", exact: true }).click();
-  await expect(page).toHaveURL(/workId=00000000-0000-4000-8000-000000000102/);
+  await expect(page).toHaveURL(
+    /admin\/works\/00000000-0000-4000-8000-000000000102\?section=structure/,
+  );
+  await page.goto("/#/admin/library?mediaView=files");
   await page.getByRole("button", { name: "تفاصيل الملف", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("1920 × 1080 · h264");
   await expect(page.getByRole("dialog")).toContainText("صوت · ar · aac");
