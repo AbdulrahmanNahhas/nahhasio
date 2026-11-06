@@ -19,20 +19,37 @@ before a new local, saved, torrent or compatible direct source loads; manual tra
 remain session-local. Arabic subtitle preference falls back to English. Debrid and addon
 installation remain future integrations.
 
-OpenSubtitles.com setup is in Settings → Subtitles in the Linux client: each person supplies an
-API key, username and password. The password is used only for login; the API key and returned
-token are encrypted through the device Secret portal, bound to the selected server/account.
-Unavailable secure storage disables connection setup rather than storing plaintext. Forgetting an
-account removes its provider credentials. No provider credentials or video are sent through the
-Nahhasio server. The browser development preview does not accept these secrets.
+OpenSubtitles.com setup is in Settings → Subtitles in the Linux client. An API key enables search;
+username/password login enables subtitle downloads and the account's allowance. The password is
+used only for login; the key and returned token are encrypted through the device Secret portal,
+bound to the selected server/account. Unavailable secure storage disables setup rather than storing
+plaintext. Forgetting an account removes its provider credentials. No provider credentials or video
+are sent through the Nahhasio server. The browser preview does not accept these secrets.
 
-The player subtitle panel offers explicit title/language/year/season/episode search, paginated
-release results with provider-reported accessibility/translation flags, and Download and apply.
-Only that action requests a download link and consumes the provider's download allowance. Requests
-are bounded and use fixed API hosts; download redirects are bounded and revalidated, without
-forwarding API credentials. Downloaded UTF-8 SRT files use a bounded account-local disposable cache.
-Expired sessions, quota refusal, network failures and unsupported content produce actionable errors.
-Hash matching, persistent attachment beside saved videos and other subtitle providers are deferred.
+Search uses the current catalog work's canonical title, provider identifiers and season/episode;
+year/season/episode overrides remain available on demand. Movie identity never falls back to a
+parent TV show's identity. Search URL normalization follows at most three redirects within the
+same API host/path, without forwarding credentials elsewhere. Release results retain provider
+accessibility/translation flags. Download and apply explicitly consumes the provider allowance;
+file-download redirects remain bounded and revalidated without API credentials.
+The last manually chosen or downloaded subtitle for a catalog episode/movie is copied into
+`episode-subtitles-v1/` under the native device state root, isolated by account/server and catalog
+identity. It is restored to that video's tracks across episode changes and application restarts;
+original files and server media remain untouched. Arbitrary unlinked local videos remain
+session-only. Retained subtitle copies are separate from the disposable OpenSubtitles download
+cache. Hash matching and additional subtitle providers remain deferred.
+
+Device library opens directly from the sidebar download icon. Its Saved works, Videos, Transfers
+and Storage views separate full viewing packs from downloaded video and disposable caches.
+The work-page Save action opens Device library once saved; only Saved works offers an explicit
+refresh. Saved cards show any retained videos and their playback/management actions. A viewing
+pack contains work/part/episode details, summary, artwork, source identities and viewing state;
+video is optional, and internet sources still need internet. Settings storage controls use a
+compact wrapping row layout. Admin imports opened within an installment retain that destination;
+completed uploads remain staged until reviewed episode matching and import complete.
+Banner mirroring creates new registered artwork, retains original dimensions, and changes only
+the editor draft until review/save; the original artwork remains available.
+
 Real OpenSubtitles acceptance still needs a user's configured key/account; controlled fixtures do
 not establish provider availability, quota or subtitle synchronization. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
 credentials, URLs and local file paths; nothing is sent automatically.

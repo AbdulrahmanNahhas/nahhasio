@@ -635,3 +635,23 @@ removing active availability. Component-wise absence checks reject symlinks and 
 operations require the active configured root and preserve changed/conflicting bytes. Journals
 precede mutations, directory updates are synced before the database commit, and job audit receipts
 make restore replay safe after a commit. No schema migration or production mutation is required.
+
+### Next review requested November 6 — after viewer approval
+
+The media checkpoint is saved in eight commits ending at `ff21007`. The November 6 follow-up
+checkpoints include the reviewed viewer, native subtitle/device, editor and development changes.
+The existing review-skill and Cargo profile edits are checkpointed separately under the explicit
+commit-all instruction. Functional, operations and disposable recovery audits continue below.
+
+- [ ] Review resume/first-unwatched playback, episode-title actions, device controls and sharper hero artwork in the freshly built Linux client.
+- [ ] Refresh saved viewing packs after curator notes become editor-only; the viewer API now redacts the field.
+- [ ] Run deferred regressions after rapid UI revisions; update stale assertions for intentionally changed controls.
+- [ ] Measure authored code separately from generated contracts/migration snapshots; remove duplication without deleting canonical history or Rust exercises.
+- [ ] Design explicit schema-upgrade/media-bootstrap UI, including old-server bootstrap limits, backup/recovery and final health checks.
+- [ ] Clarify compatible server updates, Flatpak Software updates, scheduled backups and retention as separate controls.
+- [ ] Define weekly USB recovery: completed verified database/artwork backup, managed videos, private configuration/trust, import journals and media inventory. Never copy the running PostgreSQL volume as a backup.
+- [ ] Rehearse abrupt power loss during uploads/imports/trash and database/host operations on disposable data; verify restart reconciliation and recovery limits.
+- [ ] Audit documentation together, remove only confirmed obsolete material and preserve recovery receipts.
+
+Publication and installation still require their explicit release review. The cleanup, operations
+and disposable recovery work is authorized to continue after the source checkpoints.
