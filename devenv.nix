@@ -42,6 +42,10 @@
     mpv
     ffmpeg
     yt-dlp
+    deno
+    podman
+    flatpak-builder
+    appstream
     chromium
     python3
     (import ./packaging/linux/anipy-resolver.nix { inherit pkgs; })
@@ -88,6 +92,10 @@
     period = 1;
     timeout = 120;
   };
+  processes.media-worker = {
+    exec = ''exec bash "${config.devenv.root}/bin/nahhasio-dev-media-worker"'';
+    after = [ "devenv:processes:server" ];
+  };
   scripts.nahhasio-client.exec = ''
     exec bash "${config.devenv.root}/bin/nahhasio-dev-client"
   '';
@@ -120,6 +128,7 @@
   };
 
   enterShell = ''
+    python3 "${config.devenv.root}/bin/nahhasio-clean" --maintain
     echo "Nahhasio environment ready"
     echo "Development demo: devenv up (PostgreSQL -> demo bootstrap -> Rust API -> GTK client)"
     echo "Live development: devenv --profile dev up (backend + Vite + GTK desktop)"

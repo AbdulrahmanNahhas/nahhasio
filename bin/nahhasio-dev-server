@@ -11,6 +11,7 @@ export NAHHASIO_MEDIA_ROOT="$project_root/data/development-local/demo/artwork"
 export NAHHASIO_PUBLIC_MEDIA_ROOT="$project_root/data/development-local/demo/public"
 export NAHHASIO_ARTWORK_CACHE_ROOT="$project_root/data/development-local/demo/thumbnail-cache"
 unset NAHHASIO_TLS_CERT NAHHASIO_TLS_KEY NAHHASIO_LOCAL_ADMIN NAHHASIO_LOCAL_ADMIN_TOKEN
+source "$project_root/bin/nahhasio-dev-media-env"
 fixture_root="$project_root/data/development-local/demo"
 mkdir -p "$fixture_root/public"
 # Fixed local host/database and identity: refuse to adopt a different populated database.

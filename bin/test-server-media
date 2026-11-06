@@ -18,4 +18,5 @@ createdb -h "$fixture_root" -p 25485 -U nahhasio_fixture nahhasio_test_media
 mkdir "$media_fixture_root/library" "$media_fixture_root/incoming" "$media_fixture_root/journals" "$media_fixture_root/trash"
 printf '0123456789' > "$media_fixture_root/library/range.mp4"
 ffmpeg -v error -f lavfi -i color=c=black:s=32x32:d=1 -c:v libx264 "$media_fixture_root/incoming/episode.mp4"
+printf '1\n00:00:00,000 --> 00:00:01,000\nSubtitle fixture\n' > "$media_fixture_root/incoming/episode.ar.srt"
 NAHHASIO_TRASH_ROOT="$media_fixture_root/trash" NAHHASIO_LIBRARY_ROOT="$media_fixture_root/library" NAHHASIO_IMPORT_ROOT="$media_fixture_root/incoming" NAHHASIO_MEDIA_OPERATIONS_ROOT="$media_fixture_root/journals" NAHHASIO_TEST_MEDIA_DATABASE_URL="postgresql://nahhasio_fixture@localhost:25485/nahhasio_test_media?host=$fixture_root" cargo test --locked -p nahhasio-server --test media_postgres -- --ignored --nocapture

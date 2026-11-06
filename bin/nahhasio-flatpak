@@ -5,6 +5,7 @@ task_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$task_root"
 pnpm --filter @nahhasio/linux-ui build
 python3 packaging/flatpak/prepare.py
+mkdir -p dist
 flatpak-builder --user --force-clean --disable-rofiles-fuse --install-deps-from=flathub \
   --repo=dist/flatpak-repo --default-branch=alpha \
   .flatpak-build packaging/flatpak/io.nahhasio.Linux.json

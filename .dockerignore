@@ -21,3 +21,11 @@ dist
 *.tsbuildinfo
 test-results
 playwright-report
+.env
+.env.*
+**/.env
+**/.env.*
+devenv.local.nix
+.flatpak*
+.agents
+.codex

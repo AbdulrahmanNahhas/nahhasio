@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Never adopt an ambient database for development acquisition or file mutation.
+set -euo pipefail
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_root"
+export PGUSER="${PGUSER:-$USER}"
+export DATABASE_URL="postgresql://127.0.0.1:23102/nahhasio_development"
+identity="$(psql "$DATABASE_URL" -XAt -v ON_ERROR_STOP=1 -c 'select id from server_instance where singleton')"
+if test "$identity" != 97900000-0000-4000-8000-000000000001; then
+  echo 'Refusing to run the development media worker against an unrecognized database.' >&2
+  exit 1
+fi
+source "$project_root/bin/nahhasio-dev-media-env"
+exec cargo run --locked -p nahhasio-server --bin nahhasio-media-worker

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Sourced only by explicit synthetic development launchers.
+export NAHHASIO_LIBRARY_ROOT="$project_root/data/development-local/demo/videos"
+export NAHHASIO_IMPORT_ROOT="$project_root/data/development-local/demo/imports/incoming"
+export NAHHASIO_TRASH_ROOT="$project_root/data/development-local/demo/trash"
+export NAHHASIO_MEDIA_OPERATIONS_ROOT="$project_root/data/development-local/demo/media-operations"
+mkdir -p "$NAHHASIO_LIBRARY_ROOT/series" "$NAHHASIO_LIBRARY_ROOT/movies" \
+  "$NAHHASIO_IMPORT_ROOT" "$NAHHASIO_TRASH_ROOT" "$NAHHASIO_MEDIA_OPERATIONS_ROOT"

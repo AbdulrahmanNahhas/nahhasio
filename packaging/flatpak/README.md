@@ -54,8 +54,10 @@ FLATPAK_USER_DIR="$PWD/.flatpak-user" devenv shell -- \
   nix shell nixpkgs#flatpak-builder --command bash bin/nahhasio-flatpak
 ```
 
-The first SDK/dependency build can take time. Retain `.flatpak-user` and `.flatpak-builder`
-for subsequent builds; both are ignored. To test the built sandbox without installing the
+The first SDK/dependency build can take time. `.flatpak-user` and `.flatpak-builder` are disposable
+ignored caches; retain them only while actively packaging. Run `python3 bin/nahhasio-clean --apply`
+after stopping builds to reclaim SDKs and build output; the next build downloads them again.
+To test the built sandbox without installing the
 unsigned bundle over the signed client, fully quit the installed app, then run:
 
 ```sh
