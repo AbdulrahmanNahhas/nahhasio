@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workLink } from "@/features/shell/navigation";
 import { gateway } from "@/lib/bridge";
-import { languageName } from "@/lib/languages";
+import { languageName, workLanguages } from "@/lib/languages";
 
 /** Companion data uses the work page's existing recommendation endpoint and cache. */
 export function WatchCompanion({
@@ -33,7 +33,7 @@ export function WatchCompanion({
   const facts = [
     ["النوع", work.format === "animated" ? "رسوم متحركة" : "تمثيل حي"],
     ["بلد الإنتاج", work.countries.map((country) => country.labelAr || country.labelEn).join("، ")],
-    ["الدبلجة المسجّلة", work.dubLanguages?.map(languageName).join("، ")],
+    ["لغات العمل", workLanguages(work).map(languageName).join("، ")],
   ].filter((row) => row[1]);
   return (
     <div className="flex flex-col gap-5">

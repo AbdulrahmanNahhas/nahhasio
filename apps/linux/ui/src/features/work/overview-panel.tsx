@@ -183,6 +183,7 @@ export function InstallmentTiles({ work, tracking }: { work: WorkDetail; trackin
                 kind: unit.kind,
                 releaseDate: unit.releaseDate,
                 runtimeMinutes: unit.runtimeMinutes,
+                languages: unit.languages,
                 episodeCount: unit.episodes.length,
                 poster: pickArtwork(unit.artwork, "poster") ?? work.poster,
                 score: { rating, scored: rating === null ? 0 : 1, total: 1 },

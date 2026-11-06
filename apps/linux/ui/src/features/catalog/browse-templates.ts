@@ -27,8 +27,8 @@ export const browseTemplates: readonly Template[] = [
   {
     id: "arabic-cartoon",
     title: "كرتون عربي",
-    description: "مسلسلات الرسوم المتحركة التي سُجّلت لها دبلجة عربية.",
-    facets: [templateFacet("kinds", ["animated-series"]), templateFacet("dubLanguages", ["ar"])],
+    description: "مسلسلات الرسوم المتحركة التي سُجّلت لها اللغة العربية.",
+    facets: [templateFacet("kinds", ["animated-series"]), templateFacet("languages", ["ar"])],
   },
   {
     id: "eastern-animation-movies",
@@ -54,17 +54,17 @@ export const browseTemplates: readonly Template[] = [
   {
     id: "western-series",
     title: "مسلسلات غربية",
-    description: "مسلسلات التمثيل الحي التي لم تُسجّل لها دبلجة عربية.",
+    description: "مسلسلات التمثيل الحي التي لم تُسجّل لها اللغة العربية.",
     facets: [
       templateFacet("kinds", ["live-action-series"]),
-      templateFacet("dubLanguages", [], ["ar"]),
+      templateFacet("languages", [], ["ar"]),
     ],
   },
   {
     id: "arabic-series",
     title: "مسلسلات عربية",
-    description: "مسلسلات التمثيل الحي التي سُجّلت لها دبلجة عربية.",
-    facets: [templateFacet("kinds", ["live-action-series"]), templateFacet("dubLanguages", ["ar"])],
+    description: "مسلسلات التمثيل الحي التي سُجّلت لها اللغة العربية.",
+    facets: [templateFacet("kinds", ["live-action-series"]), templateFacet("languages", ["ar"])],
   },
 ];
 

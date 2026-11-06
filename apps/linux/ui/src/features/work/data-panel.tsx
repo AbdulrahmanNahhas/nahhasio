@@ -84,7 +84,7 @@ export function MediaFiles({ files }: { files: MediaFile[] }) {
           key={file.id}
           title={
             <>
-              {file.jellyfinLinked ? "فيديو مرتبط بـ Jellyfin" : "فيديو مسجّل"}
+              فيديو مسجّل
               {file.durationSeconds !== null && (
                 <> · {Math.round(file.durationSeconds / 60)} دقيقة</>
               )}
@@ -94,7 +94,6 @@ export function MediaFiles({ files }: { files: MediaFile[] }) {
           <RecordedFields
             rows={[
               ["المدة بالثواني", file.durationSeconds],
-              ["ارتباط Jellyfin", file.jellyfinLinked ? "نعم" : "لا"],
               ["معرّف الملف", file.id],
             ]}
           />

@@ -5,7 +5,9 @@ import { cn } from "cn";
 import { ArrowDownUp, ChevronDown, Clock, Download, Info, Play } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { LanguageBadges } from "@/components/language-badges";
 import { Progress } from "@/components/ui/progress";
+import { workLanguages } from "@/lib/languages";
 
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
@@ -142,6 +144,7 @@ export function InstallmentsPanel({
         />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <h3 className="text-xl font-semibold md:text-2xl">{item.title}</h3>
+          <LanguageBadges languages={item.languages ?? workLanguages(work)} />
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             {!(item.status === "announced" && rating === null) && (
               <ScoreBadge score={{ rating, scored: rating === null ? 0 : 1, total: 1 }} />

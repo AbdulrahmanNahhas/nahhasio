@@ -56,7 +56,7 @@ const categories = [
       "watchStates",
       "favoriteStates",
       "playableStates",
-      "dubLanguages",
+      "languages",
       "playbackPolicies",
     ],
   },
