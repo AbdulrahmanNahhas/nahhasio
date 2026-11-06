@@ -40,6 +40,7 @@ mod stream_bridge;
 mod stream_capabilities;
 mod stream_provider;
 mod stream_registry;
+mod subtitle_attachments;
 #[cfg(feature = "native-diagnostics")]
 mod torrent_smoke;
 mod torrent_sources;
@@ -183,7 +184,11 @@ fn main() -> glib::ExitCode {
         .any(|arg| arg == "--player-smoke" || arg == "--torrent-smoke" || arg == "--home-smoke");
     let smoke_mode = smoke.is_some() || player_smoke;
     let application = adw::Application::builder()
-        .application_id("io.nahhasio.Linux")
+        .application_id(if config.dev {
+            "io.nahhasio.Linux.Development"
+        } else {
+            "io.nahhasio.Linux"
+        })
         .flags(if smoke_mode {
             gio::ApplicationFlags::NON_UNIQUE
         } else {
@@ -593,11 +598,14 @@ fn build_window(
                     (Some(player), Some(media), Ok(command), Ok(permit)) => {
                         let _permit = permit;
                         let _operation = operations.read_owned().await;
-                        if let Err(error) = boundary.catalog_scope().await {
-                            if let Some(view) = weak.upgrade() {
-                                send_reply(&view, reply(&id, Err(error)));
+                        match boundary.catalog_scope().await {
+                            Ok(scope) => player.set_subtitle_scope(scope),
+                            Err(error) => {
+                                if let Some(view) = weak.upgrade() {
+                                    send_reply(&view, reply(&id, Err(error)));
+                                }
+                                return;
                             }
-                            return;
                         }
                         match boundary.playback_defaults().await {
                             Ok(defaults) => player.set_defaults(defaults),
@@ -674,7 +682,12 @@ fn build_window(
                         .await
                         .map_err(|_| Error::new("subtitle_service", "توقف طلب الترجمة."))??;
                     boundary.check_revision(revision)?;
-                    player.apply_subtitle(&input.session_id, &path)?;
+                    player.apply_subtitle_named(
+                        &input.session_id,
+                        &path,
+                        input.label.as_deref().unwrap_or("OpenSubtitles"),
+                        input.language.as_deref(),
+                    )?;
                     Ok(serde_json::json!({"ok":true,"remaining":remaining}))
                 }
                 .await;

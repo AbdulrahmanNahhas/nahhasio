@@ -45,12 +45,16 @@ struct Search {
     season: Option<u16>,
     episode: Option<u16>,
     page: u16,
+    imdb_id: Option<String>,
+    tmdb_id: Option<u64>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Apply {
     pub session_id: String,
     pub file_id: u64,
+    pub language: Option<String>,
+    pub label: Option<String>,
 }
 fn invalid() -> Error {
     Error::new("bad_request", "طلب ترجمة غير صالح.")
@@ -122,7 +126,15 @@ async fn bounded(mut response: Response) -> Result<Vec<u8>, Error> {
                 "بلغت حد طلبات أو تنزيلات OpenSubtitles. انتظر تجدد الحصة.",
             ));
         }
-        status if !status.is_success() => return Err(unavailable()),
+        status if !status.is_success() => {
+            return Err(Error::new(
+                "subtitle_response",
+                &format!(
+                    "أعاد OpenSubtitles الخطأ {}. أعد المحاولة لاحقًا.",
+                    status.as_u16()
+                ),
+            ));
+        }
         _ => {}
     }
     if response
@@ -177,22 +189,71 @@ impl Service {
         let base = api_base(&credentials.base)?;
         #[cfg(test)]
         let base = self.test_base.as_deref().unwrap_or(&base);
-        let mut request = self
-            .client()
-            .await?
-            .request(method, format!("{base}{path}"))
-            .header("Api-Key", &credentials.key)
-            .header("Accept", "application/json")
-            .query(query);
-        if !credentials.token.is_empty() {
-            request = request.bearer_auth(&credentials.token);
+        let initial = url::Url::parse(&format!("{base}{path}")).map_err(|_| unavailable())?;
+        let mut url = initial.clone();
+        if !query.is_empty() {
+            url.query_pairs_mut()
+                .extend_pairs(query.iter().map(|(key, value)| (key, value)));
         }
-        if let Some(body) = body {
-            request = request.json(&body);
+        for _ in 0..4 {
+            let mut request = self
+                .client()
+                .await?
+                .request(method.clone(), url.clone())
+                .header("Api-Key", &credentials.key)
+                .header("Accept", "application/json");
+            if !credentials.token.is_empty() {
+                request = request.bearer_auth(&credentials.token);
+            }
+            if let Some(body) = &body {
+                request = request.json(body);
+            }
+            let response = request.send().await.map_err(|error| {
+                eprintln!(
+                    "opensubtitles: operation={path} timeout={} connect={}",
+                    error.is_timeout(),
+                    error.is_connect()
+                );
+                unavailable()
+            })?;
+            if response.status().is_redirection() && method == Method::GET {
+                let next = response
+                    .headers()
+                    .get(reqwest::header::LOCATION)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|location| url.join(location).ok())
+                    .ok_or_else(unavailable)?;
+                // The service normalizes search query URLs. Never forward credentials to another host/path.
+                if next.scheme() != initial.scheme()
+                    || next.host_str() != initial.host_str()
+                    || next.port_or_known_default() != initial.port_or_known_default()
+                    || next.path() != initial.path()
+                    || !next.username().is_empty()
+                    || next.password().is_some()
+                    || next.fragment().is_some()
+                {
+                    return Err(Error::new(
+                        "subtitle_redirect",
+                        "رفضت الخدمة تحويل البحث إلى عنوان غير متوقع.",
+                    ));
+                }
+                url = next;
+                continue;
+            }
+            let bytes = bounded(response).await?;
+            return serde_json::from_slice(&bytes).map_err(|_| {
+                Error::new(
+                    "subtitle_response",
+                    "أعاد OpenSubtitles استجابة غير صالحة. أعد المحاولة لاحقًا.",
+                )
+            });
         }
-        let bytes = bounded(request.send().await.map_err(|_| unavailable())?).await?;
-        serde_json::from_slice(&bytes).map_err(|_| unavailable())
+        Err(Error::new(
+            "subtitle_redirect",
+            "تعذّر إكمال تحويل البحث لدى OpenSubtitles.",
+        ))
     }
+
     pub fn forget(root: &Path, scope: &str) -> Result<(), Error> {
         private_state::remove(root, &credentials_name(scope))
     }
@@ -219,9 +280,8 @@ impl Service {
                 let input: Login = parse(payload)?;
                 if input.api_key.trim().is_empty()
                     || input.api_key.len() > 512
-                    || input.username.trim().is_empty()
                     || input.username.len() > 200
-                    || input.password.is_empty()
+                    || input.username.trim().is_empty() != input.password.is_empty()
                     || input.password.len() > 1024
                 {
                     return Err(invalid());
@@ -238,21 +298,28 @@ impl Service {
                     base: API.into(),
                     username: input.username.trim().into(),
                 };
-                let result = self
-                    .api(
-                        &credentials,
-                        Method::POST,
-                        "login",
-                        &[],
-                        Some(json!({"username":credentials.username,"password":input.password})),
-                    )
-                    .await?;
-                credentials.token = result["token"]
-                    .as_str()
-                    .filter(|token| !token.is_empty() && token.len() <= 8192)
-                    .ok_or_else(unavailable)?
-                    .into();
-                credentials.base = api_base(result["base_url"].as_str().unwrap_or(API))?;
+                if credentials.username.is_empty() {
+                    self.api(&credentials, Method::GET, "infos/formats", &[], None)
+                        .await?;
+                } else {
+                    let result = self
+                        .api(
+                            &credentials,
+                            Method::POST,
+                            "login",
+                            &[],
+                            Some(
+                                json!({"username":credentials.username,"password":input.password}),
+                            ),
+                        )
+                        .await?;
+                    credentials.token = result["token"]
+                        .as_str()
+                        .filter(|token| !token.is_empty() && token.len() <= 8192)
+                        .ok_or_else(unavailable)?
+                        .into();
+                    credentials.base = api_base(result["base_url"].as_str().unwrap_or(API))?;
+                }
                 let sealed = self
                     .vault
                     .seal(&format!("opensubtitles:{scope}"), &credentials)
@@ -262,6 +329,11 @@ impl Service {
             }
             "opensubtitles.test" => {
                 let credentials = self.credentials(root, scope).await?;
+                if credentials.token.is_empty() {
+                    self.api(&credentials, Method::GET, "infos/formats", &[], None)
+                        .await?;
+                    return Ok(json!({"username":"مفتاح API فقط","remaining":null,"limit":null}));
+                }
                 let result = self
                     .api(&credentials, Method::GET, "infos/user", &[], None)
                     .await?;
@@ -278,15 +350,46 @@ impl Service {
                     || search.year.is_some_and(|v| !(1880..=2200).contains(&v))
                     || search.season.is_some_and(|v| v > 1000)
                     || search.episode.is_some_and(|v| v > 10000)
+                    || search
+                        .tmdb_id
+                        .is_some_and(|v| v == 0 || v > i32::MAX as u64)
+                    || search.imdb_id.as_ref().is_some_and(|id| {
+                        let digits = id.strip_prefix("tt").unwrap_or(id);
+                        digits.is_empty()
+                            || digits.len() > 12
+                            || !digits.bytes().all(|c| c.is_ascii_digit())
+                    })
                 {
                     return Err(invalid());
                 }
                 let credentials = self.credentials(root, scope).await?;
-                let mut params = vec![
-                    ("languages".into(), search.language),
-                    ("page".into(), search.page.to_string()),
-                    ("query".into(), search.query.trim().into()),
-                ];
+                let mut params = vec![("languages".into(), search.language)];
+                if search.page > 1 {
+                    params.push(("page".into(), search.page.to_string()));
+                }
+                if let Some(id) = search.imdb_id {
+                    params.push((
+                        if search.season.is_some() {
+                            "parent_imdb_id"
+                        } else {
+                            "imdb_id"
+                        }
+                        .into(),
+                        id.trim_start_matches("tt").trim_start_matches('0').into(),
+                    ));
+                } else if let Some(id) = search.tmdb_id {
+                    params.push((
+                        if search.season.is_some() {
+                            "parent_tmdb_id"
+                        } else {
+                            "tmdb_id"
+                        }
+                        .into(),
+                        id.to_string(),
+                    ));
+                } else {
+                    params.push(("query".into(), search.query.trim().to_lowercase()));
+                }
                 for (name, value) in [
                     ("year", search.year),
                     ("season_number", search.season),
@@ -351,6 +454,12 @@ impl Service {
             return Err(invalid());
         }
         let credentials = self.credentials(root, scope).await?;
+        if credentials.token.is_empty() {
+            return Err(Error::new(
+                "subtitle_login_required",
+                "البحث متاح بمفتاح API؛ تنزيل الترجمة يتطلب ربط اسم المستخدم وكلمة المرور من الإعدادات.",
+            ));
+        }
         let result = self
             .api(
                 &credentials,

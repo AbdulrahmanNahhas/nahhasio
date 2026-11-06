@@ -253,27 +253,16 @@ impl Media {
             .cloned()
     }
     pub async fn saved(&self) -> Result<Value, Error> {
-        let engine = self.engine().await?;
-        let scope = self.services.catalog_scope().await.ok();
-        tokio::task::spawn_blocking(move || {
-            let files = engine.saved_files()?;
-            Ok::<_, media_transfer::Error>(Value::Array(
-                files
-                    .into_iter()
-                    .filter_map(|file| {
-                        let record = saved_record(&file.target)?;
-                        if scope.is_none() || record.scope != scope {
-                            return None;
-                        }
-                        let target = record.target;
-                        Some(json!({"target":target,"available":file.available}))
-                    })
-                    .collect(),
-            ))
-        })
-        .await
-        .map_err(|_| transfer_error())?
-        .map_err(|_| transfer_error())
+        // Availability badges must include both torrent exports and home-file downloads.
+        let library = self.library().await?;
+        let files = library["files"].as_array().ok_or_else(transfer_error)?;
+        Ok(Value::Array(
+            files
+                .iter()
+                .filter(|file| !file["target"].is_null())
+                .map(|file| json!({"target":file["target"],"available":file["available"]}))
+                .collect(),
+        ))
     }
     pub async fn local(
         &self,

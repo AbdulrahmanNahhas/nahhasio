@@ -153,11 +153,21 @@ function TrackPanelContent({ kind, snapshot, player }: TrackPanelProps) {
               }}
             >
               <Upload data-icon="inline-start" />
-              إضافة ملف ترجمة
+              إضافة ترجمة من الجهاز
             </Button>
           )}
+          {kind === "subtitle" && snapshot.workId && (
+            <p className="text-xs text-muted-foreground">
+              تُحفظ الترجمة المختارة لهذه الحلقة على هذا الجهاز.
+            </p>
+          )}
           {kind === "subtitle" && sessionId && (
-            <OpenSubtitlesSearch sessionId={sessionId} title={snapshot.title} disabled={disabled} />
+            <OpenSubtitlesSearch
+              snapshot={snapshot}
+              sessionId={sessionId}
+              title={snapshot.title}
+              disabled={disabled}
+            />
           )}
           {tracks.length > 1 && (
             <FieldGroup>

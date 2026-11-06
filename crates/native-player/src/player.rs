@@ -360,7 +360,22 @@ impl NativePlayer {
         self.set(property, &value)
     }
 
-    pub fn add_subtitle(&self, path: &Path) -> Result<(), String> {
+    pub fn add_subtitle(
+        &self,
+        path: &Path,
+        label: &str,
+        language: Option<&str>,
+    ) -> Result<(), String> {
+        if label.len() > 200
+            || language.is_some_and(|language| {
+                language.len() > 16
+                    || !language
+                        .bytes()
+                        .all(|c| c.is_ascii_alphabetic() || c == b'-')
+            })
+        {
+            return Err("Invalid subtitle label or language".into());
+        }
         let path = path
             .canonicalize()
             .map_err(|_| "Subtitle file is unavailable")?;
@@ -385,10 +400,20 @@ impl NativePlayer {
             "sub-add",
             path.to_str().ok_or("Subtitle path must be valid UTF-8")?,
             "select",
+            label,
+            language.unwrap_or(""),
         ])
     }
     /// Queue an already verified device companion before the video surface is realized.
     pub fn queue_local_subtitle(&self, path: &Path, label: &str) -> Result<(), String> {
+        self.queue_local_subtitle_language(path, label, None)
+    }
+    pub fn queue_local_subtitle_language(
+        &self,
+        path: &Path,
+        label: &str,
+        language: Option<&str>,
+    ) -> Result<(), String> {
         let stat = std::fs::symlink_metadata(path).map_err(|_| "Subtitle unavailable")?;
         if !stat.is_file()
             || stat.len() > 16 * 1024 * 1024
@@ -404,7 +429,7 @@ impl NativePlayer {
         self.state.borrow_mut().pending_subtitles.push((
             path.to_str().ok_or("Invalid subtitle path")?.into(),
             label.into(),
-            String::new(),
+            language.unwrap_or("").into(),
         ));
         Ok(())
     }

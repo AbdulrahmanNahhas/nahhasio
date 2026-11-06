@@ -37,6 +37,7 @@ pub struct Player {
     generation: Cell<u64>,
     defaults: RefCell<native_player::PlaybackDefaults>,
     dialog: Cell<bool>,
+    subtitle_scope: RefCell<Option<String>>,
 }
 
 impl Player {
@@ -51,12 +52,85 @@ impl Player {
             generation: Cell::new(0),
             defaults: RefCell::new(native_player::PlaybackDefaults::default()),
             dialog: Cell::new(false),
+            subtitle_scope: RefCell::new(None),
         })
     }
 
     pub fn apply_subtitle(&self, session_id: &str, path: &Path) -> Result<(), Error> {
+        let filename = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("ترجمة من الجهاز");
+        let code = filename
+            .rsplit('.')
+            .nth(1)
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let language = match code.as_str() {
+            "ar" | "ara" => Some("ar"),
+            "en" | "eng" => Some("en"),
+            "fr" | "fra" => Some("fr"),
+            "es" | "spa" => Some("es"),
+            _ => None,
+        };
+        self.apply_subtitle_named(session_id, path, filename, language)
+    }
+    pub fn apply_subtitle_named(
+        &self,
+        session_id: &str,
+        path: &Path,
+        label: &str,
+        language: Option<&str>,
+    ) -> Result<(), Error> {
         self.require_session(session_id)?;
-        self.with_player(|player| player.add_subtitle(path))
+        let label: String = label
+            .char_indices()
+            .take_while(|(offset, character)| offset + character.len_utf8() <= 200)
+            .map(|(_, character)| character)
+            .collect();
+        if language.is_some_and(|language| {
+            language.len() > 16
+                || !language
+                    .bytes()
+                    .all(|c| c.is_ascii_alphabetic() || c == b'-')
+        }) {
+            return Err(Error::new("bad_request", "لغة الترجمة غير صالحة."));
+        }
+        let target = self
+            .session
+            .borrow()
+            .as_ref()
+            .and_then(|session| session.target.clone());
+        let retained = match (self.subtitle_scope.borrow().as_deref(), target.as_ref()) {
+            (Some(scope), Some(target)) => Some(crate::subtitle_attachments::retain(
+                scope, target, path, &label, language,
+            )?),
+            _ => None,
+        };
+        self.with_player(|player| {
+            player.add_subtitle(retained.as_deref().unwrap_or(path), &label, language)
+        })
+    }
+    pub fn set_subtitle_scope(&self, scope: String) {
+        *self.subtitle_scope.borrow_mut() = Some(scope);
+    }
+    fn restore_subtitle(
+        &self,
+        player: &NativePlayer,
+        target: &ResolvedTarget,
+    ) -> Result<(), Error> {
+        if let Some(scope) = self.subtitle_scope.borrow().as_deref()
+            && let Some(subtitle) = crate::subtitle_attachments::load(scope, target)?
+        {
+            player
+                .queue_local_subtitle_language(
+                    &subtitle.path,
+                    &subtitle.label,
+                    subtitle.language.as_deref(),
+                )
+                .map_err(playback_error)?;
+        }
+        Ok(())
     }
     pub fn set_defaults(&self, defaults: native_player::PlaybackDefaults) {
         *self.defaults.borrow_mut() = defaults;
@@ -283,7 +357,7 @@ impl Player {
             Command::PickSubtitle { session_id } => {
                 if let Some(file) = self.pick_file(true).await? {
                     self.require_session(&session_id)?;
-                    self.with_player(|player| player.add_subtitle(&file))?;
+                    self.apply_subtitle(&session_id, &file)?;
                 }
             }
             Command::Close { .. } => self.close(),
@@ -394,6 +468,7 @@ impl Player {
         player
             .defaults(self.defaults.borrow().clone())
             .map_err(playback_error)?;
+        self.restore_subtitle(&player, &target)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
@@ -422,6 +497,7 @@ impl Player {
         player
             .defaults(self.defaults.borrow().clone())
             .map_err(playback_error)?;
+        self.restore_subtitle(&player, &target)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
@@ -450,6 +526,7 @@ impl Player {
         player
             .defaults(self.defaults.borrow().clone())
             .map_err(playback_error)?;
+        self.restore_subtitle(&player, &target)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);
@@ -479,6 +556,7 @@ impl Player {
         player
             .defaults(self.defaults.borrow().clone())
             .map_err(playback_error)?;
+        self.restore_subtitle(&player, &target)?;
         self.attach_surface(player.area())?;
         if let Some(session) = self.session.borrow_mut().as_mut() {
             session.player = Some(player);

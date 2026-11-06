@@ -55,7 +55,7 @@ export function trackFlag(language?: string | null) {
 
 export function trackLanguage(track: PlayerTrack) {
   const code = track.language?.trim();
-  if (!code) return "لغة غير محددة";
+  if (!code) return track.kind === "subtitle" && track.external ? "ترجمة خارجية" : "لغة غير محددة";
   try {
     return languageNames.of(code) ?? code;
   } catch {

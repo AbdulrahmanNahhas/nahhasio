@@ -20,7 +20,10 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/u
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { nativeCall } from "@/lib/bridge";
+import { navigate } from "@/features/shell/navigation";
+import { gateway, nativeCall } from "@/lib/bridge";
+
+import type { PlayerSnapshot } from "./bridge";
 function subtitleCall(command: string, payload: z.input<typeof z.json>, signal?: AbortSignal) {
   return nativeCall(command, payload, signal, 45000);
 }
@@ -170,7 +173,7 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor={`${id}-user`}>اسم مستخدم OpenSubtitles.com</FieldLabel>
+              <FieldLabel htmlFor={`${id}-user`}>اسم المستخدم (اختياري)</FieldLabel>
               <Input
                 id={`${id}-user`}
                 autoComplete="off"
@@ -198,10 +201,17 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
             <Button
               type="submit"
               disabled={
-                pending || !connection.secureStorage || !key.trim() || !username.trim() || !password
+                pending ||
+                !connection.secureStorage ||
+                !key.trim() ||
+                Boolean(username.trim()) !== Boolean(password)
               }
             >
-              {login.isPending ? "جارٍ الربط…" : "ربط الحساب"}
+              {login.isPending
+                ? "جارٍ الربط…"
+                : username.trim()
+                  ? "ربط الحساب"
+                  : "استخدام مفتاح API فقط"}
             </Button>
           </FieldGroup>
         </form>
@@ -220,15 +230,53 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
   );
 }
 export function OpenSubtitlesSearch({
+  snapshot,
   sessionId,
   title,
   disabled,
 }: {
+  snapshot: PlayerSnapshot;
   sessionId: string;
   title: string;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const work = useQuery({
+    queryKey: ["viewer", "subtitle-context", snapshot.workId],
+    queryFn: ({ signal }) => gateway.work(snapshot.workId!, signal),
+    enabled: open && Boolean(snapshot.workId),
+    staleTime: 300000,
+    retry: false,
+  });
+  const part = work.data?.installments.find((item) => item.id === snapshot.installmentId);
+  const episode = part?.episodes.find((item) => item.id === snapshot.episodeId);
+  const seasons =
+    work.data?.installments
+      .filter((item) => item.kind === "season")
+      .toSorted((a, b) => a.position - b.position) ?? [];
+  const context = {
+    title: work.data?.canonicalTitle ?? title,
+    year: part?.kind === "season" ? null : (work.data?.releaseYear ?? null),
+    season:
+      part?.kind === "season"
+        ? seasons.findIndex((item) => item.id === part.id) + 1
+        : part?.kind === "special"
+          ? 0
+          : null,
+    episode: episode && Number.isInteger(Number(episode.number)) ? Number(episode.number) : null,
+    imdbId:
+      part?.kind === "movie"
+        ? (part.externalIds.imdbId ??
+          (seasons.length === 0 ? work.data?.externalIds.imdbId : null) ??
+          null)
+        : (work.data?.externalIds.imdbId ?? null),
+    tmdbId:
+      part?.kind === "movie"
+        ? (part.externalIds.tmdbId ??
+          (seasons.length === 0 ? work.data?.externalIds.tmdbId : null) ??
+          null)
+        : (work.data?.externalIds.tmdbId ?? null),
+  };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
@@ -240,28 +288,50 @@ export function OpenSubtitlesSearch({
       <DialogContent className="max-h-dvh overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>ترجمة من OpenSubtitles</DialogTitle>
-          <DialogDescription>
-            البحث يرسل اسم العمل وخياراتك إلى OpenSubtitles. راجع الإصدار قبل التنزيل؛ المطابقة غير
-            مضمونة وحصة حسابك تُستهلك فقط عند التنزيل.
-          </DialogDescription>
+          <DialogDescription className="sr-only">اختيار ترجمة للفيديو الحالي.</DialogDescription>
         </DialogHeader>
-        {open && <SubtitleSearchForm key={sessionId} sessionId={sessionId} initialTitle={title} />}
+        {open &&
+          (work.isFetching && !work.data && snapshot.workId ? (
+            <p role="status">جارٍ تحديد العمل والحلقة…</p>
+          ) : (
+            <SubtitleSearchForm
+              key={`${sessionId}:${context.title}`}
+              sessionId={sessionId}
+              context={context}
+              onApplied={() => setOpen(false)}
+              onSettings={() => {
+                setOpen(false);
+                navigate("/settings?section=subtitles");
+              }}
+            />
+          ))}
       </DialogContent>
     </Dialog>
   );
 }
 function SubtitleSearchForm({
   sessionId,
-  initialTitle,
+  context,
+  onSettings,
+  onApplied,
 }: {
   sessionId: string;
-  initialTitle: string;
+  context: {
+    title: string;
+    year: number | null;
+    season: number | null;
+    episode: number | null;
+    imdbId: string | null;
+    tmdbId: number | null;
+  };
+  onSettings: () => void;
+  onApplied: () => void;
 }) {
-  const [query, setQuery] = useState(initialTitle.slice(0, 200));
+  const [query, setQuery] = useState(context.title.slice(0, 200));
   const [language, setLanguage] = useState("ar");
-  const [year, setYear] = useState("");
-  const [season, setSeason] = useState("");
-  const [episode, setEpisode] = useState("");
+  const [year, setYear] = useState(context.year?.toString() ?? "");
+  const [season, setSeason] = useState(context.season?.toString() ?? "");
+  const [episode, setEpisode] = useState(context.episode?.toString() ?? "");
   const id = useId();
   const search = useMutation({
     mutationFn: async (input: {
@@ -271,6 +341,8 @@ function SubtitleSearchForm({
       season: number | null;
       episode: number | null;
       page: number;
+      imdbId: string | null;
+      tmdbId: number | null;
     }) => resultSchema.parse(await subtitleCall("opensubtitles.search", input)),
   });
   const currentSearch = (page: number) => ({
@@ -280,16 +352,31 @@ function SubtitleSearchForm({
     season: season ? Number(season) : null,
     episode: episode ? Number(episode) : null,
     page,
+    imdbId: query.trim() === context.title ? context.imdbId : null,
+    tmdbId: query.trim() === context.title ? context.tmdbId : null,
   });
   const apply = useMutation({
-    mutationFn: async (fileId: number) =>
+    mutationFn: async (item: z.infer<typeof resultSchema>["items"][number]) =>
       z
         .object({ ok: z.literal(true), remaining: z.number().nullable() })
-        .parse(await subtitleCall("opensubtitles.apply", { sessionId, fileId })),
+        .parse(
+          await subtitleCall("opensubtitles.apply", {
+            sessionId,
+            fileId: item.fileId,
+            language: item.language,
+            label: (item.release || item.fileName || "OpenSubtitles").slice(0, 200),
+          }),
+        ),
+    onSuccess: onApplied,
   });
   const pending = search.isPending || apply.isPending;
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="secondary">{context.title}</Badge>
+        {season && <Badge variant="outline">الموسم {season}</Badge>}
+        {episode && <Badge variant="outline">الحلقة {episode}</Badge>}
+      </div>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -318,44 +405,52 @@ function SubtitleSearchForm({
               onChange={setLanguage}
             />
           </Field>
-          <FieldGroup className="grid grid-cols-3 gap-3">
-            {[
-              { key: "year", label: "السنة", value: year, set: setYear, min: 1880, max: 2200 },
-              { key: "season", label: "الموسم", value: season, set: setSeason, min: 0, max: 1000 },
-              {
-                key: "episode",
-                label: "الحلقة",
-                value: episode,
-                set: setEpisode,
-                min: 0,
-                max: 10000,
-              },
-            ].map((field) => (
-              <Field key={field.key}>
-                <FieldLabel htmlFor={`${id}-${field.key}`}>{field.label}</FieldLabel>
-                <Input
-                  id={`${id}-${field.key}`}
-                  type="number"
-                  min={field.min}
-                  max={field.max}
-                  value={field.value}
-                  onChange={(event) => field.set(event.target.value)}
-                  disabled={pending}
-                />
-              </Field>
-            ))}
-          </FieldGroup>
+          <details>
+            <summary className="cursor-pointer text-sm text-muted-foreground">
+              تعديل السنة والموسم والحلقة
+            </summary>
+            <FieldGroup className="mt-3 grid grid-cols-3 gap-3">
+              {[
+                { key: "year", label: "السنة", value: year, set: setYear, min: 1880, max: 2200 },
+                {
+                  key: "season",
+                  label: "الموسم",
+                  value: season,
+                  set: setSeason,
+                  min: 0,
+                  max: 1000,
+                },
+                {
+                  key: "episode",
+                  label: "الحلقة",
+                  value: episode,
+                  set: setEpisode,
+                  min: 0,
+                  max: 10000,
+                },
+              ].map((field) => (
+                <Field key={field.key}>
+                  <FieldLabel htmlFor={`${id}-${field.key}`}>{field.label}</FieldLabel>
+                  <Input
+                    id={`${id}-${field.key}`}
+                    type="number"
+                    min={field.min}
+                    max={field.max}
+                    value={field.value}
+                    onChange={(event) => field.set(event.target.value)}
+                    disabled={pending}
+                  />
+                </Field>
+              ))}
+            </FieldGroup>
+          </details>
           <Button type="submit" disabled={pending || !query.trim()}>
             <Search data-icon="inline-start" />
             {search.isPending ? "جارٍ البحث…" : "بحث"}
           </Button>
         </FieldGroup>
       </form>
-      <Button
-        nativeButton={false}
-        variant="link"
-        render={<a href="#/settings?section=subtitles" />}
-      >
+      <Button variant="link" onClick={onSettings}>
         إعداد اتصال OpenSubtitles
       </Button>
       {(search.error || apply.error) && <Failure error={(search.error || apply.error)!} />}
@@ -398,9 +493,9 @@ function SubtitleSearchForm({
                 size="sm"
                 className="self-start"
                 disabled={pending}
-                onClick={() => apply.mutate(item.fileId)}
+                onClick={() => apply.mutate(item)}
               >
-                {apply.isPending && apply.variables === item.fileId
+                {apply.isPending && apply.variables?.fileId === item.fileId
                   ? "جارٍ التنزيل والإضافة…"
                   : "تنزيل وإضافة إلى المشغّل"}
               </Button>
