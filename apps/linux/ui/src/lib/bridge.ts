@@ -347,16 +347,25 @@ export const gateway = {
     z.number().int().min(1).max(100000).parse(page);
     return WorkActivityPageSchema.parse(await call("workActivity", { id, page }, signal));
   },
-  artwork: async (id: string, signal?: AbortSignal, width = 640) =>
-    z
+  artwork: async (id: string, signal?: AbortSignal, width = 640) => {
+    // WebKit's isolated packaged scheme cannot be displayed by the live HTTP UI.
+    const inline = Boolean(
+      import.meta.env.DEV &&
+      window.location.origin === "http://127.0.0.1:23110" &&
+      window.webkit?.messageHandlers?.nahhasio,
+    );
+    return z
       .object({
         url: z
           .string()
           .refine(
             (url) =>
               url.startsWith("nahhasio://app/_artwork/") ||
+              (inline &&
+                /^data:image\/(jpeg|png|webp|gif|avif);base64,[A-Za-z0-9+/]+=*$/.test(url)) ||
               (developmentBrowserAvailable() && url.startsWith("blob:http://127.0.0.1:23110/")),
           ),
       })
-      .parse(await call("artwork.url", { id, width }, signal)).url,
+      .parse(await call("artwork.url", { id, width, inline }, signal)).url;
+  },
 };

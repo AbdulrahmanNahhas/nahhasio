@@ -55,8 +55,50 @@ The old `.devenv/state/postgres` directory is not adopted, deleted or overwritte
 rejects an existing database without the known demo identity. No family-server access is needed.
 
 For live UI development use `devenv --profile dev up` (`devenv -P dev up`). It uses the same demo
-catalog/client state, adds Vite, and launches GTK against `http://127.0.0.1:23110/` after readiness.
+catalog and isolated native device state, adds Vite, and launches GTK against `http://127.0.0.1:23110/` after readiness.
 React/CSS edits use Vite HMR; the normal profile uses the freshly built packaged UI.
+
+If the local API and Vite are already running, open only the native window with
+`devenv shell -- nahhasio-client-live`; do not start a second PostgreSQL/Vite stack.
+`devenv shell -- nahhasio-ui-local` starts only Vite with explicit synthetic localhost settings.
+The dev profile uses that same local UI command; browser-profile remote overrides remain separate.
+The native development window has application ID `io.nahhasio.Linux.Development`, so it cannot
+activate an installed production window. UI/CSS hot reload does not require closing GTK; changes
+to Rust/native bridge code still require a rebuild and full development-client restart.
+
+Development storage (all media paths below are ignored):
+
+| Data                                  | Location relative to the project                                 |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| Persistent development PostgreSQL     | `.devenv/state/development-postgres`                             |
+| Server artwork/configuration          | `data/development-local/demo/artwork`, `public`, `server-config` |
+| Imported server videos                | `data/development-local/demo/videos`                             |
+| Explicit server-folder import inbox   | `data/development-local/demo/imports/incoming`                   |
+| Trash/import journals                 | `data/development-local/demo/trash`, `media-operations`          |
+| Native device state/config/cache/data | `data/development-local/demo/device/{state,config,cache,data}`   |
+| Downloaded device videos              | `data/development-local/demo/device/videos`                      |
+| Manual local MP4 samples              | `data/development-local/demo/samples`                            |
+
+The old `demo/client-state` and `demo/client-cache` remain preserved; this isolated device profile
+does not reset or migrate them. Server videos are not a native download root. The existing demo
+catalog, passwords and watch history are reused, not reseeded. Use the same accounts as the browser.
+A generated `samples/S01E001.mp4` contains synthetic video and audio. Open it through the native
+file picker, upload it through admin, or copy it into the inbox and explicitly review its import.
+Merely placing a file in a folder does not add a catalog episode or register a video.
+
+Native local development supports manual mpv/seek/track, file selection, uploads, server imports,
+device transfers, saved packs and offline-video checks. Actual provider access needs configured
+providers/network and an explicit source choice. Host backup/update/restore controls need the
+separate host-maintenance installation; the ordinary local API does not simulate those services.
+Errors from the native client now exercise the real bridge; the browser cannot certify these paths.
+The Vite-backed app itself still needs Vite running; final packaged offline acceptance uses a built
+client bundle, not this live-UI mode.
+
+Use `devenv shell -- nahhasio-storage` for a read-only disk report. Most checkout size is SDKs,
+container/build caches and private backups, not application source. Some rootless-container paths
+may be inaccessible to ordinary `du`. Do not delete retained backups or the development database.
+`python3 bin/nahhasio-clean` previews reproducible outputs; its `--apply` removes all listed build
+outputs, so do not use it during a native run/build or when preserving SDKs for the next release.
 
 The same Vite development server also supports a local browser at `http://127.0.0.1:23110/`.
 Use `devenv --profile browser up` for PostgreSQL, the demo API and Vite without launching GTK.

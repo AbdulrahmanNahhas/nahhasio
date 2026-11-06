@@ -441,6 +441,19 @@ impl Services {
                 return Err(Error::new("bad_request", "حجم صورة غير صالح."));
             }
             self.catalog_scope().await?;
+            // Live Vite pages cannot display the isolated packaged-resource scheme.
+            // Keep its protection and use the same authenticated/cache-aware bytes instead.
+            #[cfg(debug_assertions)]
+            if request.payload["inline"].as_bool() == Some(true) {
+                use base64::Engine;
+                let (bytes, mime) = self
+                    .artwork_bytes(self.revision(), id, width as u32)
+                    .await?;
+                return Ok(json!({"url":format!(
+                    "data:{mime};base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(bytes)
+                )}));
+            }
             return Ok(
                 json!({"url":format!("nahhasio://app/_artwork/{}/{id}/{width}",self.revision())}),
             );

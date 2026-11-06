@@ -99,6 +99,17 @@
   scripts.nahhasio-client.exec = ''
     exec bash "${config.devenv.root}/bin/nahhasio-dev-client"
   '';
+  scripts.nahhasio-client-live.exec = ''
+    exec bash "${config.devenv.root}/bin/nahhasio-dev-client" --live
+  '';
+  scripts.nahhasio-ui-local.exec = ''
+    exec env NAHHASIO_BROWSER_SERVER_URL=http://127.0.0.1:23103 \
+      NAHHASIO_BROWSER_SERVER_ID=97900000-0000-4000-8000-000000000001 \
+      NAHHASIO_BROWSER_CA_FILE= pnpm --filter @nahhasio/linux-ui dev
+  '';
+  scripts.nahhasio-storage.exec = ''
+    du -h -d 1 "${config.devenv.root}" | sort -h
+  '';
   processes.client = {
     exec = lib.mkDefault "nahhasio-client";
     after = [ "devenv:processes:server" ];
@@ -110,7 +121,7 @@
       exec bash "${config.devenv.root}/bin/nahhasio-dev-client" --live
     '';
     processes.ui = {
-      exec = "pnpm --filter @nahhasio/linux-ui dev";
+      exec = "nahhasio-ui-local";
       ready = {
         http.get = {
           port = 23110;

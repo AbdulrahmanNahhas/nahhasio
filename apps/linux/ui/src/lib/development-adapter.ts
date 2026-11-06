@@ -282,7 +282,9 @@ export async function developmentCall(
   }
   if (command === "artwork.url") {
     const asset = id.parse(payload.id);
-    const width = z.number().int().min(1).max(1920).parse(payload.width);
+    const width = z
+      .union([z.literal(0), z.literal(320), z.literal(640), z.literal(1280), z.literal(1920)])
+      .parse(payload.width);
     const current = generation;
     const key = `${session.user.accountId}:${asset}:${width}`;
     const existing = artwork.get(key);

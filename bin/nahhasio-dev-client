@@ -2,9 +2,14 @@
 set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export NAHHASIO_SERVER_URL=http://127.0.0.1:23103/
-export XDG_STATE_HOME="$project_root/data/development-local/demo/client-state"
-export XDG_CACHE_HOME="$project_root/data/development-local/demo/client-cache"
-export NAHHASIO_VIDEO_ROOT="$project_root/data/development-local/demo/videos"
+device_root="$project_root/data/development-local/demo/device"
+export XDG_STATE_HOME="$device_root/state"
+export XDG_CACHE_HOME="$device_root/cache"
+export XDG_CONFIG_HOME="$device_root/config"
+export XDG_DATA_HOME="$device_root/data"
+export NAHHASIO_VIDEO_ROOT="$device_root/videos"
+mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" \
+  "$NAHHASIO_VIDEO_ROOT" "$project_root/data/development-local/demo/samples"
 if test "${1:-}" = --live; then
   export NAHHASIO_UI_URL=http://127.0.0.1:23110/
   cd "$project_root"

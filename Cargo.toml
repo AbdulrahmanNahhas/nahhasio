@@ -45,3 +45,5 @@ all = "warn"
 # GTK's generated bindings are large; keep local builds within laptop memory.
 [profile.dev]
 debug = 0
+# Incremental snapshots previously consumed over 5 GiB in this workspace.
+incremental = false
