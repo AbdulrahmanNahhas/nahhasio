@@ -241,6 +241,7 @@ for (const width of [1440, 520, 360]) {
     await page.goto("/#/admin/library?workId=00000000-0000-4000-8000-000000000010");
     await expect(page).toHaveURL(/admin\/works\/.*section=structure/);
     await expect(page.getByRole("tab", { name: "الوسائط", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "ملفات", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "بلا ملف على الخادم", exact: true }),
     ).toBeVisible();
@@ -258,7 +259,7 @@ for (const width of [1440, 520, 360]) {
     await expect(page.getByText("حكاية 1", { exact: true })).toBeVisible();
     await page.getByRole("combobox", { name: "الجزء", exact: true }).click();
     await page.getByRole("option", { name: "الموسم السادس", exact: true }).click();
-    await expect(page.getByRole("button", { name: "ملفات", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "تورنت / مزوّدون", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -343,6 +344,9 @@ for (const width of [1440, 520, 360]) {
       );
       await page.setViewportSize({ width, height: 1000 });
     }
+    const filesMode = page.getByRole("button", { name: "ملفات", exact: true });
+    if ((await filesMode.count()) && (await filesMode.getAttribute("aria-pressed")) !== "true")
+      await filesMode.click();
     await page.getByRole("button", { name: "2 نسخ متاحة", exact: true }).click();
     const copies = page.getByRole("dialog", { name: "ملفات الحلقة 3" });
     await expect(copies.getByRole("button", { name: "تفاصيل الملف" })).toHaveCount(2);
@@ -380,10 +384,14 @@ for (const width of [1440, 520, 360]) {
     await page.getByRole("combobox", { name: "الجزء", exact: true }).click();
     await page.getByRole("option", { name: "الموسم السادس", exact: true }).click();
     await expect(page.getByText("حلقة من الإنترنت", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "ملفات", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "بلا ملف على الخادم", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "تورنت / مزوّدون", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "تورنت / مزوّدون", exact: true }).click();
+    await expect(page.getByRole("button", { name: "بلا ملف على الخادم", exact: true })).toHaveCount(
+      0,
+    );
     if (width === 1440) {
       await page
         .getByText("الحلقات", { exact: true })
@@ -392,6 +400,7 @@ for (const width of [1440, 520, 360]) {
     }
     await page.getByRole("combobox", { name: "الجزء", exact: true }).click();
     await page.getByRole("option", { name: "فيلم", exact: true }).click();
+    await page.getByRole("button", { name: "ملفات", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "بلا ملف على الخادم", exact: true }),
     ).toBeVisible();
@@ -402,7 +411,9 @@ for (const width of [1440, 520, 360]) {
     const editor = page.getByRole("dialog", { name: "إضافة حلقة", exact: true });
     await editor.getByRole("button", { name: "تطبيق على المسودة" }).click();
     await expect(page.getByRole("button", { name: "احفظ الجزء أو الحلقة أولًا" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "استيراد وسائط", exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "استيراد فيديوهات", exact: true }),
+    ).toBeDisabled();
     await page
       .getByRole("article", { name: "الحلقة 2", exact: true })
       .getByRole("button", { name: "ملف متاح", exact: true })
@@ -422,13 +433,9 @@ for (const width of [1440, 520, 360]) {
       await page.getByRole("tab", { name: "البنية", exact: true }).click();
       const override = page.getByRole("switch", { name: "لغات مخصّصة لهذا الجزء", exact: true });
       await expect(override).not.toBeChecked();
-      await page.getByRole("tab", { name: "الصور والمراجع", exact: true }).click();
+      await page.getByRole("tab", { name: "الصور", exact: true }).click();
       for (const roleIndex of [0, 1, 2]) {
-        await page
-          .getByRole("button", { name: "المصادر أو رفع صورة", exact: true })
-          .nth(roleIndex)
-          .click();
-        await page.getByRole("button", { name: "البحث عن الصور", exact: true }).click();
+        await page.getByRole("button", { name: "مصادر الصور", exact: true }).nth(roleIndex).click();
         const results = page.getByRole("dialog", { name: "نتائج البحث عن الصور", exact: true });
         await expect(
           results.getByRole("button", { name: "استيراد واختيار", exact: true }),
@@ -463,7 +470,6 @@ for (const width of [1440, 520, 360]) {
         }
         await results.getByRole("button", { name: "Close", exact: true }).click();
         await expect(results).not.toBeVisible();
-        await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
         await expect(page.getByRole("dialog")).toHaveCount(0);
       }
       await page.getByRole("tab", { name: "البنية", exact: true }).click();

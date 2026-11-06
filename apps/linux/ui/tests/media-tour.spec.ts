@@ -516,7 +516,11 @@ test("media tour: work library, folder mapping, uploads, YouTube and durable job
   await expect(dialog.getByRole("button", { name: "تأكيد الاستيراد", exact: true })).toBeVisible();
   await capture(page, "02-server-folder-review.png");
   await dialog.getByRole("button", { name: "رفع من الجهاز", exact: true }).click();
-  await expect(dialog.getByText("اكتمل الرفع؛ الملف جاهز للربط.", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText("تم الرفع إلى المجلد المؤقت · حدّد الحلقة أدناه لإكمال الاستيراد.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     dialog.getByRole("combobox", { name: "حلقة الملف uploads/E001.mp4", exact: true }),
   ).toHaveCount(0);
@@ -538,16 +542,14 @@ test("media tour: work library, folder mapping, uploads, YouTube and durable job
 test("media tour: independent saved works, device videos and storage", async ({ page }) => {
   await page.goto("/#/downloads");
   await expect(page.getByRole("heading", { name: "مكتبة الجهاز", exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "الأعمال المحفوظة", exact: true }).click();
-  await expect(page.getByText("جاهز دون الخادم", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: /^الأعمال/ }).click();
+  await expect(page.getByText("بيانات العمل كاملة", { exact: true })).toBeVisible();
   await capture(page, "06-device-saved-works.png");
   await page.getByRole("tab", { name: /الفيديوهات/ }).click();
   await expect(page.getByRole("button", { name: "تشغيل", exact: true })).toBeVisible();
   await capture(page, "07-device-videos.png");
-  await page.getByRole("button", { name: "التخزين", exact: true }).click();
-  await expect(
-    page.getByRole("dialog", { name: "التخزين على هذا الجهاز", exact: true }),
-  ).toBeVisible();
+  await page.getByRole("tab", { name: "التخزين", exact: true }).click();
+  await expect(page.getByRole("tabpanel", { name: "التخزين", exact: true })).toBeVisible();
   await capture(page, "08-device-storage.png");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
