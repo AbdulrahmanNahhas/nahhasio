@@ -87,6 +87,23 @@ pub(super) async fn existing(root: &Path, value: &str) -> Result<PathBuf> {
     }
     Ok(path)
 }
+/// Absence is allowed only after checking every existing ancestor for symlinks.
+pub(super) async fn optional_existing(root: &Path, value: &str) -> Result<Option<PathBuf>> {
+    let relative = relative(value)?;
+    let mut path = tokio::fs::canonicalize(root)
+        .await
+        .map_err(|_| unavailable())?;
+    for component in relative.components() {
+        path.push(component);
+        match tokio::fs::symlink_metadata(&path).await {
+            Ok(metadata) if metadata.file_type().is_symlink() => return Err(invalid()),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(unavailable()),
+        }
+    }
+    Ok(Some(path))
+}
 pub(super) async fn directory(root: &Path, value: &str) -> Result<PathBuf> {
     let relative = relative(value)?;
     let mut path = tokio::fs::canonicalize(root)
@@ -216,6 +233,25 @@ mod tests {
         std::fs::create_dir_all(&base).unwrap();
         std::os::unix::fs::symlink(std::env::temp_dir(), base.join("escape")).unwrap();
         assert!(existing(&base, "escape/file.mp4").await.is_err());
+        assert!(
+            optional_existing(&base, "escape/nonexistent/file.mp4")
+                .await
+                .is_err()
+        );
+        std::os::unix::fs::symlink(base.join("nonexistent"), base.join("broken")).unwrap();
+        assert!(optional_existing(&base, "broken").await.is_err());
+        assert!(
+            optional_existing(&base, "missing-parent/file.mp4")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        std::fs::write(base.join("not-directory"), b"preserve").unwrap();
+        assert!(
+            optional_existing(&base, "not-directory/file.mp4")
+                .await
+                .is_err()
+        );
         assert!(directory(&base, "escape/unwanted-directory").await.is_err());
         std::fs::remove_dir_all(base).unwrap();
     }

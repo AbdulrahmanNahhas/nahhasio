@@ -93,7 +93,7 @@ order by (m.installment_id=i.id) desc nulls last,m.is_primary desc,m.id limit 1)
 }
 fn query() -> String {
     let installment = format!(
-        r#"jsonb_build_object('id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,'releaseDate',to_char(i.release_date,'YYYY-MM-DD'),'runtimeMinutes',i.runtime_minutes,'episodeCount',(select count(*) from episodes where installment_id=i.id),'poster',({item})->'poster','score',(select jsonb_build_object('rating',floor(({score})*10+0.5)/10,'scored',case when ({score}) is null then 0 else 1 end,'total',1) from (select 1) unit left join installment_scores s on s.installment_id=i.id))"#,
+        r#"jsonb_build_object('languages',to_jsonb(coalesce(i.languages,t.languages)),'id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,'releaseDate',to_char(i.release_date,'YYYY-MM-DD'),'runtimeMinutes',i.runtime_minutes,'episodeCount',(select count(*) from episodes where installment_id=i.id),'poster',({item})->'poster','score',(select jsonb_build_object('rating',floor(({score})*10+0.5)/10,'scored',case when ({score}) is null then 0 else 1 end,'total',1) from (select 1) unit left join installment_scores s on s.installment_id=i.id))"#,
         item = item(),
         score = queries::SCORE_VALUE
     );

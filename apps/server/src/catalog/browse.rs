@@ -182,11 +182,16 @@ fn facets() -> Vec<(&'static str, &'static str, String)> {
         ("ratingStates","حالة التقييم","array[case when rating is null then 'unrated' else 'rated' end]".into()),
         ("warningStates","تنبيهات المحتوى","array[case when coalesce(t.content_warnings,'')<>'' then 'warnings' else 'none' end]".into()),
         ("structureStates","البنية","array[case when i.id is null then 'title' when i.kind='season' then 'season' else 'standalone' end]".into()),
-        ("playableStates","وجود فيديو مسجّل","array[case when exists(select 1 from media_files f where (f.installment_id in(select id from installments where title_id=t.id) or f.episode_id in(select e.id from episodes e join installments x on x.id=e.installment_id where x.title_id=t.id)) and (i.id is null or f.installment_id=i.id or f.episode_id in(select id from episodes where installment_id=i.id))) then 'available' else 'missing' end]".into()),
+        ("playableStates","وجود فيديو مسجّل","array[case when exists(select 1 from media_files f where f.availability='present' and not f.probe_metadata ? 'trash' and (f.installment_id in(select id from installments where title_id=t.id) or f.episode_id in(select e.id from episodes e join installments x on x.id=e.installment_id where x.title_id=t.id)) and (i.id is null or f.installment_id=i.id or f.episode_id in(select id from episodes where installment_id=i.id))) then 'available' else 'missing' end]".into()),
         ("watchStates","حالة المشاهدة","array[watch_state]".into()),
         ("favoriteStates","المفضلة","array[case when exists(select 1 from account_title_states ats join accounts a on a.id=ats.account_id where ats.title_id=t.id and a.auth_user_id=$1 and ats.is_favorite) then 'favorite' else 'other' end]".into()),
     ];
-    list.push(("dubLanguages", "لغات الدبلجة", "t.dub_languages".into()));
+    list.push(("languages", "اللغات", "case when i.id is null then nahhasio_work_languages(t.id) else coalesce(i.languages,t.languages) end".into()));
+    list.push((
+        "dubLanguages",
+        "لغات الدبلجة القديمة",
+        "t.dub_languages".into(),
+    ));
     list.push((
         "playbackPolicies",
         "مصادر التشغيل",
@@ -231,7 +236,7 @@ coalesce(extract(year from i.release_date)::integer,t.release_year) as catalog_y
 (select max(coalesce(x.release_date::text,t.release_year::text||'-01-01')) from installments x where x.title_id=t.id and (i.id is null or x.id=i.id) and {RELEASED_INSTALLMENT}) latest_released_sort,
 coalesce(i.title,'') unit_title,t.canonical_title,t.title_ar,
 jsonb_build_object('work',({work}),'installment',case when i.id is null then null else jsonb_build_object(
-'id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,'releaseDate',i.release_date,'runtimeMinutes',i.runtime_minutes,
+'languages',to_jsonb(coalesce(i.languages,t.languages)),'id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,'releaseDate',i.release_date,'runtimeMinutes',i.runtime_minutes,
 'episodeCount',(select count(*) from episodes where installment_id=i.id),'poster',coalesce((select {art} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' order by m.is_primary desc,m.id limit 1),({work})->'poster'),'score',score_value) end,
 'classification',jsonb_build_object('audience',coalesce(i.audience_override,t.audience),'age',coalesce(i.age_override,t.age),'sexualityRisk',coalesce(i.sexuality_risk_override,t.sexuality_risk),'behavioralRisk',coalesce(i.behavioral_risk_override,t.behavioral_risk),'theologyRisk',coalesce(i.theology_risk_override,t.theology_risk)),
 'watchProgress',jsonb_build_object('releasedUnits',tracking.total,'watchedReleasedUnits',tracking.played),'status',{release_status},'watchState',watch_state,'criteria',jsonb_build_object({criteria})) entry,

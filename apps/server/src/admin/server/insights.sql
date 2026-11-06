@@ -3,19 +3,19 @@ with work_stats as (
  exists(select 1 from installments i where i.title_id=t.id and i.kind='season') is_series
  from titles t
 ), missing_episodes as (
- select e.id,e.number::float8 number,t.id work_id,coalesce(nullif(t.title_ar,''),t.canonical_title) work_name,t.tmdb_id,i.position season,i.kind::text kind
+ select e.id,e.number::float8 number,t.id work_id,coalesce(nullif(t.title_ar,''),t.canonical_title) work_name,t.tmdb_id,(select count(*) from installments prior where prior.title_id=i.title_id and prior.kind='season' and (prior.position,prior.id)<=(i.position,i.id)) season,i.kind::text kind
  from episodes e join installments i on i.id=e.installment_id join titles t on t.id=i.title_id
  where not exists(select 1 from media_asset_assignments m where m.episode_id=e.id and m.role in ('still','poster','banner'))
 ), eligible as (
  select * from missing_episodes where kind='season' and tmdb_id is not null and number>0 and number=trunc(number)
- order by work_name,season,number,id limit 48
+ order by work_name,season,number,id limit 1000
 )
 select jsonb_build_object(
  'formats',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select format::text key,count(*) value from work_stats group by format order by count(*) desc)x),
  'kinds',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select format::text||case when is_series then '-series' else '-movie' end key,count(*) value from work_stats group by format,is_series order by format,is_series)x),
  'workflow',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select workflow_status::text key,count(*) value from work_stats group by workflow_status order by count(*) desc)x),
  'statuses',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select release_status key,count(*) value from work_stats group by release_status order by count(*) desc)x),
- 'languages',jsonb_build_array(jsonb_build_object('key','ar','value',(select count(*) from work_stats where 'ar'=any(dub_languages))),jsonb_build_object('key','en','value',(select count(*) from work_stats where not 'ar'=any(dub_languages)))),
+ 'languages',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value) order by value desc,key),'[]') from (select language key,count(*) value from work_stats t cross join lateral unnest(nahhasio_work_languages(t.id)) language group by language)x),
  'additions',(select jsonb_agg(jsonb_build_object('key',to_char(month,'YYYY-MM'),'value',(select count(*) from titles where created_at>=month and created_at<month+interval '1 month')) order by month) from generate_series(date_trunc('month',current_date)-interval '5 months',date_trunc('month',current_date),interval '1 month') month),
  'artworkRoles',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select role::text key,count(distinct asset_id) value from media_asset_assignments group by role order by count(distinct asset_id) desc)x),
  'genres',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select coalesce(nullif(g.label_ar,''),g.label_en) key,count(*) value from title_genres x join genres g on g.id=x.value_id group by g.id order by count(*) desc,g.slug limit 8)x),

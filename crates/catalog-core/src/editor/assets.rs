@@ -105,13 +105,21 @@ async fn audit(
     exec(c,"insert into audit_logs(actor_account_id,action,target_type,target_id,summary,changes) values(nullif($1->>'actor','')::uuid,'admin.artwork.'||($1->>'action'),$1->>'table',$1->>'id','Artwork editor',$1->'changes')",json!({"actor":actor,"action":action,"table":table,"id":id,"changes":changes})).await
 }
 async fn proposal(c: &mut PgConnection, asset: &Value) -> Result<Value> {
-    let owners=rows(c,"select jsonb_build_object('name',concat_ws('-',coalesce(t.canonical_title,w.canonical_title,n.name),case when i.id is not null then 'installment-'||i.position::text when e.id is not null then 'installment-'||p.position::text||'-episode-'||trim_scale(e.number)::text end),'role',x.role::text) from media_asset_assignments x left join titles t on t.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments p on p.id=e.installment_id left join titles w on w.id=coalesce(i.title_id,p.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.id",json!({"id":asset["id"]})).await?;
+    let owners=rows(c,"select jsonb_build_object('name',concat_ws('-',coalesce(t.canonical_title,w.canonical_title,n.name),case when i.id is not null then 'installment-'||i.position::text when e.id is not null then 'installment-'||p.position::text||'-episode-'||trim_scale(e.number)::text end),'role',x.role::text,'root',coalesce(t.id,w.id,n.id)::text,'baseName',coalesce(t.canonical_title,w.canonical_title,n.name)) from media_asset_assignments x left join titles t on t.id=x.title_id left join installments i on i.id=x.installment_id left join episodes e on e.id=x.episode_id left join installments p on p.id=e.installment_id left join titles w on w.id=coalesce(i.title_id,p.title_id) left join entities n on n.id=x.entity_id where x.asset_id=($1->>'id')::uuid order by x.id",json!({"id":asset["id"]})).await?;
+    let shared_root = owners.len() > 1
+        && owners
+            .iter()
+            .all(|owner| owner["root"] == owners[0]["root"] && owner["role"] == owners[0]["role"]);
     let names: std::collections::BTreeSet<_> = owners
         .iter()
         .map(|o| {
             format!(
                 "{}-{}",
-                storage::slug(text(o, "name"), false, 110),
+                storage::slug(
+                    text(o, if shared_root { "baseName" } else { "name" }),
+                    false,
+                    110
+                ),
                 text(o, "role")
             )
         })
@@ -137,6 +145,17 @@ async fn proposal(c: &mut PgConnection, asset: &Value) -> Result<Value> {
     } else {
         String::new()
     };
+    let current_name = text(asset, "path").rsplit('/').next().unwrap_or_default();
+    let already_named = current_name == name
+        || (names.len() == 1
+            && extension.is_some_and(|ext| {
+                current_name
+                    .strip_prefix(&format!("{}-", names.first().expect("one name")))
+                    .and_then(|suffix| suffix.strip_suffix(&format!(".{ext}")))
+                    .is_some_and(|suffix| {
+                        suffix.len() == 8 && suffix.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+            }));
     let health = storage::health(asset).await;
     let reason = if owners.is_empty() {
         Some("لا توجد روابط لتحديد الاسم")
@@ -146,7 +165,7 @@ async fn proposal(c: &mut PgConnection, asset: &Value) -> Result<Value> {
         Some("نوع الصورة غير مدعوم")
     } else if health != "healthy" {
         Some("ملف الصورة يحتاج إصلاحاً")
-    } else if text(asset, "path").rsplit('/').next() == Some(name.as_str()) {
+    } else if already_named {
         Some("الاسم منظم بالفعل")
     } else {
         None

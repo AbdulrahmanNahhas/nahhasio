@@ -520,11 +520,32 @@ async fn work_acceptance(api: &Router, pool: &PgPool) {
     assert!(id.is_string());
     let snapshot = ok(api, "read", json!({"ids":[id]})).await[0].clone();
     assert_eq!(snapshot["document"]["dubLanguages"], json!(["ar"]));
+    let language_document = json!({"schemaVersion":1,"fields":["languages","installments"],"records":[{"id":id,"languages":["ar"],"installments":snapshot["document"]["installments"]}]});
+    let mut language_document = language_document;
+    language_document["records"][0]["installments"][0]["languages"] = json!(["en"]);
+    let language_review = ok(api,"review",json!({"json":language_document.to_string(),"originals":[{"id":id,"revision":snapshot["revision"]}]})).await;
+    ok(api, "save", json!({"ticket":language_review["ticket"]})).await;
+    let snapshot = ok(api, "read", json!({"ids":[id]})).await[0].clone();
+    assert_eq!(snapshot["document"]["languages"], json!(["ar"]));
+    assert_eq!(
+        snapshot["document"]["installments"][0]["languages"],
+        json!(["en"])
+    );
+    let effective: Vec<String> = sqlx::query_scalar("select nahhasio_work_languages($1::uuid)")
+        .bind(id.as_str().unwrap())
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(effective, vec!["ar", "en"]);
+    let viewer_work = inspection(api, &format!("/api/v1/works/{}", id.as_str().unwrap())).await;
+    assert_eq!(viewer_work["languages"], json!(["ar", "en"]));
+    assert_eq!(viewer_work["installments"][0]["languages"], json!(["en"]));
     assert_eq!(
         snapshot["document"]["installments"][0]["score"]["story"].as_f64(),
         Some(8.0)
     );
     let mut parts = snapshot["document"]["installments"].clone();
+    parts[0]["languages"] = Value::Null;
     let episode_ids = parts[0]["episodes"].clone();
     parts[0]["episodes"][0]["number"] = json!(2);
     parts[0]["episodes"][1]["number"] = json!(1);
@@ -550,6 +571,9 @@ async fn work_acceptance(api: &Router, pool: &PgPool) {
     );
     let after = ok(api, "read", json!({"ids":[id]})).await[0].clone();
     assert_eq!(after["document"]["summary"], "بعد");
+    let inherited = inspection(api, &format!("/api/v1/works/{}", id.as_str().unwrap())).await;
+    assert_eq!(inherited["languages"], json!(["ar"]));
+    assert_eq!(inherited["installments"][0]["languages"], json!(["ar"]));
     assert_eq!(after["document"]["trivia"], source["trivia"]);
     assert_eq!(
         after["document"]["installments"][0]["episodes"][0]["id"],

@@ -53,8 +53,8 @@ async fn claim(pool: &PgPool) -> std::result::Result<Option<(String, Value, Stri
     sqlx::query("set transaction read write")
         .execute(&mut *tx)
         .await?;
-    sqlx::query("update background_jobs set status=case when cancel_requested_at is not null then 'cancelled'::background_job_status else 'failed'::background_job_status end,error=case when cancel_requested_at is not null then null else 'Worker retry limit reached; review and retry explicitly' end,lease_owner=null,lease_expires_at=null,finished_at=now(),updated_at=now() where type in ('media.import','media.youtube.preview','media.file') and status='running' and lease_expires_at<now() and (cancel_requested_at is not null or attempts>=max_attempts)").execute(&mut *tx).await?;
-    let row=sqlx::query("select id::text,payload || jsonb_build_object('jobType',type,'jobId',id::text) payload,created_by_account_id::text actor from background_jobs where type in ('media.import','media.youtube.preview','media.file') and cancel_requested_at is null and attempts<max_attempts and run_after<=now() and (status='queued' or (status='running' and lease_expires_at<now())) order by created_at,id for update skip locked limit 1").fetch_optional(&mut *tx).await?;
+    sqlx::query("update background_jobs set status=case when cancel_requested_at is not null then 'cancelled'::background_job_status else 'failed'::background_job_status end,error=case when cancel_requested_at is not null then null else 'Worker retry limit reached; review and retry explicitly' end,lease_owner=null,lease_expires_at=null,finished_at=now(),updated_at=now() where type in ('media.import','media.youtube.preview','media.file','media.upload.verify') and status='running' and lease_expires_at<now() and (cancel_requested_at is not null or attempts>=max_attempts)").execute(&mut *tx).await?;
+    let row=sqlx::query("select id::text,payload || jsonb_build_object('jobType',type,'jobId',id::text) payload,created_by_account_id::text actor from background_jobs where type in ('media.import','media.youtube.preview','media.file','media.upload.verify') and cancel_requested_at is null and attempts<max_attempts and run_after<=now() and (status='queued' or (status='running' and lease_expires_at<now())) order by created_at,id for update skip locked limit 1").fetch_optional(&mut *tx).await?;
     let Some(row) = row else { return Ok(None) };
     let id: String = row.get("id");
     let actor: Option<String> = row.get("actor");
@@ -89,6 +89,18 @@ async fn process(pool: &PgPool, id: &str, payload: Value, actor: &str) -> Worker
                 Ok(preview) => save_result(pool, id, preview).await,
                 Err(error) => Err(error),
             }
+        } else if payload["jobType"] == "media.upload.verify" {
+            super::uploads::finalize(
+                pool,
+                payload["uploadId"]
+                    .as_str()
+                    .ok_or("Invalid upload identity")?
+                    .to_owned(),
+                actor,
+            )
+            .await
+            .map(|_| ())
+            .map_err(|error| error.1)
         } else if payload["jobType"] == "media.file" {
             super::trash::execute(pool, &payload, actor).await
         } else {
@@ -234,7 +246,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
     let _reservation = lock.lock().await;
     let id = file_id(job, index);
     let already =
-        sqlx::query("select relative_path,sha256,availability from media_files where id=$1::uuid")
+        sqlx::query("select relative_path,sha256,availability,probe_metadata from media_files where id=$1::uuid")
             .bind(&id)
             .fetch_optional(pool)
             .await
@@ -248,6 +260,12 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
             .path()
             .map_err(|_| "Source root unavailable")?;
         if !item.copy && item.youtube_id.is_none() {
+            super::sidecars::cleanup(
+                &super::sidecars::decode(&row.get::<SqlJson<Value>, _>("probe_metadata").0)?,
+                &source_root,
+                library,
+            )
+            .await?;
             cleanup_source(
                 &source_root,
                 &item.relative_path,
@@ -260,7 +278,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
         return Ok(());
     }
     if let Some(youtube_id) = &item.youtube_id {
-        let existing=sqlx::query("select f.episode_id::text episode_id,coalesce(f.installment_id,e.installment_id)::text installment_id,f.availability,f.probe_metadata ? 'trash' trashed from media_files f left join episodes e on e.id=f.episode_id join installments i on i.id=coalesce(f.installment_id,e.installment_id) where i.title_id=$1::uuid and f.probe_metadata->>'youtubeVideoId'=$2")
+        let existing=sqlx::query("select f.episode_id::text episode_id,coalesce(f.installment_id,e.installment_id)::text installment_id,f.availability,f.probe_metadata ? 'trash' trashed from media_files f left join episodes e on e.id=f.episode_id join installments i on i.id=coalesce(f.installment_id,e.installment_id) where i.title_id=$1::uuid and not f.probe_metadata ? 'purgedAt' and f.probe_metadata->>'youtubeVideoId'=$2")
             .bind(work).bind(youtube_id).fetch_all(pool).await.map_err(|_| "Cannot inspect YouTube provenance")?;
         if !existing.is_empty() {
             if existing.iter().any(|row| {
@@ -284,11 +302,11 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
         .validate(&item.relative_path)
         .map_err(|_| "Unsafe source selection")?;
     if item.youtube_id.is_none() {
-        let registered: bool=sqlx::query_scalar("select exists(select 1 from media_files f join library_roots r on r.id=f.library_root_id where r.path=$1 and f.relative_path=$2)").bind(selected_root.to_str().ok_or("Invalid source root")?).bind(&item.relative_path).fetch_one(pool).await.map_err(|_| "Cannot inspect registered source")?;
+        let registered: bool=sqlx::query_scalar("select exists(select 1 from media_files f join library_roots r on r.id=f.library_root_id where r.path=$1 and f.relative_path=$2 and not f.probe_metadata ? 'purgedAt')").bind(selected_root.to_str().ok_or("Invalid source root")?).bind(&item.relative_path).fetch_one(pool).await.map_err(|_| "Cannot inspect registered source")?;
         if registered {
             return Err("Source is already registered; manage its existing file instead");
         }
-        let previous=sqlx::query("select f.episode_id::text episode_id,coalesce(f.installment_id,e.installment_id)::text installment_id,f.availability,f.probe_metadata ? 'trash' trashed from media_files f left join episodes e on e.id=f.episode_id join installments i on i.id=coalesce(f.installment_id,e.installment_id) where i.title_id=$1::uuid and f.probe_metadata->>'originalRelativePath'=$2 and f.probe_metadata->>'sourceRoot'=$3")
+        let previous=sqlx::query("select f.episode_id::text episode_id,coalesce(f.installment_id,e.installment_id)::text installment_id,f.availability,f.probe_metadata ? 'trash' trashed from media_files f left join episodes e on e.id=f.episode_id join installments i on i.id=coalesce(f.installment_id,e.installment_id) where i.title_id=$1::uuid and not f.probe_metadata ? 'purgedAt' and f.probe_metadata->>'originalRelativePath'=$2 and f.probe_metadata->>'sourceRoot'=$3")
             .bind(work).bind(&item.relative_path).bind(match item.source_root {storage::SourceRoot::Incoming=>"incoming",storage::SourceRoot::Library=>"library"}).fetch_all(pool).await.map_err(|_| "Cannot inspect import provenance")?;
         if !previous.is_empty() {
             return Err(
@@ -533,7 +551,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
         .await
         .map_err(|_| "Cannot prepare import journal")?;
     let journal = journals.join(format!("{id}.json"));
-    let rel = match tokio::fs::symlink_metadata(&journal).await {
+    let (rel, companions) = match tokio::fs::symlink_metadata(&journal).await {
         Ok(stat) => {
             if !stat.is_file() || stat.len() > 32768 {
                 return Err("Invalid import journal; review recovery");
@@ -553,9 +571,16 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
             storage::SourceRoot::Library
                 .validate(relative)
                 .map_err(|_| "Unsafe journal destination")?;
-            relative.to_owned()
+            (relative.to_owned(), super::sidecars::decode(&record)?)
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => rel,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let companions = if youtube_id.is_none() {
+                super::sidecars::discover(source_root, &item.relative_path, &rel).await?
+            } else {
+                Vec::new()
+            };
+            (rel, companions)
+        }
         Err(_) => return Err("Cannot inspect import journal"),
     };
     let destination = library.join(&rel);
@@ -570,7 +595,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
     )
     .await
     .map_err(|_| "Unsafe destination")?;
-    let record = json!({"jobId":job,"fileId":id,"sourceRoot":item.source_root,"source":item.relative_path,"destination":rel,"sha256":checksum,"copy":item.copy});
+    let record = json!({"jobId":job,"fileId":id,"sourceRoot":item.source_root,"source":item.relative_path,"destination":rel,"sha256":checksum,"copy":item.copy,"sidecars":companions});
     storage::journal(&journal, &record)
         .await
         .map_err(|_| "Cannot save import journal")?;
@@ -602,6 +627,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
             Err(_) => return Err("Cannot publish media file without overwriting existing data"),
         }
     }
+    super::sidecars::publish(&companions, source_root, library).await?;
     let mut tx = pool
         .begin()
         .await
@@ -641,7 +667,7 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
         .and_then(|s| s.parse::<f64>().ok())
         .filter(|s| s.is_finite() && *s > 0.0)
         .map(|s| s.min(i32::MAX as f64) as i32);
-    let metadata = json!({"source":if youtube_id.is_some(){"youtube"}else if item.relative_path.starts_with("uploads/"){"upload"}else{"server-folder"},"sourceRoot":item.source_root,"originalRelativePath":item.relative_path,"youtubeVideoId":youtube_id,"importJobId":job,"probe":probe});
+    let metadata = json!({"source":if youtube_id.is_some(){"youtube"}else if item.relative_path.starts_with("uploads/"){"upload"}else{"server-folder"},"sourceRoot":item.source_root,"originalRelativePath":item.relative_path,"youtubeVideoId":youtube_id,"importJobId":job,"probe":probe,"sidecars":companions});
     sqlx::query("insert into media_files(id,installment_id,episode_id,path,library_root_id,relative_path,byte_size,sha256,availability,probe_metadata,duration_seconds,last_verified_at,probe_version) values($1::uuid,$2::uuid,$3::uuid,$4,$5::uuid,$6,$7,$8,'present',$9,$10,now(),'ffprobe-v1')").bind(&id).bind(if item.episode_id.is_none(){Some(&item.installment_id)}else{None}).bind(&item.episode_id).bind(destination.to_str().ok_or("Invalid destination")?).bind(root_id).bind(&rel).bind(item.byte_size as i64).bind(&checksum).bind(SqlJson(&metadata)).bind(duration).execute(&mut *tx).await.map_err(|_|"Cannot register verified video; journal retained")?;
     for stream in probe["streams"].as_array().into_iter().flatten() {
         let kind = stream["codec_type"].as_str().unwrap_or("");
@@ -650,11 +676,21 @@ async fn import_file(context: &ImportContext<'_>, index: usize, item: &Item) -> 
         }
         sqlx::query("insert into media_tracks(media_file_id,kind,stream_index,language,codec,title,is_default,is_forced) values($1::uuid,$2::track_kind,$3,$4,$5,$6,$7,$8)").bind(&id).bind(kind).bind(stream["index"].as_i64().unwrap_or(0) as i32).bind(stream["tags"]["language"].as_str()).bind(stream["codec_name"].as_str()).bind(stream["tags"]["title"].as_str()).bind(stream["disposition"]["default"]==1).bind(stream["disposition"]["forced"]==1).execute(&mut *tx).await.map_err(|_|"Cannot register media tracks")?;
     }
+    for companion in &companions {
+        let codec = Path::new(&companion.relative_path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .ok_or("Invalid subtitle extension")?
+            .to_ascii_lowercase();
+        sqlx::query("insert into media_tracks(media_file_id,kind,stream_index,source,relative_path,sha256,codec,title) values($1::uuid,'subtitle',null,'external',$2,$3,$4,$5)")
+            .bind(&id).bind(&companion.relative_path).bind(&companion.sha256).bind(codec).bind(Path::new(&companion.original_relative_path).file_name().and_then(|name| name.to_str())).execute(&mut *tx).await.map_err(|_| "Cannot register preserved subtitle track")?;
+    }
     sqlx::query("insert into audit_logs(actor_account_id,action,target_type,target_id,summary) values($1::uuid,'media.import.completed','media_files',$2,'Registered verified server video')").bind(actor).bind(&id).execute(&mut *tx).await.map_err(|_|"Cannot record media audit")?;
     tx.commit()
         .await
         .map_err(|_| "Cannot commit media registration")?;
     if !item.copy {
+        super::sidecars::cleanup(&companions, source_root, library).await?;
         cleanup_source(source_root, &item.relative_path, library, &rel, &checksum).await?;
     }
     Ok(())
@@ -687,7 +723,7 @@ async fn cleanup_source(
         .map_err(|_| "Registered video; original source cleanup needs review")
 }
 
-async fn resume_copy(source: &Path, stage: &Path, checksum: &str) -> WorkerResult<()> {
+pub(super) async fn resume_copy(source: &Path, stage: &Path, checksum: &str) -> WorkerResult<()> {
     let mut input = tokio::fs::File::open(source)
         .await
         .map_err(|_| "Cannot read source")?;

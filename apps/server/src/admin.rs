@@ -96,7 +96,7 @@ impl WorksQuery {
                 &["draft", "in_review", "approved", "published", "archived"],
             )
             || !choice(&self.visibility, &["public", "private"])
-            || !choice(&self.language, &["ar", "en"])
+            || !choice(&self.language, &["ar", "en", "ja"])
             || !choice(
                 &self.status,
                 &["completed", "ongoing", "announced", "unknown"],
@@ -162,7 +162,7 @@ OR ($6='genres' AND NOT EXISTS(SELECT 1 FROM title_genres g WHERE g.title_id=t.i
 OR ($6='planet' AND NOT EXISTS(SELECT 1 FROM title_planets p WHERE p.title_id=t.id))
 OR ($6='credits' AND NOT EXISTS(SELECT 1 FROM contributions c WHERE c.title_id=t.id))
 OR ($6='episode-images' AND EXISTS(SELECT 1 FROM installments i JOIN episodes e ON e.installment_id=i.id WHERE i.title_id=t.id AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.episode_id=e.id AND m.role IN ('still','poster','banner')))))
-AND ($7::text IS NULL OR ($7='ar')=('ar'=ANY(t.dub_languages)))
+AND ($7::text IS NULL OR $7=ANY(nahhasio_work_languages(t.id)))
 "#;
 fn work_filter() -> String {
     format!(
