@@ -18,6 +18,10 @@ pub async fn execute(
     }
     let pause_requested = matches!(&command, Command::Pause { .. });
     match command {
+        Command::HomeDownloadBatch { work_id, file_ids } => runtime
+            .spawn(async move { media.home_download_batch(work_id, file_ids).await })
+            .await
+            .map_err(|_| interrupted())?,
         Command::HomeDownload { target, file_id } => runtime
             .spawn(async move { media.home_download(target, file_id).await })
             .await

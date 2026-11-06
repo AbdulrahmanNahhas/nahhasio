@@ -387,6 +387,27 @@ impl NativePlayer {
             "select",
         ])
     }
+    /// Queue an already verified device companion before the video surface is realized.
+    pub fn queue_local_subtitle(&self, path: &Path, label: &str) -> Result<(), String> {
+        let stat = std::fs::symlink_metadata(path).map_err(|_| "Subtitle unavailable")?;
+        if !stat.is_file()
+            || stat.len() > 16 * 1024 * 1024
+            || label.len() > 200
+            || !path
+                .extension()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| ["srt", "ass", "ssa", "vtt"].contains(&s))
+        {
+            return Err("Invalid local subtitle companion".into());
+        }
+        let path = path.canonicalize().map_err(|_| "Subtitle unavailable")?;
+        self.state.borrow_mut().pending_subtitles.push((
+            path.to_str().ok_or("Invalid subtitle path")?.into(),
+            label.into(),
+            String::new(),
+        ));
+        Ok(())
+    }
     /// Only app-owned loopback subtitle capabilities, never provider URLs.
     pub fn add_loopback_subtitle(
         &self,

@@ -28,6 +28,8 @@ struct Entry {
     path: PathBuf,
     size: u64,
     sha256: String,
+    #[serde(default)]
+    subtitles: Vec<crate::home_gateway::Subtitle>,
     offset: u64,
     state: String,
     error: Option<String>,
@@ -112,8 +114,15 @@ impl Downloads {
         size: u64,
         sha256: String,
         extension: String,
+        subtitles: Vec<crate::home_gateway::Subtitle>,
     ) -> Result<Value, Error> {
         let scope = self.services.catalog_scope().await?;
+        if subtitles.len() > 16 {
+            return Err(failed());
+        }
+        for subtitle in &subtitles {
+            subtitle.extension()?;
+        }
         if size == 0
             || sha256.len() != 64
             || !sha256.bytes().all(|c| c.is_ascii_hexdigit())
@@ -147,6 +156,7 @@ impl Downloads {
             path,
             size,
             sha256,
+            subtitles,
             offset: 0,
             state: "paused".into(),
             error: None,
@@ -155,7 +165,10 @@ impl Downloads {
             let _guard = self.serial.lock().await;
             let mut entries = self.load()?;
             if let Some(previous) = entries.iter().find(|e| e.id == id && e.scope == scope) {
-                if previous.sha256 != entry.sha256 || previous.size != entry.size {
+                if previous.sha256 != entry.sha256
+                    || previous.size != entry.size
+                    || previous.subtitles != entry.subtitles
+                {
                     return Err(Error::new(
                         "changed_media",
                         "تغيّر فيديو الخادم؛ احذف سجل التنزيل القديم قبل بدء نسخة جديدة.",
@@ -225,6 +238,9 @@ impl Downloads {
                 == entry.size
         {
             verify_video(&entry.path, entry.size, &entry.sha256).await?;
+            if !self.transfer_subtitles(&entry, revision).await? {
+                return Ok(());
+            }
             return self
                 .update(&entry.id, &entry.scope, |e| {
                     e.offset = e.size;
@@ -349,11 +365,98 @@ impl Downloads {
         tokio::fs::remove_file(partial)
             .await
             .map_err(|_| failed())?;
+        if !self.transfer_subtitles(&entry, revision).await? {
+            return Ok(());
+        }
         self.update(&entry.id, &entry.scope, |e| {
             e.offset = e.size;
             e.state = "complete".into();
         })
         .await
+    }
+    async fn transfer_subtitles(&self, entry: &Entry, revision: u64) -> Result<bool, Error> {
+        let key = format!("{}:{}", entry.scope, entry.id);
+        for (index, subtitle) in entry.subtitles.iter().enumerate() {
+            self.services.check_revision(revision)?;
+            if self.paused.lock().await.contains(&key) {
+                return Ok(false);
+            }
+            let target = entry.path.with_extension(format!(
+                "subtitle-{index}.{}",
+                subtitle.extension()?.to_ascii_lowercase()
+            ));
+            if tokio::fs::try_exists(&target).await.map_err(|_| failed())? {
+                if tokio::fs::symlink_metadata(&target)
+                    .await
+                    .map_err(|_| failed())?
+                    .file_type()
+                    .is_symlink()
+                {
+                    return Err(failed());
+                }
+                verify_video(&target, subtitle.byte_size, &subtitle.sha256).await?;
+                continue;
+            }
+            let transport = self.services.snapshot()?;
+            let request = transport.media_subtitle(&entry.id, index, reqwest::Method::GET, None);
+            tokio::pin!(request);
+            let mut response = loop {
+                tokio::select! {
+                    result = &mut request => break result?,
+                    () = self.wake.notified() => if self.paused.lock().await.contains(&key) { return Ok(false); },
+                }
+            };
+            if response.status() != reqwest::StatusCode::OK {
+                return Err(failed());
+            }
+            let mut bytes = Vec::new();
+            loop {
+                let chunk = tokio::select! {
+                    result = response.chunk() => result.map_err(|_| failed())?,
+                    () = self.wake.notified() => { if self.paused.lock().await.contains(&key) { return Ok(false); } continue; },
+                };
+                let Some(chunk) = chunk else { break };
+                if bytes.len() as u64 + chunk.len() as u64 > subtitle.byte_size {
+                    return Err(failed());
+                }
+                bytes.extend_from_slice(&chunk);
+            }
+            if bytes.len() as u64 != subtitle.byte_size
+                || hex::encode(Sha256::digest(&bytes)) != subtitle.sha256
+            {
+                return Err(failed());
+            }
+            self.services.check_revision(revision)?;
+            let disk = rustix::fs::statvfs(entry.path.parent().ok_or_else(failed)?)
+                .map_err(|_| failed())?;
+            if disk.f_bavail.saturating_mul(disk.f_frsize) < subtitle.byte_size + 256 * 1024 * 1024
+            {
+                return Err(failed());
+            }
+            let stage = target.with_extension("partial");
+            if tokio::fs::symlink_metadata(&stage)
+                .await
+                .is_ok_and(|stat| !stat.is_file())
+            {
+                return Err(failed());
+            }
+            let mut output = tokio::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&stage)
+                .await
+                .map_err(|_| failed())?;
+            output.write_all(&bytes).await.map_err(|_| failed())?;
+            output.sync_all().await.map_err(|_| failed())?;
+            drop(output);
+            tokio::fs::hard_link(&stage, &target)
+                .await
+                .map_err(|_| failed())?;
+            tokio::fs::remove_file(stage).await.map_err(|_| failed())?;
+        }
+        Ok(true)
     }
     fn json(entry: &Entry) -> Value {
         let available = entry.state == "complete"
@@ -368,6 +471,29 @@ impl Downloads {
             .filter(|e| e.scope == scope)
             .map(Self::json)
             .collect())
+    }
+    pub async fn used_bytes(&self) -> Result<u64, Error> {
+        let scope = self.services.catalog_scope().await?;
+        let mut bytes = 0u64;
+        for entry in self.load()?.iter().filter(|entry| entry.scope == scope) {
+            let mut paths = vec![entry.path.clone(), entry.path.with_extension("partial")];
+            for (index, subtitle) in entry.subtitles.iter().enumerate() {
+                let subtitle_path = entry.path.with_extension(format!(
+                    "subtitle-{index}.{}",
+                    subtitle.extension()?.to_ascii_lowercase()
+                ));
+                paths.push(subtitle_path.with_extension("partial"));
+                paths.push(subtitle_path);
+            }
+            for path in paths {
+                if let Ok(stat) = tokio::fs::symlink_metadata(path).await
+                    && stat.is_file()
+                {
+                    bytes = bytes.saturating_add(stat.len());
+                }
+            }
+        }
+        Ok(bytes)
     }
     pub async fn jobs(&self) -> Result<Vec<Value>, Error> {
         let scope = self.services.catalog_scope().await?;
@@ -424,6 +550,19 @@ impl Downloads {
             return Err(Error::new("busy", "أوقف التنزيل وانتظر قبل حذفه."));
         }
         if delete {
+            for (index, subtitle) in entry.subtitles.iter().enumerate() {
+                let target = entry.path.with_extension(format!(
+                    "subtitle-{index}.{}",
+                    subtitle.extension()?.to_ascii_lowercase()
+                ));
+                for path in [target.with_extension("partial"), target] {
+                    match tokio::fs::remove_file(path).await {
+                        Ok(()) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(_) => return Err(failed()),
+                    }
+                }
+            }
             if entry.path.exists() {
                 tokio::fs::remove_file(&entry.path)
                     .await
@@ -535,6 +674,10 @@ mod tests {
         let missing_image = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let work_image = missing_image.clone();
         let app=Router::new()
+            .route("/api/v1/media/{id}/subtitles/{index}",get(|headers:HeaderMap|async move {
+                assert_eq!(headers["authorization"],"Bearer fixture-media-token");
+                "1\n00:00:00,000 --> 00:00:01,000\nSubtitle fixture\n"
+            }))
             .route("/api/health/ready",get(||async {"ready"}))
             .route("/api/v1/server/info",get(||async {Json(json!({"serverId":"a5000000-0000-4000-8000-000000000001","product":"nahhasio","name":"Fixture","version":"0.1.3","apiVersion":1}))}))
             .route("/api/v1/auth/login",post(|Json(input):Json<Value>|async move {Json(json!({"token":"fixture-media-token","expiresAt":"2099-01-01T00:00:00Z","user":{"id":"fixture","accountId":if input["email"]=="other@example.invalid"{OTHER}else{ACCOUNT},"name":"Fixture","email":"fixture@example.invalid","role":"member","kind":"member","avatarKey":"cars-1.png","bio":"","isAdmin":false,"updatedAt":"2026-11-05T00:00:00Z"}}))}))
@@ -581,8 +724,51 @@ mod tests {
         };
         let manager = Downloads::new(services.clone(), &roots);
         let checksum = hex::encode(Sha256::digest(b"0123456789"));
+        let subtitle_bytes = b"1\n00:00:00,000 --> 00:00:01,000\nSubtitle fixture\n";
+        let subtitles = vec![crate::home_gateway::Subtitle {
+            relative_path: "fixture.ar.srt".into(),
+            byte_size: subtitle_bytes.len() as u64,
+            sha256: hex::encode(Sha256::digest(subtitle_bytes)),
+        }];
+        let gateway = crate::home_gateway::HomeGateway::start_with_subtitles(
+            services.snapshot().unwrap(),
+            FILE.into(),
+            subtitles.clone(),
+        )
+        .await
+        .unwrap();
+        let client = reqwest::Client::new();
+        assert_eq!(
+            client
+                .get(&gateway.subtitles()[0].0)
+                .send()
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap(),
+            subtitle_bytes.as_slice()
+        );
+        assert_eq!(
+            client
+                .get(&gateway.subtitles()[0].0)
+                .header("Origin", "http://untrusted.invalid")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN
+        );
+
         manager
-            .start(FILE.into(), target(), 10, checksum.clone(), "mp4".into())
+            .start(
+                FILE.into(),
+                target(),
+                10,
+                checksum.clone(),
+                "mp4".into(),
+                subtitles.clone(),
+            )
             .await
             .unwrap();
         wait_for(&manager, "failed").await;
@@ -595,9 +781,29 @@ mod tests {
         );
         assert!(!first.path.exists());
         let restarted = Downloads::new(services.clone(), &roots);
+        let interrupted_subtitle = first.path.with_extension("subtitle-0.partial");
+        tokio::fs::write(&interrupted_subtitle, b"interrupted")
+            .await
+            .unwrap();
+        assert_eq!(restarted.used_bytes().await.unwrap(), 5 + 11);
+
         restarted.pause(FILE, false).await.unwrap();
         wait_for(&restarted, "complete").await;
+        assert_eq!(
+            restarted.used_bytes().await.unwrap(),
+            10 + subtitle_bytes.len() as u64
+        );
+        assert!(
+            !interrupted_subtitle.exists(),
+            "subtitle staging is reconciled after restart"
+        );
         assert_eq!(tokio::fs::read(&first.path).await.unwrap(), b"0123456789");
+        assert_eq!(
+            tokio::fs::read(first.path.with_extension("subtitle-0.srt"))
+                .await
+                .unwrap(),
+            subtitle_bytes
+        );
         command(
             &services,
             "login",
@@ -607,7 +813,14 @@ mod tests {
         .unwrap();
         assert!(restarted.library().await.unwrap().is_empty());
         restarted
-            .start(FILE.into(), target(), 10, checksum, "mp4".into())
+            .start(
+                FILE.into(),
+                target(),
+                10,
+                checksum,
+                "mp4".into(),
+                subtitles.clone(),
+            )
             .await
             .unwrap();
         wait_for(&restarted, "complete").await;

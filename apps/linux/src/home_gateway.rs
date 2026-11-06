@@ -12,6 +12,33 @@ use std::sync::Arc;
 use subtle::ConstantTimeEq;
 use tokio::sync::{Semaphore, oneshot};
 use tokio_stream::StreamExt;
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Subtitle {
+    pub relative_path: String,
+    pub byte_size: u64,
+    pub sha256: String,
+}
+impl Subtitle {
+    pub fn extension(&self) -> Result<&str, Error> {
+        let extension = self
+            .relative_path
+            .rsplit('.')
+            .next()
+            .ok_or_else(unavailable)?;
+        if self.relative_path.len() > 2048
+            || self.byte_size == 0
+            || self.byte_size > 16 * 1024 * 1024
+            || self.sha256.len() != 64
+            || !self.sha256.bytes().all(|c| c.is_ascii_hexdigit())
+            || !["srt", "ass", "ssa", "vtt", "sub", "idx"]
+                .contains(&extension.to_ascii_lowercase().as_str())
+        {
+            return Err(unavailable());
+        }
+        Ok(extension)
+    }
+}
 #[derive(Clone)]
 struct Shared {
     transport: ServerSession,
@@ -23,9 +50,21 @@ struct Shared {
 pub struct HomeGateway {
     endpoint: String,
     shutdown: Option<oneshot::Sender<()>>,
+    subtitles: Vec<(String, String, String)>,
 }
 impl HomeGateway {
+    #[cfg(feature = "native-diagnostics")]
     pub async fn start(transport: ServerSession, id: String) -> Result<Self, Error> {
+        Self::start_with_subtitles(transport, id, Vec::new()).await
+    }
+    pub(crate) async fn start_with_subtitles(
+        transport: ServerSession,
+        id: String,
+        subtitles: Vec<Subtitle>,
+    ) -> Result<Self, Error> {
+        if subtitles.len() > 16 {
+            return Err(unavailable());
+        }
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
             .await
             .map_err(|_| unavailable())?;
@@ -37,6 +76,17 @@ impl HomeGateway {
         getrandom::fill(&mut random).map_err(|_| unavailable())?;
         let token = hex::encode(random);
         let endpoint = format!("http://{host}/video/{token}");
+        let mut subtitle_urls = Vec::new();
+        for (index, subtitle) in subtitles.iter().enumerate() {
+            let extension = subtitle.extension()?.to_ascii_lowercase();
+            if ["srt", "ass", "ssa", "vtt"].contains(&extension.as_str()) {
+                subtitle_urls.push((
+                    format!("{endpoint}/subtitles/{index}/subtitle.{extension}"),
+                    format!("Subtitle {}", index + 1),
+                    String::new(),
+                ));
+            }
+        }
         let state = Shared {
             transport,
             id,
@@ -46,6 +96,10 @@ impl HomeGateway {
         };
         let router = Router::new()
             .route("/video/{token}", get(serve))
+            .route(
+                "/video/{token}/subtitles/{index}/{name}",
+                get(serve_subtitle),
+            )
             .with_state(state);
         let (shutdown, closed) = oneshot::channel();
         tokio::spawn(async move {
@@ -58,10 +112,14 @@ impl HomeGateway {
         Ok(Self {
             endpoint,
             shutdown: Some(shutdown),
+            subtitles: subtitle_urls,
         })
     }
     pub fn endpoint(&self) -> &str {
         &self.endpoint
+    }
+    pub(crate) fn subtitles(&self) -> &[(String, String, String)] {
+        &self.subtitles
     }
 }
 impl Drop for HomeGateway {
@@ -77,6 +135,23 @@ fn unavailable() -> Error {
 async fn serve(
     State(state): State<Shared>,
     Path(token): Path<String>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    relay(state, token, None, method, headers).await
+}
+async fn serve_subtitle(
+    State(state): State<Shared>,
+    Path((token, index, _name)): Path<(String, usize, String)>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    relay(state, token, Some(index), method, headers).await
+}
+async fn relay(
+    state: Shared,
+    token: String,
+    subtitle: Option<usize>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
@@ -108,11 +183,18 @@ async fn serve(
         },
         None => None,
     };
-    let upstream = match state
-        .transport
-        .media_response(&state.id, method, range)
-        .await
-    {
+    let response = if let Some(index) = subtitle {
+        state
+            .transport
+            .media_subtitle(&state.id, index, method, range)
+            .await
+    } else {
+        state
+            .transport
+            .media_response(&state.id, method, range)
+            .await
+    };
+    let upstream = match response {
         Ok(response) => response,
         Err(_) => {
             return Response::builder()

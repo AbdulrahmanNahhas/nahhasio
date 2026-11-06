@@ -413,6 +413,11 @@ impl Player {
     ) -> Result<(), Error> {
         self.require_session(id)?;
         let player = NativePlayer::loopback(gateway.endpoint()).map_err(playback_error)?;
+        for (url, label, language) in gateway.subtitles() {
+            player
+                .add_loopback_subtitle(url, label, language)
+                .map_err(playback_error)?;
+        }
         self.cancel_stream();
         player
             .defaults(self.defaults.borrow().clone())
@@ -431,6 +436,16 @@ impl Player {
     pub fn play_saved(&self, id: &str, target: ResolvedTarget, path: &Path) -> Result<(), Error> {
         self.require_session(id)?;
         let player = NativePlayer::local(path).map_err(playback_error)?;
+        for index in 0..16 {
+            for extension in ["srt", "ass", "ssa", "vtt"] {
+                let subtitle = path.with_extension(format!("subtitle-{index}.{extension}"));
+                if subtitle.exists() {
+                    player
+                        .queue_local_subtitle(&subtitle, &format!("Subtitle {}", index + 1))
+                        .map_err(playback_error)?;
+                }
+            }
+        }
         self.cancel_stream();
         player
             .defaults(self.defaults.borrow().clone())

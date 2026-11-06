@@ -115,7 +115,7 @@ impl Services {
         width: u32,
     ) -> Result<(Vec<u8>, String), Error> {
         self.check_revision(revision)?;
-        if !crate::bridge::valid_id(id) || ![320, 640, 1280, 1920].contains(&width) {
+        if !crate::bridge::valid_id(id) || ![0, 320, 640, 1280, 1920].contains(&width) {
             return Err(Error::new("bad_request", "صورة غير صالحة."));
         }
         if self.offline.is_offline().await {
@@ -437,7 +437,7 @@ impl Services {
                 .filter(|id| crate::bridge::valid_id(id))
                 .ok_or_else(|| Error::new("bad_request", "صورة غير صالحة."))?;
             let width = request.payload["width"].as_u64().unwrap_or(640);
-            if ![320, 640, 1280, 1920].contains(&width) {
+            if ![0, 320, 640, 1280, 1920].contains(&width) {
                 return Err(Error::new("bad_request", "حجم صورة غير صالح."));
             }
             self.catalog_scope().await?;

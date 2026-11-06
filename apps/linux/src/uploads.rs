@@ -56,9 +56,16 @@ impl Uploads {
         private_state::write_limit(&self.root, "transfers.json", &entries, 1024 * 1024)
     }
     pub async fn status(&self) -> Result<Value, Error> {
+        let revision = self.services.revision();
         let scope = self.services.catalog_scope().await?;
+        let active = self.active.lock().await.clone();
         let _lock = self.serial.lock().await;
-        Ok(json!(self.load()?.into_iter().filter(|e|e.scope==scope).map(|e|json!({"id":e.id,"name":e.name,"bytes":e.bytes,"offset":e.offset,"status":e.status,"error":e.error})).collect::<Vec<_>>()))
+        let entries = self.load()?;
+        self.services.check_revision(revision)?;
+        Ok(json!(entries.into_iter().filter(|entry|entry.scope==scope).map(|entry| {
+            let interrupted=matches!(entry.status.as_str(),"queued"|"uploading"|"verifying"|"verifying-server") && !active.contains(&entry.id);
+            json!({"id":entry.id,"name":entry.name,"bytes":entry.bytes,"offset":entry.offset,"status":if interrupted{"paused"}else{entry.status.as_str()},"error":entry.error})
+        }).collect::<Vec<_>>()))
     }
     pub async fn start(&self, paths: Vec<PathBuf>) -> Result<Value, Error> {
         let scope = self.services.catalog_scope().await?;
@@ -237,7 +244,21 @@ impl Uploads {
             self.update(&entry.id, |e| e.offset = offset).await?;
         }
         self.services.check_revision(revision)?;
-        transport.upload_complete(&id).await?;
+        self.update(&entry.id, |entry| entry.status = "verifying-server".into())
+            .await?;
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1800);
+        loop {
+            self.services.check_revision(revision)?;
+            let reply = transport.upload_complete(&id).await?;
+            if reply["complete"] == true {
+                break;
+            }
+            if reply["complete"] != false || tokio::time::Instant::now() >= deadline {
+                return Err(failed());
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+        self.services.check_revision(revision)?;
         self.update(&entry.id, |e| {
             e.status = "completed".into();
             e.offset = e.bytes;

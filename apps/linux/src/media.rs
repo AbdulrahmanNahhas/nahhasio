@@ -53,6 +53,11 @@ pub enum Command {
     UploadRetry { id: String },
     #[serde(rename = "media.homeDownload")]
     HomeDownload { target: Target, file_id: String },
+    #[serde(rename = "media.homeDownloadBatch")]
+    HomeDownloadBatch {
+        work_id: String,
+        file_ids: Vec<String>,
+    },
     #[serde(rename = "media.homePlay")]
     HomePlay {
         session_id: String,
@@ -595,27 +600,27 @@ impl Media {
         .map_err(|_| transfer_error())
     }
     pub async fn jobs(&self) -> Result<Value, Error> {
+        let revision = self.services.revision();
         let mut result = self.torrent_jobs().await?;
         let entries = self.home_downloads.jobs().await?;
         result
             .as_array_mut()
             .ok_or_else(transfer_error)?
             .extend(entries);
+        self.services.check_revision(revision)?;
         Ok(result)
     }
     pub async fn library(&self) -> Result<Value, Error> {
+        let revision = self.services.revision();
         let mut result = self.torrent_library().await?;
         let entries = self.home_downloads.library().await?;
-        let used: u64 = entries
-            .iter()
-            .filter(|e| e["available"] == true)
-            .filter_map(|e| e["size"].as_u64())
-            .sum();
+        let used = self.home_downloads.used_bytes().await?;
         result["usedBytes"] = json!(result["usedBytes"].as_u64().unwrap_or(0) + used);
         result["files"]
             .as_array_mut()
             .ok_or_else(transfer_error)?
             .extend(entries);
+        self.services.check_revision(revision)?;
         Ok(result)
     }
     pub async fn home_download(&self, target: Target, file_id: String) -> Result<Value, Error> {
@@ -657,9 +662,118 @@ impl Media {
                 .to_string();
         self.services.save_work_required(&target.work_id).await?;
         self.services.check_revision(revision)?;
+        let subtitles = serde_json::from_value(
+            file["probeMetadata"]
+                .get("sidecars")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
+        )
+        .map_err(|_| transfer_error())?;
         self.home_downloads
-            .start(file_id, resolved, size, hash, extension)
+            .start(file_id, resolved, size, hash, extension, subtitles)
             .await
+    }
+    pub async fn home_download_batch(
+        &self,
+        work_id: String,
+        file_ids: Vec<String>,
+    ) -> Result<Value, Error> {
+        let revision = self.services.revision();
+        if !valid_id(&work_id)
+            || file_ids.is_empty()
+            || file_ids.len() > 100
+            || file_ids.iter().any(|id| !valid_id(id))
+        {
+            return Err(transfer_error());
+        }
+        let target = Target {
+            work_id: work_id.clone(),
+            installment_id: None,
+            episode_id: None,
+        };
+        let work = self.source_catalog(&target).await?;
+        let files = self
+            .services
+            .execute(Request {
+                id: "home-batch".into(),
+                command: "homeMedia".into(),
+                payload: json!({"id":work_id}),
+            })
+            .await?;
+        let mut plans = Vec::new();
+        let mut units = std::collections::BTreeSet::new();
+        for file_id in file_ids {
+            let file = files
+                .as_array()
+                .and_then(|files| {
+                    files.iter().find(|file| {
+                        file["id"] == file_id
+                            && file["availability"] == "present"
+                            && file["isTrashed"] == false
+                    })
+                })
+                .ok_or_else(transfer_error)?;
+            let target = Target {
+                work_id: work_id.clone(),
+                installment_id: Some(
+                    file["installmentId"]
+                        .as_str()
+                        .ok_or_else(transfer_error)?
+                        .into(),
+                ),
+                episode_id: file["episodeId"].as_str().map(str::to_owned),
+            };
+            if !units.insert((target.installment_id.clone(), target.episode_id.clone())) {
+                return Err(Error::new(
+                    "bad_request",
+                    "اختر نسخة واحدة لكل حلقة أو فيلم.",
+                ));
+            }
+            let resolved = resolve_target_for(&work, &target, true)?;
+            let size = file["byteSize"].as_u64().ok_or_else(transfer_error)?;
+            let hash = file["sha256"]
+                .as_str()
+                .ok_or_else(transfer_error)?
+                .to_owned();
+            let extension =
+                std::path::Path::new(file["relativePath"].as_str().ok_or_else(transfer_error)?)
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .ok_or_else(transfer_error)?
+                    .to_owned();
+            let subtitles: Vec<crate::home_gateway::Subtitle> = serde_json::from_value(
+                file["probeMetadata"]
+                    .get("sidecars")
+                    .cloned()
+                    .unwrap_or_else(|| json!([])),
+            )
+            .map_err(|_| transfer_error())?;
+            if size == 0
+                || hash.len() != 64
+                || !hash.bytes().all(|c| c.is_ascii_hexdigit())
+                || subtitles.len() > 16
+                || !media_transfer::is_video(&format!("video.{extension}"))
+            {
+                return Err(transfer_error());
+            }
+            for subtitle in &subtitles {
+                subtitle.extension()?;
+            }
+            plans.push((file_id, resolved, size, hash, extension, subtitles));
+        }
+        self.services.save_work_required(&work_id).await?;
+        let mut results = Vec::new();
+        for (id, resolved, size, hash, extension, subtitles) in plans {
+            self.services.check_revision(revision)?;
+            let result = self
+                .home_downloads
+                .start(id.clone(), resolved, size, hash, extension, subtitles)
+                .await;
+            results.push(
+                json!({"id":id,"queued":result.is_ok(),"error":result.err().map(|e| e.message)}),
+            );
+        }
+        Ok(json!(results))
     }
     async fn torrent_jobs(&self) -> Result<Value, Error> {
         let engine = self.engine().await?;
@@ -751,7 +865,17 @@ impl Media {
             ));
         }
         let transport = self.services.snapshot()?;
-        let gateway = crate::home_gateway::HomeGateway::start(transport, file_id).await?;
+        let subtitles = files
+            .as_array()
+            .and_then(|files| files.iter().find(|file| file["id"] == file_id))
+            .and_then(|file| file["probeMetadata"].get("sidecars"))
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        let subtitles = serde_json::from_value(subtitles)
+            .map_err(|_| Error::new("home_media", "Invalid subtitle receipts"))?;
+        let gateway =
+            crate::home_gateway::HomeGateway::start_with_subtitles(transport, file_id, subtitles)
+                .await?;
         Ok((resolved, gateway))
     }
     pub(crate) async fn resolve(&self, target: &Target) -> Result<ResolvedTarget, Error> {

@@ -743,6 +743,7 @@ impl ServerSession {
             .authorized(Method::PUT, &format!("api/v1/admin/media/uploads/{id}"))
             .await?
             .query(&[("offset", offset)])
+            .timeout(Duration::from_secs(180))
             .body(bytes)
             .send()
             .await
@@ -759,7 +760,6 @@ impl ServerSession {
                 &format!("api/v1/admin/media/uploads/{id}/complete"),
             )
             .await?
-            .timeout(Duration::from_secs(1800))
             .send()
             .await
             .map_err(network)?;
@@ -771,12 +771,35 @@ impl ServerSession {
         method: Method,
         range: Option<&str>,
     ) -> Result<Response, Error> {
+        self.media_resource(id, None, method, range).await
+    }
+    pub(crate) async fn media_subtitle(
+        &self,
+        id: &str,
+        index: usize,
+        method: Method,
+        range: Option<&str>,
+    ) -> Result<Response, Error> {
+        if index >= 16 {
+            return Err(Error::new("bad_request", "Invalid subtitle identity"));
+        }
+        self.media_resource(id, Some(index), method, range).await
+    }
+    async fn media_resource(
+        &self,
+        id: &str,
+        subtitle: Option<usize>,
+        method: Method,
+        range: Option<&str>,
+    ) -> Result<Response, Error> {
         if !valid_id(id) {
             return Err(Error::new("bad_request", "Invalid media identity"));
         }
-        let mut request = self
-            .authorized(method, &format!("api/v1/media/{id}/content"))
-            .await?;
+        let path = subtitle.map_or_else(
+            || format!("api/v1/media/{id}/content"),
+            |index| format!("api/v1/media/{id}/subtitles/{index}"),
+        );
+        let mut request = self.authorized(method, &path).await?;
         if let Some(range) = range {
             if range.len() > 256 || !range.starts_with("bytes=") {
                 return Err(Error::new("bad_request", "Invalid byte range"));
@@ -1159,8 +1182,9 @@ impl ServerSession {
                     .map_err(network)?;
                 self.json(response).await
             }
-            "adminMedia" | "adminMediaCoverage" | "adminMediaIncoming" | "adminMediaJobs"
-            | "adminMediaImport" | "adminMediaControl" | "adminMediaYoutube" | "adminMediaFile" => {
+            "adminMedia" | "adminMediaCoverage" | "adminMediaUnits" | "adminMediaIncoming"
+            | "adminMediaJobs" | "adminMediaImport" | "adminMediaControl" | "adminMediaYoutube"
+            | "adminMediaFile" => {
                 let path = match request.command.as_str() {
                     "adminMediaFile" => {
                         let id = request.payload["id"]
@@ -1172,6 +1196,7 @@ impl ServerSession {
                     "adminMediaYoutube" => "api/v1/admin/media/youtube".to_string(),
                     "adminMedia" => "api/v1/admin/media".to_string(),
                     "adminMediaCoverage" => "api/v1/admin/media/coverage".to_string(),
+                    "adminMediaUnits" => "api/v1/admin/media/units".to_string(),
                     "adminMediaIncoming" => "api/v1/admin/media/incoming".to_string(),
                     "adminMediaJobs" | "adminMediaImport" => "api/v1/admin/media/jobs".to_string(),
                     _ => {
@@ -1193,7 +1218,7 @@ impl ServerSession {
                     .authorized(if post { Method::POST } else { Method::GET }, &path)
                     .await?;
                 if request.command == "adminMediaFile" {
-                    call=call.json(&json!({"action":request.payload["action"],"workId":request.payload["workId"],"installmentId":request.payload["installmentId"],"episodeId":request.payload["episodeId"],"expectedRevision":request.payload["expectedRevision"]}));
+                    call=call.json(&json!({"action":request.payload["action"],"workId":request.payload["workId"],"installmentId":request.payload["installmentId"],"episodeId":request.payload["episodeId"],"expectedRevision":request.payload["expectedRevision"],"replacementFileId":request.payload["replacementFileId"]}));
                 } else if request.command == "adminMediaControl" {
                     call = call.json(&json!({"action":request.payload["action"]}));
                 } else if post {
