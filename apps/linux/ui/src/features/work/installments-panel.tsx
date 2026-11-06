@@ -360,7 +360,6 @@ function EpisodeCard({
             className="h-auto max-w-full justify-start px-0 py-0 text-start whitespace-normal"
             disabled={upcoming}
             onClick={play}
-            aria-label={`تشغيل الحلقة ${number}`}
           >
             {episode.title || `الحلقة ${number}`}
           </Button>

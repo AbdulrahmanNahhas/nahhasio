@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { nativeCall } from "@/lib/bridge";
 
 import { PlayerSnapshotSchema } from "./bridge";
-import { downloadLibraryOptions, downloadQueueOptions, jobCategory } from "./download-data";
+import { DeviceDownloadsCheck, useDeviceDownloadsState } from "./device-downloads-state";
+import { jobCategory } from "./download-data";
+import { matchesVideoTarget } from "./download-target";
 import { formatSourceSize } from "./source-format";
 import { playerSnapshotKey, type PlayerController } from "./use-player-snapshot";
 import type { WatchTarget } from "./watch-request";
@@ -104,14 +106,10 @@ export function HomeDownloadSources({
   onManage?: () => void;
 }) {
   const client = useQueryClient();
-  const library = useQuery(downloadLibraryOptions());
-  const jobs = useQuery(downloadQueueOptions());
-  const sameTarget = (file: {
-    target?: { workId: string; installmentId: string | null; episodeId: string | null } | null;
-  }) =>
-    file.target?.workId === target.workId &&
-    file.target.installmentId === (target.installmentId ?? null) &&
-    file.target.episodeId === (target.episodeId ?? null);
+  const device = useDeviceDownloadsState();
+  const { library, jobs } = device;
+  const sameTarget = (file: Parameters<typeof matchesVideoTarget>[0]) =>
+    matchesVideoTarget(file, target);
   const saved = library.data?.files.some((file) => sameTarget(file) && file.available);
   const existing = jobs.data?.find((job) => job.exports.some(sameTarget));
   const ready = saved || (existing && jobCategory(existing) === "completed");
@@ -172,6 +170,7 @@ export function HomeDownloadSources({
   return (
     <section className="flex flex-col gap-3" aria-label="تنزيل من مكتبة المنزل">
       <h3>نسخة مكتبة المنزل</h3>
+      <DeviceDownloadsCheck state={device} />
       {files.isPending && <p role="status">جارٍ التحقق من الملف…</p>}
       {files.error && <p>مكتبة المنزل غير متاحة؛ يلزم الاتصال بالشبكة المنزلية لتنزيل ملفاتها.</p>}
       {files.isSuccess && !matches.length && (
@@ -183,13 +182,7 @@ export function HomeDownloadSources({
         <Button
           key={file.id}
           variant="outline"
-          disabled={
-            library.isPending ||
-            jobs.isPending ||
-            action.isPending ||
-            action.isSuccess ||
-            !file.sha256
-          }
+          disabled={!device.ready || action.isPending || action.isSuccess || !file.sha256}
           onClick={() => action.mutate(file.id)}
         >
           {action.isSuccess ? "أُضيف إلى تنزيلات الجهاز" : "تنزيل إلى هذا الجهاز"}{" "}

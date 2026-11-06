@@ -26,6 +26,7 @@ import type { Locator, Page } from "@playwright/test";
 import type { z } from "zod";
 
 import type { PlayerSnapshot } from "../src/features/player/bridge";
+import type { librarySchema } from "../src/features/player/download-data";
 import { offlineStatusSchema } from "../src/features/player/saved-works-data";
 import type { EmbedStatus, ProviderListing } from "../src/features/player/stream-providers";
 
@@ -375,6 +376,7 @@ type WorkPageFixture = {
   releaseFavorite: () => void;
   failWatched: boolean;
   homeFiles: boolean;
+  deviceUnavailable: boolean;
 };
 declare global {
   interface Window {
@@ -398,6 +400,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
         releaseFavorite: () => {},
         failWatched: false,
         homeFiles: false,
+        deviceUnavailable: false,
       };
       window.workPageFixture = fixture;
       const summaryFor = (installmentId?: string): WatchSummary => {
@@ -432,6 +435,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   | EmbedStatus
                   | ProviderListing
                   | CommentChanged
+                  | z.infer<typeof librarySchema>
                   | { found: false }
                   | []
                   | Session
@@ -527,6 +531,16 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   return;
                 case "media.local":
                   success({ found: false });
+                  return;
+                case "media.library":
+                  if (fixture.deviceUnavailable) {
+                    failure("Device inventory unavailable");
+                    return;
+                  }
+                  success({ files: [], root: "fixture", usedBytes: 0, freeBytes: 1024 });
+                  return;
+                case "media.jobs":
+                  success([]);
                   return;
                 case "media.saved":
                   success([]);
@@ -751,7 +765,7 @@ async function openWork(page: Page, query = "") {
   await expect(page.getByRole("button", { name: "إضافة إلى المفضلة" })).toBeEnabled();
 }
 async function openEpisodes(page: Page) {
-  await page.getByRole("button", { name: "الأجزاء والحلقات", exact: true }).click();
+  await page.getByRole("tab", { name: "الأجزاء", exact: true }).click();
   await expect(page.getByRole("article", { name: "الحلقة 1", exact: true })).toBeVisible();
 }
 const episodeCard = (page: Page, number: number) =>
@@ -979,6 +993,7 @@ test("batch home downloads require explicit selection and confirmation without s
     window.workPageFixture.homeFiles = true;
   });
   expect(await requests(page, "media.homeDownloadBatch")).toEqual([]);
+  await openEpisodes(page);
   await page.getByRole("button", { name: "تنزيل حلقات من مكتبة المنزل", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "تنزيل فيديوهات إلى هذا الجهاز", exact: true });
   await expect(dialog.getByRole("checkbox")).toHaveCount(2);
@@ -1212,9 +1227,8 @@ test("episode keyboard navigation follows physical RTL directions and details re
   await openWork(page);
   await expect(page.locator("#main-content")).toBeFocused();
   await openEpisodes(page);
-  await expect(page.locator("#work-sections")).toBeFocused();
-  const first = episodeCard(page, 1).getByRole("link", { name: /^فتح الحلقة 1/ });
-  const second = episodeCard(page, 2).getByRole("link", { name: /^فتح الحلقة 2/ });
+  const first = episodeCard(page, 1).locator("[data-episode-primary]");
+  const second = episodeCard(page, 2).locator("[data-episode-primary]");
   await first.focus();
   await page.keyboard.press("ArrowLeft");
   await expect(second).toBeFocused();
@@ -1253,6 +1267,20 @@ test("episode keyboard navigation follows physical RTL directions and details re
   await expect(page.getByRole("dialog", { name: "3 · حلقة بلا عنوان" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(noTitle.getByRole("button", { name: "تفاصيل الحلقة 3" })).toBeFocused();
+  const lastVisible = episodeCard(page, 7);
+  await lastVisible.locator("[data-episode-primary]").focus();
+  await expect
+    .poll(() =>
+      lastVisible.evaluate((card) => {
+        const bounds = card.getBoundingClientRect();
+        const main = document.getElementById("main-content")!.getBoundingClientRect();
+        return (
+          bounds.top >= Math.max(0, main.top) - 1 &&
+          bounds.bottom <= Math.min(innerHeight, main.bottom) + 1
+        );
+      }),
+    )
+    .toBe(true);
 });
 
 test("episode details remain deep links while artwork starts the selected episode", async ({
@@ -1260,9 +1288,8 @@ test("episode details remain deep links while artwork starts the selected episod
 }) => {
   await openWork(page, `?installment=${seasonId}`);
   const card = episodeCard(page, 2);
-  const link = card.getByRole("link", { name: /^فتح الحلقة 2/ });
-  const destination = `#/titles/${workId}?installment=${seasonId}&episode=${id(102)}`;
-  await expect(link).toHaveAttribute("href", destination);
+  await openEpisodes(page);
+  const link = card.getByRole("button", { name: "تفاصيل الحلقة 2", exact: true });
   await expect(link.locator("button, a, input")).toHaveCount(0);
   await expect(card.getByRole("button", { name: "تشغيل الحلقة 2" })).toBeEnabled();
   await expect(card.getByRole("button", { name: "تنزيل الحلقة 2" })).toBeEnabled();
@@ -1276,9 +1303,6 @@ test("episode details remain deep links while artwork starts the selected episod
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(link).toBeFocused();
-  expect(new URL((await link.getAttribute("href")) ?? "", "http://localhost").hash).toBe(
-    destination,
-  );
   await link.click();
   await page.reload();
   await expect(dialog).toBeVisible();
@@ -1563,7 +1587,7 @@ test("arrows reach work actions, watched controls, panel links and disclosures w
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openWork(page);
-  const episodes = page.getByRole("button", { name: "الأجزاء والحلقات", exact: true });
+  const episodes = page.getByRole("button", { name: "تنزيل الفيديو", exact: true });
   const favorite = page.getByRole("button", { name: "إضافة إلى المفضلة", exact: true });
   const watched = page.getByRole("button", { name: "تحديد العمل كمُشاهَد", exact: true });
   await episodes.focus();
@@ -1590,9 +1614,7 @@ test("arrows reach work actions, watched controls, panel links and disclosures w
   });
   await firstWatch.focus();
   await page.keyboard.press("ArrowLeft");
-  await expect(
-    episodeCard(page, 2).getByRole("button", { name: "تحديد الحلقة 2 كمُشاهَد", exact: true }),
-  ).toBeFocused();
+  await expect(episodeCard(page, 2).locator("[data-episode-primary]")).toBeFocused();
   expect(await requests(page, "setWatched")).toEqual([]);
   const crewTab = page.getByRole("tab", { name: "الصنّاع", exact: true });
   await crewTab.click();
@@ -1657,10 +1679,11 @@ for (const width of [520, 1440]) {
     expect(new Set(tops).size).toBe(width === 1440 ? 2 : 5);
     await expect(section.getByText("اقتراح 10", { exact: true })).toBeAttached();
     await expectNoOverflow(page);
-    await page.screenshot({
-      path: `/tmp/nahhasio-work-recommendations-${width}.png`,
-      fullPage: true,
-    });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `/tmp/nahhasio-work-recommendations-${width}.png`,
+        fullPage: true,
+      });
   });
 }
 
@@ -1705,7 +1728,8 @@ for (const width of [520, 1440]) {
       .poll(async () => (await requests(page, "player.viewport")).length)
       .toBeGreaterThan(0);
     await watch.getByRole("button", { name: "العودة", exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `/tmp/nahhasio-watch-${width}.png`, fullPage: true });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `/tmp/nahhasio-watch-${width}.png`, fullPage: true });
     await expect(
       watch.getByLabel("حلقات العمل", { exact: true }).getByRole("button").first(),
     ).toBeVisible();
@@ -1781,7 +1805,8 @@ for (const width of [520, 1440]) {
       watch.getByLabel("تفاصيل المشاهدة").getByRole("heading", { name: "عن الفيلم" }),
     ).toBeAttached();
     await expectNoOverflow(page);
-    await page.screenshot({ path: `/tmp/nahhasio-watch-movie-${width}.png`, fullPage: true });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `/tmp/nahhasio-watch-movie-${width}.png`, fullPage: true });
     await info.getByRole("combobox", { name: "الأجزاء والمواسم", exact: true }).click();
     await page.getByRole("option", { name: "الموسم الأول · 9 حلقة", exact: true }).click();
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeAttached();
@@ -1860,10 +1885,11 @@ test("work media actions stay in context and upcoming episodes cannot start play
     "https://www.youtube.com/watch?v=abcdefghijk",
   );
   await page.keyboard.press("Escape");
-  await page.screenshot({
-    path: "../../../data/previews/work-media-desktop.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/work-media-desktop.png",
+      animations: "disabled",
+    });
   const notes = page.getByText("ملاحظات الدبلجة", { exact: true });
   await notes.click();
   await expect(page.getByText(work.dubbingNotes!, { exact: true })).toBeVisible();
@@ -1872,15 +1898,62 @@ test("work media actions stay in context and upcoming episodes cannot start play
     episodeCard(page, 8).getByRole("button", { name: "الحلقة 8 لم تصدر بعد", exact: true }),
   ).toBeDisabled();
   await episodeCard(page, 1).scrollIntoViewIfNeeded();
-  await page.screenshot({
-    path: "../../../data/previews/work-episodes-desktop.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/work-episodes-desktop.png",
+      animations: "disabled",
+    });
   await page.setViewportSize({ width: 520, height: 900 });
   await episodeCard(page, 1).scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({
-    path: "../../../data/previews/work-episodes-narrow.png",
-    animations: "disabled",
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/work-episodes-narrow.png",
+      animations: "disabled",
+    });
+});
+
+test("device inventory failure prevents duplicate batch acquisition and can retry", async ({
+  page,
+}) => {
+  await openWork(page);
+  await page.evaluate(() => {
+    window.workPageFixture.homeFiles = true;
+    window.workPageFixture.deviceUnavailable = true;
   });
+  await openEpisodes(page);
+  await page.getByRole("button", { name: "تنزيل حلقات من مكتبة المنزل", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "تنزيل فيديوهات إلى هذا الجهاز", exact: true });
+  await expect(dialog.getByText("تعذّر التحقق من تنزيلات الجهاز", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "تأكيد التنزيل إلى الجهاز", exact: true }),
+  ).toBeDisabled();
+  expect(await requests(page, "media.homeDownloadBatch")).toEqual([]);
+  await page.evaluate(() => {
+    window.workPageFixture.deviceUnavailable = false;
+  });
+  await dialog.getByRole("button", { name: "إعادة التحقق", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "تحديد نسخة لكل حلقة أو فيلم — حتى 100", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: "تأكيد التنزيل إلى الجهاز", exact: true }),
+  ).toBeEnabled();
+  expect(await requests(page, "media.homeDownloadBatch")).toEqual([]);
+});
+
+test("appearance switches immediately and persists on this device after reload", async ({
+  page,
+}) => {
+  await page.goto("/#/settings?section=appearance");
+  await page.getByRole("button", { name: "فاتح", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "فاتح", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "داكن", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

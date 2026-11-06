@@ -22,7 +22,8 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { nativeCall } from "@/lib/bridge";
 
-import { downloadLibraryOptions, downloadQueueOptions } from "./download-data";
+import { DeviceDownloadsCheck, useDeviceDownloadsState } from "./device-downloads-state";
+import { matchesVideoTarget } from "./download-target";
 import { formatSourceSize } from "./source-format";
 
 export function HomeBatchDownload({ workId }: { workId: string }) {
@@ -56,8 +57,8 @@ export function HomeBatchDownload({ workId }: { workId: string }) {
 }
 function BatchSelection({ workId }: { workId: string }) {
   const client = useQueryClient();
-  const library = useQuery(downloadLibraryOptions());
-  const jobs = useQuery(downloadQueueOptions());
+  const device = useDeviceDownloadsState();
+  const { library, jobs } = device;
   const [selected, setSelected] = useState<string[]>([]);
   const files = useQuery({
     queryKey: ["viewer", "home-media", workId],
@@ -73,17 +74,20 @@ function BatchSelection({ workId }: { workId: string }) {
     library.data?.files.some(
       (video) =>
         video.available &&
-        video.target?.workId === workId &&
-        video.target.installmentId === file.installmentId &&
-        video.target.episodeId === file.episodeId,
+        matchesVideoTarget(video, {
+          workId,
+          installmentId: file.installmentId,
+          episodeId: file.episodeId,
+        }),
     );
   const queued = (file: (typeof available)[number]) =>
     jobs.data?.some((job) =>
-      job.exports.some(
-        (video) =>
-          video.target?.workId === workId &&
-          video.target.installmentId === file.installmentId &&
-          video.target.episodeId === file.episodeId,
+      job.exports.some((video) =>
+        matchesVideoTarget(video, {
+          workId,
+          installmentId: file.installmentId,
+          episodeId: file.episodeId,
+        }),
       ),
     );
   const picked = available.filter(
@@ -109,6 +113,7 @@ function BatchSelection({ workId }: { workId: string }) {
   });
   return (
     <div className="flex flex-col gap-4">
+      <DeviceDownloadsCheck state={device} />
       {files.isPending && <p role="status">جارٍ فحص مكتبة المنزل…</p>}
       {files.error && (
         <Alert variant="destructive">
@@ -124,7 +129,7 @@ function BatchSelection({ workId }: { workId: string }) {
         <>
           <Button
             variant="outline"
-            disabled={action.isPending}
+            disabled={action.isPending || !device.ready}
             onClick={() => {
               const seen = new Set<string>();
               setSelected(
@@ -149,13 +154,7 @@ function BatchSelection({ workId }: { workId: string }) {
                 <Checkbox
                   id={`batch-${file.id}`}
                   checked={onDevice(file) || queued(file) || selected.includes(file.id)}
-                  disabled={
-                    library.isPending ||
-                    jobs.isPending ||
-                    action.isPending ||
-                    onDevice(file) ||
-                    queued(file)
-                  }
+                  disabled={!device.ready || action.isPending || onDevice(file) || queued(file)}
                   onCheckedChange={(checked) =>
                     setSelected((previous) =>
                       checked
@@ -192,7 +191,7 @@ function BatchSelection({ workId }: { workId: string }) {
             إيقاف كل تنزيل أو استئنافه من مكتبة الجهاز.
           </p>
           <Button
-            disabled={!picked.length || picked.length > 100 || action.isPending}
+            disabled={!device.ready || !picked.length || picked.length > 100 || action.isPending}
             onClick={() => action.mutate()}
           >
             {action.isPending

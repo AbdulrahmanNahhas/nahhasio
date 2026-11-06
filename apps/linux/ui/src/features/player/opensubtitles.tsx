@@ -357,16 +357,14 @@ function SubtitleSearchForm({
   });
   const apply = useMutation({
     mutationFn: async (item: z.infer<typeof resultSchema>["items"][number]) =>
-      z
-        .object({ ok: z.literal(true), remaining: z.number().nullable() })
-        .parse(
-          await subtitleCall("opensubtitles.apply", {
-            sessionId,
-            fileId: item.fileId,
-            language: item.language,
-            label: (item.release || item.fileName || "OpenSubtitles").slice(0, 200),
-          }),
-        ),
+      z.object({ ok: z.literal(true), remaining: z.number().nullable() }).parse(
+        await subtitleCall("opensubtitles.apply", {
+          sessionId,
+          fileId: item.fileId,
+          language: item.language,
+          label: (item.release || item.fileName || "OpenSubtitles").slice(0, 200),
+        }),
+      ),
     onSuccess: onApplied,
   });
   const pending = search.isPending || apply.isPending;

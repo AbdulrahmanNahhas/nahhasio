@@ -4,6 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Artwork } from "@/components/artwork";
+import { useCardNavigation } from "@/components/card-navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ import { offlineStatusOptions, savedWorksOptions, syncSavedWorks } from "./saved
 
 export function SaveWorkControl({ id, compact = false }: { id: string; compact?: boolean }) {
   const client = useQueryClient();
+  const navigation = useCardNavigation();
   const status = useQuery(offlineStatusOptions());
   const works = useQuery({ ...savedWorksOptions(), enabled: Boolean(status.data?.active) });
   const saved = works.data?.some((work) => work.id === id);
@@ -83,6 +85,7 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1">
         <Button
+          {...navigation}
           variant={saved ? "secondary" : "outline"}
           size="lg"
           className="h-12"
@@ -90,7 +93,12 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
           title={label}
           disabled={
             !saved &&
-            (checking || save.isPending || running || !status.data?.active || status.data?.offline)
+            (checking ||
+              works.isError ||
+              save.isPending ||
+              running ||
+              !status.data?.active ||
+              status.data?.offline)
           }
           onClick={() => (saved ? navigate("/downloads?view=saved") : save.mutate())}
         >
@@ -104,6 +112,20 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
           {compact ? (job?.running ? "جارٍ الحفظ…" : saved ? "محفوظ" : "حفظ العمل") : label}
         </Button>
       </div>
+      {(works.isError || status.isError) && (
+        <Alert variant="destructive">
+          <AlertTitle>تعذّر التحقق من الأعمال المحفوظة</AlertTitle>
+          <AlertDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void Promise.all([works.refetch(), status.refetch()])}
+            >
+              إعادة التحقق
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {save.error && (
         <p role="alert" className="text-sm text-destructive">
           {save.error.message}
