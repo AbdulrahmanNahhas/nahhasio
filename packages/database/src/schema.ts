@@ -132,6 +132,10 @@ export const titles = pgTable(
     isPrivate: boolean("is_private").notNull().default(false),
     workflowStatus: workflowStatusEnum("workflow_status").notNull().default("published"),
     playbackPolicy: text("playback_policy").notNull().default("torrents-allowed"),
+    languages: text("languages")
+      .array()
+      .notNull()
+      .default(sql`ARRAY['en']::text[]`),
     dubLanguages: text("dub_languages")
       .array()
       .notNull()
@@ -153,6 +157,8 @@ export const titles = pgTable(
     index("titles_release_year_idx").on(t.releaseYear),
     index("titles_visibility_sort_idx").on(t.workflowStatus, t.isPrivate, t.sortTitle, t.id),
     index("titles_dub_languages_idx").using("gin", t.dubLanguages),
+    index("titles_languages_idx").using("gin", t.languages),
+    check("titles_languages_check", sql`nahhasio_language_codes_valid(${t.languages})`),
     check(
       "titles_playback_policy_check",
       sql`${t.playbackPolicy} in ('torrents-allowed','files-only')`,
@@ -232,6 +238,7 @@ export const installments = pgTable(
     title: text("title").notNull(),
     summary: text("summary").notNull().default(""),
     releaseDate: date("release_date"),
+    languages: text("languages").array(),
     runtimeMinutes: integer("runtime_minutes"),
     status: releaseStatusEnum("status").notNull().default("unknown"),
     audienceOverride: audienceEnum("audience_override"),
@@ -247,6 +254,10 @@ export const installments = pgTable(
       .on(t.tvdbId)
       .where(sql`${t.tvdbId} is not null`),
     uniqueIndex("installments_title_position_uq").on(t.titleId, t.position),
+    check(
+      "installments_languages_check",
+      sql`${t.languages} is null or nahhasio_language_codes_valid(${t.languages})`,
+    ),
     uniqueIndex("installments_id_title_uq").on(t.id, t.titleId),
     check(
       "installments_values_check",

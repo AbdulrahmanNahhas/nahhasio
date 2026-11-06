@@ -11,6 +11,7 @@ export const workFields = [
   { key: "trivia", label: "حقائق ومعلومات", group: "الهوية" },
   { key: "summary", label: "الملخص", group: "الهوية" },
   { key: "playbackPolicy", label: "مصادر التشغيل", group: "الهوية" },
+  { key: "languages", label: "لغات العمل", group: "الهوية" },
   { key: "dubLanguages", label: "لغات الدبلجة", group: "الهوية" },
   { key: "dubbingNotes", label: "ملاحظات الدبلجة", group: "الهوية" },
   { key: "trailers", label: "الإعلانات التشويقية", group: "الصور والظهور" },

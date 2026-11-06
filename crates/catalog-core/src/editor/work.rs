@@ -14,6 +14,7 @@ const TITLE: &[&str] = &[
     "isPrivate",
     "workflowStatus",
     "playbackPolicy",
+    "languages",
     "dubLanguages",
     "dubbingNotes",
     "qualityScore",
@@ -28,6 +29,7 @@ const TITLE: &[&str] = &[
     "malId",
 ];
 const PART: &[&str] = &[
+    "languages",
     "kind",
     "position",
     "title",

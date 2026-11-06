@@ -25,6 +25,15 @@ test("server info accepts advertised capabilities and older servers without them
     ServerInfoSchema.safeParse({ ...info, capabilities: { artworkVariants: "true" } }).success,
     false,
   );
+  for (const storedMedia of [true, false]) {
+    assert.equal(
+      ServerInfoSchema.parse({
+        ...info,
+        capabilities: { artworkVariants: true, rememberedAccounts: true, storedMedia },
+      }).capabilities?.storedMedia,
+      storedMedia,
+    );
+  }
 });
 const state = WorkViewerStateSchema.parse({
   workId: id,

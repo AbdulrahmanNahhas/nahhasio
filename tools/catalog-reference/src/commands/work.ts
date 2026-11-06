@@ -231,6 +231,7 @@ const titleScalarColumns: Array<[keyof WorkDocument, string]> = [
   ["playbackPolicy", "playback_policy"],
   ["dubbingNotes", "dubbing_notes"],
   ["dubLanguages", "dub_languages"],
+  ["languages", "languages"],
   ["qualityScore", "quality_score"],
   ["audience", "audience"],
   ["age", "age"],
@@ -311,6 +312,7 @@ async function syncInstallments(
     ]);
     if (document.summary !== undefined) values.set("summary", document.summary);
     if (document.status !== undefined) values.set("status", document.status);
+    if (document.languages !== undefined) values.set("languages", document.languages);
     if (document.releaseDate !== undefined) values.set("release_date", document.releaseDate);
     if (document.runtimeMinutes !== undefined)
       values.set("runtime_minutes", document.runtimeMinutes);
@@ -1112,6 +1114,7 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
     workflowStatus: title.workflow_status as WorkDocument["workflowStatus"],
     playbackPolicy: z.enum(["torrents-allowed", "files-only"]).parse(title.playback_policy),
     dubLanguages: z.array(z.string()).parse(title.dub_languages),
+    languages: z.array(z.string()).parse(title.languages),
     dubbingNotes: String(title.dubbing_notes ?? ""),
     trailers: await sql<
       {
@@ -1177,6 +1180,7 @@ export async function workExport(sql: Sql | TransactionSql, ref: string): Promis
       status: row.status as "announced" | "airing" | "completed" | "unknown",
       releaseDate: (row.release_date as string | null) ?? null,
       runtimeMinutes: number(row.runtime_minutes),
+      languages: z.array(z.string()).nullable().parse(row.languages),
       audienceOverride: (row.audience_override as string | null) ?? null,
       ageOverride: (row.age_override as string | null) ?? null,
       sexualityRiskOverride: (row.sexuality_risk_override as string | null) ?? null,

@@ -15,6 +15,13 @@
       "when": 1793404800000,
       "tag": "0001_remembered_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793953128703,
+      "tag": "0002_editorial_languages",
+      "breakpoints": true
     }
   ]
 }

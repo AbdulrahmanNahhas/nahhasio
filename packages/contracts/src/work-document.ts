@@ -34,6 +34,7 @@ export const installmentDocument = z.object({
   kind: z.enum(["season", "movie", "special"]).default("season"),
   position: z.number().int().min(0).optional(),
   title: z.string().min(1),
+  languages: languageCodes.nullable().optional(),
   summary: z.string().optional(),
   status: z.enum(["announced", "airing", "completed", "unknown"]).optional(),
   releaseDate: z
@@ -110,6 +111,7 @@ export const workDocument = z.object({
   isPrivate: z.boolean().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
   playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  languages: languageCodes.optional(),
   dubLanguages: languageCodes.optional(),
   dubbingNotes: z.string().max(20000).optional(),
   trailers: z.array(trailerDocument).max(30).optional(),

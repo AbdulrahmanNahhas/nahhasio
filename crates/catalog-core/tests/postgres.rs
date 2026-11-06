@@ -47,9 +47,43 @@ async fn postgres_transaction_and_migration_acceptance() {
         .execute(&mut *tx)
         .await
         .unwrap();
-    migrations::apply(&mut tx, &migrations::bundled().unwrap())
+    let history = migrations::bundled().unwrap();
+    migrations::apply(&mut tx, &history[..2])
         .await
         .expect("existing history must bootstrap an empty database");
+    sqlx::raw_sql(sqlx::AssertSqlSafe("insert into titles(id,canonical_title,sort_title,dub_languages,dubbing_notes,playback_policy) values('e1000000-0000-4000-8000-000000000001','Arabic fixture','Arabic fixture',ARRAY['ar'],'Preserved dubbing note','files-only'),('e1000000-0000-4000-8000-000000000002','Anime fixture','Anime fixture',ARRAY[]::text[],'','torrents-allowed');insert into installments(id,title_id,title,kind,position) values('e2000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000001','Inherited part','season',1);insert into tags(slug,label_en,label_ar) values('anime-series','Anime','أنمي');insert into title_tags(title_id,value_id) select 'e1000000-0000-4000-8000-000000000002'::uuid,id from tags where slug='anime-series'"))
+        .execute(&mut *tx).await.unwrap();
+    let before: serde_json::Value =
+        sqlx::query_scalar("select jsonb_agg(to_jsonb(t) order by id) from titles t")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    migrations::apply(&mut tx, &history)
+        .await
+        .expect("additive language migration preserves an existing catalog");
+    let after: serde_json::Value =
+        sqlx::query_scalar("select jsonb_agg(to_jsonb(t)-'languages' order by id) from titles t")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(
+        before, after,
+        "language backfill changes no existing catalog fields"
+    );
+    let languages: Vec<Vec<String>> =
+        sqlx::query_scalar("select languages from titles order by id")
+            .fetch_all(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(languages, vec![vec!["ar"], vec!["en", "ja"]]);
+    sqlx::query("update installments set languages=ARRAY['en'] where id='e2000000-0000-4000-8000-000000000001'").execute(&mut *tx).await.unwrap();
+    let aggregate: Vec<String> = sqlx::query_scalar(
+        "select nahhasio_work_languages('e1000000-0000-4000-8000-000000000001')",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(aggregate, vec!["ar", "en"]);
     tx.rollback().await.unwrap();
     assert!(
         sqlx::query_scalar::<_, bool>("select to_regclass('drizzle.__drizzle_migrations') is null")

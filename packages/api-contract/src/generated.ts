@@ -172,6 +172,7 @@ export const WorkSummarySchema = z.strictObject({
   dubLanguages: z.array(z.string()).optional(),
   dubbingNotes: z.string().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
+  languages: z.array(z.string()).optional(),
 });
 export type WorkSummary = z.infer<typeof WorkSummarySchema>;
 
@@ -187,6 +188,7 @@ export const UpcomingInstallmentSchema = z.strictObject({
   episodeCount: z.number().int(),
   poster: ArtworkSchema.nullable(),
   score: ScoreSummarySchema,
+  languages: z.array(z.string()).optional(),
 });
 export type UpcomingInstallment = z.infer<typeof UpcomingInstallmentSchema>;
 
@@ -377,6 +379,7 @@ export const InstallmentSchema = z.strictObject({
   mediaFiles: z.array(MediaFileSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
+  languages: z.array(z.string()).optional(),
 });
 export type Installment = z.infer<typeof InstallmentSchema>;
 
@@ -541,6 +544,7 @@ export const WorkDetailSchema = z.strictObject({
   dubbingNotes: z.string().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
   trailers: z.array(TrailerSchema).optional(),
+  languages: z.array(z.string()).optional(),
 });
 export type WorkDetail = z.infer<typeof WorkDetailSchema>;
 
@@ -1015,6 +1019,7 @@ export const CatalogSnapshotSchema = z.strictObject({
     isPrivate: z.boolean().optional(),
     workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
     playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+    languages: z.array(z.string()).optional(),
     dubLanguages: z.array(z.string()).optional(),
     dubbingNotes: z.string().max(20000).optional(),
     trailers: z
@@ -1091,6 +1096,7 @@ export const CatalogSnapshotSchema = z.strictObject({
           kind: z.enum(["season", "movie", "special"]).optional(),
           position: z.number().int().min(0).max(9007199254740991).optional(),
           title: z.string().min(1),
+          languages: z.union([z.array(z.string()), z.null()]).optional(),
           summary: z.string().optional(),
           status: z.enum(["announced", "airing", "completed", "unknown"]).optional(),
           releaseDate: z.union([z.string(), z.null()]).optional(),
@@ -1384,6 +1390,7 @@ export const CatalogReadResultSchema = z.array(
         .enum(["draft", "in_review", "approved", "published", "archived"])
         .optional(),
       playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+      languages: z.array(z.string()).optional(),
       dubLanguages: z.array(z.string()).optional(),
       dubbingNotes: z.string().max(20000).optional(),
       trailers: z
@@ -1460,6 +1467,7 @@ export const CatalogReadResultSchema = z.array(
             kind: z.enum(["season", "movie", "special"]).optional(),
             position: z.number().int().min(0).max(9007199254740991).optional(),
             title: z.string().min(1),
+            languages: z.union([z.array(z.string()), z.null()]).optional(),
             summary: z.string().optional(),
             status: z.enum(["announced", "airing", "completed", "unknown"]).optional(),
             releaseDate: z.union([z.string(), z.null()]).optional(),
@@ -1594,6 +1602,7 @@ export const CatalogParseResultSchema = z.strictObject({
   isPrivate: z.boolean().optional(),
   workflowStatus: z.enum(["draft", "in_review", "approved", "published", "archived"]).optional(),
   playbackPolicy: z.enum(["torrents-allowed", "files-only"]).optional(),
+  languages: z.array(z.string()).optional(),
   dubLanguages: z.array(z.string()).optional(),
   dubbingNotes: z.string().max(20000).optional(),
   trailers: z
@@ -1670,6 +1679,7 @@ export const CatalogParseResultSchema = z.strictObject({
         kind: z.enum(["season", "movie", "special"]).optional(),
         position: z.number().int().min(0).max(9007199254740991).optional(),
         title: z.string().min(1),
+        languages: z.union([z.array(z.string()), z.null()]).optional(),
         summary: z.string().optional(),
         status: z.enum(["announced", "airing", "completed", "unknown"]).optional(),
         releaseDate: z.union([z.string(), z.null()]).optional(),
@@ -2863,6 +2873,7 @@ export const ServerInfoSchema = z.strictObject({
     .strictObject({
       artworkVariants: z.boolean().optional(),
       rememberedAccounts: z.boolean().optional(),
+      storedMedia: z.boolean().optional(),
     })
     .optional(),
 });
@@ -3442,11 +3453,12 @@ export const YoutubePreviewSchema = z.strictObject({
 export type YoutubePreview = z.infer<typeof YoutubePreviewSchema>;
 
 export const MediaFileActionSchema = z.strictObject({
-  action: z.enum(["trash", "restore", "purge", "verify", "reassign"]),
+  action: z.enum(["trash", "restore", "purge", "verify", "reassign", "replace"]),
   workId: z.string().uuid().nullable().optional(),
   installmentId: z.string().uuid().nullable().optional(),
   episodeId: z.string().uuid().nullable().optional(),
   expectedRevision: z.string().nullable().optional(),
+  replacementFileId: z.string().uuid().nullable().optional(),
 });
 export type MediaFileAction = z.infer<typeof MediaFileActionSchema>;
 
@@ -3471,7 +3483,9 @@ export const UploadOffsetSchema = z.strictObject({
 export type UploadOffset = z.infer<typeof UploadOffsetSchema>;
 
 export const UploadCompletedSchema = z.strictObject({
-  relativePath: z.string(),
+  relativePath: z.string().optional(),
+  complete: z.boolean(),
+  jobId: z.string().uuid().optional(),
 });
 export type UploadCompleted = z.infer<typeof UploadCompletedSchema>;
 
@@ -3505,6 +3519,35 @@ export const MediaCoveragePageSchema = z.strictObject({
   pageSize: z.number().int(),
 });
 export type MediaCoveragePage = z.infer<typeof MediaCoveragePageSchema>;
+
+export const DeviceMediaBatchRequestSchema = z.strictObject({
+  workId: z.string().uuid(),
+  fileIds: z.array(z.string().uuid()),
+});
+export type DeviceMediaBatchRequest = z.infer<typeof DeviceMediaBatchRequestSchema>;
+
+export const DeviceMediaBatchResultSchema = z.array(
+  z.strictObject({
+    id: z.string().uuid(),
+    queued: z.boolean(),
+    error: z.string().nullable(),
+  }),
+);
+export type DeviceMediaBatchResult = z.infer<typeof DeviceMediaBatchResultSchema>;
+
+export const MediaUnitStatusSchema = z.strictObject({
+  episodeId: z.string().uuid().nullable(),
+  totalFiles: z.number().int().min(0),
+  availableFiles: z.number().int().min(0),
+  missingFiles: z.number().int().min(0),
+  reviewFiles: z.number().int().min(0),
+  trashedFiles: z.number().int().min(0),
+  activeImports: z.number().int().min(0),
+});
+export type MediaUnitStatus = z.infer<typeof MediaUnitStatusSchema>;
+
+export const MediaUnitStatusesSchema = z.array(MediaUnitStatusSchema);
+export type MediaUnitStatuses = z.infer<typeof MediaUnitStatusesSchema>;
 
 export class ApiClient {
   private readonly baseUrl: string;
@@ -3800,7 +3843,7 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
-      language?: "ar" | "en";
+      language?: "ar" | "en" | "ja";
       status?: "completed" | "ongoing" | "announced" | "unknown";
       gap?:
         | "poster"
@@ -3889,7 +3932,7 @@ export class ApiClient {
       structure?: "movie" | "series";
       workflow?: "draft" | "in_review" | "approved" | "published" | "archived";
       visibility?: "public" | "private";
-      language?: "ar" | "en";
+      language?: "ar" | "en" | "ja";
       status?: "completed" | "ongoing" | "announced" | "unknown";
       gap?:
         | "poster"
@@ -4079,6 +4122,8 @@ export class ApiClient {
       workId?: string;
       mediaState?: "all" | "present" | "needs-review" | "trash" | "missing";
       mediaSource?: "all" | "server-folder" | "upload" | "youtube";
+      installmentId?: string;
+      episodeIds?: string;
     } = {},
     signal?: AbortSignal,
   ): Promise<ServerMediaPage> {
@@ -4208,5 +4253,29 @@ export class ApiClient {
       signal,
     );
     return MediaCoveragePageSchema.parse(await response.json());
+  }
+  async getMediaSubtitle(id: string, index: number, signal?: AbortSignal): Promise<Response> {
+    const response = await this.request(
+      `/api/v1/media/{id}/subtitles/${encodeURIComponent(index)}`,
+      "GET",
+      undefined,
+      signal,
+    );
+    return response;
+  }
+  async getMediaUnits(
+    query: { workId?: string; installmentId?: string; episodeIds?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<MediaUnitStatuses> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/admin/media/units" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return MediaUnitStatusesSchema.parse(await response.json());
   }
 }

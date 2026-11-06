@@ -1425,7 +1425,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["ar", "en"]
+              "enum": ["ar", "en", "ja"]
             }
           },
           {
@@ -2080,7 +2080,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["ar", "en"]
+              "enum": ["ar", "en", "ja"]
             }
           },
           {
@@ -2833,6 +2833,22 @@
               "type": "string",
               "enum": ["all", "server-folder", "upload", "youtube"]
             }
+          },
+          {
+            "name": "installmentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "episodeIds",
+            "in": "query",
+            "description": "At most ten comma-separated episode UUIDs, or none for an installment video. Requires installmentId.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3322,6 +3338,104 @@
           },
           "403": {
             "description": "Insufficient permission"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{id}/subtitles/{index}": {
+      "get": {
+        "operationId": "getMediaSubtitle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          }
+        },
+        "description": "Authenticated existing subtitle companion by manifest index. Supports HEAD and byte ranges; enforces current work visibility, file availability and verified managed-root bytes."
+      }
+    },
+    "/api/v1/admin/media/units": {
+      "get": {
+        "operationId": "getMediaUnits",
+        "parameters": [
+          {
+            "name": "workId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "installmentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          },
+          {
+            "name": "episodeIds",
+            "in": "query",
+            "description": "At most ten comma-separated episode UUIDs, or none for an installment video. Requires installmentId.",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File and import status for visible canonical episodes or an installment video",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUnitStatuses"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator required"
           }
         }
       }
@@ -4315,6 +4429,14 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "description": "Effective editorial languages: installment override, otherwise work languages."
           }
         }
       },
@@ -4420,6 +4542,14 @@
           "workflowStatus": {
             "type": "string",
             "enum": ["draft", "in_review", "approved", "published", "archived"]
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "description": "Editorial work language badges, including installment overrides; unrelated to player/source preferences."
           }
         }
       },
@@ -4814,6 +4944,14 @@
             "items": {
               "$ref": "#/components/schemas/Trailer"
             }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "description": "Editorial work language badges, including installment overrides; unrelated to player/source preferences."
           }
         }
       },
@@ -5430,6 +5568,13 @@
           },
           "score": {
             "$ref": "#/components/schemas/ScoreSummary"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30
           }
         }
       },
@@ -6542,6 +6687,14 @@
                 "type": "string",
                 "enum": ["torrents-allowed", "files-only"]
               },
+              "languages": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                }
+              },
               "dubLanguages": {
                 "maxItems": 30,
                 "type": "array",
@@ -6845,6 +6998,21 @@
                     "title": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "languages": {
+                      "anyOf": [
+                        {
+                          "maxItems": 30,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "summary": {
                       "type": "string"
@@ -7829,6 +7997,14 @@
                   "type": "string",
                   "enum": ["torrents-allowed", "files-only"]
                 },
+                "languages": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                  }
+                },
                 "dubLanguages": {
                   "maxItems": 30,
                   "type": "array",
@@ -8132,6 +8308,21 @@
                       "title": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "languages": {
+                        "anyOf": [
+                          {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "summary": {
                         "type": "string"
@@ -8755,6 +8946,14 @@
             "type": "string",
             "enum": ["torrents-allowed", "files-only"]
           },
+          "languages": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+            }
+          },
           "dubLanguages": {
             "maxItems": 30,
             "type": "array",
@@ -9058,6 +9257,21 @@
                 "title": {
                   "type": "string",
                   "minLength": 1
+                },
+                "languages": {
+                  "anyOf": [
+                    {
+                      "maxItems": 30,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "summary": {
                   "type": "string"
@@ -13037,6 +13251,9 @@
               },
               "rememberedAccounts": {
                 "type": "boolean"
+              },
+              "storedMedia": {
+                "type": "boolean"
               }
             }
           }
@@ -15112,7 +15329,7 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["trash", "restore", "purge", "verify", "reassign"]
+            "enum": ["trash", "restore", "purge", "verify", "reassign", "replace"]
           },
           "workId": {
             "type": "string",
@@ -15131,6 +15348,11 @@
           },
           "expectedRevision": {
             "type": "string",
+            "nullable": true
+          },
+          "replacementFileId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -15193,9 +15415,16 @@
         "properties": {
           "relativePath": {
             "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
-        "required": ["relativePath"],
+        "required": ["complete"],
         "additionalProperties": false
       },
       "NativeUpload": {
@@ -15290,6 +15519,97 @@
         },
         "required": ["items", "total", "page", "pageSize"],
         "additionalProperties": false
+      },
+      "DeviceMediaBatchRequest": {
+        "type": "object",
+        "properties": {
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workId", "fileIds"],
+        "additionalProperties": false
+      },
+      "DeviceMediaBatchResult": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "queued": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          "required": ["id", "queued", "error"],
+          "additionalProperties": false
+        }
+      },
+      "MediaUnitStatus": {
+        "type": "object",
+        "properties": {
+          "episodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "totalFiles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "availableFiles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missingFiles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewFiles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trashedFiles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activeImports": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "episodeId",
+          "totalFiles",
+          "availableFiles",
+          "missingFiles",
+          "reviewFiles",
+          "trashedFiles",
+          "activeImports"
+        ],
+        "additionalProperties": false
+      },
+      "MediaUnitStatuses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MediaUnitStatus"
+        }
       }
     }
   }
