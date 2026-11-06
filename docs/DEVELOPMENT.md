@@ -37,12 +37,17 @@ devenv up client
 ```
 
 `devenv up` starts the development PostgreSQL cluster, bootstraps the dedicated synthetic
-`nahhasio_development` database, starts the Rust API, and opens the built GTK client. First run
+`nahhasio_development` database, starts the Rust API/media worker, and opens the built GTK client. First run
 creates three fictional shows, nine episodes, generated artwork and two accounts:
 `admin@demo.local` and `friend@demo.local`, both initially using `demo12345`. These are public
 local-development credentials, never production accounts. Subsequent starts apply pending schema
 migrations only to this recognized demo database; they do not reseed or reset your edits, passwords,
 tracking or saved accounts. The compiled server itself still never migrates or seeds.
+
+The explicit development launchers prepare managed video/import/trash/journal directories beneath
+`data/development-local/demo/`. The media worker refuses any database without the fixed synthetic
+server identity. Browser media administration calls the same authenticated API; native playback,
+file selection, device transfers and offline storage remain Linux-client features.
 
 Both profiles share `.devenv/state/development-postgres` and the demo's fixed server identity.
 Artwork, settings, client sessions and videos live under ignored `data/development-local/demo/`.
@@ -281,6 +286,15 @@ explicit import jobs and native original-file streaming; it needs independent pa
 acceptance after the hosting release. Do not relax protocol/CSP/TLS/auth restrictions for a provider failure.
 
 ## Build and verification
+
+Keep generated storage under control with `python3 bin/nahhasio-clean` (preview) and
+`python3 bin/nahhasio-clean --apply` (permanent cleanup after stopping builds and test runners).
+This removes Rust/Flatpak output, downloaded project-local SDKs, old test captures and disposable
+shell caches. Dependencies in `node_modules`, databases, backups, artwork, device state and Git
+history are preserved. The next native/package build must regenerate output and download SDKs.
+Devenv shell entry prunes old cached shell evaluations (keeping four) and warns when generated
+directories exceed their budgets. Rust incremental snapshots are disabled to avoid their previous
+multi-gigabyte growth. These warnings are not a hard disk quota; clean after packaging/testing.
 
 ```sh
 devenv shell -- pnpm check

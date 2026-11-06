@@ -55,6 +55,13 @@ The client Playwright config uses port **23110** and reuses an existing server o
 Know whether that is Vite dev or a freshly built preview. Never count a stale preview as
 verification of current source. CI disables reuse and needs the port free; stop only your own
 server, or obtain permission before stopping a shared development process.
+While someone reviews the live development UI, set `NAHHASIO_UI_TEST_PORT=23113` for fixture
+tests to build and use an independent preview. Browser development/remote-adapter tests still
+require their exact approved origin on port 23110.
+`tests/episode-media.spec.ts` covers the canonical work/episode workspace at desktop and narrow
+widths: file states, multiple copies, restore, mixed-season availability, movies, draft attachment
+guards and focus restoration. `bin/test-server-media` checks these summaries against disposable
+PostgreSQL, including completed items in an active job and a real file removed before verification.
 
 Report failures accurately. If an unrelated formatter or test blocks an aggregate command,
 run remaining relevant checks independently; do not silently skip failures or change unrelated
@@ -283,11 +290,15 @@ on Shadow is only a 4 GiB tmpfs. The runner removes its fixture directories and 
 It covers authenticated byte ranges/HEAD, paginated library-root selection and path guards,
 import request replay/conflict, real FFmpeg probing/import, source removal after registration,
 interrupted restore, trash/purge accounting, resumable upload offsets/hash verification and
-administrator revocation. Browser media cases live in `admin-server.spec.ts`.
+administrator revocation. It also checks subtitle HEAD/ranges, companion lifecycle and external
+track registration, plus reviewed replacement of a current file with a verified alternative.
+Browser media cases live in `admin-server.spec.ts`; explicit batch-device confirmation is in
+`work-page.spec.ts`. Use the independent fixture port during interactive UI review.
 
 `cargo test --locked -p nahhasio-linux home_downloads::tests` uses a synthetic localhost origin
 and private device state. It checks byte-range restart, a transfer exceeding the ordinary API
-request deadline, account/server file isolation, offline pack/video access and failed-image refresh.
+request deadline, account/server file isolation, offline pack/video/subtitle access, native subtitle
+gateway origin checks and failed-image refresh.
 `cargo test --locked -p nahhasio-server --lib media::` checks path safety, copy recovery and tool
 process-group cancellation without live acquisition.
 
@@ -300,3 +311,18 @@ is used. It includes HEAD/range/origin checks and the existing player transport/
 assertions. The November 5 fresh binary/bundle run passed; inspect the retained private captures.
 Physical input, actual YouTube availability, OCI/Flatpak builds and installed worker/update/restore
 acceptance remain separate from these fixtures.
+
+The November 6 review adds `episode-media.spec.ts` (six file states, focus restoration, mixed
+seasons, unsaved-episode guards and language inheritance) and `media-tour.spec.ts` (folder/upload/
+YouTube mapping, jobs, saved works, videos and storage). Set `NAHHASIO_UI_TEST_PORT=23113` while
+reviewing the interactive local UI; `NAHHASIO_MEDIA_SCREENSHOTS=1` writes ignored fixture captures
+under `data/previews/`. The disposable media runner also restarts the worker with an expired
+verification lease after upload publication and verifies redundant staging cleanup. Permanent
+purge retains history while leaving active inventory, coverage and missing-file counts. The catalog
+runner rehearses the additive editorial language migration and API union/inheritance behavior.
+
+Missing-file cleanup regression: the disposable media suite checks missing video plus present/
+missing companions, interrupted companion retirement, restore/purge accounting, post-commit
+restore replay, foreign-root and changed-video rejection, and unchanged catalog/watch state.
+The storage unit fixture distinguishes genuine absence from symlink/ancestor errors. Browser
+episode fixtures check the contextual confirmation and cancel behavior at 360/520/1440 pixels.

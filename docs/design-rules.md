@@ -7,7 +7,7 @@ superseded. Preserve current design during technical changes.
 
 ## Current work-editor language
 
-Use contained readable widths, the rounded work header, draft-driven title/badges/score, sticky
+Use contained readable widths, the compact work header, draft-driven title/badges/score, sticky
 icon tabs, responsive primary/secondary cards and the sticky review/discard/JSON action bar.
 Privacy is an explained editorial switch. Dense catalog tables/poster browsing remain appropriate.
 Use clear loading/error/empty states and retain drafts on failures. Apply this composition to

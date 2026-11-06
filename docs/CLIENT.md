@@ -325,7 +325,7 @@ pages. Related records remain available in their editors or All Tables. Statisti
 
 - **Maintenance → Library actions** owns operations across records. Overview provides shortcuts.
 - Missing episode images: review TMDB series/season mapping, preview available stills, select images,
-  then explicitly import. A batch contains at most 48 missing episodes. Existing primary stills
+  then explicitly import. A review contains at most 1000 missing episodes, grouped by work and season. Existing primary stills
   are protected by assignment revision checks. Special/grouped episode orders use the Work editor.
 - Unattached images: explicitly collect a preview, check every candidate's protection status, then
   confirm deleting only reviewed records. Each deletion revalidates authorization, SHA and dependencies.
@@ -363,7 +363,65 @@ changes catalog ownership links without moving video or rewriting tracking. The 
 never receives server filesystem paths or server credentials. The admin inventory exposes managed
 relative paths, not arbitrary filesystem navigation.
 
+The global media library opens with paginated work coverage; the file inventory keeps its source,
+availability and trash filters. Work-specific management opens the single Structure tab and its canonical installment/episode
+workspace; the duplicate Media tab is removed and older Media links resolve to Structure. The same
+canonical episode rows retain their artwork and editable metadata, with a compact file control for
+no file, available copies, missing disk files, verification, active imports and trash/restore.
+File details and actions open on demand; file lists are paginated. New draft episodes must be
+reviewed and saved before attaching files. Movies expose files on their installment instead.
+Importing is paused while the work has unsaved catalog edits; file inspection and actions remain
+available. Reviewed import metadata refreshes the canonical editor after saving.
+The global inventory remains available for operational filtering across works. Episode cards reserve
+a thumbnail slot, use a clear missing-image placeholder, and keep edit/delete in a separate action
+rail. Image removal lives in the artwork dialog. TMDB season selection is searchable and accepts
+explicit season numbers; it does not change the catalog installment identity.
+
+Server files are allowed for every work. With torrents/providers allowed, a work can have files
+for its early seasons and only internet sources for later seasons. A missing server file does not
+make such an episode invalid. Files-only is a whole-work restriction on viewer internet sources;
+it is not a requirement for server imports or a separate episode database.
+
 A fresh native binary/production-bundle loopback run verified mpv streaming, seeking and embedded
 tracks. It does not establish installed Flatpak/Fedora or physical-input acceptance. The retained
 three family collections have moved on Fedora, but have not been matched or published through a
 new installed media service in this checkpoint.
+
+Editorial language badges belong to each work. An installment inherits the base languages unless
+an explicit override is set; the work page shows their union and each installment its effective
+languages. These labels do not set player audio preferences or torrent/provider filters. Existing
+dubbing notes and contributions remain separate. English is the creation default; the additive
+migration preserves Arabic legacy labels and defaults tagged anime to English/Japanese. Review
+Japanese-only exceptions explicitly. Upload completion is verified by a durable media worker job,
+not a long-running API request. Verified uploads appear directly in the upload import source.
+Intentional permanent purges retain an audit identity but no longer count as missing disk files.
+
+A missing managed video has an explicit “remove missing-file registration” confirmation in the
+existing file menu. This uses seven-day trash, retains any verified surviving subtitles and counts
+only retained bytes. Restore returns its registration and surviving companions; the video remains
+missing unless verified bytes are present. Permanent purge retains history and leaves catalog
+episodes, artwork, progress and explicit watched state intact. Unsafe paths, foreign roots and
+changed bytes require review instead of being treated as absent files.
+
+The installment toolbar has a compact temporary files/internet display switch. It hides file
+controls and their queries without changing playback policy or the catalog document. Switching
+parts retains this editor-only choice while the Structure view stays open. Files-only works
+always show file controls and have no internet display option. The work-level source policy uses
+a two-option control. TMDB episode-image galleries expand to a wide three-column desktop view.
+Poster/banner/logo search results share multi-select language/source filters: Arabic and English
+are selected initially; clearing a filter includes all values, including neutral artwork.
+
+Images management is isolated in the Images tab: work/installment selection, direct source search
+and file upload, plus paginated episode artwork and reviewed batch still selection. Only the
+selected installment and twelve visible episodes mount artwork controls. Structure retains
+read-only thumbnails and episode/file editing. IDs remain editable in Structure and together in
+Indexing; external references and related works also live in Indexing.
+
+Media review refinement: non-files-only works open Structure in the internet view. Server library
+coverage includes files-only works and works with non-purged file registrations, including missing/
+trash states; mixed-work coverage counts only installments with registrations. Imports can still
+target any catalog work. Episode thumbnails open artwork editing directly. Maintenance image
+review supports selectable work/season groups (up to 1000 candidate episodes), using ordinal
+season defaults. Image rename reviews all matching filter pages up to 5000 assets, hides already
+organized names, uses a common work name for same-work shared artwork, and commits in reviewed
+batches of 50 with completed batches excluded from retries.

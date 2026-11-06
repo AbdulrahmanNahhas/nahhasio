@@ -449,10 +449,52 @@ The historical prototype remains recoverable in Git; no installed acceptance is 
 - [ ] **NH-20-16** Update active guides and commands to the final server/Linux-client product.
 - [ ] **NH-20-17** Publish v1.0 artifacts, installation/update/restore guides and known limitations.
 
-## Media implementation checkpoint — 2026-11-05
+## Media implementation checkpoint — 2026-11-06
 
-Resumed from the November 4 pause in the main chat, without subagents. Source changes remain
-uncommitted and undeployed. Do not repeat the destructive family-server cleanup. Preserve the
+### Full media review requested November 6 — source/runtime audit closed
+
+Review the complete media change set from `e2e0d95` through the current tree, including untracked
+feature files. New visual feedback updates this list without replacing reliability work. Keep
+unrelated edits and Rust exercises intact; use synthetic/disposable data while Fedora is offline.
+The source and disposable-fixture audit is complete. Packaged/native and operational acceptance
+remain explicit release gates below; checked audit items do not imply live deployment.
+
+- [x] Admin entry/navigation: work-first library, installment/episode coverage, useful filters,
+      incoming/unmatched files, direct editing and clear import entry points.
+- [x] Episode/file presentation: compact balanced cards, contextual artwork controls, grouped file
+      actions, preserved metadata and accessible desktop/narrow behavior. Browser revision verified at 1440, 520 and 360 pixels; physical native acceptance remains pending.
+- [x] Import journeys: server folders, client uploads and YouTube preview/mapping/review/results;
+      make completed uploads discoverable without manually entering a staging folder.
+- [x] Viewer/device source/runtime audit: explicit sources, saved details, independent videos/
+      transfers/storage, offline packs/video fixtures, account isolation and cleanup ownership.
+      The browser tour and scoped native download fixtures passed; packaged acceptance stays below.
+- [x] Editorial language badges: work languages, nullable installment overrides, inherited effective
+      languages and work-page union. These do not change source policy or player preferences.
+- [x] Server/worker audit: leases/restart, cancellation, provenance, path boundaries, verification,
+      partial publication, trash/restore and bounded resource use. Durable upload verification,
+      missing-video/companion cleanup, actual retained trash bytes, purge tombstones and post-commit
+      restore replay are covered by the disposable media suite. Foreign roots and changed bytes
+      fail safely. Historical file IDs, catalog fields and explicit watched/progress state survive.
+- [x] Native source/runtime audit: transfer resume, changed-source checks, deterministic subtitle
+      staging, cancellation/scope boundaries, companion cleanup and byte accounting. Scoped fixture
+      checks passed at the preceding checkpoint; native Rust is unchanged by missing-file cleanup.
+- [x] Local handoff audit: static checks, focused server/native/browser regressions, the additive
+      migration rehearsal, full screenshot tour and the preceding Flatpak SDK build are recorded.
+      The new cleanup changes still need final release packages and installed acceptance.
+
+Remaining 0.2.0 release gates:
+
+- [ ] Build final versioned server/worker/client artifacts from the completed source checkpoint.
+- [ ] Complete packaged native playback/download/offline and physical input/focus acceptance.
+- [ ] Rehearse the final operational upgrade and independent backup/restore on restored data.
+- [ ] When Fedora is available, review/register the three retained collections and accept live playback.
+- [ ] Obtain the separate commit/publication/installation authorizations and deliver the release.
+
+The user clarified that languages are editorial per-work badges, with installment overrides and a
+combined work-page display. They are unrelated to preferred torrent/provider/player audio.
+
+The initial source checkpoint is committed as `1d75527`. The subsequent 0.2.0 work remains
+uncommitted and undeployed, in the main chat without subagents. Do not repeat the destructive family-server cleanup. Preserve the
 unrelated media-review skill edit and the existing 0.1.3 upgrade notes in FAMILY-SERVER.md.
 Committing, publishing and installing the new application builds still require separate authorization.
 No live catalog writes or additional family-server changes were made in this continuation.
@@ -480,23 +522,71 @@ Device download paths are isolated by server/account. A download waits for its v
 pack refresh retains the previous valid pack. Long media responses use a separate trusted transport
 with an idle timeout, rather than the ordinary API's 15-second total deadline.
 
+Work-specific media links now use the existing structure editor. Canonical episode rows keep
+their metadata/artwork controls and show a compact file status with paginated copies/actions on
+demand. Bounded server summaries include episodes with no file, available/multiple copies,
+missing/unverified files, active imports and trash. New draft episodes cannot receive files until
+saved. Movies retain installment-owned files. Mixed seasons need no extra policy: allow internet
+sources for the work and attach files only where available. Whole-work files-only remains explicit.
+
 The media installer remains explicit and shares the signed image override. Backups stop the worker
 when the API is inactive and restore the previous service states. Restored pending media jobs need
 review before retry, preserving newer files/journals instead of replaying old side effects.
-No new database migration was added.
+The initial media-file slice added no migration. The later editorial language model adds
+`0002_editorial_languages.sql`, rehearsed through both canonical migration runners. Existing title
+and installment fields survive its backfill; nullable installment overrides do not alter IDs or
+source policy. Reverting an applied language schema requires a coordinated restore of the pre-update
+backup and compatible binaries, not ledger changes or deleting columns from a populated server.
+
+The 0.2.0 continuation adds matching subtitle receipts, canonical external-track registration,
+authorized subtitle streaming/native relaying, scoped device companion downloads, and companion
+trash/restore/purge. SRT/ASS/SSA/VTT companions are attached for playback; SUB/IDX companions are
+preserved without claiming automatic paired-format playback. Reviewed replacement checks an
+already imported alternative before retiring the old copy. YouTube selection supports duplicate
+exclusion, reordering, bulk numbering and explicit thumbnail preview. Device batch selection is
+explicit and saves its viewing pack once before queueing files.
+
+The local browser connection rejected the newly advertised `storedMedia` capability; the canonical
+contract and development adapter now cover it. Local API/worker launchers prepare isolated media
+roots. A stopped local development stack was restarted; the family server's HTTPS readiness was
+healthy and no production update was made. Fixture browser tests can run on port 23113 while the
+interactive review remains on 23110.
+
+Focused verification passed: the disposable media runtime including subtitle ranges, canonical
+track registration and reviewed replacement; native interruption/resume/account-isolation/offline
+video and subtitle fixtures; four production-preview browser media tests; 71 UI unit tests; and
+17 offline release/host-tool tests. Lint, formatting, TypeScript and workspace Rust Clippy passed.
+The mixed-batch retry check also passed: completed items survive a later missing source and retry
+registers only the unfinished item. Actual package acceptance is tracked separately below.
+
+Project tooling now includes Deno, Podman, Flatpak Builder and AppStream. An unpublished prototype OCI image
+built with the pinned release Rust toolchain, and its unprivileged tool check confirmed yt-dlp
+2026.10.26, Deno 2.9.7 and FFmpeg/ffprobe. Actual preview and acquisition/remux of a short public
+sample succeeded with these packaged tools, outside any catalog. This prototype predates the last external-track
+registration change and does not certify the final candidate. The isolated Flatpak SDK is under
+`.flatpak-user`; the local SDK build now completes AppStream composition, repository export and
+bundle creation. AppStream is declared in devenv, and the build wrapper creates its output directory
+before export. This is an unpublished development build, not installed/native acceptance or the
+versioned 0.2.0 release. Container build temporary layers must use
+the persistent project disk, since Shadow's default `/var/tmp` shares the small ephemeral root.
+
+November 6 verification passed: repository checks, 71 UI unit tests, 10 API-contract tests,
+the disposable media runtime (including a genuinely removed disk file and bounded episode status
+queries), and five focused browser tests. The shared workspace was checked at 1440 and 520 pixels,
+including mixed seasons, movies, multiple copies, restoration, saved-identity guards and preserving
+unsaved catalog drafts. Six fixture-backed screenshots are retained privately for the user's review.
+The local demo API/worker and browser were restarted; Fedora was not contacted in this pass.
 
 Remaining delivery work:
 
-1. Finish sidecar preservation/association during normalized imports, richer reviewed mapping and
-   replacement controls, and YouTube bulk ordering/numbering/thumbnail preview details. Do not
-   describe these remaining import UX requirements as accepted merely because queueing works.
-2. Exercise actual YouTube preview/acquisition with the versioned worker tools, larger mixed-error
-   batches, retry/provenance races and disk/cancellation boundaries. Finish viewer batch downloads
-   and remaining transfer/storage presentation. Existing local subtitle files have not been deleted.
+1. Exercise remaining retry/provenance, disk/cancellation and worker restart boundaries. Existing local
+   subtitle files have not been deleted. The user accepted the general UI review; functional changes
+   to the shared episode/file view have their own fixture checks.
+2. Finish transfer/storage acceptance and verify saved work, downloads, sidecar selection and
+   seeking in the freshly packaged native client, with networking disabled for offline playback.
 3. Rehearse media-enabled backup/update/restore on restored disposable data and actual containers.
-   Build the OCI and Flatpak artifacts with pinned release inputs. Podman/flatpak-builder were not
-   available in the current shell, and no Flatpak SDK was installed; no imperative tool/SDK install
-   was performed. Offline host-tool tests do not establish installed worker lifecycle acceptance.
+   Build the final OCI and Flatpak artifacts with pinned release inputs. Offline host-tool tests
+   and a prototype image do not establish installed worker lifecycle acceptance.
 4. Review the three retained collections against catalog episodes before live normalization or
    registration, then obtain installation authorization for the prepared builds. Physical input,
    target Fedora acceptance and installed Flatpak behavior remain separate from scripted diagnostics.
@@ -516,3 +606,32 @@ not mount the player; the corrected authenticated harness passed. Captures were 
 not an installed Flatpak test or physical keyboard/GPU smoothness certification. CUDA/a11y/Vulkan
 warnings remain recorded in the ignored native logs. Keep private manifests, fixtures and captures
 out of Git.
+
+November 6 full-review evidence: the broad folder/upload/YouTube/jobs/device screenshot tour and
+37 browser regressions passed, including language override/inheritance and all six episode-file
+states. The disposable media suite verified expired-lease worker restart after upload publication,
+corrupt upload retry, staging cleanup, and intentional purge exclusion from active inventory. The
+editor suite verified language union and restored inheritance through authenticated APIs; both
+migration runners accepted all three migrations. Static lint/format/TypeScript/workspace Clippy
+passed. The local demo was backed up and restarted with the additive migration; before/after
+fingerprints of all preexisting work/installment fields matched. These results do not establish
+current OCI/Flatpak installation, physical GTK input or live family-server acceptance.
+
+Stopping checkpoint requested November 6: the latest local Flatpak SDK build completed, including
+AppStream composition and bundle export. It remains an unpublished development bundle with the
+existing 0.1.3 version, not the final 0.2.0 release. Current browser coverage includes all 19 admin/
+episode cases (the updated inventory-navigation case passed in its focused rerun), alongside the
+37 viewer/import/device regressions. Canceled uploads resume from their acknowledged offset in the
+disposable runtime suite. No commit, release publication or family-server installation occurred.
+Before 0.2.0, finish packaged native acceptance and the restored-data upgrade/backup/restore
+rehearsal; review remaining failure-state cleanup and perform the live three-work mapping only
+when the family server is available.
+
+Missing-registration cleanup completion: the existing seven-day trash flow accepts genuinely
+absent managed video files and records missing companions instead of fabricating them. Remaining
+registered subtitles are verified and retained; restoration of an absent video restores its
+registration as missing. Trash reports actual retained bytes. Purge preserves file history while
+removing active availability. Component-wise absence checks reject symlinks and I/O errors; file
+operations require the active configured root and preserve changed/conflicting bytes. Journals
+precede mutations, directory updates are synced before the database commit, and job audit receipts
+make restore replay safe after a commit. No schema migration or production mutation is required.

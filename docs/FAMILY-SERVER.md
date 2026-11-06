@@ -371,3 +371,45 @@ from Shadow was unavailable; authenticated HTTPS remained usable.
 
 No services, configuration, catalog rows, credentials or system packages were changed for this
 documentation inspection. Only the project documentation was edited; SSH was closed afterward.
+
+## Installed upgrade — 2026-11-04
+
+Ash explicitly authorized the live 0.1.2 → 0.1.3 upgrade. HTTPS server info now reports 0.1.3,
+readiness passes, managed host tools select 0.1.3, and maintenance reports `up-to-date` with no
+active job. Server identity remains `2cd022f1-85b7-4f3d-a4ae-2ab2d8e55114`.
+
+The signed image and host-tool bundle were verified against the installed release trust.
+`0001_remembered_sessions` was rehearsed on a restored disposable database, including its inverse
+and reapplication, before the live migration. Fingerprints of all 75 public tables preserved
+existing row values; comparison excludes only the four newly added nullable renewal columns.
+The installed operator now reports two applied migrations and no pending migrations.
+
+The quiesced pre-upgrade backup is `20261104T191402Z-2ef2f6f7`; its database, artwork and recovery
+file checksums passed on Fedora. Ash explicitly declined exporting private backups to Shadow;
+no off-host backup copy was made. Private upgrade/recovery state is retained under
+`~/Nahhasio/data/maintenance-private/upgrade-0.1.3/`. Server, PostgreSQL and maintenance services
+are running; backup/update timers were restored to active/waiting. This was an explicit operator
+upgrade, not acceptance of a dashboard schema-migration flow. Client Flatpak installations were
+not changed by this operation.
+
+## Jellyfin retirement and retained media — 2026-11-04
+
+Ash authorized permanent deletion of all old media except Spy × Family, Hunter × Hunter and
+The Family of Mr. Shalash. Their directories moved intact into `~/Nahhasio/videos/series/`.
+A private manifest under `data/media-operations/` records SHA-256 checks before and after the
+move: 337 retained files, 12,245,833,022 logical bytes including accompanying collection files.
+The actual video counts are 25 Spy × Family, 10 Hunter × Hunter and 15 Shalash files.
+Catalog works, artwork and watch history were not edited. Matching and normalized filenames
+remain pending the new media service; do not infer episode identity from this directory move.
+
+The other Anime/Shows collections, Movies and old Jellyfin metadata were permanently removed.
+An unclassified `menubar.txt` was retained privately with the operation receipt. Free space
+increased from approximately 90 GiB to 162 GiB. Jellyfin 10.11.10 was stopped; its system Quadlet,
+dedicated `/etc/jellyfin`, `/var/lib/jellyfin`, `/var/cache/jellyfin` and `/var/log/jellyfin` were
+removed. The system Jellyfin Desktop Flatpak was uninstalled after inspecting its profile;
+its approximately 29 MiB account-local profile remains retained.
+
+Port 8096 no longer had a listener. Nahhasio 0.1.3/PostgreSQL containers remained healthy and
+HTTPS readiness passed after cleanup. The new media API/worker/client source has not been
+installed as part of this operation; no live catalog mutation or new application deployment
+was performed. SSH was closed afterward.
