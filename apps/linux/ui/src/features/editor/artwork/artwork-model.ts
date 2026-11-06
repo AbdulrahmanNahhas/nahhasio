@@ -9,7 +9,7 @@ export const identityKeys = [...seriesIdentityKeys, ...animeIdentityKeys] as con
 export function hasSeries(work: WorkDocument) {
   return work.installments?.some((part) => part.kind === "season") === true;
 }
-export function installmentIdentityKeys(work: WorkDocument, part: Installment) {
+export function installmentIdentityKeys(work: Pick<WorkDocument, "format">, part: Installment) {
   if (part.kind === "movie") return work.format === "animated" ? identityKeys : seriesIdentityKeys;
   return work.format === "animated" ? animeIdentityKeys : [];
 }

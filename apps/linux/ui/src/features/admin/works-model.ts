@@ -18,7 +18,7 @@ export const worksSearchSchema = z.object({
     .catch("all")
     .default("all"),
   visibility: z.enum(["all", "public", "private"]).catch("all").default("all"),
-  language: z.enum(["all", "ar", "en"]).catch("all").default("all"),
+  language: z.enum(["all", "ar", "en", "ja"]).catch("all").default("all"),
   status: z
     .enum(["all", "completed", "ongoing", "announced", "unknown"])
     .catch("all")
@@ -100,11 +100,12 @@ export const worksFilterChoices = [
   },
   {
     key: "language",
-    label: "لغة المشاهدة",
+    label: "لغة العمل",
     items: [
       { value: "all", label: "الكل" },
       { value: "ar", label: "العربية" },
-      { value: "en", label: "English (الافتراضية)" },
+      { value: "en", label: "الإنجليزية" },
+      { value: "ja", label: "اليابانية" },
     ],
   },
   {

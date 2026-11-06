@@ -1,5 +1,5 @@
 import { rpcResults } from "@arcadia/contracts/editor-rpc";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { WandSparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -28,35 +28,84 @@ import {
 import { toast } from "@/components/ui/toast";
 import { gateway } from "@/lib/bridge";
 
-export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () => Promise<void> }) {
+import type { ImageFilters } from "./images-model";
+
+export function ImageRename({
+  ids,
+  filters,
+  onRenamed,
+}: {
+  ids: string[];
+  filters: ImageFilters;
+  onRenamed: () => Promise<void>;
+}) {
+  const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [excluded, setExcluded] = useState<string[]>([]);
+  const [completed, setCompleted] = useState<string[]>([]);
+  const [scanned, setScanned] = useState(0);
   const preview = useQuery({
-    queryKey: ["admin", "images", "rename-preview", ids],
+    queryKey: ["admin", "images", "rename-preview", filters],
     enabled: open && ids.length > 0,
     staleTime: 0,
-    queryFn: async ({ signal }) =>
-      rpcResults.assetRenamePreview.parse(
-        await gateway.editorCall({ operation: "assetRenamePreview", data: { ids } }, signal),
-      ),
+    queryFn: async ({ signal }) => {
+      const proposals: Array<ReturnType<typeof rpcResults.assetRenamePreview.parse>[number]> = [];
+      setScanned(0);
+      for (let page = 1; ; page++) {
+        signal.throwIfAborted();
+        const assets = rpcResults.assets.parse(
+          await gateway.editorCall(
+            { operation: "assets", data: { ...filters, page, pageSize: 48 } },
+            signal,
+          ),
+        );
+        if (assets.total > 5000)
+          throw new Error("أكثر من 5000 صورة مطابقة؛ ضيّق المرشحات قبل تنظيم الأسماء.");
+        if (assets.items.length)
+          proposals.push(
+            ...rpcResults.assetRenamePreview.parse(
+              await gateway.editorCall(
+                {
+                  operation: "assetRenamePreview",
+                  data: { ids: assets.items.map((item) => item.id) },
+                },
+                signal,
+              ),
+            ),
+          );
+        setScanned(proposals.length);
+        if (page * 48 >= assets.total || !assets.items.length) break;
+      }
+      return proposals.filter((item) => item.reason !== "الاسم منظم بالفعل");
+    },
   });
   const selected =
-    preview.data?.filter((item) => !item.reason && !excluded.includes(item.id)) ?? [];
+    preview.data?.filter(
+      (item) => !item.reason && !excluded.includes(item.id) && !completed.includes(item.id),
+    ) ?? [];
   const rename = useMutation({
-    mutationFn: async () =>
-      rpcResults.assetRename.parse(
-        await gateway.editorCall({
-          operation: "assetRename",
-          data: {
-            items: selected.map(({ id, oldPath, newFileName, sha256 }) => ({
-              id,
-              oldPath,
-              newFileName,
-              sha256,
-            })),
-          },
-        }),
-      ),
+    mutationFn: async () => {
+      let renamed = 0;
+      for (let offset = 0; offset < selected.length; offset += 50) {
+        const batch = selected.slice(offset, offset + 50);
+        const result = rpcResults.assetRename.parse(
+          await gateway.editorCall({
+            operation: "assetRename",
+            data: {
+              items: batch.map(({ id, oldPath, newFileName, sha256 }) => ({
+                id,
+                oldPath,
+                newFileName,
+                sha256,
+              })),
+            },
+          }),
+        );
+        renamed += result.renamed;
+        setCompleted((previous) => [...previous, ...batch.map((item) => item.id)]);
+      }
+      return { renamed };
+    },
     onSuccess: async (result) => {
       setOpen(false);
       await onRenamed();
@@ -74,6 +123,7 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
         disabled={!ids.length}
         onClick={() => {
           setExcluded([]);
+          setCompleted([]);
           rename.reset();
           setOpen(true);
         }}
@@ -84,7 +134,13 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          if (!rename.isPending) setOpen(next);
+          if (!rename.isPending) {
+            if (!next)
+              void client.cancelQueries({
+                queryKey: ["admin", "images", "rename-preview", filters],
+              });
+            setOpen(next);
+          }
         }}
       >
         <DialogContent
@@ -94,8 +150,9 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
           <DialogHeader>
             <DialogTitle>مراجعة أسماء الصور</DialogTitle>
             <DialogDescription>
-              صور الصفحة الحالية، حتى ٥٠ صورة في الدفعة. الاسم يتبع العمل والجزء والحلقة والدور، مع
-              معرّف قصير لتجنب التكرار. الملفات ذات الروابط الغامضة أو المشاكل تُستثنى.
+              جميع الصور المطابقة للمرشحات، وليس الصفحة الحالية فقط، حتى 5000 صورة. تُخفى الأسماء
+              المنظمة بالفعل. الصور المشتركة ضمن العمل نفسه تستخدم اسم العمل؛ الروابط بين أعمال
+              مختلفة تحتاج مراجعة.
             </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
@@ -103,7 +160,10 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
             المراجعات والمسارات المحفوظة، دون نسخ الصورة.
           </p>
           {preview.isPending ? (
-            <Skeleton className="h-64" />
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">جارٍ فحص الصور: {scanned}</p>
+              <Skeleton className="h-64" />
+            </div>
           ) : preview.isError ? (
             <Alert variant="destructive">
               <AlertTitle>تعذّرت معاينة الأسماء</AlertTitle>
@@ -130,8 +190,14 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
                       <TableCell>
                         <Checkbox
                           aria-label={`تنظيم ${item.oldFileName}`}
-                          disabled={Boolean(item.reason) || rename.isPending}
-                          checked={!item.reason && !excluded.includes(item.id)}
+                          disabled={
+                            Boolean(item.reason) || completed.includes(item.id) || rename.isPending
+                          }
+                          checked={
+                            !item.reason &&
+                            !excluded.includes(item.id) &&
+                            !completed.includes(item.id)
+                          }
                           onCheckedChange={(checked) =>
                             setExcluded((previous) =>
                               checked
@@ -163,7 +229,9 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
           )}
           {rename.isError && (
             <Alert variant="destructive">
-              <AlertTitle>لم تتغيّر سجلات الصور</AlertTitle>
+              <AlertTitle>
+                {completed.length ? "اكتملت بعض الدفعات؛ تعذّر إكمال الباقي" : "تعذّر تنظيم الأسماء"}
+              </AlertTitle>
               <AlertDescription>
                 {rename.error.message} أعد المعاينة إذا تغيّر الربط أو الملف.
               </AlertDescription>
@@ -176,9 +244,26 @@ export function ImageRename({ ids, onRenamed }: { ids: string[]; onRenamed: () =
               </Button>
             </Alert>
           )}
+          {preview.isSuccess && !preview.data.length && (
+            <p role="status" className="text-sm text-muted-foreground">
+              فُحصت {scanned} صورة؛ لا توجد أسماء تحتاج إلى تغيير.
+            </p>
+          )}
           <DialogFooter>
+            {!!completed.length && (
+              <Badge variant="outline">{completed.length} نُظّمت؛ إعادة المحاولة تتجاوزها</Badge>
+            )}
             <Badge variant="secondary">{selected.length} صور مختارة</Badge>
-            <Button variant="outline" disabled={rename.isPending} onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              disabled={rename.isPending}
+              onClick={() => {
+                void client.cancelQueries({
+                  queryKey: ["admin", "images", "rename-preview", filters],
+                });
+                setOpen(false);
+              }}
+            >
               إلغاء
             </Button>
             <Button

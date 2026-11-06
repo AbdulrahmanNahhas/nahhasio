@@ -18,14 +18,6 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ingestArtwork } from "@/features/artwork/library/artwork.functions";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
 import { RegisteredImage } from "@/features/editor/registered-image";
@@ -56,6 +48,7 @@ export function EpisodeArtworkAction({
           workId: target.workId,
           tmdbId: String(target.tmdbId),
           season: String(target.season),
+          selected: true,
         },
       ]),
     ).values(),
@@ -75,7 +68,7 @@ export function EpisodeArtworkAction({
   const preview = useMutation({
     mutationFn: async () => {
       const rows: Candidate[] = [];
-      for (const group of groups) {
+      for (const group of groups.filter((item) => item.selected)) {
         if (stop.current) throw new Error("أُلغيت المعاينة.");
         const tmdbId = Number(group.tmdbId),
           season = Number(group.season);
@@ -154,7 +147,10 @@ export function EpisodeArtworkAction({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent className="max-h-11/12 overflow-y-auto sm:max-w-4xl" showCloseButton={!busy}>
+      <DialogContent
+        className="flex h-5/6 max-h-11/12 flex-col sm:max-w-7xl"
+        showCloseButton={!busy}
+      >
         <DialogHeader>
           <DialogTitle>استكمال صور الحلقات</DialogTitle>
           <DialogDescription>
@@ -162,84 +158,128 @@ export function EpisodeArtworkAction({
             الاستيراد. الصور الموجودة لا تُستبدل.
           </DialogDescription>
         </DialogHeader>
-        {!preview.isSuccess ? (
-          <>
-            <Alert>
-              <AlertTitle>راجع أرقام المواسم</AlertTitle>
-              <AlertDescription>
-                رقم الجزء في المكتبة مقترح أولي؛ قد يختلف عن ترتيب TMDB. استخدم محرر العمل للحلقات
-                المجمّعة أو الترتيب الخاص.
-              </AlertDescription>
-            </Alert>
-            <div className="flex flex-col gap-4">
-              {groups.map((group, index) => (
-                <div key={group.key} className="flex flex-col gap-2">
-                  <Button
-                    variant="link"
-                    className="justify-start"
-                    render={<a href={`#/admin/works/${group.workId}?section=structure`} />}
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+          {!preview.isSuccess ? (
+            <>
+              <Alert>
+                <AlertTitle>راجع أرقام المواسم</AlertTitle>
+                <AlertDescription>
+                  أرقام المواسم تُقترح حسب ترتيب المواسم داخل العمل، وليس رقم الجزء الخام. راجع
+                  المطابقة للمواسم المجمّعة أو الترتيب الخاص. اختر أكثر من عمل للدفعة نفسها؛ حتى 1000
+                  حلقة في هذه المعاينة.
+                </AlertDescription>
+              </Alert>
+              <div className="my-3 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    setGroups((rows) => rows.map((row) => ({ ...row, selected: true })))
+                  }
+                >
+                  تحديد الكل
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    setGroups((rows) => rows.map((row) => ({ ...row, selected: false })))
+                  }
+                >
+                  إلغاء التحديد
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {groups.map((group, index) => (
+                  <div
+                    key={group.key}
+                    className="flex flex-col gap-3 rounded-xl border border-border p-3"
                   >
-                    {group.name}
-                  </Button>
-                  <FieldGroup className="grid grid-cols-2 gap-3">
-                    <Field>
-                      <FieldLabel htmlFor={`tmdb-${index}`}>TMDB للمسلسل</FieldLabel>
-                      <Input
-                        id={`tmdb-${index}`}
-                        type="number"
-                        min={1}
-                        disabled={busy}
-                        value={group.tmdbId}
-                        onChange={(event) =>
-                          setGroups((rows) =>
-                            rows.map((row) =>
-                              row.key === group.key ? { ...row, tmdbId: event.target.value } : row,
-                            ),
-                          )
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`season-${index}`}>رقم موسم TMDB</FieldLabel>
-                      <Input
-                        id={`season-${index}`}
-                        type="number"
-                        min={0}
-                        disabled={busy}
-                        value={group.season}
-                        onChange={(event) =>
-                          setGroups((rows) =>
-                            rows.map((row) =>
-                              row.key === group.key ? { ...row, season: event.target.value } : row,
-                            ),
-                          )
-                        }
-                      />
-                    </Field>
-                  </FieldGroup>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">
-              {selected.length} صورة مختارة · {candidates.filter((row) => !row.url).length} حلقة بلا
-              صورة في المصدر
-            </p>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>اختيار</TableHead>
-                  <TableHead>العمل والحلقة</TableHead>
-                  <TableHead>المعاينة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {candidates.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
+                    <Field orientation="horizontal">
                       <Checkbox
+                        id={`group-${index}`}
+                        checked={group.selected}
+                        disabled={busy}
+                        onCheckedChange={(checked) =>
+                          setGroups((rows) =>
+                            rows.map((row) =>
+                              row.key === group.key ? { ...row, selected: checked === true } : row,
+                            ),
+                          )
+                        }
+                      />
+                      <FieldLabel htmlFor={`group-${index}`}>
+                        {group.name} · الموسم {group.season}
+                      </FieldLabel>
+                    </Field>
+                    <Button
+                      variant="link"
+                      className="justify-start"
+                      render={<a href={`#/admin/works/${group.workId}?section=structure`} />}
+                    >
+                      {group.name}
+                    </Button>
+                    <FieldGroup className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel htmlFor={`tmdb-${index}`}>TMDB للمسلسل</FieldLabel>
+                        <Input
+                          id={`tmdb-${index}`}
+                          type="number"
+                          min={1}
+                          disabled={busy}
+                          value={group.tmdbId}
+                          onChange={(event) =>
+                            setGroups((rows) =>
+                              rows.map((row) =>
+                                row.key === group.key
+                                  ? { ...row, tmdbId: event.target.value }
+                                  : row,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor={`season-${index}`}>رقم موسم TMDB</FieldLabel>
+                        <Input
+                          id={`season-${index}`}
+                          type="number"
+                          min={0}
+                          disabled={busy}
+                          value={group.season}
+                          onChange={(event) =>
+                            setGroups((rows) =>
+                              rows.map((row) =>
+                                row.key === group.key
+                                  ? { ...row, season: event.target.value }
+                                  : row,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                    </FieldGroup>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {selected.length} صورة مختارة · {candidates.filter((row) => !row.url).length} حلقة
+                بلا صورة في المصدر
+              </p>
+              <div className="grid gap-3 p-1 md:grid-cols-2 xl:grid-cols-3">
+                {candidates.map((row) => (
+                  <article
+                    key={row.id}
+                    className="flex min-w-0 flex-col gap-3 rounded-xl border border-border p-3"
+                  >
+                    <Field orientation="horizontal">
+                      <Checkbox
+                        id={`candidate-${row.id}`}
                         aria-label={`استيراد ${row.workName} الحلقة ${row.number}`}
                         disabled={!row.url || busy || !!result}
                         checked={row.selected}
@@ -251,56 +291,54 @@ export function EpisodeArtworkAction({
                           )
                         }
                       />
-                    </TableCell>
-                    <TableCell>
-                      {row.workName} · {row.number}
-                    </TableCell>
-                    <TableCell>
-                      {row.url ? (
-                        <RegisteredImage
-                          src={row.url}
-                          alt={`${row.workName} · ${row.number}`}
-                          className="h-16 w-28 rounded-lg"
-                        />
-                      ) : (
-                        "غير متاحة"
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      <FieldLabel htmlFor={`candidate-${row.id}`}>
+                        {row.workName} · الحلقة {row.number}
+                      </FieldLabel>
+                    </Field>
+                    {row.url ? (
+                      <RegisteredImage
+                        src={row.url}
+                        alt={`${row.workName} · ${row.number}`}
+                        className="aspect-video w-full rounded-lg"
+                      />
+                    ) : (
+                      "غير متاحة"
+                    )}
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
-          </>
-        )}
-        {preview.isError && (
-          <Alert variant="destructive">
-            <AlertTitle>تعذّرت المعاينة</AlertTitle>
-            <AlertDescription>{preview.error.message}</AlertDescription>
-          </Alert>
-        )}
-        {run.isPending && (
-          <Progress
-            value={selected.length ? (progress / selected.length) * 100 : 0}
-            aria-label="تقدم استيراد صور الحلقات"
-          />
-        )}
-        {result && (
-          <Alert>
-            <AlertTitle>انتهت الدفعة</AlertTitle>
-            <AlertDescription>
-              {result.imported} صورة رُبطت · {result.errors.length} تعذّرت ·{" "}
-              {selected.length - progress} لم تُعالج
-              {result.errors.length > 0 && (
-                <ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto">
-                  {[...new Set(result.errors)].map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-        <DialogFooter>
+              </div>
+            </>
+          )}
+          {preview.isError && (
+            <Alert variant="destructive">
+              <AlertTitle>تعذّرت المعاينة</AlertTitle>
+              <AlertDescription>{preview.error.message}</AlertDescription>
+            </Alert>
+          )}
+          {run.isPending && (
+            <Progress
+              value={selected.length ? (progress / selected.length) * 100 : 0}
+              aria-label="تقدم استيراد صور الحلقات"
+            />
+          )}
+          {result && (
+            <Alert>
+              <AlertTitle>انتهت الدفعة</AlertTitle>
+              <AlertDescription>
+                {result.imported} صورة رُبطت · {result.errors.length} تعذّرت ·{" "}
+                {selected.length - progress} لم تُعالج
+                {result.errors.length > 0 && (
+                  <ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto">
+                    {[...new Set(result.errors)].map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter className="shrink-0 flex-wrap border-t border-border pt-3">
           {busy ? (
             <Button
               variant="outline"
@@ -317,7 +355,7 @@ export function EpisodeArtworkAction({
           )}
           {!preview.isSuccess ? (
             <Button
-              disabled={busy || !snapshot.length}
+              disabled={busy || !groups.some((group) => group.selected)}
               onClick={() => {
                 stop.current = false;
                 preview.mutate();

@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { ImageIcon } from "lucide-react";
 import { useEffect, useState, type ImgHTMLAttributes } from "react";
 
+import { Button } from "@/components/ui/button";
 import { gateway } from "@/lib/bridge";
 export function RegisteredImage({
   src,
@@ -11,8 +12,13 @@ export function RegisteredImage({
   className,
   fit = "contain",
   assetId,
+  width = 640,
   ...props
-}: ImgHTMLAttributes<HTMLImageElement> & { fit?: "contain" | "cover"; assetId?: string }) {
+}: ImgHTMLAttributes<HTMLImageElement> & {
+  fit?: "contain" | "cover";
+  assetId?: string;
+  width?: number;
+}) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -30,18 +36,18 @@ export function RegisteredImage({
     return () => observer.disconnect();
   }, [element]);
   const result = useQuery({
-    queryKey: ["admin", "editor-image", assetId ?? src],
-    enabled: near && Boolean(assetId || src),
+    queryKey: ["admin", "editor-image", assetId ?? src, width],
+    enabled: (near || props.loading === "eager") && Boolean(assetId || src),
     retry: false,
     staleTime: Infinity,
     queryFn: async ({ signal }) => {
-      if (assetId) return gateway.artwork(assetId, signal);
+      if (assetId) return gateway.artwork(assetId, signal, width);
       if (!src) throw new Error("لا توجد صورة");
       if (src.startsWith("/media/")) {
         const media = CatalogMediaResultSchema.parse(
           await gateway.editorCall({ operation: "media", data: { path: src } }, signal),
         );
-        return gateway.artwork(media.id, signal);
+        return gateway.artwork(media.id, signal, width);
       }
       return CatalogPreviewResultSchema.parse(
         await gateway.editorCall({ operation: "preview", data: { url: src } }, signal),
@@ -58,8 +64,16 @@ export function RegisteredImage({
           className={cn("size-full", fit === "cover" ? "object-cover" : "object-contain")}
         />
       ) : (
-        <span className="grid size-full min-h-12 place-items-center bg-muted text-muted-foreground">
+        <span className="grid size-full min-h-12 place-content-center justify-items-center gap-2 bg-muted text-muted-foreground">
           <ImageIcon className="size-6" aria-label={alt || "الصورة غير متاحة"} />
+          {props.loading === "eager" && result.isError && (
+            <>
+              <span>تعذّر تحميل الصورة</span>
+              <Button variant="ghost" size="sm" onClick={() => void result.refetch()}>
+                إعادة المحاولة
+              </Button>
+            </>
+          )}
         </span>
       )}
     </div>

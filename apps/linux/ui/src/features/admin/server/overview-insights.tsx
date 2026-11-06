@@ -46,7 +46,8 @@ const labels = {
   announced: "قادم",
   unknown: "غير معروف",
   ar: "العربية",
-  en: "الإنجليزية الافتراضية",
+  en: "الإنجليزية",
+  ja: "اليابانية",
   poster: "الملصقات",
   banner: "الخلفيات",
   logo: "الشعارات",
@@ -381,7 +382,12 @@ export function OverviewInsights({ data, works }: { data: LibraryInsights; works
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-4">
               <div className="grid min-w-0 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <Distribution title="لغة المشاهدة" rows={data.languages} filter="language" />
+                <Distribution
+                  title="لغات الأعمال"
+                  description="شارات الفهرس، وتشمل لغات الأجزاء؛ قد يظهر العمل في أكثر من لغة."
+                  rows={data.languages}
+                  filter="language"
+                />
                 <Distribution
                   title="استخدام الصور"
                   description="صور مختلفة لكل دور؛ قد تخدم الصورة أكثر من دور."

@@ -1,6 +1,6 @@
 import type { MediaJob } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Navigate, useNavigate, useSearch } from "@tanstack/react-router";
 import { FolderOpen, Plus, RefreshCw } from "lucide-react";
 import { z } from "zod";
 
@@ -44,17 +44,27 @@ export function MediaLibraryPage() {
   const search = useSearch({ from: "/admin/$section" });
   const navigate = useNavigate({ from: "/admin/$section" });
   const page = Number(search.page);
-  const files = useQuery(
-    mediaInventoryOptions(search.q, page, search.workId, search.mediaState, search.mediaSource),
-  );
+  const files = useQuery({
+    ...mediaInventoryOptions(search.q, page, search.workId, search.mediaState, search.mediaSource),
+    enabled: !search.workId && search.mediaView === "files",
+  });
   const coverage = useQuery({
     ...mediaCoverageOptions(search.q, page, search.workId, search.mediaView === "missing"),
-    enabled: search.mediaView !== "files",
+    enabled: !search.workId && search.mediaView !== "files",
   });
+  if (search.workId)
+    return (
+      <Navigate
+        to="/admin/works/$workId"
+        params={{ workId: search.workId }}
+        search={{ section: "structure" }}
+        replace
+      />
+    );
   return (
     <WorkspacePage
       title="مكتبة ملفات الخادم"
-      description="الفيديوهات المشتركة وربطها بالأعمال والحلقات. تنزيلات جهازك مستقلة عن هذه المكتبة."
+      description="أعمال الملفات فقط والأعمال ذات ملفات مسجّلة. التغطية للأجزاء التي تُدار بملفات؛ تنزيلات جهازك مستقلة."
     >
       <div className="flex flex-wrap items-center gap-3">
         <InputGroup className="min-w-48 flex-1">
@@ -80,7 +90,7 @@ export function MediaLibraryPage() {
           variant="outline"
           size="icon"
           aria-label="تحديث ملفات الخادم"
-          onClick={() => void files.refetch()}
+          onClick={() => void (search.mediaView === "files" ? files.refetch() : coverage.refetch())}
         >
           <RefreshCw />
         </Button>
@@ -215,7 +225,7 @@ export function MediaLibraryPage() {
               <CardFooter className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
-                  render={<a href={`#/admin/library?workId=${work.workId}&mediaView=files`} />}
+                  render={<a href={`#/admin/works/${work.workId}?section=structure`} />}
                 >
                   إدارة الفيديوهات
                 </Button>
@@ -279,7 +289,9 @@ export function MediaLibraryPage() {
                   <TableRow key={file.id}>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <a href={`#/titles/${file.workId}`}>{file.workTitle}</a>
+                        <a href={`#/admin/works/${file.workId}?section=structure`}>
+                          {file.workTitle}
+                        </a>
                         <span>{file.episodeTitle ?? file.installmentTitle}</span>
                       </div>
                     </TableCell>
@@ -313,7 +325,7 @@ export function MediaLibraryPage() {
               <Card key={file.id} size="sm">
                 <CardHeader>
                   <CardTitle>
-                    <a href={`#/titles/${file.workId}`}>{file.workTitle}</a>
+                    <a href={`#/admin/works/${file.workId}?section=structure`}>{file.workTitle}</a>
                   </CardTitle>
                   <CardDescription>{file.episodeTitle ?? file.installmentTitle}</CardDescription>
                 </CardHeader>
@@ -415,7 +427,9 @@ export function MediaJobsPage() {
                   ? "إجراء على ملف"
                   : job.type === "media.upload"
                     ? "رفع ملف"
-                    : "استيراد فيديوهات")}
+                    : job.type === "media.upload.verify"
+                      ? "التحقق من فيديو مرفوع"
+                      : "استيراد فيديوهات")}
           </h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Badge variant="outline">{status[job.status]}</Badge>

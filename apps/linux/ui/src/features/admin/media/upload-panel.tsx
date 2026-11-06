@@ -32,8 +32,8 @@ export function UploadPanel() {
   return (
     <section className="flex flex-col gap-3" aria-label="رفع الفيديوهات من الجهاز">
       <p>
-        تُرفع نسخة إلى الخادم وتبقى الملفات الأصلية على جهازك. بعد اكتمال الرفع، افتح مجلد uploads
-        لربط الفيديوهات بالحلقات.
+        تُرفع نسخة إلى الخادم وتبقى الملفات الأصلية على جهازك. بعد التحقق، تظهر الفيديوهات أدناه
+        لربطها بالحلقات.
       </p>
       <Button variant="outline" disabled={action.isPending} onClick={() => action.mutate(null)}>
         <Upload data-icon="inline-start" />
@@ -45,13 +45,16 @@ export function UploadPanel() {
           {file.status === "verifying" && (
             <p role="status">جارٍ التحقق من بايتات الملف قبل الرفع…</p>
           )}
+          {file.status === "verifying-server" && (
+            <p role="status">جارٍ التحقق على الخادم؛ تستمر المهمة حتى إن أغلقت النافذة.</p>
+          )}
           <Progress
             value={file.bytes ? (file.offset * 100) / file.bytes : 0}
             aria-label={`رفع ${file.name}`}
           />
           {file.status === "completed" ? (
             <p>اكتمل الرفع؛ الملف جاهز للربط.</p>
-          ) : (
+          ) : ["failed", "paused"].includes(file.status) ? (
             <Button
               variant="ghost"
               size="sm"
@@ -60,6 +63,14 @@ export function UploadPanel() {
             >
               استئناف / إعادة المحاولة
             </Button>
+          ) : (
+            <p role="status">
+              {file.status === "queued"
+                ? "في انتظار دور الرفع"
+                : file.status === "verifying-server"
+                  ? "بانتظار نتيجة التحقق"
+                  : "جارٍ الرفع"}
+            </p>
           )}
           {file.error && <p role="alert">{file.error}</p>}
         </div>

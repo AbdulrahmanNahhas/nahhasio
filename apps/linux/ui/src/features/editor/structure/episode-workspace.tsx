@@ -1,21 +1,21 @@
-import { Images, Plus, Pencil, Search, Image } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Pencil, Search } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { mediaUnitsOptions } from "@/features/admin/media/media-data";
+import { UnitMedia } from "@/features/admin/media/unit-media";
+import { unitMediaLabel } from "@/features/admin/media/unit-media-status";
 import { EpisodeArtwork } from "@/features/editor/artwork/episode-artwork";
-import { EpisodeImagesBatch } from "@/features/editor/artwork/episode-images-batch";
-import {
-  episodeImage,
-  mergeEpisodeImages,
-  type ImageTarget,
-} from "@/features/editor/artwork/episode-images-model";
+import { episodeImage } from "@/features/editor/artwork/episode-images-model";
 import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { EpisodeDelete } from "./episode-delete";
@@ -27,8 +27,12 @@ export function EpisodeWorkspace({
   episodes,
   workId,
   tmdbId,
-  title,
   suggestedSeason,
+  title,
+  installmentId,
+  persistedEpisodeIds,
+  allowImport,
+  showFiles = true,
   onChange,
 }: {
   episodes: Episode[];
@@ -36,21 +40,17 @@ export function EpisodeWorkspace({
   tmdbId?: number | null;
   title: string;
   suggestedSeason: number;
+  installmentId?: string;
+  persistedEpisodeIds: string[];
+  allowImport: boolean;
+  showFiles?: boolean;
   onChange: (episodes: Episode[]) => void;
 }) {
   const rows = useEditorRows(episodes);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
-  const [seasonText, setSeasonText] = useState(String(suggestedSeason));
-  const seasonValue = Number(seasonText);
-  const season =
-    seasonText !== "" && Number.isInteger(seasonValue) && seasonValue >= 0
-      ? seasonValue
-      : undefined;
   const [editor, setEditor] = useState<{ key: string | null; episode: Episode } | null>(null);
-  const [batch, setBatch] = useState(false);
-  const [batchBusy, setBatchBusy] = useState(false);
   const latest = useRef({ rows, onChange });
   const active = useRef(true);
   useLayoutEffect(() => {
@@ -80,19 +80,20 @@ export function EpisodeWorkspace({
   });
   const lastPage = Math.max(0, Math.ceil(visible.length / 10) - 1);
   const currentPage = Math.min(page, lastPage);
+  const pageRows = visible.slice(currentPage * 10, currentPage * 10 + 10);
+  const mediaIds = pageRows
+    .flatMap(({ value }) => (value.id && persistedEpisodeIds.includes(value.id) ? [value.id] : []))
+    .join(",");
+  const media = useQuery(mediaUnitsOptions(workId, installmentId ?? "", showFiles ? mediaIds : ""));
   function patch(key: string, values: Partial<Episode>, expectedNumber?: number) {
-    if (!active.current) throw new Error("تغيّر الجزء؛ أعد فتح محرر الصورة.");
+    if (!active.current) throw new Error("تغيّر الجزء؛ أعد فتح محرر الحلقة.");
     const current = latest.current;
     const target = current.rows.find((row) => row.key === key);
     if (!target || (expectedNumber !== undefined && target.value.number !== expectedNumber))
-      throw new Error("تغيّرت الحلقة؛ أعد فتح محرر الصورة قبل الاختيار.");
+      throw new Error("تغيّرت الحلقة؛ أعد فتح محرر الحلقة قبل الاختيار.");
     current.onChange(
       current.rows.map((row) => (row.key === key ? { ...row.value, ...values } : row.value)),
     );
-  }
-  function applyImages(images: ImageTarget[]) {
-    if (!active.current) throw new Error("تغيّر الجزء؛ أعد فتح مراجعة الصور.");
-    latest.current.onChange(mergeEpisodeImages(latest.current.rows, images));
   }
   return (
     <Card>
@@ -106,15 +107,6 @@ export function EpisodeWorkspace({
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!episodes.length}
-              onClick={() => setBatch(true)}
-            >
-              <Images data-icon="inline-start" />
-              جلب صور الحلقات
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -138,47 +130,40 @@ export function EpisodeWorkspace({
       </CardHeader>
       <CardContent>
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="grid items-end gap-3 sm:grid-cols-2">
-            <InputGroup>
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                aria-label="البحث في حلقات الموسم"
-                placeholder="ابحث بالرقم أو عنوان الحلقة…"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
+          <div className="flex flex-wrap items-end gap-3">
+            <Field className="min-w-48 flex-1">
+              <FieldLabel className="sr-only">البحث في حلقات الموسم</FieldLabel>
+              <InputGroup>
+                <InputGroupAddon>
+                  <Search />
+                </InputGroupAddon>
+                <InputGroupInput
+                  aria-label="البحث في حلقات الموسم"
+                  placeholder="ابحث بالرقم أو عنوان الحلقة…"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(0);
+                  }}
+                />
+              </InputGroup>
+            </Field>
+            <div className="w-48">
+              <SelectField
+                label="إظهار الحلقات"
+                value={filter}
+                onChange={(next) => {
+                  setFilter(next);
                   setPage(0);
                 }}
+                items={[
+                  { value: "all", label: "كل الحلقات" },
+                  { value: "missing-images", label: "بلا صور" },
+                  { value: "missing-details", label: "بلا عنوان أو تاريخ" },
+                ]}
               />
-            </InputGroup>
-            <SelectField
-              label="إظهار الحلقات"
-              value={filter}
-              onChange={(next) => {
-                setFilter(next);
-                setPage(0);
-              }}
-              items={[
-                { value: "all", label: "كل الحلقات" },
-                { value: "missing-images", label: "بلا صور" },
-                { value: "missing-details", label: "بلا عنوان أو تاريخ" },
-              ]}
-            />
+            </div>
           </div>
-          <Field>
-            <FieldLabel htmlFor="episode-tmdb-season">موسم TMDB (تلقائي، قابل للتعديل)</FieldLabel>
-            <Input
-              id="episode-tmdb-season"
-              type="number"
-              min={0}
-              className="w-24"
-              value={seasonText}
-              placeholder="رقم الموسم؛ 0 للعروض الخاصة"
-              onChange={(event) => setSeasonText(event.target.value)}
-            />
-          </Field>
           {!visible.length && (
             <Empty>
               <EmptyHeader>
@@ -193,66 +178,101 @@ export function EpisodeWorkspace({
               </EmptyHeader>
             </Empty>
           )}
-          {visible.slice(currentPage * 10, currentPage * 10 + 10).map(({ key, value }) => (
-            <article
-              key={key}
-              className="flex min-w-0 flex-wrap items-center gap-4 rounded-2xl border border-border p-3 sm:flex-nowrap"
-              aria-label={`الحلقة ${value.number}`}
-            >
-              <div className="w-40 shrink-0">
-                {!episodeImage(value) && (
-                  <div className="mb-2 grid aspect-video place-items-center rounded-lg bg-muted">
-                    <Image className="size-6 text-muted-foreground" aria-label="بلا صورة" />
-                  </div>
-                )}
-                <EpisodeArtwork
-                  episode={value}
-                  ownerName={`${title} · ${value.number}`}
-                  tmdbId={tmdbId}
-                  season={season}
-                  onChange={(next) => patch(key, { media: next.media }, value.number)}
-                />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">الحلقة {value.number}</Badge>
-                  {!episodeImage(value) && <Badge variant="outline">بلا صورة</Badge>}
-                </div>
-                <span className="font-medium" dir="auto">
-                  {value.title || "بلا عنوان"}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {value.releaseDate || "بلا تاريخ عرض"} ·{" "}
-                  {value.runtimeMinutes === null || value.runtimeMinutes === undefined
-                    ? "المدة غير مسجّلة"
-                    : `${value.runtimeMinutes} دقيقة`}
-                </span>
-                {value.summary && (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">{value.summary}</p>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`تحرير الحلقة ${value.number}`}
-                  onClick={() => setEditor({ key, episode: value })}
-                >
-                  <Pencil data-icon="inline-start" />
+          {showFiles && media.error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                تعذّر فحص ملفات الخادم؛ تبقى بيانات الحلقات قابلة للتحرير. {media.error.message}
+                <Button variant="outline" size="sm" onClick={() => void media.refetch()}>
+                  إعادة المحاولة
                 </Button>
-                <EpisodeDelete
-                  workId={workId}
-                  episodeId={value.id}
-                  number={value.number}
-                  onDelete={() =>
-                    latest.current.onChange(
-                      latest.current.rows.filter((row) => row.key !== key).map((row) => row.value),
-                    )
-                  }
-                />
-              </div>
-            </article>
-          ))}
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="grid gap-3 xl:grid-cols-2">
+            {pageRows.map(({ key, value }) => {
+              const fileStatus = media.data?.find((item) => item.episodeId === value.id);
+              return (
+                <article
+                  key={key}
+                  className="flex min-w-0 items-start gap-3 rounded-xl border border-border p-3"
+                  aria-label={`الحلقة ${value.number}`}
+                >
+                  <div className="shrink-0">
+                    <EpisodeArtwork
+                      episode={value}
+                      ownerName={`${title} · ${value.number}`}
+                      tmdbId={tmdbId}
+                      season={suggestedSeason}
+                      onChange={(next) => patch(key, { media: next.media }, value.number)}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">الحلقة {value.number}</Badge>
+                      {!episodeImage(value) && <Badge variant="outline">بلا صورة</Badge>}
+                      {showFiles && fileStatus && (
+                        <span className="text-xs text-muted-foreground">
+                          {unitMediaLabel(fileStatus)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="line-clamp-2 font-medium" dir="auto">
+                      {value.title || "بلا عنوان"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {value.releaseDate || "بلا تاريخ عرض"} ·{" "}
+                      {value.runtimeMinutes === null || value.runtimeMinutes === undefined
+                        ? "المدة غير مسجّلة"
+                        : `${value.runtimeMinutes} دقيقة`}
+                    </span>
+                    {value.summary && (
+                      <p className="line-clamp-1 text-sm text-muted-foreground">{value.summary}</p>
+                    )}
+                  </div>
+                  <ButtonGroup
+                    orientation="vertical"
+                    className="shrink-0"
+                    aria-label={`تحرير بيانات الحلقة ${value.number}`}
+                  >
+                    {showFiles && (
+                      <UnitMedia
+                        compact
+                        allowImport={allowImport}
+                        workId={workId}
+                        installmentId={installmentId ?? ""}
+                        episodeId={value.id}
+                        title={`الحلقة ${value.number}`}
+                        persisted={Boolean(
+                          installmentId && value.id && persistedEpisodeIds.includes(value.id),
+                        )}
+                        status={fileStatus}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`تحرير الحلقة ${value.number}`}
+                      onClick={() => setEditor({ key, episode: value })}
+                    >
+                      <Pencil data-icon="inline-start" />
+                    </Button>
+                    <EpisodeDelete
+                      workId={workId}
+                      episodeId={value.id}
+                      number={value.number}
+                      onDelete={() =>
+                        latest.current.onChange(
+                          latest.current.rows
+                            .filter((row) => row.key !== key)
+                            .map((row) => row.value),
+                        )
+                      }
+                    />
+                  </ButtonGroup>
+                </article>
+              );
+            })}
+          </div>
           {!!visible.length && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
@@ -317,24 +337,6 @@ export function EpisodeWorkspace({
                 return error instanceof Error ? error.message : "تعذّر تطبيق الحلقة.";
               }
             }}
-          />
-        )}
-      </Dialog>
-      <Dialog
-        open={batch}
-        onOpenChange={(open) => {
-          if (!open && !batchBusy) setBatch(false);
-        }}
-      >
-        {batch && (
-          <EpisodeImagesBatch
-            rows={rows}
-            title={title}
-            tmdbId={tmdbId}
-            season={season}
-            onApply={applyImages}
-            onBusyChange={setBatchBusy}
-            onClose={() => setBatch(false)}
           />
         )}
       </Dialog>

@@ -17,13 +17,23 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { gateway, nativeCall } from "@/lib/bridge";
-export function ReassignMedia({ file }: { file: ServerMediaFile }) {
-  const [open, setOpen] = useState(false);
+export function ReassignMedia({
+  file,
+  control,
+}: {
+  file: ServerMediaFile;
+  control?: { open: boolean; onOpenChange: (open: boolean) => void };
+}) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = control?.open ?? localOpen;
+  const setOpen = control?.onOpenChange ?? setLocalOpen;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" disabled={!file.revision} />}>
-        تغيير الربط
-      </DialogTrigger>
+      {!control && (
+        <DialogTrigger render={<Button variant="outline" size="sm" disabled={!file.revision} />}>
+          تغيير الربط
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>تغيير ربط الفيديو</DialogTitle>
@@ -53,6 +63,12 @@ function ReassignForm({ file, onSaved }: { file: ServerMediaFile; onSaved: () =>
     queryFn: ({ signal }) => gateway.work(workId, signal),
   });
   const part = work.data?.installments.find((candidate) => candidate.id === partId);
+  const workChoices = (works.data?.items ?? []).map((candidate) => ({
+    value: candidate.id,
+    label: candidate.titleAr ?? candidate.canonicalTitle,
+  }));
+  if (work.data && !workChoices.some((candidate) => candidate.value === workId))
+    workChoices.unshift({ value: workId, label: work.data.titleAr ?? work.data.canonicalTitle });
   const action = useMutation({
     mutationFn: async () =>
       MediaQueuedSchema.parse(
@@ -67,6 +83,9 @@ function ReassignForm({ file, onSaved }: { file: ServerMediaFile; onSaved: () =>
       ),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["admin", "media"] });
+      await client.invalidateQueries({ queryKey: ["viewer", "home-media", file.workId] });
+      if (workId !== file.workId)
+        await client.invalidateQueries({ queryKey: ["viewer", "home-media", workId] });
       onSaved();
     },
   });
@@ -88,10 +107,7 @@ function ReassignForm({ file, onSaved }: { file: ServerMediaFile; onSaved: () =>
               setEpisodeId("");
               setReview(false);
             }}
-            options={(works.data?.items ?? []).map((candidate) => ({
-              value: candidate.id,
-              label: candidate.titleAr ?? candidate.canonicalTitle,
-            }))}
+            options={workChoices}
           />
         </Field>
         <Field>

@@ -53,7 +53,7 @@ export function EpisodeImageChoices({
           </EmptyHeader>
         </Empty>
       )}
-      <div className="grid max-h-96 gap-3 overflow-y-auto sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {query.data?.map((image) => (
           <div key={image.url} className="flex min-w-0 flex-col gap-2">
             <RegisteredImage

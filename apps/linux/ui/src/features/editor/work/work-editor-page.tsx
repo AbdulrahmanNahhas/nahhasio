@@ -7,6 +7,7 @@ const emptyWork: WorkSnapshot = {
     canonicalTitle: "",
     titleAr: null,
     summary: "",
+    languages: ["en"],
     format: "animated",
     workflowStatus: "draft",
     isPrivate: false,

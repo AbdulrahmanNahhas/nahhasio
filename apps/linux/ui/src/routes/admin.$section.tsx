@@ -12,7 +12,7 @@ export const Route = createFileRoute("/admin/$section")({
       .union([z.string().uuid(), z.literal("")])
       .catch("")
       .default(""),
-    mediaView: z.enum(["files", "works", "missing"]).catch("files").default("files"),
+    mediaView: z.enum(["files", "works", "missing"]).catch("works").default("works"),
     mediaState: z.enum(["all", "present", "needs-review", "trash"]).catch("all").default("all"),
     mediaSource: z.enum(["all", "server-folder", "youtube", "upload"]).catch("all").default("all"),
     page: z

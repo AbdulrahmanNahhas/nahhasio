@@ -54,9 +54,7 @@ export function WorkReferences({
           }}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">
-          معرّفات الأفلام تُحرّر لكل فيلم في قسم صور الأجزاء.
-        </p>
+        <p className="text-sm text-muted-foreground">معرّفات الأفلام تُحرّر لكل فيلم في تبويب البنية.</p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold">المعرّفات الخارجية</h3>

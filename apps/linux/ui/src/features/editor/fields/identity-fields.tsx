@@ -26,7 +26,12 @@ export function IdentityFields({
     <FieldGroup className={compact ? "grid grid-cols-2" : "grid sm:grid-cols-2 lg:grid-cols-3"}>
       {keys.map((key) => {
         const href = identityLink(key, ids[key], series);
-        const label = key.replace("Id", "");
+        const label = {
+          tmdbId: "TMDB",
+          imdbId: "IMDb",
+          anilistId: "AniList",
+          malId: "MyAnimeList",
+        }[key];
         return (
           <div key={key} className="flex min-w-0 flex-col gap-2">
             <TextField

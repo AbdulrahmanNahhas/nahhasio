@@ -117,6 +117,11 @@ const getRoutes = {
   serverOverview: "/v1/admin/server/overview",
   serverSettings: "/v1/admin/server/settings",
   serverOperations: "/v1/admin/server/operations",
+  adminMedia: "/v1/admin/media",
+  adminMediaCoverage: "/v1/admin/media/coverage",
+  adminMediaUnits: "/v1/admin/media/units",
+  adminMediaIncoming: "/v1/admin/media/incoming",
+  adminMediaJobs: "/v1/admin/media/jobs",
 };
 const writeRoutes = {
   editorCall: { path: "/v1/admin/editor", method: "POST" },
@@ -128,6 +133,8 @@ const writeRoutes = {
   updateProfile: { path: "/v1/me", method: "PATCH" },
   updatePassword: { path: "/v1/me/password", method: "POST" },
   requestServerOperation: { path: "/v1/admin/server/operations", method: "POST" },
+  adminMediaImport: { path: "/v1/admin/media/jobs", method: "POST" },
+  adminMediaYoutube: { path: "/v1/admin/media/youtube", method: "POST" },
 };
 function query(input: Record<string, z.infer<typeof z.json>>) {
   const params = new URLSearchParams();
@@ -299,6 +306,17 @@ export async function developmentCall(
   if (read) return request(read + query(payload), "GET", undefined, signal);
   const write = Object.entries(writeRoutes).find(([key]) => key === command)?.[1];
   if (write) return request(write.path, write.method, payload, signal);
+  if (command === "adminMediaFile" || command === "adminMediaControl") {
+    const { id: resource, ...body } = payload;
+    return request(
+      `/v1/admin/media/${command === "adminMediaControl" ? "jobs/" : ""}${id.parse(resource)}`,
+      "POST",
+      body,
+      signal,
+    );
+  }
+  if (command === "homeMedia")
+    return request(`/v1/works/${id.parse(payload.id)}/media`, "GET", undefined, signal);
   if (command === "recommendations")
     return request(
       `/v1/catalog/recommendations${query({ workId: id.parse(payload.id) })}`,

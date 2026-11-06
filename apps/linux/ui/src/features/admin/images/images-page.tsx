@@ -133,6 +133,7 @@ export function ImagesPage({
             </Button>
             <div className="flex flex-wrap items-center gap-2">
               <ImageRename
+                filters={filters}
                 ids={images.data?.items.map((asset) => asset.id) ?? []}
                 onRenamed={changed}
               />

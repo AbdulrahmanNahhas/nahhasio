@@ -5,11 +5,40 @@ import {
   ServerMediaPageSchema,
   MediaCoveragePageSchema,
   MediaActionResultSchema,
+  MediaUnitStatusesSchema,
   type MediaImportRequest,
 } from "@nahhasio/api-contract";
 import { queryOptions } from "@tanstack/react-query";
 
 import { nativeCall } from "@/lib/bridge";
+export const mediaUnitsOptions = (workId: string, installmentId: string, episodeIds: string) =>
+  queryOptions({
+    queryKey: ["admin", "media", "units", workId, installmentId, episodeIds],
+    queryFn: async ({ signal }) =>
+      MediaUnitStatusesSchema.parse(
+        await nativeCall("adminMediaUnits", { workId, installmentId, episodeIds }, signal),
+      ),
+    enabled: Boolean(workId && installmentId && episodeIds),
+    refetchInterval: 5000,
+  });
+export const unitFilesOptions = (
+  workId: string,
+  installmentId: string,
+  episodeIds: string,
+  page: number,
+) =>
+  queryOptions({
+    queryKey: ["admin", "media", "unit-files", workId, installmentId, episodeIds, page],
+    queryFn: async ({ signal }) =>
+      ServerMediaPageSchema.parse(
+        await nativeCall(
+          "adminMedia",
+          { workId, installmentId, episodeIds, page, pageSize: 10 },
+          signal,
+        ),
+      ),
+    refetchInterval: 5000,
+  });
 export const mediaInventoryOptions = (
   q: string,
   page: number,

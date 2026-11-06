@@ -11,6 +11,7 @@ import {
   Images,
   Trophy,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useState } from "react";
 
@@ -18,18 +19,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImportMediaDialog } from "@/features/admin/media/import-media-dialog";
 import {
   ageChoices,
   audienceChoices,
@@ -38,8 +31,7 @@ import {
 import { workflowLabels } from "@/features/catalog/works/works-model";
 import { WorkImages } from "@/features/editor/artwork/work-images";
 import { AwardsEditor } from "@/features/editor/fields/awards-editor";
-import { PlaybackFields } from "@/features/editor/fields/playback-fields";
-import { SelectField, StringListField, TextField } from "@/features/editor/fields/work-fields";
+import { SelectField, TextField } from "@/features/editor/fields/work-fields";
 import { ChangeReview } from "@/features/editor/json/document/change-review";
 import {
   equalValue,
@@ -54,7 +46,9 @@ import { vocabularyOptions } from "@/features/editor/references/reference.functi
 import { WorkReferences } from "@/features/editor/references/work-references";
 import { RegisteredImage } from "@/features/editor/registered-image";
 import { WorkDraftJson } from "@/features/editor/work/work-draft-json";
-import { WorkScoreBadge, WorkScoreDetails } from "@/features/scoring/work-score";
+import { WorkScoreBadge } from "@/features/scoring/work-score";
+
+import { WorkOverview } from "./work-overview";
 
 const StructureEditor = lazy(() =>
   import("@/features/editor/structure/structure-editor").then((module) => ({
@@ -88,6 +82,7 @@ export function WorkWorkspace({
 }) {
   useQuery(vocabularyOptions());
   const [draft, setDraft] = useState(snapshot.document);
+  const [selectedPartId, setSelectedPartId] = useState("");
   const state = useSearch({ strict: false });
   const navigate = useNavigate();
   const dirty = !equalValue(snapshot.document, draft);
@@ -103,19 +98,19 @@ export function WorkWorkspace({
   const name = draft.titleAr || draft.canonicalTitle || "عمل جديد";
   const error = flow.save.error ?? flow.prepare.error;
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-400 flex-col gap-6 p-4 pb-8 sm:p-6">
+    <div className="mx-auto flex min-h-full w-full min-w-0 max-w-400 flex-1 flex-col gap-4 p-4 pb-3 sm:p-6 sm:pb-3">
       {flow.leaveDialog}
-      <header className="flex flex-wrap items-start justify-between gap-5 rounded-2xl bg-card p-5 sm:p-6">
-        <div className="flex min-w-0 items-start gap-4">
+      <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {draft.media?.poster?.startsWith("/media/") && (
             <RegisteredImage
               src={draft.media.poster}
               alt=""
-              className="aspect-2/3 w-16 shrink-0 rounded-xl sm:w-20"
+              className="aspect-2/3 w-12 shrink-0 rounded-lg"
               fit="cover"
             />
           )}
-          <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <Link
               to="/admin/works"
               className="flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-primary"
@@ -123,46 +118,45 @@ export function WorkWorkspace({
               <ArrowRight className="size-3.5" aria-hidden="true" />
               الأعمال
             </Link>
-            <h1 className="break-words text-2xl font-semibold">{name}</h1>
-            <p dir="auto" className="text-sm text-muted-foreground">
-              {draft.canonicalTitle}
-            </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="break-words text-xl font-semibold">{name}</h1>
+              {draft.canonicalTitle !== name && (
+                <p dir="auto" className="text-sm text-muted-foreground">
+                  {draft.canonicalTitle}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">
                 {draft.format === "animated" ? "رسوم متحركة" : "تمثيل حي"}
               </Badge>
               <Badge variant="outline">{draft.releaseYear ?? "بلا سنة"}</Badge>
               <Badge variant="outline">{workflowLabels[draft.workflowStatus ?? "draft"]}</Badge>
               {draft.isPrivate && <Badge variant="secondary">خاص</Badge>}
+              {draft.playbackPolicy === "files-only" && <Badge variant="outline">ملفات فقط</Badge>}
               <WorkScoreBadge
                 score={workScore((draft.installments ?? []).map((item) => item.score ?? {}))}
               />
+              <span className="text-xs text-muted-foreground">
+                {draft.installments?.length ?? 0} جزء ·{" "}
+                {draft.installments?.reduce((sum, item) => sum + (item.episodes?.length ?? 0), 0) ??
+                  0}{" "}
+                حلقة
+              </span>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <p className="text-sm text-muted-foreground">
-            {draft.installments?.length ?? 0} جزء ·{" "}
-            {draft.installments?.reduce((sum, item) => sum + (item.episodes?.length ?? 0), 0) ?? 0}{" "}
-            حلقة
-          </p>
-          {!create && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" render={<a href={`#/titles/${snapshot.document.id}`} />}>
-                عرض العمل
-              </Button>
-              <Button
-                variant="outline"
-                render={<a href={`#/admin/library?workId=${snapshot.document.id}`} />}
-              >
-                إدارة الوسائط
-              </Button>
-              <ImportMediaDialog workId={snapshot.document.id}>
-                <Button variant="outline">استيراد وسائط</Button>
-              </ImportMediaDialog>
-            </div>
-          )}
-        </div>
+        {!create && (
+          <Button
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            render={<a href={`#/titles/${snapshot.document.id}`} />}
+          >
+            <ExternalLink data-icon="inline-start" />
+            عرض العمل
+          </Button>
+        )}
       </header>
       {error && (
         <Alert variant="destructive" className="border-border">
@@ -187,7 +181,7 @@ export function WorkWorkspace({
       ) : (
         <>
           <Tabs
-            className="gap-5"
+            className="min-h-0 flex-1 gap-4"
             value={state.section === "references" ? "images" : (state.section ?? "identity")}
             onValueChange={(section) => {
               if (
@@ -229,7 +223,7 @@ export function WorkWorkspace({
                 </TabsTrigger>
                 <TabsTrigger value="images">
                   <Images data-icon="inline-start" />
-                  الصور والمراجع
+                  الصور
                 </TabsTrigger>
                 <TabsTrigger value="awards">
                   <Trophy data-icon="inline-start" />
@@ -239,112 +233,47 @@ export function WorkWorkspace({
             </div>
             <fieldset disabled={flow.busy} className="min-w-0">
               <TabsContent value="identity" className="flex flex-col gap-5">
-                <div className="grid items-start gap-5 xl:grid-cols-3">
-                  <Card className="xl:col-span-2">
-                    <CardHeader>
-                      <CardTitle>هوية العمل</CardTitle>
-                      <CardDescription>الأسماء والوصف والحقائق.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <FieldGroup>
-                        <FieldGroup className="grid md:grid-cols-2">
-                          <TextField
-                            label="العنوان الأصلي"
-                            value={draft.canonicalTitle}
-                            onChange={(value) => update("canonicalTitle", value)}
-                          />
-                          <TextField
-                            label="العنوان العربي"
-                            value={draft.titleAr}
-                            onChange={(value) => update("titleAr", value || null)}
-                          />
-                          <TextField
-                            label="سنة الإصدار"
-                            type="number"
-                            min={1800}
-                            max={2200}
-                            value={draft.releaseYear}
-                            onChange={(value) =>
-                              update("releaseYear", value ? Number(value) : null)
-                            }
-                          />
-                          <SelectField
-                            label="الصيغة"
-                            value={draft.format ?? "animated"}
-                            onChange={(value) => update("format", value)}
-                            items={[
-                              { value: "animated", label: "رسوم متحركة" },
-                              { value: "live-action", label: "تمثيل حي" },
-                            ]}
-                          />
-                        </FieldGroup>
-                        <TextField
-                          label="الملخص"
-                          multiline
-                          value={draft.summary}
-                          onChange={(value) => update("summary", value)}
-                        />
-                      </FieldGroup>
-                    </CardContent>
-                  </Card>
-                  <div className="flex min-w-0 flex-col gap-5">
-                    <Card size="sm">
-                      <CardHeader>
-                        <CardTitle>الأسماء البديلة</CardTitle>
-                        <CardDescription>أسماء إضافية تساعد في البحث عن العمل.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <StringListField
-                          label="الأسماء البديلة"
-                          values={draft.aliases ?? []}
-                          onChange={(value) => update("aliases", value)}
-                        />
-                      </CardContent>
-                    </Card>
-                    <Card size="sm">
-                      <CardHeader>
-                        <CardTitle>حقائق ومعلومات</CardTitle>
-                        <CardDescription>أضف معلومة مستقلة في كل سطر.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <StringListField
-                          label="حقائق ومعلومات"
-                          ordered
-                          values={draft.trivia ?? []}
-                          onChange={(value) => update("trivia", value)}
-                        />
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-                <PlaybackFields draft={draft} update={update} />
-                <WorkScoreDetails installments={draft.installments ?? []} />
+                <WorkOverview
+                  draft={draft}
+                  update={update}
+                  onStructure={() =>
+                    void navigate({ to: ".", replace: true, search: { section: "structure" } })
+                  }
+                />
               </TabsContent>
               <TabsContent value="structure">
                 <Suspense fallback={<Skeleton className="h-96" />}>
                   <StructureEditor
+                    format={draft.format}
+                    selectedPartId={selectedPartId}
+                    onSelectPart={setSelectedPartId}
                     workId={snapshot.document.id ?? ""}
                     tmdbId={draft.tmdbId}
                     installments={draft.installments ?? []}
+                    persistedInstallments={create ? [] : (snapshot.document.installments ?? [])}
+                    playbackPolicy={draft.playbackPolicy}
+                    workLanguages={
+                      draft.languages ?? (draft.dubLanguages?.includes("ar") ? ["ar"] : ["en"])
+                    }
+                    allowImport={!dirty && !create}
                     onChange={(value) => update("installments", value)}
                   />
                 </Suspense>
               </TabsContent>
-              <TabsContent value="indexing">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>التصنيف والمساهمون</CardTitle>
-                    <CardDescription>اختر المفردات المعتمدة أو ابحث عن سجل محدد.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <FieldGroup>
-                      <FieldGroup className="grid md:grid-cols-2">
+              <TabsContent value="indexing" className="flex flex-col gap-4">
+                <div className="grid items-start gap-4 xl:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>التصنيفات والوسوم</CardTitle>
+                      <CardDescription>النوع والطابع والوسوم التي تصف العمل.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <FieldGroup className="grid gap-4 sm:grid-cols-2">
                         {(
                           [
                             { key: "genres", label: "التصنيفات" },
                             { key: "tags", label: "الوسوم" },
                             { key: "tones", label: "الطابع" },
-                            { key: "countries", label: "الدول" },
                           ] as const
                         ).map((field) => (
                           <ReferenceListField
@@ -356,26 +285,59 @@ export function WorkWorkspace({
                           />
                         ))}
                       </FieldGroup>
-                      <FieldGroup>
-                        <ReferenceField
-                          label="الكوكب"
-                          table="planets"
-                          value={draft.planets?.[0] ?? ""}
-                          onChange={(value) => update("planets", [value])}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>العالم وبلدان الإنتاج</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <FieldGroup className="gap-4">
+                        <ReferenceListField
+                          label="الدول"
+                          table="countries"
+                          values={draft.countries ?? []}
+                          onChange={(value) => update("countries", value)}
                         />
-                        {!!draft.planets?.length && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-fit"
-                            onClick={() => update("planets", [])}
-                          >
-                            إزالة الكوكب
-                          </Button>
-                        )}
+                        <FieldGroup className="gap-2">
+                          <ReferenceField
+                            label="الكوكب"
+                            table="planets"
+                            value={draft.planets?.[0] ?? ""}
+                            onChange={(value) => update("planets", value ? [value] : [])}
+                          />
+                          {!!draft.planets?.length && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              className="w-fit"
+                              onClick={() => update("planets", [])}
+                            >
+                              إزالة الكوكب
+                            </Button>
+                          )}
+                        </FieldGroup>
                       </FieldGroup>
-                      <WorkReferences draft={draft} update={update} creditsOnly />
-                    </FieldGroup>
+                    </CardContent>
+                  </Card>
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>المساهمون والاستوديوهات</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <WorkReferences draft={draft} update={update} creditsOnly />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>المعرّفات والمراجع والروابط</CardTitle>
+                    <CardDescription>
+                      معرّفات العمل ومراجعه. معرّفات كل جزء في تبويب البنية.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <WorkReferences draft={draft} update={update} />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -383,23 +345,10 @@ export function WorkWorkspace({
                 <Card>
                   <CardHeader>
                     <CardTitle>التحرير والتصنيف العائلي</CardTitle>
-                    <CardDescription>التصنيف والتنبيهات والملاحظات وحالة النشر.</CardDescription>
+                    <CardDescription>التصنيف والتنبيهات والملاحظات.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <FieldGroup>
-                      <Field orientation="horizontal" className="rounded-xl bg-muted/40 p-4">
-                        <FieldContent>
-                          <FieldLabel htmlFor="editor-work-private">عمل خاص</FieldLabel>
-                          <FieldDescription>
-                            إخفاء العمل من المكتبة العامة، مع إبقائه متاحًا للإدارة.
-                          </FieldDescription>
-                        </FieldContent>
-                        <Switch
-                          id="editor-work-private"
-                          checked={draft.isPrivate ?? false}
-                          onCheckedChange={(value) => update("isPrivate", value)}
-                        />
-                      </Field>
                       <FieldGroup className="grid md:grid-cols-2 lg:grid-cols-3">
                         <SelectField
                           label="الجمهور"
@@ -428,18 +377,6 @@ export function WorkWorkspace({
                             onChange={(value) => update(field.key, value)}
                           />
                         ))}
-                        <SelectField
-                          label="حالة النشر"
-                          value={draft.workflowStatus ?? "draft"}
-                          items={[
-                            { value: "draft", label: workflowLabels.draft },
-                            { value: "in_review", label: workflowLabels.in_review },
-                            { value: "approved", label: workflowLabels.approved },
-                            { value: "published", label: workflowLabels.published },
-                            { value: "archived", label: workflowLabels.archived },
-                          ]}
-                          onChange={(value) => update("workflowStatus", value)}
-                        />
                       </FieldGroup>
                       {(
                         [
@@ -472,7 +409,7 @@ export function WorkWorkspace({
               </TabsContent>
             </fieldset>
           </Tabs>
-          <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-popover p-3 shadow-lg sm:p-4">
+          <div className="sticky bottom-3 z-20 mt-auto flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-popover p-3 shadow-lg">
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant={dirty ? "secondary" : "outline"}>
                 {dirty ? "تغييرات غير محفوظة" : create ? "مسودة جديدة" : "كل التغييرات محفوظة"}
@@ -489,6 +426,7 @@ export function WorkWorkspace({
             <div className="flex gap-2">
               <Button
                 variant="ghost"
+                size="sm"
                 disabled={!dirty || flow.busy}
                 onClick={() => {
                   setDraft(snapshot.document);
@@ -498,6 +436,7 @@ export function WorkWorkspace({
                 تجاهل التغييرات
               </Button>
               <Button
+                size="sm"
                 disabled={!dirty || flow.busy || !draft.canonicalTitle.trim()}
                 onClick={() => flow.prepare.mutate(json())}
               >

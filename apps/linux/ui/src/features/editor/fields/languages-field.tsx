@@ -1,89 +1,98 @@
-import { Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import {
+  Combobox,
+  ComboboxChips,
+  ComboboxChip,
+  ComboboxChipsInput,
+  ComboboxValue,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxEmpty,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { languageName } from "@/lib/languages";
+
+const commonLanguages = [
+  "ar",
+  "en",
+  "ja",
+  "ko",
+  "fr",
+  "es",
+  "de",
+  "it",
+  "pt",
+  "pt-BR",
+  "zh",
+  "tr",
+  "hi",
+  "ru",
+];
 export function LanguagesField({
   label,
   values,
   onChange,
-  description = "اللغات المسجّلة في بيانات العمل؛ تُحدّد مسارات الصوت أثناء التشغيل.",
+  description = "شارات وصفية في الفهرس؛ لا تغيّر مصادر التشغيل أو تفضيلات الصوت.",
 }: {
   label: string;
-  description?: string;
+  description?: string | null;
   values: readonly string[];
   onChange: (values: string[]) => void;
 }) {
   const id = useId();
-  const [code, setCode] = useState("");
-  const valid = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(code.trim());
-  function add(value: string) {
-    if (!values.includes(value)) onChange([...values, value]);
-    setCode("");
-  }
+  const anchor = useComboboxAnchor();
+  const [query, setQuery] = useState("");
+  const custom = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(query.trim()) ? [query.trim()] : [];
+  const options = [...new Set([...commonLanguages, ...values, ...custom])];
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <div className="flex flex-wrap gap-2">
-        {values.map((value) => (
-          <Button
-            key={value}
-            size="sm"
-            variant="secondary"
-            type="button"
-            aria-label={`إزالة ${languageName(value)}`}
-            onClick={() => onChange(values.filter((item) => item !== value))}
-          >
-            {languageName(value)}
-            <X data-icon="inline-end" />
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {["ar", "en", "es", "ja", "fr", "ko"]
-          .filter((value) => !values.includes(value))
-          .map((value) => (
-            <Button
-              key={value}
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => add(value)}
-            >
-              {languageName(value)}
-              <Plus data-icon="inline-end" />
-            </Button>
-          ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <Input
-          id={id}
-          dir="ltr"
-          placeholder="رمز لغة أخرى، مثل pt-BR"
-          maxLength={35}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              if (valid) add(code.trim());
-            }
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="إضافة لغة"
-          disabled={!valid || values.length >= 30}
-          onClick={() => add(code.trim())}
-        >
-          <Plus />
-        </Button>
-      </div>
-      <FieldDescription>{description}</FieldDescription>
+      <Combobox
+        multiple
+        items={options}
+        value={[...values]}
+        onValueChange={(next) => {
+          if (next.length <= 30) onChange(next);
+        }}
+        onInputValueChange={setQuery}
+        itemToStringLabel={languageName}
+        itemToStringValue={(code) => `${languageName(code)} (${code})`}
+      >
+        <ComboboxChips ref={anchor}>
+          <ComboboxValue>
+            {values.map((code) => (
+              <ComboboxChip key={code}>{languageName(code)}</ComboboxChip>
+            ))}
+          </ComboboxValue>
+          <ComboboxChipsInput
+            id={id}
+            aria-label={label}
+            placeholder="ابحث أو أدخل رمز لغة…"
+            maxLength={35}
+          />
+        </ComboboxChips>
+        <ComboboxContent anchor={anchor}>
+          <ComboboxEmpty>لا توجد لغة مطابقة؛ يمكن إدخال رمز مثل pt-BR.</ComboboxEmpty>
+          <ComboboxList>
+            <ComboboxGroup>
+              {options.map((code) => (
+                <ComboboxItem
+                  key={code}
+                  value={code}
+                  disabled={values.length >= 30 && !values.includes(code)}
+                >
+                  {languageName(code)} <bdi>{code}</bdi>
+                </ComboboxItem>
+              ))}
+            </ComboboxGroup>
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+      {description && <FieldDescription>{description}</FieldDescription>}
     </Field>
   );
 }

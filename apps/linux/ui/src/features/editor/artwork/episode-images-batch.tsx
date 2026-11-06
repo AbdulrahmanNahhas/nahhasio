@@ -1,11 +1,14 @@
 import { rpcResults } from "@arcadia/contracts/editor-rpc";
 import { useMutation } from "@tanstack/react-query";
+import { cn } from "cn";
+import { ChevronDown, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ingestArtwork } from "@/features/artwork/library/artwork.functions";
 import { SelectField, TextField } from "@/features/editor/fields/work-fields";
 import { RegisteredImage } from "@/features/editor/registered-image";
@@ -185,17 +189,24 @@ export function EpisodeImagesBatch({
   const imported = chosen.filter((item) => item.path);
   const active = selections.find((item) => item.key === gallery);
   return (
-    <DialogContent className="max-h-11/12 overflow-y-auto sm:max-w-4xl" showCloseButton={!busy}>
-      <DialogHeader>
+    <DialogContent
+      className={cn(
+        "flex max-h-11/12 flex-col",
+        prepared ? "h-5/6 sm:max-w-7xl" : "overflow-y-auto sm:max-w-2xl",
+      )}
+      showCloseButton={!busy}
+    >
+      <DialogHeader className="shrink-0 gap-1 pe-8">
         <DialogTitle>جلب صور حلقات {title}</DialogTitle>
         <DialogDescription>
-          طابق الموسم أولاً، راجع الصور واختر بدائل عند الحاجة. تُستورد الملفات إلى مكتبة الخادم؛ لا
-          تُربط بالحلقات حتى تطبيق المسودة وحفظ العمل.
+          {prepared
+            ? "راجع الصور، استورد المختار، ثم طبّقه على المسودة. يلزم حفظ العمل لتثبيت الربط."
+            : "حدّد موسم المصدر في TMDB لمعاينة صور حلقات هذا الجزء قبل استيرادها."}
         </DialogDescription>
       </DialogHeader>
       {!prepared ? (
         <fieldset disabled={source.isPending}>
-          <FieldGroup>
+          <FieldGroup className="gap-4">
             {source.isError && (
               <Alert variant="destructive">
                 <AlertTitle>{source.error.message}</AlertTitle>
@@ -210,18 +221,13 @@ export function EpisodeImagesBatch({
                 onChange={setSeries}
               />
               <TextField
-                label="رقم موسم TMDB (0 للعروض الخاصة)"
+                label="موسم TMDB (0 للعروض الخاصة)"
                 type="number"
                 min={0}
                 value={seasonText}
                 onChange={setSeasonText}
               />
             </FieldGroup>
-            <TextField
-              label="رابط مجموعة حلقات TMDB (اختياري، يُكتشف تلقائياً عند الحاجة)"
-              value={groupLink}
-              onChange={setGroupLink}
-            />
             <SelectField
               label="الصور المطلوبة"
               value={mode}
@@ -231,9 +237,24 @@ export function EpisodeImagesBatch({
                 { value: "replace", label: "مراجعة صور جميع الحلقات واستبدال المختار" },
               ]}
             />
+            <Collapsible>
+              <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                <ChevronDown data-icon="inline-start" />
+                مطابقة متقدمة
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <TextField
+                  label="رابط مجموعة حلقات TMDB (اختياري)"
+                  value={groupLink}
+                  onChange={setGroupLink}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  لترتيب حلقات خاص؛ يُكتشف تلقائيًا عند الحاجة.
+                </p>
+              </CollapsibleContent>
+            </Collapsible>
             <p className="text-sm text-muted-foreground">
-              يشمل الطلب كامل الموسم المحلي، وليس صفحة النتائج أو البحث فقط. الحلقات ذات الأرقام
-              الكسرية تُحرّر صورها يدوياً.
+              يشمل جميع حلقات الجزء. الحلقات ذات الأرقام الكسرية تُحرّر صورها يدويًا.
             </p>
             <DialogFooter>
               <Button variant="outline" disabled={source.isPending} onClick={onClose}>
@@ -247,7 +268,7 @@ export function EpisodeImagesBatch({
         </fieldset>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Badge variant="outline">
               TMDB {series} · الموسم {seasonText}
             </Badge>
@@ -265,87 +286,88 @@ export function EpisodeImagesBatch({
               لا توجد حلقات مطابقة لهذا الطلب. الصور الحالية محفوظة.
             </p>
           )}
-          <div className="flex max-h-112 flex-col gap-4 overflow-y-auto">
-            {selections.map((item) => (
-              <article
-                key={item.key}
-                className="flex min-w-0 flex-col gap-3 rounded-xl border border-border p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium" dir="auto">
-                    {item.number} · {item.title}
-                  </span>
-                  {item.path && <Badge variant="secondary">تم الاستيراد</Badge>}
-                  <span className="text-xs text-muted-foreground">
-                    {item.sourceLabel} · {item.sourceSeason}×{item.sourceEpisode}
-                  </span>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">الحالية</span>
-                    {item.before ? (
-                      <RegisteredImage
-                        src={item.before}
-                        alt={`الصورة الحالية للحلقة ${item.number}`}
-                        className="aspect-video w-full rounded-lg"
-                        fit="cover"
-                      />
-                    ) : (
-                      <p className="text-sm text-muted-foreground">لا توجد صورة</p>
-                    )}
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="grid items-start gap-3 p-1 md:grid-cols-2 xl:grid-cols-3">
+              {selections.map((item) => (
+                <article
+                  key={item.key}
+                  className="flex min-w-0 flex-col gap-3 rounded-xl border border-border p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="line-clamp-2 font-medium" dir="auto">
+                      {item.number} · {item.title}
+                    </span>
+                    {item.path && <Badge variant="secondary">تم الاستيراد</Badge>}
+                    <span className="text-xs text-muted-foreground">
+                      {item.sourceLabel} · {item.sourceSeason}×{item.sourceEpisode}
+                    </span>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">المختارة</span>
-                    {item.url ? (
-                      <RegisteredImage
-                        src={item.url
-                          .replace("/t/p/original/", "/t/p/w300/")
-                          .replace("/t/p/w780/", "/t/p/w300/")}
-                        alt={`الصورة المقترحة للحلقة ${item.number}`}
-                        className="aspect-video w-full rounded-lg"
-                        fit="cover"
-                      />
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        لم تُختر صورة؛ افتح الخيارات للبحث عن بدائل.
-                      </p>
+                  <div className={cn("grid gap-3", item.before && "grid-cols-2")}>
+                    {item.before && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">الحالية</span>
+                        <RegisteredImage
+                          src={item.before}
+                          alt={`الصورة الحالية للحلقة ${item.number}`}
+                          className="aspect-video w-full rounded-lg"
+                          fit="contain"
+                        />
+                      </div>
                     )}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">
+                        {item.before ? "المختارة" : "الصورة الجديدة · بلا صورة حالية"}
+                      </span>
+                      {item.url ? (
+                        <RegisteredImage
+                          src={item.url
+                            .replace("/t/p/original/", "/t/p/w780/")
+                            .replace("/t/p/w300/", "/t/p/w780/")}
+                          alt={`الصورة المقترحة للحلقة ${item.number}`}
+                          className="aspect-video w-full rounded-lg"
+                          fit="contain"
+                        />
+                      ) : (
+                        <div className="flex aspect-video flex-col items-center justify-center gap-2 rounded-lg bg-muted text-muted-foreground">
+                          <ImageIcon className="size-6" />
+                          <p className="text-xs">اختر صورة من البدائل</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {item.error && (
-                  <Alert variant="destructive">
-                    <AlertTitle>{item.error}</AlertTitle>
-                  </Alert>
-                )}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id={`batch-episode-${item.key}`}
-                      checked={Boolean(item.url)}
+                  {item.error && (
+                    <Alert variant="destructive">
+                      <AlertTitle>{item.error}</AlertTitle>
+                    </Alert>
+                  )}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Field orientation="horizontal" className="w-auto">
+                      <Checkbox
+                        id={`batch-episode-${item.key}`}
+                        checked={Boolean(item.url)}
+                        disabled={busy}
+                        onCheckedChange={(value) => {
+                          if (value !== true)
+                            update(item.key, { url: null, path: null, error: null });
+                          else setGallery(item.key);
+                        }}
+                      />
+                      <FieldLabel htmlFor={`batch-episode-${item.key}`}>اختيار الصورة</FieldLabel>
+                    </Field>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       disabled={busy}
-                      onCheckedChange={(value) => {
-                        if (value !== true)
-                          update(item.key, { url: null, path: null, error: null });
-                        else setGallery(item.key);
-                      }}
-                    />
-                    <FieldLabel htmlFor={`batch-episode-${item.key}`}>
-                      استيراد هذه الصورة
-                    </FieldLabel>
-                  </Field>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setGallery(item.key)}
-                  >
-                    اختيار صورة أخرى
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
-          <DialogFooter>
+                      onClick={() => setGallery(item.key)}
+                    >
+                      البدائل
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter className="shrink-0 flex-wrap border-t border-border pt-3">
             <Button variant="outline" disabled={busy} onClick={onClose}>
               إغلاق دون تطبيق
             </Button>
@@ -396,7 +418,7 @@ export function EpisodeImagesBatch({
                     }
                   }}
                 >
-                  تطبيق الصور المستوردة على المسودة ({imported.length})
+                  تطبيق على المسودة ({imported.length})
                 </Button>
               </>
             )}

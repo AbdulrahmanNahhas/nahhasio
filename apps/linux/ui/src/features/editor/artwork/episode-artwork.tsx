@@ -1,6 +1,7 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { useMutation } from "@tanstack/react-query";
-import { ImagePlus, Upload, X, Download } from "lucide-react";
+import { cn } from "cn";
+import { ImagePlus, Upload, Download, Undo2, Pencil } from "lucide-react";
 import { useState, useId } from "react";
 import { z } from "zod";
 
@@ -21,6 +22,7 @@ import { ReferencePicker } from "@/features/editor/references/reference-picker";
 import { RegisteredImage } from "@/features/editor/registered-image";
 
 import { EpisodeImageChoices } from "./episode-image-choices";
+import { RemoveArtwork } from "./remove-artwork";
 type Episode = NonNullable<NonNullable<WorkDocument["installments"]>[number]["episodes"]>[number];
 export function EpisodeArtwork({
   episode,
@@ -36,12 +38,17 @@ export function EpisodeArtwork({
   season?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [removed, setRemoved] = useState<{
+    role: "still" | "poster" | "banner";
+    path: string;
+  } | null>(null);
   const [gallery, setGallery] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const id = useId();
   const imageRole = episode.media?.still ? "still" : episode.media?.poster ? "poster" : "banner";
   const value = episode.media?.[imageRole];
   function pick(path: string | null) {
+    setRemoved(null);
     onChange({ ...episode, media: { ...episode.media, still: path } });
     setOpen(false);
   }
@@ -85,30 +92,31 @@ export function EpisodeArtwork({
   const busy = upload.isPending || ingest.isPending;
   return (
     <div className="flex flex-col gap-2">
-      {value?.startsWith("/media/") && (
-        <RegisteredImage
-          src={value}
-          alt={`صورة ${ownerName}`}
-          className="aspect-video w-40 rounded-lg object-cover"
-          loading="lazy"
-        />
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-          <ImagePlus data-icon="inline-start" />
-          {value ? "تغيير صورة الحلقة" : "صورة الحلقة"}
-        </Button>
-        {value && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="إزالة صورة الحلقة"
-            onClick={() => onChange({ ...episode, media: { ...episode.media, [imageRole]: null } })}
-          >
-            <X />
-          </Button>
+      <div className="relative aspect-video w-24 overflow-hidden rounded-lg bg-muted sm:w-32">
+        {value?.startsWith("/media/") ? (
+          <RegisteredImage
+            src={value}
+            alt={`صورة ${ownerName}`}
+            className="size-full"
+            fit="cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="grid size-full place-items-center text-muted-foreground">
+            <span className="sr-only">بلا صورة</span>
+          </div>
         )}
+        <Button
+          type="button"
+          variant="ghost"
+          size={value ? "icon-sm" : "icon"}
+          className={value ? "absolute end-1 bottom-1" : "absolute inset-0 size-full"}
+          aria-label={value ? "تغيير صورة الحلقة" : "صورة الحلقة"}
+          title={value ? "تغيير صورة الحلقة" : "اختيار صورة الحلقة"}
+          onClick={() => setOpen(true)}
+        >
+          {value ? <Pencil /> : <ImagePlus />}
+        </Button>
       </div>
       <Dialog
         open={open}
@@ -119,7 +127,9 @@ export function EpisodeArtwork({
           }
         }}
       >
-        <DialogContent className="max-h-11/12 overflow-y-auto sm:max-w-2xl">
+        <DialogContent
+          className={cn("max-h-11/12 overflow-y-auto", gallery ? "sm:max-w-6xl" : "sm:max-w-2xl")}
+        >
           <DialogHeader>
             <DialogTitle>صورة الحلقة {episode.number}</DialogTitle>
             <DialogDescription>
@@ -133,7 +143,7 @@ export function EpisodeArtwork({
                 <AlertDescription>{error.message}</AlertDescription>
               </Alert>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <ReferencePicker
                 table="media_assets"
                 title="صورة الحلقة"
@@ -145,6 +155,7 @@ export function EpisodeArtwork({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 disabled={
                   !tmdbId || season === undefined || !Number.isInteger(episode.number) || busy
                 }
@@ -153,6 +164,34 @@ export function EpisodeArtwork({
                 <Download data-icon="inline-start" />
                 خيارات TMDB
               </Button>
+              {value && (
+                <RemoveArtwork
+                  label="الحلقة"
+                  iconOnly={false}
+                  disabled={busy}
+                  onRemove={() => {
+                    setRemoved({ role: imageRole, path: value });
+                    onChange({ ...episode, media: { ...episode.media, [imageRole]: null } });
+                  }}
+                />
+              )}
+              {removed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    onChange({
+                      ...episode,
+                      media: { ...episode.media, [removed.role]: removed.path },
+                    });
+                    setRemoved(null);
+                  }}
+                >
+                  <Undo2 data-icon="inline-start" />
+                  تراجع عن الإزالة
+                </Button>
+              )}
             </div>
             {gallery && tmdbId && season !== undefined && Number.isInteger(episode.number) && (
               <EpisodeImageChoices

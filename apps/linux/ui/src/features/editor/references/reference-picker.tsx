@@ -29,6 +29,7 @@ export function ReferencePicker({
   images = false,
   imageRole,
   triggerLabel = "اختيار",
+  triggerClassName,
 }: {
   table: string;
   title: string;
@@ -36,11 +37,18 @@ export function ReferencePicker({
   images?: boolean;
   imageRole?: "poster" | "banner" | "logo" | "profile" | "still";
   triggerLabel?: string;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={triggerClassName}
+        onClick={() => setOpen(true)}
+      >
         <SearchIcon data-icon="inline-start" />
         {triggerLabel}
       </Button>

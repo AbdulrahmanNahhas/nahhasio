@@ -7,7 +7,17 @@ export const editorSearchSchema = z.object({
 
 export const workEditorSearchSchema = z.object({
   section: z
-    .enum(["identity", "structure", "indexing", "editorial", "images", "awards", "references"])
+    .enum([
+      "identity",
+      "structure",
+      "media",
+      "indexing",
+      "editorial",
+      "images",
+      "awards",
+      "references",
+    ])
     .catch("identity")
-    .default("identity"),
+    .default("identity")
+    .transform((section) => (section === "media" ? "structure" : section)),
 });
