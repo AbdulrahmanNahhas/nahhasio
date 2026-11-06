@@ -1,4 +1,7 @@
 import { initializeSchemaRuntime } from "./lib/schema-runtime";
 
 initializeSchemaRuntime();
-void import("./bootstrap");
+void import("./lib/theme").then(({ initializeTheme }) => {
+  initializeTheme();
+  return import("./bootstrap");
+});

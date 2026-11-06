@@ -8,7 +8,11 @@ remain in [design-rules.md](design-rules.md).
 
 Settings has its own route, with account/security, application appearance, playback, subtitles,
 sources, extensions, storage, offline, connection and help categories. Planned controls remain
-disabled alongside implemented actions, with individual source TODOs. Password changes open
+disabled alongside implemented actions, with individual source TODOs. Appearance now offers a
+device-local dark/light preview using the existing semantic palette; selection persists in the
+WebKit origin storage and applies immediately. A full light-theme visual pass remains separate.
+Episode keyboard focus scrolls the complete card into view, including its title/actions.
+Password changes open
 on demand; server connections, testing and editing are available inline. Library card/table
 presentation remains in Browse, not Settings. Narrow layouts use a five-destination
 Home/Library/Search/Downloads/More dock; desktop retains its navigation rail. Existing profile,

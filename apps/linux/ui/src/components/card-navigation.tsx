@@ -10,7 +10,7 @@ type CardNavigation = {
 };
 function focusTarget(element: HTMLElement) {
   element.focus({ preventScroll: true });
-  element.scrollIntoView({
+  cardLayout(element).scrollIntoView({
     block: element.dataset.navigationAlign === "start" ? "start" : "nearest",
     inline: "nearest",
     behavior: "instant",

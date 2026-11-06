@@ -22,19 +22,11 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +43,9 @@ import { ServerConnections } from "../auth/server-connections";
 import { CacheControl } from "../player/cache-control";
 import { OpenSubtitlesSettings } from "../player/opensubtitles";
 import { navigate, useViewerRoute } from "../shell/navigation";
+import { AppearanceSettings } from "./appearance-settings";
 import { PlaybackPreferences } from "./playback-preferences";
+import { SettingsCard } from "./settings-card";
 import {
   artworkCacheOptions,
   artworkCacheSchema,
@@ -83,38 +77,6 @@ const navigationGroups = [
   ["administration"],
 ] as const;
 
-function SettingsCard({
-  title,
-  description,
-  children,
-  footer,
-  horizontal = false,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-  footer?: ReactNode;
-  horizontal?: boolean;
-}) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent
-        className={
-          horizontal
-            ? "flex flex-wrap items-center justify-between gap-4"
-            : "flex flex-col items-start gap-4"
-        }
-      >
-        {children}
-      </CardContent>
-      {footer && <CardFooter>{footer}</CardFooter>}
-    </Card>
-  );
-}
 function AccountSettings({ user }: { user: User }) {
   const client = useQueryClient();
   const connections = useQuery(connectionsOptions());
@@ -485,6 +447,7 @@ export function SettingsPage() {
             </div>
           </header>
           {active === "account" && <AccountSettings user={user} />}
+          {active === "appearance" && <AppearanceSettings />}
           {active === "storage" && <StorageSettings />}
           {active === "connection" && <ConnectionSettings />}
           {active === "help" && <HelpSettings />}

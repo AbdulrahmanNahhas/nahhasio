@@ -107,6 +107,11 @@ export function EpisodeThumbnail({
         disabled={disabled}
         aria-label={label}
         onClick={onPlay}
+        onFocus={(event) =>
+          event.currentTarget
+            .closest("[data-episode-card]")
+            ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" })
+        }
       >
         <span className="grid size-11 place-items-center rounded-full border border-border bg-background/90 text-foreground opacity-0 shadow-sm group-hover/episode:opacity-100 group-focus-within/episode:opacity-100 pointer-coarse:opacity-100 motion-safe:transition-opacity motion-safe:duration-200 motion-reduce:transition-none">
           {disabled ? (

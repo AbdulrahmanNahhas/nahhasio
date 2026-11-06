@@ -71,13 +71,6 @@ const plannedGroups: PlannedGroup[] = [
     title: "واجهة التطبيق",
     description: "المظهر ولغة التطبيق وحجم النص.",
     controls: [
-      // TODO(settings-theme): Persist an account/device theme and implement light/system palettes.
-      {
-        id: "theme",
-        label: "المظهر",
-        description: "داكن أو فاتح أو متابعة مظهر النظام.",
-        kind: "select",
-      },
       // TODO(settings-ui-language): Add translated client strings and language/direction selection.
       {
         id: "ui-language",
