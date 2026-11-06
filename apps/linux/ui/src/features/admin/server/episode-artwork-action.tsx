@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { ingestArtwork } from "@/features/artwork/library/artwork.functions";
+import { EpisodeImageChoices } from "@/features/editor/artwork/episode-image-choices";
 import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
 import { RegisteredImage } from "@/features/editor/registered-image";
 import { gateway } from "@/lib/bridge";
@@ -54,6 +55,7 @@ export function EpisodeArtworkAction({
     ).values(),
   ]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [choosing, setChoosing] = useState<Candidate | null>(null);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{ imported: number; errors: string[] } | null>(null);
   const stop = useRef(false);
@@ -304,6 +306,14 @@ export function EpisodeArtworkAction({
                     ) : (
                       "غير متاحة"
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || !!result}
+                      onClick={() => setChoosing(row)}
+                    >
+                      اختيار صورة أخرى
+                    </Button>
                   </article>
                 ))}
               </div>
@@ -338,6 +348,36 @@ export function EpisodeArtworkAction({
             </Alert>
           )}
         </div>
+        <Dialog
+          open={Boolean(choosing)}
+          onOpenChange={(open) => {
+            if (!open) setChoosing(null);
+          }}
+        >
+          <DialogContent className="max-h-5/6 overflow-y-auto sm:max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>
+                صور {choosing?.workName} · الحلقة {choosing?.number}
+              </DialogTitle>
+            </DialogHeader>
+            {choosing && (
+              <EpisodeImageChoices
+                tmdbId={Number(groups.find((group) => group.key === groupKey(choosing))?.tmdbId)}
+                season={Number(groups.find((group) => group.key === groupKey(choosing))?.season)}
+                episode={choosing.number}
+                selected={choosing.url}
+                onPick={(url) => {
+                  setCandidates((rows) =>
+                    rows.map((row) =>
+                      row.id === choosing.id ? { ...row, url, selected: true } : row,
+                    ),
+                  );
+                  setChoosing(null);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
         <DialogFooter className="shrink-0 flex-wrap border-t border-border pt-3">
           {busy ? (
             <Button

@@ -95,6 +95,8 @@ function ImportForm({
   initialEpisodeId?: string;
 }) {
   const [source, setSource] = useState("server");
+  const [changeDestination, setChangeDestination] = useState(false);
+  const contextual = Boolean(initialWorkId && initialPartId) && !changeDestination;
   const client = useQueryClient();
   const [query, setQuery] = useState("");
   const [workId, setWorkId] = useState(initialWorkId ?? "");
@@ -269,12 +271,21 @@ function ImportForm({
           </ToggleGroupItem>
         </ToggleGroup>
       </Field>
-      <div className="grid items-start gap-4 md:grid-cols-3">
+      <div className={contextual ? "flex flex-col gap-4" : "grid items-start gap-4 md:grid-cols-3"}>
         <Card size="sm" className="min-w-0">
           <CardHeader>
-            <CardTitle>وجهة الفيديوهات</CardTitle>
+            <CardTitle>
+              {contextual
+                ? `${selectedWork?.label ?? "جارٍ تحميل العمل…"} · ${part?.title ?? "الجزء المحدد"}`
+                : "وجهة الفيديوهات"}
+            </CardTitle>
+            {contextual && (
+              <p className="text-sm text-muted-foreground">
+                ستُربط الفيديوهات بحلقات هذا الجزء بعد مراجعة المطابقة.
+              </p>
+            )}
           </CardHeader>
-          <CardContent>
+          <CardContent className={contextual ? "hidden" : undefined}>
             <FieldGroup className="gap-4">
               <Field>
                 <FieldLabel htmlFor="import-work-picker">العمل</FieldLabel>
@@ -359,7 +370,12 @@ function ImportForm({
                   : "فيلم أو حلقة خاصة"}
               </Badge>
             )}
-            {workId && (
+            {contextual && (
+              <Button variant="ghost" size="sm" onClick={() => setChangeDestination(true)}>
+                تغيير الوجهة
+              </Button>
+            )}
+            {!contextual && workId && (
               <CreateMediaPart
                 workId={workId}
                 onSaved={(id) => {
@@ -388,6 +404,16 @@ function ImportForm({
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {work.error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {work.error.message}
+                  <Button variant="link" onClick={() => void work.refetch()}>
+                    إعادة تحميل الوجهة
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             {source === "upload" && <UploadPanel />}
             {!part && (
               <Empty className="p-6">

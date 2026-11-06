@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
+import { RegisteredImage } from "@/features/editor/registered-image";
 
 import type { ImageAsset } from "../images/images-model";
 import { deleteImage, imageOptions, imagesOptions } from "../images/images.queries";
@@ -149,10 +150,17 @@ export function LibraryCleanup({ onClose }: { onClose: () => void }) {
               <p>
                 {candidates.length} صورة قابلة للحذف · {protectedCount} صورة محمية
               </p>
-              <ul className="flex max-h-56 scroll-fade-y flex-col gap-2 overflow-y-auto text-sm">
+              <ul className="grid max-h-96 grid-cols-2 gap-3 overflow-y-auto p-1 text-sm sm:grid-cols-3">
                 {candidates.map((asset) => (
                   <li key={asset.id}>
-                    <bdi>{asset.fileName}</bdi>
+                    <RegisteredImage
+                      assetId={asset.id}
+                      alt={asset.fileName}
+                      className="mb-2 h-32 w-full rounded-lg"
+                    />
+                    <bdi className="block truncate" title={asset.fileName}>
+                      {asset.fileName}
+                    </bdi>
                   </li>
                 ))}
               </ul>

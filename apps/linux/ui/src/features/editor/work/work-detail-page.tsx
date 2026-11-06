@@ -389,7 +389,7 @@ export function WorkWorkspace({
                           key={field.key}
                           label={
                             field.key === "curatorNotes"
-                              ? "ملاحظة المحرر (تظهر للمشاهدين في صفحة العمل)"
+                              ? "ملاحظة خاصة بالمحررين (لا تظهر للمشاهدين)"
                               : field.label
                           }
                           multiline

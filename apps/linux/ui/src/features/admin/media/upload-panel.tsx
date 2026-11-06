@@ -32,8 +32,8 @@ export function UploadPanel() {
   return (
     <section className="flex flex-col gap-3" aria-label="رفع الفيديوهات من الجهاز">
       <p>
-        تُرفع نسخة إلى الخادم وتبقى الملفات الأصلية على جهازك. بعد التحقق، تظهر الفيديوهات أدناه
-        لربطها بالحلقات.
+        اختر الفيديوهات، ثم اربط كل ملف بحلقته في القائمة أدناه وراجع الاستيراد. يبقى الأصل على جهازك؛
+        الرفع وحده لا يضيف الفيديو إلى المكتبة.
       </p>
       <Button variant="outline" disabled={action.isPending} onClick={() => action.mutate(null)}>
         <Upload data-icon="inline-start" />
@@ -53,7 +53,9 @@ export function UploadPanel() {
             aria-label={`رفع ${file.name}`}
           />
           {file.status === "completed" ? (
-            <p>اكتمل الرفع؛ الملف جاهز للربط.</p>
+            <p className="text-sm font-medium">
+              تم الرفع إلى المجلد المؤقت · حدّد الحلقة أدناه لإكمال الاستيراد.
+            </p>
           ) : ["failed", "paused"].includes(file.status) ? (
             <Button
               variant="ghost"

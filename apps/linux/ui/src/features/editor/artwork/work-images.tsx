@@ -19,6 +19,7 @@ import { ArtworkPicker } from "./artwork-picker";
 import { EpisodeArtwork } from "./episode-artwork";
 import { EpisodeImagesBatch } from "./episode-images-batch";
 import { mergeEpisodeImages } from "./episode-images-model";
+import { MirrorBanner } from "./mirror-banner";
 import { RemoveArtwork } from "./remove-artwork";
 type Installment = NonNullable<WorkDocument["installments"]>[number];
 type Update = <K extends keyof WorkDocument>(key: K, value: WorkDocument[K]) => void;
@@ -276,19 +277,19 @@ function ArtworkField({
                   { label: "المسودة", path: value },
                 ]
               : [{ label: "الحالية", path: value }]
-            ).map((preview) => (
-              <div key={preview.label} className="flex min-w-0 flex-col gap-2">
-                <p className="text-xs text-muted-foreground">{preview.label}</p>
+            ).map((thumbnail) => (
+              <div key={thumbnail.label} className="flex min-w-0 flex-col gap-2">
+                <p className="text-xs text-muted-foreground">{thumbnail.label}</p>
                 <div
                   className={cn(
                     "flex items-center justify-center overflow-hidden rounded-lg border border-border bg-muted",
                     "h-48",
                   )}
                 >
-                  {preview.path?.startsWith("/media/") ? (
+                  {thumbnail.path?.startsWith("/media/") ? (
                     <RegisteredImage
-                      src={preview.path}
-                      alt={`${label} ${preview.label}`}
+                      src={thumbnail.path}
+                      alt={`${label} ${thumbnail.label}`}
                       loading="lazy"
                       className="size-full"
                     />
@@ -299,6 +300,9 @@ function ArtworkField({
               </div>
             ))}
           </div>
+          {role === "banner" && value?.startsWith("/media/") && (
+            <MirrorBanner path={value} ownerName={work.canonicalTitle} onPick={choose} />
+          )}
           {(removed || changed) && (
             <Button
               type="button"
