@@ -12,7 +12,6 @@ import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
-import { LanguageBadges } from "./language-badges";
 import { Badge } from "./ui/badge";
 
 const hoverTilts = [
@@ -258,9 +257,6 @@ export function MediaCard({
               >
                 {installmentLabel}
               </p>
-            )}
-            {showMetadata && (
-              <LanguageBadges languages={unit?.languages ?? parent?.languages ?? []} />
             )}
             {showMetadata && (year || detail) && (
               <span className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">

@@ -23,6 +23,7 @@ export function WatchedControl({
   label,
   compact = false,
   large = false,
+  concise = false,
 }: {
   tracking: WorkTracking;
   installmentId?: string;
@@ -30,6 +31,7 @@ export function WatchedControl({
   label: string;
   compact?: boolean;
   large?: boolean;
+  concise?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const navigation = useCardNavigation();
@@ -50,7 +52,7 @@ export function WatchedControl({
     : Boolean(summary?.isFullyWatched || (units.length && units.every((unit) => unit.isPlayed)));
   const disabled = !data || !units.length || tracking.pending;
   const text = isPlayed ? `إلغاء مشاهدة ${label}` : `تحديد ${label} كمُشاهَد`;
-  const Icon = isPlayed ? CheckIcon : Eye;
+  const Icon = isPlayed ? CheckIcon : concise ? EyeOff : Eye;
   const mutate = () =>
     tracking.watched.mutate(
       { installmentId, episodeId, isPlayed: !isPlayed },
@@ -60,7 +62,7 @@ export function WatchedControl({
     <Button
       {...navigation}
       variant={isPlayed ? "secondary" : "outline"}
-      size={compact ? (large ? "icon-lg" : "icon") : "default"}
+      size={compact ? (large ? "icon-lg" : "icon") : concise ? "sm" : "default"}
       className={large ? "size-12" : undefined}
       disabled={disabled}
       aria-label={text}
@@ -69,7 +71,14 @@ export function WatchedControl({
       onClick={episodeId ? mutate : undefined}
     >
       <Icon data-icon="inline-start" />
-      {!compact && (isPlayed ? "تمّت المشاهدة" : "تحديد كمُشاهَد")}
+      {!compact &&
+        (concise
+          ? isPlayed
+            ? "شُوهدت"
+            : "غير مُشاهدة"
+          : isPlayed
+            ? "تمّت المشاهدة"
+            : "تحديد كمُشاهَد")}
     </Button>
   );
   if (episodeId) return control;

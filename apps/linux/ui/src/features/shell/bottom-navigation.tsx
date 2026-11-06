@@ -21,7 +21,7 @@ import { pageDirectory } from "./page-directory";
 const destinations = [
   { path: "home", label: "الرئيسية", icon: Home },
   { path: "browse", label: "المكتبة", icon: Library },
-  { path: "downloads", label: "التنزيلات", icon: Download },
+  { path: "downloads", label: "مكتبة الجهاز", icon: Download },
 ] as const;
 export function BottomNavigation({
   path,

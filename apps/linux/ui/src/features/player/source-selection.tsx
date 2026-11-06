@@ -112,20 +112,10 @@ function SessionSelection({
     >
       <HomeSources target={target} player={player} onPlaybackStarted={onPlaybackStarted} />
       {filesOnly ? (
-        <>
-          <Alert>
-            <AlertTitle>ملفات فقط</AlertTitle>
-            <AlertDescription>المشاهدة من الملفات المرتبطة أو من الجهاز.</AlertDescription>
-          </Alert>
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => (opened ? action.mutate({ kind: "file" }) : pickFile())}
-          >
-            <FolderOpen data-icon="inline-start" />
-            فتح فيديو من الجهاز
-          </Button>
-        </>
+        <p className="text-sm text-muted-foreground">
+          تظهر هنا ملفات هذه الحلقة من مكتبة المنزل. إذا لم تُستورد بعد، يمكن للمشرف إضافتها من إدارة
+          العمل.
+        </p>
       ) : (
         <Tabs
           value={mode}

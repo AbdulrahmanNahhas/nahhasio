@@ -414,7 +414,7 @@ function ActivePlayer({
                   open={panel === "download"}
                   onOpenChange={(open) => changePanel("download", open)}
                 >
-                  <DownloadPanel snapshot={s} />
+                  <DownloadPanel snapshot={s} onManage={() => setPanel(null)} />
                 </PlayerPopover>
               </div>
             )}
@@ -499,6 +499,7 @@ function ActivePlayer({
               onOpenChange={(open) => changePanel("settings", open)}
             >
               <PlayerSettings
+                onManageDownloads={() => setPanel(null)}
                 snapshot={s}
                 player={player}
                 onSource={() => changePanel("source", true)}

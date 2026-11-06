@@ -7,7 +7,15 @@ import { Artwork } from "@/components/artwork";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -35,8 +43,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { navigate } from "@/features/shell/navigation";
 import { nativeCall } from "@/lib/bridge";
 
+import { downloadLibraryOptions } from "./download-data";
+import { SavedVideoRow } from "./saved-video-row";
 import { offlineStatusOptions, savedWorksOptions, syncSavedWorks } from "./saved-works-data";
 
 export function SaveWorkControl({ id, compact = false }: { id: string; compact?: boolean }) {
@@ -44,6 +55,7 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
   const status = useQuery(offlineStatusOptions());
   const works = useQuery({ ...savedWorksOptions(), enabled: Boolean(status.data?.active) });
   const saved = works.data?.some((work) => work.id === id);
+  const checking = status.isPending || (Boolean(status.data?.active) && works.isPending);
   const running = status.data?.job?.running;
   const job = status.data?.job?.workId === id ? status.data.job : null;
   const save = useMutation({
@@ -54,11 +66,13 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
       await client.invalidateQueries({ queryKey: ["offline"] });
     },
   });
-  const label = job?.running
-    ? `جارٍ الحفظ · ${job.completed} / ${job.total}`
-    : saved
-      ? "تحديث النسخة المحفوظة"
-      : "حفظ بيانات العمل وصوره للجهاز";
+  const label = checking
+    ? "جارٍ التحقق من النسخة المحفوظة…"
+    : job?.running
+      ? `جارٍ الحفظ · ${job.completed} / ${job.total}`
+      : saved
+        ? "محفوظ على الجهاز · فتح مكتبة الجهاز"
+        : "حفظ بيانات العمل وصوره للجهاز";
   if (status.data?.offline && !compact)
     return (
       <Badge variant="secondary">
@@ -67,22 +81,29 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
     );
   return (
     <div className="flex flex-col gap-2">
-      <Button
-        variant="outline"
-        size={compact ? "icon-lg" : "lg"}
-        className={compact ? "size-12" : undefined}
-        aria-label={label}
-        title={label}
-        disabled={save.isPending || running || !status.data?.active || status.data?.offline}
-        onClick={() => save.mutate()}
-      >
-        {save.isPending || job?.running ? (
-          <Spinner data-icon="inline-start" />
-        ) : (
-          <Bookmark data-icon="inline-start" />
-        )}
-        {!compact && label}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button
+          variant={saved ? "secondary" : "outline"}
+          size="lg"
+          className="h-12"
+          aria-label={label}
+          title={label}
+          disabled={
+            !saved &&
+            (checking || save.isPending || running || !status.data?.active || status.data?.offline)
+          }
+          onClick={() => (saved ? navigate("/downloads?view=saved") : save.mutate())}
+        >
+          {checking || save.isPending || job?.running ? (
+            <Spinner data-icon="inline-start" />
+          ) : saved ? (
+            <Check data-icon="inline-start" />
+          ) : (
+            <Bookmark data-icon="inline-start" />
+          )}
+          {compact ? (job?.running ? "جارٍ الحفظ…" : saved ? "محفوظ" : "حفظ العمل") : label}
+        </Button>
+      </div>
       {save.error && (
         <p role="alert" className="text-sm text-destructive">
           {save.error.message}
@@ -101,6 +122,7 @@ export function SavedWorks() {
   const client = useQueryClient();
   const status = useQuery(offlineStatusOptions());
   const works = useQuery({ ...savedWorksOptions(), enabled: Boolean(status.data?.active) });
+  const videos = useQuery(downloadLibraryOptions());
   const [q, setQ] = useState("");
   const [removing, setRemoving] = useState<{ id: string; title: string } | null>(null);
   const [resolution, setResolution] = useState<{ id: string; choice: "device" | "server" } | null>(
@@ -153,6 +175,11 @@ export function SavedWorks() {
       await client.invalidateQueries({ queryKey: ["viewer"] });
     },
   });
+  const refresh = useMutation({
+    networkMode: "always",
+    mutationFn: (id: string) => nativeCall("offline.save", { id }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["offline"] }),
+  });
   const job = status.data?.job;
   const visible =
     works.data?.filter((work) => work.title.toLocaleLowerCase().includes(q.toLocaleLowerCase())) ??
@@ -162,6 +189,11 @@ export function SavedWorks() {
       <p className="text-sm leading-relaxed text-muted-foreground">
         بيانات الأعمال وصورها متاحة دون الخادم. الفيديوهات المنزّلة في تبويب الفيديوهات.
       </p>
+      {refresh.error && (
+        <Alert variant="destructive">
+          <AlertDescription>{refresh.error.message}</AlertDescription>
+        </Alert>
+      )}
       {job && (job.running || job.error) && (
         <Alert variant={job.error ? "destructive" : "default"}>
           <AlertTitle>{job.error ? "لم يكتمل حفظ العمل" : "جارٍ حفظ العمل وصوره…"}</AlertTitle>
@@ -283,56 +315,103 @@ export function SavedWorks() {
         </Empty>
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-2">
-          {visible.map((work) => (
-            <Card key={work.id} size="sm">
-              <CardHeader className="flex-row gap-4">
-                <a href={`#/titles/${work.id}`} aria-label={`فتح ${work.title}`}>
-                  <Artwork
-                    id={work.posterId}
-                    alt=""
-                    className="h-24 w-16 shrink-0 rounded-lg object-cover"
-                    fallback={<Download />}
-                  />
-                </a>
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <CardTitle>
-                    <a href={`#/titles/${work.id}`} dir="auto">
-                      {work.title}
-                    </a>
-                  </CardTitle>
-                  <CardDescription>
-                    {work.images} صورة ·{" "}
-                    <time dateTime={work.savedAt}>
-                      {new Date(work.savedAt).toLocaleDateString("ar")}
-                    </time>
-                  </CardDescription>
-                  <Badge variant="secondary">جاهز دون الخادم</Badge>
-                  {Boolean(work.pending) && (
-                    <Badge variant="outline">{work.pending} تغيير غير متزامن</Badge>
+          {visible.map((work) => {
+            const files =
+              videos.data?.files.filter((file) => file.target?.workId === work.id) ?? [];
+            return (
+              <Card key={work.id} size="sm">
+                <CardHeader className="flex items-start gap-4">
+                  <a href={`#/titles/${work.id}`} aria-label={`فتح ${work.title}`}>
+                    <Artwork
+                      id={work.posterId}
+                      alt=""
+                      className="h-36 w-24 shrink-0 rounded-lg object-cover"
+                      fallback={<Download />}
+                    />
+                  </a>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <CardTitle>
+                      <a href={`#/titles/${work.id}`} dir="auto">
+                        {work.title}
+                      </a>
+                    </CardTitle>
+                    <CardDescription>
+                      حُفظ في{" "}
+                      <time dateTime={work.savedAt}>
+                        {new Date(work.savedAt).toLocaleDateString("ar")}
+                      </time>
+                    </CardDescription>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary">بيانات العمل كاملة</Badge>
+                      <Badge variant="outline">
+                        {files.filter((file) => file.available).length} فيديو على الجهاز
+                      </Badge>
+                    </div>
+                    {Boolean(work.pending) && (
+                      <Badge variant="outline">{work.pending} تغيير غير متزامن</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    التفاصيل والملخص والأجزاء والحلقات ومعرّفات المصادر و{work.images} صورة.{" "}
+                    {files.length
+                      ? "الفيديوهات أدناه منفصلة عن بيانات العمل."
+                      : "لا يوجد فيديو منزّل؛ المصادر عبر الإنترنت تحتاج اتصالًا بالإنترنت فقط."}
+                  </p>
+                  {files.slice(0, 3).map((file) => (
+                    <SavedVideoRow key={`${file.id}-${file.file}`} file={file} />
+                  ))}
+                  {files.length > 3 && (
+                    <Collapsible>
+                      <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                        بقية الفيديوهات ({files.length - 3})
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3 flex flex-col gap-2">
+                        {files.slice(3).map((file) => (
+                          <SavedVideoRow key={`${file.id}-${file.file}`} file={file} />
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
-                </div>
-              </CardHeader>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button variant="outline" render={<a href={`#/titles/${work.id}`} />}>
-                  فتح العمل
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`إزالة بيانات ${work.title} من الجهاز`}
-                  title={
-                    work.pending
-                      ? "زامن تغييرات المشاهدة قبل إزالة البيانات"
-                      : "إزالة بيانات العمل؛ تبقى الفيديوهات"
-                  }
-                  disabled={action.isPending || job?.running || work.pending > 0}
-                  onClick={() => setRemoving(work)}
-                >
-                  <Trash2 />
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                </CardContent>
+                <CardFooter className="flex flex-wrap gap-2">
+                  <Button
+                    className="flex-1"
+                    nativeButton={false}
+                    variant="outline"
+                    render={<a href={`#/titles/${work.id}`} />}
+                  >
+                    تصفّح ومشاهدة
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`تحديث بيانات ${work.title}`}
+                    title="تحديث البيانات والصور"
+                    disabled={refresh.isPending || job?.running || status.data?.offline}
+                    onClick={() => refresh.mutate(work.id)}
+                  >
+                    <RefreshCw data-icon="inline-start" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`إزالة بيانات ${work.title} من الجهاز`}
+                    title={
+                      work.pending
+                        ? "زامن تغييرات المشاهدة قبل إزالة البيانات"
+                        : "إزالة بيانات العمل؛ تبقى الفيديوهات"
+                    }
+                    disabled={action.isPending || job?.running || work.pending > 0}
+                    onClick={() => setRemoving(work)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
       <Dialog

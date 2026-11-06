@@ -1,13 +1,12 @@
 import type { HomeViewingItem } from "@nahhasio/api-contract";
-import { Clapperboard, Film, Play, RotateCcw } from "lucide-react";
+import { Clapperboard, Film, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
-import { Artwork } from "@/components/artwork";
 import { useCardNavigation } from "@/components/card-navigation";
+import { EpisodeThumbnail, episodeTiming } from "@/components/episode-thumbnail";
 import { NoResults } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { requestWatch, type WatchTarget } from "@/features/player/watch-request";
 import { workLink } from "@/features/shell/navigation";
@@ -109,66 +108,39 @@ function ContinueCard({ item, resume }: ContinueItem) {
     ? `الحلقة ${episodeNumberLabel(item.episodeNumber)}`
     : item.installmentTitle;
   const duration = item.durationSeconds;
-  const progress =
-    duration && duration > 0 ? Math.min(100, (item.positionSeconds / duration) * 100) : null;
-  const remaining =
-    duration && duration > 0
-      ? Math.max(0, Math.ceil((duration - item.positionSeconds) / 60))
-      : null;
-  const detail = item.episodeId ? `${item.installmentTitle} · ${episode}` : item.installmentTitle;
+  const detail = item.episodeId
+    ? `${item.installmentTitle} · ${episode}${item.episodeTitle ? ` · ${item.episodeTitle}` : ""}`
+    : item.installmentTitle;
   const watch = () => {
     const target: WatchTarget = { workId: item.work.id, title, installmentId: item.installmentId };
     if (item.episodeId) target.episodeId = item.episodeId;
     requestWatch(target);
   };
-  const timing = resume
-    ? remaining !== null
-      ? `متبقٍ ${remaining} د`
-      : `${Math.floor(item.positionSeconds / 60)} د تمت مشاهدتها`
-    : null;
+  const timing = resume ? episodeTiming(item.positionSeconds, duration) : null;
   return (
-    <article className="flex min-w-0 flex-col gap-3">
-      <div className="relative overflow-hidden rounded-2xl">
-        <Button
-          {...navigation}
-          variant="ghost"
-          className="group/continue relative aspect-video h-auto w-full overflow-hidden p-0"
-          aria-label={`${resume ? "استأنف" : "شاهد التالي من"} ${title}، ${detail}${timing ? `، ${timing}` : ""}`}
-          onClick={watch}
-        >
-          <Artwork
-            id={item.artwork?.id ?? item.work.banner?.id ?? item.work.poster?.id}
-            alt=""
-            className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover/continue:scale-105 motion-reduce:transition-none"
-          />
-          <span className="absolute inset-0 bg-linear-to-t from-background/70 via-transparent to-transparent" />
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex size-11 items-center justify-center rounded-full bg-background/80 text-foreground transition-transform duration-200 group-hover/continue:scale-110 motion-reduce:transition-none">
-              <Play className="size-5" />
-            </span>
-          </span>
-          {resume && (
-            <span className="absolute start-3 top-3">
-              <Badge variant="secondary">
-                <RotateCcw data-icon="inline-start" />
-                متابعة
-              </Badge>
-            </span>
-          )}
-          {timing && (
-            <span className="absolute end-3 bottom-3">
-              <Badge variant="secondary">{timing}</Badge>
-            </span>
-          )}
-        </Button>
-        {resume && progress !== null && (
-          <Progress
-            className="pointer-events-none absolute inset-x-0 bottom-0"
-            value={progress}
-            aria-label={`تقدم مشاهدة ${title}`}
-          />
-        )}
-      </div>
+    <article
+      data-episode-card
+      className="group/episode relative flex min-w-0 flex-col gap-3 hover:z-10 focus-within:z-10"
+    >
+      <EpisodeThumbnail
+        artworkId={item.artwork?.id ?? item.work.banner?.id ?? item.work.poster?.id}
+        label={`${resume ? "استأنف" : "شاهد التالي من"} ${title}، ${detail}${timing ? `، ${timing}` : ""}`}
+        onPlay={watch}
+        position={item.positionSeconds}
+        duration={duration}
+        topStart={<Badge variant="secondary">{episode}</Badge>}
+        topEnd={
+          resume ? (
+            <Badge variant="secondary">
+              <RotateCcw data-icon="inline-start" />
+              متابعة
+            </Badge>
+          ) : (
+            <Badge variant="secondary">التالي</Badge>
+          )
+        }
+        bottomStart={timing ? <Badge variant="secondary">{timing}</Badge> : null}
+      />
       <div className="flex min-w-0 flex-col gap-1 px-1">
         <a
           {...navigation}
@@ -178,22 +150,9 @@ function ContinueCard({ item, resume }: ContinueItem) {
         >
           {title}
         </a>
-        <p
-          className="truncate text-xs text-muted-foreground"
-          dir="auto"
-          title={item.episodeTitle ? `${detail} · ${item.episodeTitle}` : detail}
-        >
+        <p className="truncate text-xs text-muted-foreground" dir="auto" title={detail}>
           {detail}
         </p>
-        {item.episodeTitle && (
-          <p
-            className="truncate text-xs text-muted-foreground"
-            dir="auto"
-            title={item.episodeTitle}
-          >
-            {item.episodeTitle}
-          </p>
-        )}
       </div>
     </article>
   );

@@ -67,11 +67,13 @@ export function PlayerSettings({
   player,
   onSource,
   onEpisodes,
+  onManageDownloads,
 }: {
   snapshot: PlayerSnapshot;
   player: PlayerController;
   onSource: () => void;
   onEpisodes?: () => void;
+  onManageDownloads?: () => void;
 }) {
   const [screen, setScreen] = useState<Screen>("home");
   const buttons = useRef(new Map<Screen, HTMLButtonElement>());
@@ -166,7 +168,7 @@ export function PlayerSettings({
             {(screen === "audio" || screen === "subtitle") && (
               <TrackPanel kind={screen} snapshot={s} player={player} />
             )}
-            {screen === "download" && <DownloadPanel snapshot={s} />}
+            {screen === "download" && <DownloadPanel snapshot={s} onManage={onManageDownloads} />}
             {screen === "volume" && (
               <FieldGroup>
                 <PlayerSetting

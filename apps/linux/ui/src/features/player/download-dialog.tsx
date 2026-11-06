@@ -58,6 +58,14 @@ export function DownloadDialog({
           )}
         </div>
         <DialogFooter>
+          <Button
+            nativeButton={false}
+            variant="outline"
+            render={<a href="#/downloads?view=queue" />}
+            onClick={onClose}
+          >
+            إدارة التنزيلات
+          </Button>
           <DialogClose render={<Button variant="outline" />}>إغلاق</DialogClose>
         </DialogFooter>
       </DialogContent>

@@ -1,12 +1,10 @@
 import type { HomeViewingItem } from "@nahhasio/api-contract";
-import { cn } from "cn";
-import { Check, Play, RotateCcw } from "lucide-react";
+import { Check } from "lucide-react";
 
-import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
+import { EpisodeThumbnail, episodeTime, episodeTiming } from "../../components/episode-thumbnail";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Progress } from "../../components/ui/progress";
 import type { WatchTarget } from "../player/watch-request";
 import { requestWatch } from "../player/watch-request";
 import { workLink } from "../shell/navigation";
@@ -25,9 +23,6 @@ function recentRelease(value: string | null) {
   if (days === 1) return "أمس";
   if (days === 2) return "قبل يومين";
   return `قبل ${days} ${days <= 10 ? "أيام" : "يومًا"}`;
-}
-function durationLabel(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 export function ViewingCard({
   item,
@@ -51,72 +46,50 @@ export function ViewingCard({
     if (item.episodeId) target.episodeId = item.episodeId;
     requestWatch(target);
   };
-  const progress =
-    duration && duration > 0 ? Math.min(100, (item.positionSeconds / duration) * 100) : null;
+  const timing = !item.isPlayed ? episodeTiming(item.positionSeconds, duration) : null;
   return (
-    <article className="group/episode min-w-0 space-y-3">
-      <div className="relative">
-        <Button
-          {...navigation}
-          variant="ghost"
-          aria-label={`${item.isPlayed ? "إعادة مشاهدة" : "مشاهدة"} ${title}، ${episode}`}
-          className="group/play relative aspect-video h-auto w-full overflow-hidden rounded-2xl p-0"
-          onClick={watch}
-        >
-          <span className="absolute inset-0 transform-gpu overflow-hidden rounded-2xl">
-            {poster && item.artwork && (
-              <Artwork
-                id={item.artwork.id}
-                alt=""
-                className="absolute inset-0 size-full scale-110 object-cover opacity-60 blur-xl"
-              />
-            )}
-            <Artwork
-              id={item.artwork?.id}
-              alt=""
-              className={cn(
-                "absolute inset-0 size-full transition duration-200 motion-reduce:transition-none",
-                poster
-                  ? "object-contain"
-                  : "object-cover group-hover/play:scale-105 group-focus-visible/play:scale-105",
-                item.isPlayed &&
-                  "opacity-50 group-hover/play:opacity-100 group-focus-visible/play:opacity-100",
-              )}
-            />
-            <span className="absolute inset-0 bg-linear-to-t from-background/60 via-transparent to-transparent" />
-            <span className="absolute inset-0 bg-background/0 transition-colors group-hover/play:bg-background/20 group-focus-visible/play:bg-background/20 motion-reduce:transition-none" />
-          </span>
-          <span className="relative flex translate-y-1 items-center gap-2 rounded-xl bg-background px-4 py-3 text-sm text-foreground opacity-0 shadow-lg transition duration-200 group-hover/play:translate-y-0 group-hover/play:opacity-100 group-focus-visible/play:translate-y-0 group-focus-visible/play:opacity-100 pointer-coarse:translate-y-0 pointer-coarse:opacity-100 motion-reduce:transition-none">
-            {item.isPlayed ? <RotateCcw className="size-4" /> : <Play className="size-4" />}
-            {item.isPlayed ? "إعادة المشاهدة" : "مشاهدة"}
-          </span>
-          {item.episodeId && (
-            <span className="absolute start-3 bottom-3 rounded-lg bg-background px-2.5 py-1 text-xs font-medium text-foreground tabular-nums">
-              {episode}
-            </span>
-          )}
-          {duration !== null && duration > 0 && (
-            <span
-              dir="ltr"
-              className="absolute end-3 bottom-3 rounded-md bg-background px-2 py-1 text-xs text-foreground tabular-nums"
-            >
-              {durationLabel(duration)}
-            </span>
-          )}
-        </Button>
-        {item.isPlayed && (
-          <span className="pointer-events-none absolute end-3 top-3">
+    <article
+      data-episode-card
+      className="group/episode relative flex min-w-0 flex-col gap-3 hover:z-10 focus-within:z-10"
+    >
+      <EpisodeThumbnail
+        artworkId={item.artwork?.id}
+        label={`${item.isPlayed ? "إعادة مشاهدة" : "مشاهدة"} ${title}، ${episode}`}
+        onPlay={watch}
+        position={item.positionSeconds}
+        duration={duration}
+        played={item.isPlayed}
+        poster={poster}
+        topStart={item.episodeId ? <Badge variant="secondary">{episode}</Badge> : null}
+        topEnd={
+          item.isPlayed ? (
             <Badge variant="secondary">
               <Check data-icon="inline-start" />
               مُشاهد
             </Badge>
-          </span>
-        )}
-      </div>
+          ) : null
+        }
+        bottomStart={timing ? <Badge variant="secondary">{timing}</Badge> : null}
+        bottomEnd={
+          duration && duration > 0 ? (
+            <Badge variant="secondary">
+              <bdi>{episodeTime(duration)}</bdi>
+            </Badge>
+          ) : null
+        }
+      />
       <div className="flex items-start gap-3 px-1">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="line-clamp-2 text-sm leading-5 font-semibold" dir="auto">
-            {item.episodeTitle || episode}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h3 className="min-w-0" dir="auto">
+            <Button
+              {...navigation}
+              variant="ghost"
+              size="sm"
+              className="h-auto max-w-full justify-start px-0 py-0 text-start whitespace-normal"
+              onClick={watch}
+            >
+              {item.episodeTitle || episode}
+            </Button>
           </h3>
           <a
             {...navigation}
@@ -136,15 +109,6 @@ export function ViewingCard({
           )}
         </div>
       </div>
-      {resume ? (
-        <div className="space-y-2 px-1 pt-1">
-          {progress !== null && <Progress value={progress} aria-label={`تقدم مشاهدة ${title}`} />}
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {Math.floor(item.positionSeconds / 60)} دقيقة تمت مشاهدتها
-            {duration && duration > 0 ? ` من ${Math.ceil(duration / 60)}` : ""}
-          </p>
-        </div>
-      ) : null}
     </article>
   );
 }

@@ -87,7 +87,8 @@ export function WatchPage({
   );
   const movieCollection =
     isStandalone && !mixedWork && Boolean(work && work.installments.length > 1);
-  const hasEpisodeNavigation = !isStandalone && Boolean(work) && s.sourceKind !== "local";
+  const hasEpisodeNavigation =
+    !isStandalone && Boolean(work) && (s.sourceKind !== "local" || Boolean(s.workId));
   const hasSidebar = hasEpisodeNavigation || singleStandalone || movieCollection || mixedWork;
   const part = work?.installments.find((unit) => unit.id === browsePart) ?? playingPart;
   const partStatus =
@@ -216,9 +217,13 @@ export function WatchPage({
                   ? "جارٍ تجهيز مصادر الفيديو…"
                   : "اختر ملفًا من جهازك لبدء المشاهدة"}
               </p>
-              <Button onClick={() => player.command({ command: "player.pickVideo", payload: {} })}>
-                فتح فيديو من الجهاز
-              </Button>
+              {!catalogVideo && (
+                <Button
+                  onClick={() => player.command({ command: "player.pickVideo", payload: {} })}
+                >
+                  فتح فيديو من الجهاز
+                </Button>
+              )}
             </div>
           )}
         </div>

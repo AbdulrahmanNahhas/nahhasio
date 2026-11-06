@@ -100,7 +100,12 @@ export function WatchDetails({
       </div>
       {work && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
-          <Button variant="link" render={<a href={workLink(work.id)} />} onClick={onLeave}>
+          <Button
+            nativeButton={false}
+            variant="link"
+            render={<a href={workLink(work.id)} />}
+            onClick={onLeave}
+          >
             <ArrowRight data-icon="inline-start" />
             {work.titleAr || work.canonicalTitle}
           </Button>
@@ -187,6 +192,7 @@ export function WatchDetails({
               {links.map((link) => (
                 <Button
                   key={link.label}
+                  nativeButton={false}
                   size="sm"
                   variant="outline"
                   render={<a href={link.href} target="_blank" rel="noopener noreferrer" />}

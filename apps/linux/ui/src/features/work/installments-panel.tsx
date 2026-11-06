@@ -1,12 +1,11 @@
 import { installmentRating } from "@arcadia/domain";
 import type { WorkDetail, ViewerUnitState } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "cn";
-import { ArrowDownUp, ChevronDown, Clock, Download, Info, Play } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Download, Info, Play, Check } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { EpisodeThumbnail, episodeTiming } from "@/components/episode-thumbnail";
 import { LanguageBadges } from "@/components/language-badges";
-import { Progress } from "@/components/ui/progress";
 import { workLanguages } from "@/lib/languages";
 
 import { Artwork } from "../../components/artwork";
@@ -23,9 +22,10 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../components/ui/popover";
+import { HomeBatchDownload } from "../player/home-batch-download";
 import { savedDownloadOptions } from "../player/saved-downloads";
 import { requestDownload, requestWatch } from "../player/watch-request";
-import { replaceParams, useViewerRoute, workLink } from "../shell/navigation";
+import { replaceParams, useViewerRoute } from "../shell/navigation";
 import { ArtworkGallery, MediaFiles, References } from "./data-panel";
 import { RiskRows } from "./family-panel";
 import { Disclosure, FieldList } from "./field-list";
@@ -127,6 +127,7 @@ export function InstallmentsPanel({
               ))}
             </PopoverContent>
           </Popover>
+          <HomeBatchDownload workId={work.id} />
           <WatchedControl tracking={tracking} installmentId={item.id} label={item.title} />
           {item.episodes.length > 1 && (
             <Button {...navigation} variant="outline" onClick={() => setDescending(!descending)}>
@@ -282,8 +283,10 @@ function EpisodeCard({
   const [triggerId, setTriggerId] = useState<string | null>(null);
   const number = episodeNumberLabel(episode.number);
   const state = tracking.unitByEpisode.get(episode.id);
+  const duration =
+    state?.durationSeconds ?? (episode.runtimeMinutes ? episode.runtimeMinutes * 60 : null);
+  const timing = !state?.isPlayed ? episodeTiming(state?.positionSeconds ?? 0, duration) : null;
   const upcoming = episode.releaseState === "upcoming" || installment.status === "announced";
-  const continuing = Boolean(state?.positionSeconds && !state.isPlayed);
   const play = () =>
     requestWatch({
       workId: work.id,
@@ -318,111 +321,94 @@ function EpisodeCard({
         onOpenChange(nextOpen);
       }}
     >
-      <article className="relative flex min-w-0 flex-col gap-4" aria-label={`الحلقة ${number}`}>
-        <div
-          className={cn(
-            "relative aspect-video rounded-3xl border border-border bg-card transition-colors duration-200 motion-reduce:transition-none",
-            !upcoming && "group/episode hover:border-foreground/50 focus-within:border-ring",
-          )}
-        >
-          <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
-            <Artwork
-              id={image?.id}
-              alt=""
-              className="block size-full object-cover transition-transform duration-200 motion-safe:group-hover/episode:scale-105 motion-safe:group-focus-within/episode:scale-105 motion-reduce:transition-none"
-            />
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/85 to-transparent" />
-          </span>
-          <span className="absolute start-3 top-3">
-            <Badge variant="secondary">{number}</Badge>
-          </span>
+      <article
+        data-episode-card
+        className="group/episode relative flex min-w-0 flex-col gap-3 hover:z-10 focus-within:z-10"
+        aria-label={`الحلقة ${number}`}
+      >
+        <EpisodeThumbnail
+          artworkId={image?.id}
+          label={upcoming ? `الحلقة ${number} لم تصدر بعد` : `تشغيل الحلقة ${number}`}
+          onPlay={play}
+          disabled={upcoming}
+          played={state?.isPlayed}
+          position={state?.positionSeconds ?? 0}
+          duration={duration}
+          topStart={<Badge variant="secondary">الحلقة {number}</Badge>}
+          topEnd={
+            downloaded ? (
+              <Badge variant="secondary">
+                <Check data-icon="inline-start" />
+                على الجهاز
+              </Badge>
+            ) : upcoming ? (
+              <Badge variant="secondary">قادم</Badge>
+            ) : null
+          }
+          bottomStart={timing ? <Badge variant="secondary">{timing}</Badge> : null}
+          bottomEnd={
+            episode.runtimeMinutes ? (
+              <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
+            ) : null
+          }
+        />
+        <h3 className="min-w-0">
           <Button
             {...navigation}
-            variant="link"
-            size="icon-lg"
-            className="absolute inset-0 size-full"
+            variant="ghost"
+            size="sm"
+            className="h-auto max-w-full justify-start px-0 py-0 text-start whitespace-normal"
             disabled={upcoming}
-            aria-label={upcoming ? `الحلقة ${number} لم تصدر بعد` : `تشغيل الحلقة ${number}`}
             onClick={play}
+            aria-label={`تشغيل الحلقة ${number}`}
           >
-            <span className="grid size-14 place-items-center rounded-full border border-foreground/30 bg-background/75 text-foreground transition-transform duration-200 motion-safe:group-hover/episode:scale-110 motion-safe:group-focus-within/episode:scale-110 motion-reduce:transition-none">
-              {upcoming ? <Clock aria-hidden="true" /> : <Play aria-hidden="true" />}
-            </span>
-          </Button>
-          <span className="pointer-events-none absolute start-3 bottom-3 flex gap-2">
-            {episode.runtimeMinutes && (
-              <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
-            )}
-            {episode.releaseState === "upcoming" && <Badge variant="outline">قادم</Badge>}
-            {downloaded && <Badge variant="secondary">محمّلة</Badge>}
-          </span>
-        </div>
-        <DialogTrigger
-          nativeButton={false}
-          role="link"
-          render={
-            <a
-              {...navigation}
-              href={`${workLink(work.id, installment.id)}&episode=${episode.id}`}
-              onClick={(event) => {
-                if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey)
-                  event.preventDefault();
-              }}
-              className="min-w-0 rounded-sm text-start hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-              aria-label={`فتح الحلقة ${number} · ${episode.title || "تفاصيل الحلقة"}`}
-            />
-          }
-        >
-          <h3 className="min-w-0 text-lg leading-relaxed font-semibold md:text-xl">
             {episode.title || `الحلقة ${number}`}
-          </h3>
-        </DialogTrigger>
+          </Button>
+        </h3>
         {episode.summary.trim() && (
-          <p className="line-clamp-2 text-base leading-relaxed text-muted-foreground" dir="auto">
+          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground" dir="auto">
             {episode.summary}
           </p>
         )}
-        <div className="absolute end-3 top-3">
+        <div className="mt-auto flex flex-wrap items-center gap-2">
           <WatchedControl
             tracking={tracking}
             installmentId={installment.id}
             episodeId={episode.id}
             label={`الحلقة ${number}`}
-            compact
+            concise
           />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            {...navigation}
-            variant="secondary"
-            disabled={upcoming}
-            aria-label={`${continuing ? "متابعة" : "مشاهدة"} الحلقة ${number}`}
-            onClick={play}
-          >
-            {upcoming ? <Clock data-icon="inline-start" /> : <Play data-icon="inline-start" />}
-            {upcoming ? "لم تصدر بعد" : continuing ? "متابعة" : "مشاهدة"}
-          </Button>
-          <Button
-            variant="outline"
-            {...navigation}
-            disabled={
-              downloaded ||
-              episode.releaseState === "upcoming" ||
-              installment.status === "announced"
-            }
-            aria-label={`تنزيل الحلقة ${number}`}
-            onClick={() =>
-              requestDownload({
-                workId: work.id,
-                installmentId: installment.id,
-                episodeId: episode.id,
-                title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
-              })
-            }
-          >
-            <Download data-icon="inline-start" />
-            {downloaded ? "محمّلة" : "تنزيل"}
-          </Button>
+          {downloaded ? (
+            <Button
+              nativeButton={false}
+              size="sm"
+              variant="secondary"
+              render={<a href="#/downloads?view=library" />}
+              aria-label={`إدارة الحلقة ${number} المحمّلة`}
+            >
+              <Check data-icon="inline-start" />
+              محمّلة على الجهاز
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              {...navigation}
+              disabled={episode.releaseState === "upcoming" || installment.status === "announced"}
+              aria-label={`تنزيل الحلقة ${number}`}
+              onClick={() =>
+                requestDownload({
+                  workId: work.id,
+                  installmentId: installment.id,
+                  episodeId: episode.id,
+                  title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
+                })
+              }
+            >
+              <Download data-icon="inline-start" />
+              تنزيل
+            </Button>
+          )}
           <DialogTrigger
             render={<Button {...navigation} variant="ghost" size="icon-sm" />}
             aria-label={`تفاصيل الحلقة ${number}`}
@@ -430,14 +416,6 @@ function EpisodeCard({
             <Info data-icon="inline-start" />
           </DialogTrigger>
         </div>
-        {state && state.positionSeconds > 0 && !state.isPlayed && state.durationSeconds && (
-          <Progress
-            className="h-1 w-full accent-primary"
-            value={state.positionSeconds}
-            max={state.durationSeconds}
-            aria-label={`تقدم الحلقة ${number}`}
-          />
-        )}
         <EpisodeDetails episode={episode} number={number} state={state} />
       </article>
     </Dialog>

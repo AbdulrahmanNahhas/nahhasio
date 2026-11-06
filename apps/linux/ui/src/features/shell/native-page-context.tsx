@@ -17,7 +17,7 @@ const pageTitles = {
   trailers: "الإعلانات التشويقية",
   studios: "الاستوديوهات",
   people: "الصنّاع",
-  downloads: "التنزيلات",
+  downloads: "مكتبة الجهاز",
   profile: "حسابي",
   profiles: "الملف الشخصي",
 };

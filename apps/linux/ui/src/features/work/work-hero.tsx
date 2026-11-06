@@ -10,7 +10,6 @@ import { useCardNavigation } from "../../components/card-navigation";
 import { ScoreBadge } from "../../components/media-card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { HomeBatchDownload } from "../player/home-batch-download";
 import { SaveWorkControl } from "../player/saved-works";
 import { offlineStatusOptions } from "../player/saved-works-data";
 import { requestDownload, requestWatch } from "../player/watch-request";
@@ -28,20 +27,39 @@ export function releaseStatus(work: WorkDetail) {
   return "unknown";
 }
 
-export function WorkHero({
-  work,
-  tracking,
-  onEpisodes,
-}: {
-  work: WorkDetail;
-  tracking: WorkTracking;
-  onEpisodes: () => void;
-}) {
+export function WorkHero({ work, tracking }: { work: WorkDetail; tracking: WorkTracking }) {
   const status = releaseStatus(work);
   const navigation = useCardNavigation();
   const Kind = work.installments.some((item) => item.kind === "season") ? Tv : Film;
   const state = tracking.state.data;
   const offline = useQuery(offlineStatusOptions());
+  const available: Array<{ installmentId: string; episodeId?: string }> = [];
+  for (const part of work.installments) {
+    if (part.status === "announced") continue;
+    if (part.kind === "season") {
+      for (const episode of part.episodes)
+        if (episode.releaseState !== "upcoming")
+          available.push({ installmentId: part.id, episodeId: episode.id });
+    } else available.push({ installmentId: part.id });
+  }
+  const unitFor = (target: (typeof available)[number]) =>
+    target.episodeId
+      ? tracking.unitByEpisode.get(target.episodeId)
+      : tracking.unitsByInstallment
+          .get(target.installmentId)
+          ?.find((unit) => unit.episodeId === null);
+  const resume = available
+    .filter((target) => {
+      const unit = unitFor(target);
+      return unit && !unit.isPlayed && unit.positionSeconds > 0;
+    })
+    .toSorted(
+      (a, b) =>
+        (Date.parse(unitFor(b)?.updatedAt ?? "") || 0) -
+        (Date.parse(unitFor(a)?.updatedAt ?? "") || 0),
+    )[0];
+  const next = resume ?? available.find((target) => !unitFor(target)?.isPlayed) ?? available[0];
+
   return (
     <header className="relative isolate overflow-hidden rounded-3xl m-2 border! border-border">
       {work && (
@@ -54,6 +72,7 @@ export function WorkHero({
             alt=""
             className="absolute top-0 h-dvh w-full scale-105 object-cover opacity-90"
             priority
+            width={1920}
           />
         </div>
       )}
@@ -142,62 +161,50 @@ export function WorkHero({
               className="h-12 px-6 text-base"
               size="lg"
               {...navigation}
-              disabled={
-                work.installments.length > 0 &&
-                work.installments.every((item) => item.status === "announced")
-              }
+              disabled={!next || tracking.state.isPending}
               onClick={() =>
                 requestWatch({
                   workId: work.id,
+                  ...next,
                   title: work.titleAr || work.canonicalTitle,
                 })
               }
             >
               <Play data-icon="inline-start" />
-              تشغيل
+              {resume ? "متابعة" : "تشغيل"}
             </Button>
-            <Button
-              {...navigation}
-              size="icon-lg"
-              className="size-12"
-              aria-label="تنزيل الفيديو"
-              title="تنزيل الفيديو"
-              variant="outline"
-              disabled={!work.installments.some((item) => item.status !== "announced")}
-              onClick={() =>
-                requestDownload({ workId: work.id, title: work.titleAr || work.canonicalTitle })
-              }
-            >
-              <Download />
-            </Button>
-            {work.installments.length > 0 && (
+            <SaveWorkControl id={work.id} compact />
+            <div className="flex items-center gap-1" role="group" aria-label="إجراءات العمل">
               <Button
                 {...navigation}
-                className="h-12 px-6 text-base"
-                size="lg"
+                size="icon-lg"
+                className="size-12"
+                aria-label="تنزيل الفيديو"
+                title="تنزيل الفيديو"
                 variant="outline"
-                onClick={onEpisodes}
+                disabled={!work.installments.some((item) => item.status !== "announced")}
+                onClick={() =>
+                  requestDownload({ workId: work.id, title: work.titleAr || work.canonicalTitle })
+                }
               >
-                الأجزاء والحلقات
+                <Download />
               </Button>
-            )}
-            <Button
-              {...navigation}
-              size="icon-lg"
-              className="size-12"
-              variant={state?.isFavorite ? "secondary" : "outline"}
-              aria-label={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
-              aria-pressed={state?.isFavorite ?? false}
-              title={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
-              disabled={!state || tracking.pending || offline.data?.offline}
-              onClick={() => tracking.favorite.mutate(!state?.isFavorite)}
-            >
-              <Heart data-icon="inline-start" />
-            </Button>
-            <WatchedControl tracking={tracking} label="العمل" compact large />
-            <SaveWorkControl id={work.id} compact />
-            <HomeBatchDownload workId={work.id} />
-            <WorkTrailers trailers={work.trailers ?? []} />
+              <Button
+                {...navigation}
+                size="icon-lg"
+                className="size-12"
+                variant={state?.isFavorite ? "secondary" : "outline"}
+                aria-label={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+                aria-pressed={state?.isFavorite ?? false}
+                title={state?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+                disabled={!state || tracking.pending || offline.data?.offline}
+                onClick={() => tracking.favorite.mutate(!state?.isFavorite)}
+              >
+                <Heart data-icon="inline-start" />
+              </Button>
+              <WatchedControl tracking={tracking} label="العمل" compact large />
+              <WorkTrailers trailers={work.trailers ?? []} />
+            </div>
           </div>
         </div>
         <div className="hidden lg:block">

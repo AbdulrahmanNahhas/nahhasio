@@ -69,16 +69,6 @@ export function WorkPage({ id, installmentId }: { id: string; installmentId?: st
     } else params.set("tab", tab);
     replaceParams(`/titles/${id}`, params);
   };
-  const episodes = () => {
-    changeTab("installments");
-    requestAnimationFrame(() => {
-      sections.current?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth",
-        block: "start",
-      });
-      sections.current?.focus({ preventScroll: true });
-    });
-  };
   const work = result.data;
   return (
     <article className="relative isolate min-h-dvh pb-16" aria-label="صفحة العمل">
@@ -100,7 +90,7 @@ export function WorkPage({ id, installmentId }: { id: string; installmentId?: st
       )}
       {work && (
         <>
-          <WorkHero work={work} tracking={tracking} onEpisodes={episodes} />
+          <WorkHero work={work} tracking={tracking} />
           <div
             ref={sections}
             id="work-sections"

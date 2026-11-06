@@ -68,7 +68,7 @@ export function pageDirectory(isAdmin: boolean) {
     {
       path: "downloads",
       href: "#/downloads",
-      label: "التنزيلات",
+      label: "مكتبة الجهاز",
       description: "تنزيلات الجهاز والأعمال المحفوظة",
       icon: Download,
       group: "حسابي والجهاز",

@@ -17,6 +17,9 @@ function focusTarget(element: HTMLElement) {
   });
 }
 const CardNavigationContext = createContext<CardNavigation | undefined>(undefined);
+function cardLayout(element: HTMLElement) {
+  return element.closest<HTMLElement>("[data-episode-card]") ?? element;
+}
 
 export function CardNavigationProvider({ children }: { children: ReactNode }) {
   const cards = useRef(new Set<HTMLElement>());
@@ -24,19 +27,24 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
   const pendingLoad = useRef<(() => void) | undefined>(undefined);
   const enterHeld = useRef(false);
   const afterEnter = useRef<(() => void) | undefined>(undefined);
-  const available = useCallback(
-    () =>
-      [...cards.current].filter(
-        (element) =>
-          element.isConnected &&
-          !element.matches(":disabled, [aria-disabled=true]") &&
-          element.getClientRects().length > 0,
-      ),
-    [],
-  );
+  const available = useCallback(() => {
+    const groups = new Map<HTMLElement, HTMLElement>();
+    for (const element of [...cards.current].filter(
+      (candidate) =>
+        candidate.isConnected &&
+        !candidate.matches(":disabled, [aria-disabled=true]") &&
+        candidate.getClientRects().length > 0,
+    )) {
+      const layout = cardLayout(element);
+      if (!groups.has(layout) || element.hasAttribute("data-episode-primary"))
+        groups.set(layout, element);
+    }
+    return [...groups.values()];
+  }, []);
   const focusFirst = useCallback(() => {
     const first = available().toSorted(
-      (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
+      (a, b) =>
+        cardLayout(a).getBoundingClientRect().top - cardLayout(b).getBoundingClientRect().top,
     )[0];
     pendingEntry.current = !first;
     if (first) focusTarget(first);
@@ -45,8 +53,8 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
     const first = available()
       .filter((element) => element.closest('[role="tabpanel"]:not([hidden])'))
       .toSorted((a, b) => {
-        const left = a.getBoundingClientRect();
-        const right = b.getBoundingClientRect();
+        const left = cardLayout(a).getBoundingClientRect();
+        const right = cardLayout(b).getBoundingClientRect();
         return left.top - right.top || right.right - left.right;
       })[0];
     if (first) focusTarget(first);
@@ -83,53 +91,64 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
     },
     [focusFirst],
   );
-  const onKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
-    if (
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey ||
-      event.nativeEvent.isComposing
-    )
-      return;
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-    if (event.target !== event.currentTarget) return;
-
-    // Only explicitly registered cards participate; inputs, dialogs and native controls stay native.
-    const origin = event.currentTarget.getBoundingClientRect();
-    const panel = event.currentTarget.closest('[role="tabpanel"]');
-    const header = panel ? null : event.currentTarget.closest("header");
-    const horizontal = event.key === "ArrowLeft" || event.key === "ArrowRight";
-    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
-    const centerX = origin.left + origin.width / 2;
-    const candidates = [...cards.current]
-      .filter(
-        (card) =>
-          card !== event.currentTarget &&
-          card.isConnected &&
-          !card.matches(":disabled, [aria-disabled=true]") &&
-          (panel ? card.closest('[role="tabpanel"]') === panel : card.closest("header") === header),
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>) => {
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.nativeEvent.isComposing
       )
-      .map((card) => ({ card, rect: card.getBoundingClientRect() }))
-      .filter(({ rect }) => rect.width > 0 && rect.height > 0)
-      .map(({ card, rect }) => {
-        const dx = rect.left + rect.width / 2 - centerX;
-        const dy = rect.top - origin.top;
-        return { card, dx, dy };
-      })
-      .filter(({ dx, dy }) =>
-        horizontal ? Math.abs(dy) < 4 && (forward ? dx > 1 : dx < -1) : forward ? dy > 4 : dy < -4,
-      )
-      .toSorted((a, b) =>
-        horizontal
-          ? Math.abs(a.dx) - Math.abs(b.dx)
-          : Math.abs(a.dy) - Math.abs(b.dy) || Math.abs(a.dx) - Math.abs(b.dx),
-      );
+        return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      if (event.target !== event.currentTarget) return;
 
-    event.preventDefault();
-    const next = candidates[0]?.card;
-    if (next) focusTarget(next);
-  }, []);
+      // Only explicitly registered cards participate; inputs, dialogs and native controls stay native.
+      // Episode thumbnails animate; measure their stable card, and move to one primary action per episode.
+      const layout = cardLayout(event.currentTarget);
+      const origin = layout.getBoundingClientRect();
+      const panel = event.currentTarget.closest('[role="tabpanel"]');
+      const header = panel ? null : event.currentTarget.closest("header");
+      const horizontal = event.key === "ArrowLeft" || event.key === "ArrowRight";
+      const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+      const centerX = origin.left + origin.width / 2;
+      const candidates = available()
+        .filter(
+          (card) =>
+            cardLayout(card) !== layout &&
+            card.isConnected &&
+            !card.matches(":disabled, [aria-disabled=true]") &&
+            (panel
+              ? card.closest('[role="tabpanel"]') === panel
+              : card.closest("header") === header),
+        )
+        .map((card) => ({ card, rect: cardLayout(card).getBoundingClientRect() }))
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0)
+        .map(({ card, rect }) => {
+          const dx = rect.left + rect.width / 2 - centerX;
+          const dy = rect.top - origin.top;
+          return { card, dx, dy };
+        })
+        .filter(({ dx, dy }) =>
+          horizontal
+            ? Math.abs(dy) < 4 && (forward ? dx > 1 : dx < -1)
+            : forward
+              ? dy > 4
+              : dy < -4,
+        )
+        .toSorted((a, b) =>
+          horizontal
+            ? Math.abs(a.dx) - Math.abs(b.dx)
+            : Math.abs(a.dy) - Math.abs(b.dy) || Math.abs(a.dx) - Math.abs(b.dx),
+        );
+
+      event.preventDefault();
+      const next = candidates[0]?.card;
+      if (next) focusTarget(next);
+    },
+    [available],
+  );
   const loadMore = useCallback(async (trigger: HTMLElement, load: () => Promise<void>) => {
     const previous = new Set(cards.current);
     const hadFocus = document.activeElement === trigger;

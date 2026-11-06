@@ -9,12 +9,28 @@ import { nativeCall } from "@/lib/bridge";
 
 import type { PlayerSnapshot } from "./bridge";
 import { DownloadQueue } from "./download-queue";
+import { HomeDownloadSources } from "./home-sources";
 
 const KeepReplySchema = z.object({ ok: z.literal(true) });
 
-export function DownloadPanel({ snapshot }: { snapshot: PlayerSnapshot }) {
+export function DownloadPanel({
+  snapshot,
+  onManage,
+}: {
+  snapshot: PlayerSnapshot;
+  onManage?: () => void;
+}) {
   const client = useQueryClient();
   const sessionId = snapshot.sessionId;
+  const homeTarget =
+    snapshot.sourceKind === "direct" && snapshot.workId && snapshot.installmentId
+      ? {
+          workId: snapshot.workId,
+          title: snapshot.title,
+          installmentId: snapshot.installmentId,
+          episodeId: snapshot.episodeId ?? undefined,
+        }
+      : null;
   const keep = useMutation({
     mutationKey: ["native", "keep", sessionId],
     mutationFn: async () => {
@@ -47,8 +63,17 @@ export function DownloadPanel({ snapshot }: { snapshot: PlayerSnapshot }) {
           ? "احتفظ بالفيديو على جهازك من التورنت الجاري."
           : snapshot.sourceKind === "local"
             ? "هذا الفيديو موجود على جهازك بالفعل؛ لا يحتاج إلى تنزيل."
-            : "التنزيل متاح لمصادر التورنت."}
+            : homeTarget
+              ? "نزّل نسخة من ملف مكتبة المنزل لمشاهدتها دون اتصال."
+              : "هذا المصدر لا يوفّر تنزيل الفيديو."}
       </p>
+      {homeTarget && (
+        <HomeDownloadSources
+          onManage={onManage}
+          target={homeTarget}
+          onQueued={() => void client.invalidateQueries({ queryKey: ["native", "downloads"] })}
+        />
+      )}
       {snapshot.sourceKind === "torrent" && (
         <Button disabled={keep.isPending || keep.isSuccess} onClick={() => keep.mutate()}>
           {keep.isPending ? (
@@ -74,6 +99,16 @@ export function DownloadPanel({ snapshot }: { snapshot: PlayerSnapshot }) {
         </p>
       )}
       {keep.isSuccess && <DownloadQueue />}
+      {!homeTarget && (
+        <Button
+          nativeButton={false}
+          variant="outline"
+          render={<a href="#/downloads?view=library" />}
+          onClick={onManage}
+        >
+          إدارة الفيديوهات والتنزيلات
+        </Button>
+      )}
       {keep.error && (
         <Alert variant="destructive">
           <AlertTitle>تعذّر الاحتفاظ بالتنزيل</AlertTitle>

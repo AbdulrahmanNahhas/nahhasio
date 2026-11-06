@@ -88,11 +88,13 @@ function SettingsCard({
   description,
   children,
   footer,
+  horizontal = false,
 }: {
   title: string;
   description: string;
   children: ReactNode;
   footer?: ReactNode;
+  horizontal?: boolean;
 }) {
   return (
     <Card size="sm">
@@ -100,7 +102,15 @@ function SettingsCard({
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-start gap-4">{children}</CardContent>
+      <CardContent
+        className={
+          horizontal
+            ? "flex flex-wrap items-center justify-between gap-4"
+            : "flex flex-col items-start gap-4"
+        }
+      >
+        {children}
+      </CardContent>
       {footer && <CardFooter>{footer}</CardFooter>}
     </Card>
   );
@@ -244,6 +254,7 @@ function StorageSettings() {
   return (
     <>
       <SettingsCard
+        horizontal
         title="صور المكتبة المؤقتة"
         description="ذاكرة قابلة للإخلاء. الصور المحفوظة للعمل دون اتصال والفيديوهات لا تُحذف معها."
       >
@@ -267,6 +278,7 @@ function StorageSettings() {
         )}
       </SettingsCard>
       <SettingsCard
+        horizontal
         title="تنزيلات هذا الجهاز"
         description="الملفات المحفوظة مستقلة عن الذاكرة المؤقتة وعن تنزيلات أي جهاز آخر."
       >
@@ -280,10 +292,12 @@ function StorageSettings() {
             </Field>
           </FieldGroup>
         )}
-        <Button variant="outline" render={<a href="#/downloads" />}>
+        <Button nativeButton={false} variant="outline" render={<a href="#/downloads" />}>
           التنزيلات ومكتبة الجهاز
         </Button>
-        <CacheControl />
+        <div className="w-full">
+          <CacheControl />
+        </div>
       </SettingsCard>
     </>
   );

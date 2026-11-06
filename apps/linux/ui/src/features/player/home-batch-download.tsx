@@ -4,9 +4,11 @@ import {
   ServerMediaFilesSchema,
 } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ListVideo } from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -20,14 +22,24 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { nativeCall } from "@/lib/bridge";
 
+import { downloadLibraryOptions, downloadQueueOptions } from "./download-data";
 import { formatSourceSize } from "./source-format";
 
 export function HomeBatchDownload({ workId }: { workId: string }) {
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        تنزيل حلقات من مكتبة المنزل
+      <DialogTrigger
+        render={
+          <Button
+            variant="outline"
+            size="icon-lg"
+            aria-label="تنزيل حلقات من مكتبة المنزل"
+            title="اختيار حلقات لتنزيلها إلى الجهاز"
+          />
+        }
+      >
+        <ListVideo />
       </DialogTrigger>
       <DialogContent className="max-h-5/6 overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
@@ -44,6 +56,8 @@ export function HomeBatchDownload({ workId }: { workId: string }) {
 }
 function BatchSelection({ workId }: { workId: string }) {
   const client = useQueryClient();
+  const library = useQuery(downloadLibraryOptions());
+  const jobs = useQuery(downloadQueueOptions());
   const [selected, setSelected] = useState<string[]>([]);
   const files = useQuery({
     queryKey: ["viewer", "home-media", workId],
@@ -55,7 +69,26 @@ function BatchSelection({ workId }: { workId: string }) {
     files.data?.filter(
       (file) => file.availability === "present" && !file.isTrashed && Boolean(file.sha256),
     ) ?? [];
-  const picked = available.filter((file) => selected.includes(file.id));
+  const onDevice = (file: (typeof available)[number]) =>
+    library.data?.files.some(
+      (video) =>
+        video.available &&
+        video.target?.workId === workId &&
+        video.target.installmentId === file.installmentId &&
+        video.target.episodeId === file.episodeId,
+    );
+  const queued = (file: (typeof available)[number]) =>
+    jobs.data?.some((job) =>
+      job.exports.some(
+        (video) =>
+          video.target?.workId === workId &&
+          video.target.installmentId === file.installmentId &&
+          video.target.episodeId === file.episodeId,
+      ),
+    );
+  const picked = available.filter(
+    (file) => selected.includes(file.id) && !onDevice(file) && !queued(file),
+  );
   const action = useMutation({
     mutationFn: async () =>
       DeviceMediaBatchResultSchema.parse(
@@ -97,6 +130,7 @@ function BatchSelection({ workId }: { workId: string }) {
               setSelected(
                 available
                   .filter((file) => {
+                    if (onDevice(file) || queued(file)) return false;
                     const key = file.episodeId ?? file.installmentId;
                     if (seen.has(key)) return false;
                     seen.add(key);
@@ -114,8 +148,14 @@ function BatchSelection({ workId }: { workId: string }) {
               <Field key={file.id} orientation="horizontal">
                 <Checkbox
                   id={`batch-${file.id}`}
-                  checked={selected.includes(file.id)}
-                  disabled={action.isPending}
+                  checked={onDevice(file) || queued(file) || selected.includes(file.id)}
+                  disabled={
+                    library.isPending ||
+                    jobs.isPending ||
+                    action.isPending ||
+                    onDevice(file) ||
+                    queued(file)
+                  }
                   onCheckedChange={(checked) =>
                     setSelected((previous) =>
                       checked
@@ -134,6 +174,11 @@ function BatchSelection({ workId }: { workId: string }) {
                     )
                   }
                 />
+                {onDevice(file) ? (
+                  <Badge variant="secondary">محفوظة على الجهاز</Badge>
+                ) : queued(file) ? (
+                  <Badge variant="outline">في قائمة النقل</Badge>
+                ) : null}
                 <FieldLabel htmlFor={`batch-${file.id}`}>
                   {file.installmentTitle} · {file.episodeNumber ? `${file.episodeNumber} · ` : ""}
                   {file.episodeTitle ?? "فيلم"} · {formatSourceSize(file.byteSize ?? 0)}

@@ -14,7 +14,7 @@ export function ScrollShelf<T>({
   return (
     <div
       className={cn(
-        "grid min-w-0 scroll-fade-x grid-flow-col auto-rows-auto snap-x snap-proximity scroll-px-1 scrollbar-thin gap-4 overflow-x-auto overscroll-x-contain px-1 pt-1 pb-3",
+        "grid min-w-0 scroll-fade-x grid-flow-col auto-rows-auto snap-x snap-proximity scroll-px-1 scrollbar-thin gap-4 overflow-x-auto overscroll-x-contain px-1 pt-3 pb-3",
         layout === "banner"
           ? "auto-cols-72 sm:auto-cols-80"
           : "auto-cols-40 sm:auto-cols-44 xl:auto-cols-48",

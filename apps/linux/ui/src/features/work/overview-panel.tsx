@@ -124,13 +124,6 @@ export function OverviewPanel({ work, tracking }: { work: WorkDetail; tracking: 
           )}
         </div>
       )}
-      {work.curatorNotes?.trim() && (
-        <Disclosure title="ملاحظة المحرر">
-          <p className="text-base leading-loose whitespace-pre-line wrap-anywhere" dir="auto">
-            {work.curatorNotes}
-          </p>
-        </Disclosure>
-      )}
       {work.trivia.length > 0 && (
         <Section title="حقائق ومعلومات">
           <div className="grid gap-5 xl:grid-cols-2">

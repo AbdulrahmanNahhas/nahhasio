@@ -9,19 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { replaceParams, useViewerRoute } from "../shell/navigation";
 import { PublicPage } from "../shell/public-page";
 import { CacheControl } from "./cache-control";
 import {
@@ -35,11 +28,14 @@ import {
 import { DownloadQueue } from "./download-queue";
 import { SavedVideoRow } from "./saved-video-row";
 import { SavedWorks } from "./saved-works";
-import { offlineStatusOptions } from "./saved-works-data";
+import { offlineStatusOptions, savedWorksOptions } from "./saved-works-data";
 import { formatSourceSize } from "./source-format";
 
 export function DownloadsPage() {
+  const route = useViewerRoute();
+  const view = route.params.get("view") ?? "saved";
   const offline = useQuery(offlineStatusOptions());
+  const saved = useQuery({ ...savedWorksOptions(), enabled: Boolean(offline.data?.active) });
   const library = useQuery(downloadLibraryOptions());
   const jobs = useQuery(downloadQueueOptions());
   const [q, setQ] = useState("");
@@ -86,45 +82,21 @@ export function DownloadsPage() {
             أعمالك المحفوظة، فيديوهاتك، والتنزيلات على هذا الجهاز.
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger render={<Button variant="outline" size="sm" />}>
-            <HardDrive data-icon="inline-start" />
-            التخزين
-          </DialogTrigger>
-          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>التخزين على هذا الجهاز</DialogTitle>
-              <DialogDescription>الفيديوهات المحلية والملفات المؤقتة.</DialogDescription>
-            </DialogHeader>
-            <dl className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <dt className="text-xs text-muted-foreground">الفيديوهات المسجّلة</dt>
-                <dd className="text-lg font-semibold">
-                  {library.data ? formatSourceSize(library.data.usedBytes) : "—"}
-                </dd>
-              </div>
-              <div className="flex flex-col gap-1">
-                <dt className="text-xs text-muted-foreground">المساحة المتاحة</dt>
-                <dd className="text-lg font-semibold">
-                  {library.data?.freeBytes == null
-                    ? "غير متاح"
-                    : formatSourceSize(library.data.freeBytes)}
-                </dd>
-              </div>
-            </dl>
-            <p className="break-all text-xs text-muted-foreground" dir="ltr">
-              {library.data?.root ?? "جارٍ قراءة مجلد الحفظ…"}
-            </p>
-            {library.error && (
-              <Alert variant="destructive">
-                <AlertDescription>{library.error.message}</AlertDescription>
-              </Alert>
-            )}
-            <CacheControl />
-          </DialogContent>
-        </Dialog>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const params = new URLSearchParams(route.params);
+            params.set("view", "storage");
+            replaceParams("/downloads", params);
+          }}
+        >
+          <HardDrive data-icon="inline-start" />
+          إدارة المساحة
+        </Button>
       </header>
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <Badge variant="outline">{saved.data?.length ?? 0} عمل محفوظ</Badge>
         <span>{active} قيد النقل</span>
         <span>
           {library.data
@@ -137,18 +109,71 @@ export function DownloadsPage() {
             : `${formatSourceSize(library.data.freeBytes)} متاحة`}
         </span>
       </div>
-      <Tabs defaultValue={offline.data?.offline ? "saved" : "queue"}>
-        <TabsList className="h-auto max-w-full flex-wrap">
-          <TabsTrigger value="queue">
-            <Download data-icon="inline-start" /> النقل ({jobs.data?.length ?? 0})
+      <Tabs
+        value={view}
+        onValueChange={(next) => {
+          const params = new URLSearchParams(route.params);
+          params.set("view", next);
+          replaceParams("/downloads", params);
+        }}
+      >
+        <TabsList className="h-auto w-full flex-wrap" aria-label="مكتبة الجهاز">
+          <TabsTrigger value="saved" className="flex-1">
+            <Bookmark data-icon="inline-start" />
+            الأعمال ({saved.data?.length ?? 0})
           </TabsTrigger>
-          <TabsTrigger value="saved">
-            <Bookmark data-icon="inline-start" /> الأعمال المحفوظة
+          <TabsTrigger value="library" className="flex-1">
+            <HardDrive data-icon="inline-start" />
+            الفيديوهات ({library.data?.files.length ?? 0})
           </TabsTrigger>
-          <TabsTrigger value="library">
-            <HardDrive data-icon="inline-start" /> الفيديوهات ({groups.length})
+          <TabsTrigger value="queue" className="flex-1">
+            <Download data-icon="inline-start" />
+            النقل {active > 0 ? `(${active})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="storage" className="flex-1">
+            <HardDrive data-icon="inline-start" />
+            التخزين
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="storage" className="mt-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>مساحة هذا الجهاز</CardTitle>
+              <CardDescription>فيديوهاتك وبياناتك منفصلة عن مكتبة الخادم.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <dl className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <dt className="text-xs text-muted-foreground">الفيديوهات المسجّلة</dt>
+                  <dd className="text-lg font-semibold">
+                    {library.data ? formatSourceSize(library.data.usedBytes) : "—"}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <dt className="text-xs text-muted-foreground">المساحة المتاحة</dt>
+                  <dd className="text-lg font-semibold">
+                    {library.data?.freeBytes == null
+                      ? "غير متاح"
+                      : formatSourceSize(library.data.freeBytes)}
+                  </dd>
+                </div>
+              </dl>
+              <p className="break-all text-xs text-muted-foreground" dir="ltr">
+                {library.data?.root ?? "جارٍ قراءة مجلد الحفظ…"}
+              </p>
+              {library.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{library.error.message}</AlertDescription>
+                </Alert>
+              )}
+              <CacheControl />
+              <p className="text-sm text-muted-foreground">
+                لإزالة فيديو استخدم تبويب الفيديوهات. لإزالة بيانات عمل وصوره استخدم تبويب الأعمال.
+                تنظيف الملفات المؤقتة لا يزيل أيًّا منهما.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="queue" className="mt-5">
           <DownloadQueue compact={false} />
         </TabsContent>
