@@ -5,7 +5,7 @@ description: Write Arabic-first, spoiler-safe reviews of films, TV, anime, manga
 
 # Media Review — Portable Single-File Edition
 
-Version 2.8 · 2026-11-02. This file is the complete skill: copy or share it alone. No companion references, provider-specific package, or local assets are required.
+Version 2.9 · 2026-11-02. This file is the complete skill: copy or share it alone. No companion references, provider-specific package, or local assets are required.
 
 Produce trustworthy, well-written, Arabic-first reviews with the clarity and visual discipline of a polished editorial interface. Default language is Modern Standard Arabic (العربية الفصحى) unless the user asks for another language.
 
@@ -20,7 +20,7 @@ These rules hold in every review, whatever the medium or layout.
 - **Spoiler-safe by default.** Respect the exact episode, season, chapter, volume, act, quest, or ending the user has reached. Do not hint at unreached twists, including in button labels and follow-up titles.
 - **Grounded facts.** Keep verified information, editorial interpretation, and uncertainty distinct. Never invent sources, scores, covers, dub availability, credits, content warnings, dates, URLs, or tracker statuses. Never infer "none" from silence.
 - **Stable essentials.** The fixed scoring axes for each medium, exactly three suitability categories, one consistent overall score, and the independent final recommendation do not change with design variations.
-- **Clarity with visual polish.** Strong hierarchy, comfortable spacing, accessible contrast, authentic artwork, and purposeful cards and badges. Preserve the host's visual identity rather than imposing one component library or CSS theme.
+- **Clarity with visual polish.** Prefer a light editorial flow integrated with the host: readable typography, meaningful icons, restrained dividers, spaced badges, and selective containers. Do not turn every section into a large card. Preserve the host's identity rather than imposing a component library, black background, or purple theme.
 
 ## Arabic-first rule
 
@@ -69,11 +69,13 @@ Use this order by default. Interior layout may adapt; the Arabic opening, scorin
 
 Positive: **أنصح به بشدة / أنصح به**. Qualified: **بشروط / بتحفظ**. Negative: **لا أنصحك به / غير موصى به لك**. Colors are green, amber, red, and every color carries a readable label. Do not change an anime or media tracker status unless explicitly asked.
 
+Choose one personal recommendation and repeat its exact label and meaning in the hero and final verdict. If a boundary makes the recommendation conditional, show the qualified label in both places; do not begin with a green personal recommendation and end with an undisclosed reservation. Artistic praise belongs in the editorial assessment and must not override personal suitability. When the user's decisive preference is unknown, state the condition without pretending to know their choice.
+
 ## Rendering
 
 Use this file as a portable editorial contract, not an application tied to one provider. Prefer supported native cards, badges, links, and chat actions; use HTML/artifacts when useful and available; use Markdown when rich output is unavailable. Follow the host's component, theme, security, and tool instructions. Do not install a framework, launch a server, or require another skill merely to display a review.
 
-In rich output, use purposeful bordered or surfaced cards, spaced badges, compact borderless score rows, and real follow-up actions. These are design intentions, not identical markup across ChatGPT, T3 Code, Claude, or future hosts. In Markdown, preserve the same content with a compact two-column score table, normal links, and numbered follow-up prompts. Never print unsupported component syntax or disguise local UI changes as a sent message. Full rules are in the **Visual presentation across hosts** section below and the **Related works, verdict, and follow-up exploration** section below.
+In rich output, prefer open sections, meaningful icons, subtle dividers, spaced badges, compact borderless score rows, and real follow-up actions. Use cards selectively to clarify grouping, not as a default wrapper for every section. These are design intentions, not identical markup across ChatGPT, T3 Code, Claude, or future hosts. In Markdown, preserve the same content with a compact two-column score table, normal links, and numbered follow-up prompts. Never print unsupported component syntax or disguise local UI changes as a sent message. Full rules are in the **Visual presentation across hosts** section below and the **Related works, verdict, and follow-up exploration** section below.
 
 ## Scoring policy and fixed medium profiles
 
@@ -164,9 +166,18 @@ Documentaries, interactive fiction, visual novels, audio dramas and the like: ch
 
 - The **synopsis** names the premise, relevant characters, initiating conflict, central aim, and distinctive setup, **without outcomes or hints about future revelations**. For gameplay-first media, describe the player's goals, core mechanics, and experience instead.
 - Criticism explains **how and why** something works or fails: narrative causality, character motives, thematic tension, visual direction, animation, dialogue, music, prose, combat feel, level design. Avoid generic praise, stock clichés, unsupported certainty, and comparisons that share only a genre.
+- Give the opening and takeaway a critical position, not a list of flattering adjectives or themes. Support major observations with a verified, spoiler-safe detail and explain its effect. Invented examples are worse than a candidly limited claim; do not manufacture scene descriptions to sound specific.
 - **Strengths:** typically 3–5, up to 6 if genuinely distinct. **Weaknesses:** typically 1–4, up to 6 if justified. Fewer, or even none, only if honest examination supports it. Never invent faults or pad praise.
 - Keep each icon-and-text observation focused: usually 2 specific sentences (1–3 as needed), one clear claim plus one explanation or illustration. Cut digressions, not reasoning. Unusually complicated points may run longer.
 - Judge an adaptation on its own execution, not the reputation of its source. Respect the medium: do not judge novels for sound, realistic dramas for fantasy lore, or noncombat games for missing combat.
+
+#### Writing calibration
+
+These are hypothetical wording examples, not factual claims about a particular work:
+
+- Weak: «إخراج استثنائي وموسيقى رائعة وشخصيات عميقة.» It gives verdicts without reasons.
+- Stronger: «يستخدم تكرار المكان نفسه مع اختلاف الإضاءة لإظهار تغيّر العلاقة، بينما تختصر بعض الانتقالات مرحلة كان تطور الشخصيات يحتاج إلى بقائها.» It connects a formal choice to its effect and identifies a specific limitation; use this level of specificity only when supported by the actual work.
+- A lower overall score is not automatically more honest. Check that axis scores, the stated weaknesses, and the final judgment express the same assessment rather than rewarding a harsher tone.
 
 ### Deep works: «الأسئلة الفلسفية» or a fitting title
 
@@ -214,12 +225,15 @@ Where relevant and reliably supported, describe nudity, explicit or implied sexu
 
 Cover relevant fights and injuries, blood and gore, torture, disturbing or horror imagery, suicide or self-harm themes, psychological distress, disgusting scenes, and profanity or strong language. **Distinguish visual graphicness from emotional intensity**: a work can be psychologically heavy with little blood. Add detail when frequency or intensity materially affects suitability.
 
+Calibrate the level to the described evidence: brief non-graphic peril or mild distress may be low; sustained fear, disturbing threats, or emotionally intense loss may justify medium even without gore. High requires prominent or severe material. Consider intensity, duration, frequency, and narrative centrality together; danger, sadness, or a disaster premise alone does not determine the badge. Briefly identify what drives a meaningful caution so the label does not contradict the description. These are calibration anchors, not automatic classifications of any title.
+
 ### 3) المخالفات العقدية للإسلام
 
 Apply the user's **specific screening focus**, not a general ban on fantasy.
 
 - Principal concern: **تجسيد الآلهة**, meaning gods shown as embodied or personified characters, or similarly explicit and central theological portrayals the screening standard treats as problematic.
 - Mentioning mythological gods or a fictional religion, background worship or rituals, supernatural events, powers, spells, or magic **does not automatically trigger the concern**. Assess what is shown and its role in the story.
+- Do not assign even a low level solely for background rituals or supernatural premises excluded by this criterion. A nonzero level needs verified content that actually meets the specified concern. If verification is insufficient, use the uncertainty label rather than guessing either a concern or its absence.
 - If no relevant concern is verified, use **«لا يوجد»** with a simple line such as **«لا توجد مخالفات عقدية بارزة ضمن هذا المعيار.»** Do not add an explanation of why fictional beliefs or passing references do not qualify.
 - If something genuinely relevant appears, explain it plainly and assign a proportional badge.
 - Internal calibration only (never repeat as a disclaimer): fictional faiths in *Game of Thrones* do not automatically warrant a high rating, and supernatural elements in *Clair Obscur: Expedition 33* do not automatically count as deity personification. Verify every work independently.
@@ -327,11 +341,11 @@ Combine capabilities: rich content may use native chat suggestions outside its a
 ### Hierarchy, cards, and density
 
 - Use the host's spacing, typography, radii, neutral surfaces, and restrained accent styling.
-- **Cards and borders are welcome.** Prefer a subtle bordered or surfaced hero, a grouped suitability card with internal dividers, compact related-work cards, and a distinct verdict card. Analysis can use grouped cards or open sections. Avoid nesting every paragraph in a card.
+- **Default to open editorial sections.** Use headings, whitespace, and thin dividers to establish hierarchy. A compact hero treatment, a shared suitability container, or a verdict card may help, but no section requires a border simply because a card component exists. Avoid repeating large framed panels for hero, ratings, related works, and verdict in succession.
 - **Only individual score rows must remain borderless.** The ratings section may sit in a shared card. This is not a ban on borders elsewhere.
 - Give cards real internal padding and sections consistent vertical separation. Borders should remain distinguishable from canvas and card surface in light and dark themes.
 - Respect outer-canvas rules. If the host prohibits an outer background or card, apply grouping only to interior sections.
-- Keep body text readable. Stack the hero and related-work cards when needed; avoid horizontal scrolling, clipped controls, and a small fixed-height internal scroller for a long review when natural height is available.
+- Keep body text readable. Use a compact poster-and-metadata layout that neither leaves an excessively empty side nor inserts large vertical gaps. Stack when narrow. Avoid horizontal scrolling, clipped controls, and a small fixed-height internal scroller for a long review when natural height is available.
 
 ### Badges and spacing
 
@@ -354,15 +368,16 @@ Combine capabilities: rich content may use native chat suggestions outside its a
 
 - Prefer **two columns, no individual tiles or borders**: four rows per column for eight axes, three for six. Preserve fixed axis order in logical reading order, including accessible order.
 - Show the full label, aligned one-decimal score, and slim meter. Stack only when readability requires. A shared enclosing card is allowed.
-- Meter fill matches the 0–10 scale. Use subtle tracks and a restrained palette adapted to host tokens: teal for exceptional, blue for very good, muted gold for good, subdued caution below that. Numbers remain authoritative.
+- Meter fill matches the 0–10 scale. Prefer one restrained host accent, or a stable grade palette: teal for 9–10, blue for 8–8.9, muted gold for 7–7.9, subdued caution below that. Do not arbitrarily change colors between nearby scores within the same band. Numbers remain authoritative.
+- Keep label, score, and meter in one unmistakable group with enough space between columns. A number must not appear to label the neighboring criterion. Preserve readable numeric direction in RTL.
 - Give meters accessible labels/values or hide decorative bars from assistive technology when adjacent text conveys the same information.
 - Heading: «التقييم التفصيلي». No methodology paragraph, radar plot, duplicate dashboard, or ornamental legend. Overall score appears in hero and verdict.
 
 ### Analysis, suitability, and related works
 
-- Strengths and weaknesses share consistent icons, brief headings, and explanatory text. Use host icons when available; avoid a new card or arbitrary color for every observation.
-- One suitability card contains exactly three rows with dividers, spaced severity badges, and sufficient explanation. Never truncate warnings for card symmetry.
-- Related works may use compact bordered cards or separated rows with authentic portrait covers (roughly 70–85 px), Arabic titles, similarity and distinction. Stack as needed. If artwork fails or cannot be verified, use a clean text entry without a broken image slot.
+- Strengths and weaknesses share consistent icon placement, brief headings, and explanatory text. Prefer meaningful icons from the host's existing system; do not use the same decorative diamond for unrelated roles. A consistent positive/negative marker is acceptable within analytical observations. Avoid a new card or arbitrary color for every point.
+- Suitability contains exactly three rows with dividers, spaced severity badges, and sufficient explanation; one light shared container is optional. Never truncate warnings for card symmetry.
+- Prefer compact related-work rows with authentic portrait covers (roughly 70–85 px), Arabic titles, similarity and distinction, and a small database link-button. Do not inflate each entry with a separate full-width button line and large padding. Cards are optional when they improve grouping. If artwork fails or cannot be verified, use a clean text entry without a broken image slot.
 - Watch/read/play status appears only when known. Related-work cards are not automatically recommendations or navigation controls.
 
 ### References and actions
@@ -381,7 +396,7 @@ If preview fails, distinguish inspection failure from rendering support. Use a d
 
 ### Compact hero: visual hierarchy
 
-Keep the useful bordered card and poster, but avoid a large empty panel. Group title/international title, essential metadata, credits/language, genre badges, then score/recommendation and database links. Use content-driven height and consistent spacing rather than large margins between every line. Long international titles may wrap; keep Latin text aligned within the RTL composition rather than detached at the opposite edge.
+Use a compact poster-and-metadata composition, with an optional subtle boundary. Group title/international title, essential metadata, credits/language, genre badges, then score/recommendation and database links. Use content-driven height and consistent spacing rather than large margins between every line. Long international titles may wrap; keep Latin text aligned within the RTL composition rather than detached at the opposite edge. Keep credits economical and show the studio plainly; omit research narration such as «بيانات الإنتاج مثبتة بحسب…» and attach discreet citations instead.
 
 Use real neutral genre pills, not unstyled words spaced across a row. Secondary metadata may be muted but must remain readable. Link-buttons need legible foregrounds and boundaries; low-contrast purple underlines on dark surfaces are not preferred. Keep the score prominent without dominating poster and title. Exact colors, fonts, radii, and dimensions follow the host.
 
@@ -405,7 +420,7 @@ When verified, spoiler-safe artwork adds useful context, include a compact galle
 
 ### Final verdict
 
-- Compact conclusion with **the same editorial `x.x/10` as the hero** and a separate recommendation badge (**أنصح به بشدة / أنصح به**, **بشروط / بتحفظ**, **لا أنصحك به / غير موصى به لك**).
+- Compact conclusion with **the same editorial `x.x/10` and exact personal recommendation label as the hero**. A condition in the final text must agree with the badge shown at the beginning, not introduce a different personal verdict.
 - **2–4 grounded sentences**: artistic merit, the important drawback, and why *this user* should engage or avoid. A high editorial score may sit beside a red recommendation.
 - Do not change an anime or media tracker status unless explicitly asked.
 
@@ -422,6 +437,8 @@ When verified, spoiler-safe artwork adds useful context, include a compact galle
 ### Launcher design: five conversation action rows
 
 Use a vertical list under «استكشف المزيد»: **one meaningful line icon at the right**, **a concise title with one short supporting description**, and **a left-pointing chevron at the far left** in RTL. The entire row is one keyboard-accessible action with a comfortable hit area, consistent spacing, and visible focus. Light separators, a subtle hover surface, or native host treatment are acceptable; large bordered cards are unnecessary here.
+
+Treat the whole row as a button, not a small button placed inside a static row. Keep these five options visually light and scan-friendly; do not replace them with five large cards. A screenshot proves appearance only, not successful message delivery; claim sending works only when documented wiring or actual behavior supports it.
 
 **These are conversation actions, not accordions.** Clicking should send the full follow-up message through a documented chat action. Do not replace sending with disclosure triangles, expandable prompt panels, numbered copy instructions, or exposed full prompts when sending is supported. A navigation chevron communicates continuing the conversation; it is not a disclosure indicator.
 
@@ -488,8 +505,8 @@ Rules that apply to all of them:
 - [ ] Philosophical section only when depth warrants it.
 - [ ] Exactly three suitability categories in order, correct four labels, neutral "معلومات غير كافية" only when unverified; the Islamic-creed row is brief when clear.
 - [ ] Three genuine related works with similarity and distinction, or fewer.
-- [ ] Verdict repeats the hero score and gives an independent recommendation.
-- [ ] Cards have clear boundaries and padding; badges have real gaps and wrap without collisions; genres may use neutral badges. Respect the host's own visual identity.
+- [ ] Verdict repeats both the hero score and exact personal recommendation label; conditions agree in both places.
+- [ ] Open sections and selective containers keep the review light; any cards have clear boundaries and moderate padding. Badges have real gaps and wrap without collisions; genres may use neutral badges. Respect the host's identity.
 - [ ] Five distinct follow-ups, including comparison with all displayed related works; short button labels map to fuller, spoiler-safe messages. Send, draft, copy, and local controls are not confused.
 - [ ] Real reference links use compact link-buttons where supported; claim-level citations remain traceable. No broken images, fake controls, or unsupported syntax.
 - [ ] Verify rendering and interaction when tools allow; do not claim checks passed if preview or action testing failed. Fall back only for the affected capability.
@@ -498,5 +515,8 @@ Rules that apply to all of them:
 - [ ] Follow-ups use icon/title/description/RTL-chevron action rows, not accordions; each sends a distinct contextual message where supported.
 - [ ] Artwork uses verified remote URLs without downloading or base64; optional galleries are compact, attributed where required, and spoiler-safe.
 - [ ] This file contains all required guidance with no companion-file dependency.
+- [ ] Major criticism connects a supported detail to its effect; no adjective-only praise or invented examples. Scores and stated weaknesses agree.
+- [ ] Warning levels agree with their explanations; background rituals alone do not raise the theological level, and non-graphic distress is calibrated by intensity and duration.
+- [ ] Related works remain compact, icons convey their roles, and score labels cannot be confused across columns.
 
-*Guideline set version 2.8 (2026-11-02).*
+*Guideline set version 2.9 (2026-11-02).*
