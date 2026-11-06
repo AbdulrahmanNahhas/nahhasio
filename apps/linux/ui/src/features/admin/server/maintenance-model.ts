@@ -19,6 +19,8 @@ const operations = {
   restore: "استعادة نسخة",
   "check-update": "فحص التحديثات",
   update: "تحديث الخادم",
+  "upgrade-schema": "ترقية مخطط البيانات",
+  "configure-backups": "تعديل سياسة النسخ",
 };
 export const operationLabel = (value: string) =>
   Object.entries(operations).find(([key]) => key === value)?.[1] ?? "عملية صيانة";

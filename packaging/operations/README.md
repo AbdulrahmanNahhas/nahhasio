@@ -65,6 +65,8 @@ A completed backup directory contains:
 - `configuration.tar.gz`: private provider settings.
 - `host-recovery.tar.gz`: fixed host TLS/credential/environment files, for operator machine recovery.
 - `installation.json`: selected host layout, application version and image reference.
+- `media-operations.tar.gz` and `media-inventory.json`: import/recovery journals and registered media identities when managed media is configured; video bytes are excluded.
+- `backup-policy.json`: the daily schedule/retention intent, if explicitly configured.
 - `manifest.json`: SHA-256 hashes, byte size, schema/application version, server identity and every
   public-table row count.
 
@@ -72,7 +74,7 @@ Temporary backups are hidden and never listed as usable backups. Failed backups 
 Every registered artwork record is checked in bounded pages against a contained regular file,
 its recorded size and SHA-256 before publication. Missing, altered or symlinked originals fail
 the backup; an archive checksum alone does not certify recoverable artwork.
-The worker checks available space before capture. It keeps seven successful daily backups and
+The worker checks available space before capture. It defaults to seven successful daily backups (configurable from 1–30 in the app) and
 the two newest checkpoints for each of `before-update` and `before-restore`. Manual backups remain
 until deliberately removed by the operator. No automatic artwork or video purge is performed.
 
@@ -157,8 +159,33 @@ systemctl --user enable --now nahhasio-update.timer
 ```
 
 The update timer queues compatible application updates around 05:00. A different schema fingerprint
-reports `maintenance-required` and performs no update or implicit migration. PostgreSQL image/major
-version upgrades are separate. Compatible updates pull the signed digest, create a recovery backup,
+reports `maintenance-required` and performs no update or implicit migration. The app offers a separate
+`upgrade-schema` review only when the worker advertises that capability. Confirm the exact signed
+release version; a changed release requires review again. The worker stops API/media writers,
+captures a verified backup, restores its dump into a unique staging database, checks the candidate
+CLI migration fingerprint against the signed manifest, applies the canonical additive migrations,
+and verifies existing table counts, server identity and registered artwork. Only then does it rename
+the databases and activate the candidate. The old database is retained. A journal recovers either
+interrupted rename before metadata commit; readiness failure restores both the database and image.
+The media worker starts after readiness and the durable installation commit. It cannot acquire
+files while a candidate database is being tested. Staging needs another database copy and at least
+5 GiB of reserve space. A PostgreSQL container on another filesystem must also have enough space.
+
+Changing the schedule uses the fixed `configure-backups` operation: `dailyEnabled` and
+`retainDaily` (integer 1–30), with no shell/path input. It reconciles only `nahhasio-backup.timer`,
+persists private intent and retries reconciliation after worker restart. The app shows actual timer
+activity separately from intended scheduling. Manual copies and two checkpoints per reason are
+protected; reducing retention takes effect after another successful backup. The persistent timer
+catches missed schedules after boot.
+
+An existing 0.1.3 installation needs the signed 0.2.0 host-tool bootstrap once, using its selected
+config root, before this new operation is available. The old API cannot accept it. Review/install the
+verified bundle with `maintenance-install`, reload/restart the maintenance service, and confirm its
+capabilities. Do not overwrite an immutable installed tools version with a different build. Prepare
+media roots with `media-prepare` as documented in the server installer; this does not start services.
+Production bootstrap, release publication and activation remain separate approved steps.
+
+PostgreSQL image/major version upgrades are separate. Compatible updates pull the signed digest, create a recovery backup,
 write the image override, reload the Quadlet and await the HTTPS health check. Failed activation
 restores the previous override/image. A journal handles interruption before metadata commit.
 Image rollback never pretends to reverse a database migration.
@@ -181,8 +208,11 @@ The worker only accepts version-1 requests with known fields and canonical UUIDs
 }
 ```
 
-Operations are `backup`, `restore`, `check-update`, `update`. Restore parameters may be omitted or
-null for other operations. Public status includes only backup IDs/dates/sizes/versions, update
+Operations are `backup`, `restore`, `check-update`, `update`, `upgrade-schema` and `configure-backups`.
+Restore uses `backupId` and matching `confirmation`; schema upgrades use the confirmed release
+version; backup policy accepts only the two fixed fields. Other operation-specific fields must be
+omitted/null. Older workers receive no new optional fields. Public status includes only backup
+IDs/dates/sizes/versions, supported operation names, backup policy/timer state, update
 status and job stages/results. It never returns credential values, raw subprocess stderr or host
 filesystem paths. Jobs survive API shutdown; a reconnect reads their result. No generic shell,
 upload/extraction or service-management endpoint is exposed.

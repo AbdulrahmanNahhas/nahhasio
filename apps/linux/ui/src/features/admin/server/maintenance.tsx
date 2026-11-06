@@ -30,22 +30,17 @@ import {
 } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldContent,
-  FieldDescription,
-} from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { gateway } from "@/lib/bridge";
 
 import { formatAdminDate as date, formatAdminBytes as size } from "../format";
+import { BackupPolicy } from "./backup-policy";
 import { stateLabel } from "./maintenance-model";
 import { serverOperationsQuery } from "./queries";
+import { RecoveryGuide } from "./recovery-guide";
 
 const operationsKey = serverOperationsQuery().queryKey;
 function Failure({ error }: { error: Error }) {
@@ -93,6 +88,9 @@ export function ServerMaintenance({
       </div>
     );
   const data = status.data;
+  const schemaUpgrade = data.update.state === "maintenance-required";
+  const canUpgrade = data.supportedOperations?.includes("upgrade-schema") === true;
+  const canConfigureBackups = data.supportedOperations?.includes("configure-backups") === true;
   return (
     <div className="flex h-full min-w-0 flex-col gap-4">
       {action.isError && <Failure error={action.error} />}
@@ -198,38 +196,22 @@ export function ServerMaintenance({
                   ))}
               </div>
             )}
-            <Collapsible>
-              <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
-                خيارات النسخ القادمة
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-3">
-                <FieldGroup>
-                  <Field orientation="horizontal" data-disabled>
-                    <FieldContent>
-                      <FieldLabel htmlFor="scheduled-backups">
-                        نسخ احتياطية مجدولة <Badge variant="outline">قريبًا</Badge>
-                      </FieldLabel>
-                      <FieldDescription>مواعيد دورية دون الحاجة إلى فتح التطبيق.</FieldDescription>
-                    </FieldContent>
-                    {/* TODO(server-backup-schedule): Add server-owned scheduling, timezone and persisted policy before enabling. */}
-                    <Switch id="scheduled-backups" disabled checked={false} />
-                  </Field>
-                  <Field data-disabled>
-                    <FieldLabel htmlFor="backup-retention">
-                      عدد النسخ المحتفَظ بها <Badge variant="outline">قريبًا</Badge>
-                    </FieldLabel>
-                    {/* TODO(server-backup-retention): Add reviewed retention rules that protect recovery and upgrade backups. */}
-                    <Input
-                      id="backup-retention"
-                      type="number"
-                      min={1}
-                      disabled
-                      placeholder="لم تُضبط سياسة احتفاظ"
-                    />
-                  </Field>
-                </FieldGroup>
-              </CollapsibleContent>
-            </Collapsible>
+            {data.backupPolicy && (
+              <Collapsible>
+                <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                  الجدولة والاحتفاظ
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <BackupPolicy
+                    policy={data.backupPolicy}
+                    disabled={busy || !data.available || !canConfigureBackups}
+                    onSave={(backupPolicy) =>
+                      action.mutate({ operation: "configure-backups", backupPolicy })
+                    }
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </CardContent>
           <CardFooter>
             <p className="text-xs text-muted-foreground">
@@ -274,6 +256,9 @@ export function ServerMaintenance({
             {data.update.message && (
               <p className="mt-4 text-sm text-muted-foreground">{data.update.message}</p>
             )}
+            <div className="mt-4">
+              <RecoveryGuide view="updates" needsSetup={!data.available || !canUpgrade} />
+            </div>
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2">
             <Button
@@ -285,17 +270,25 @@ export function ServerMaintenance({
               فحص التحديثات
             </Button>
             <Button
-              disabled={!data.available || busy || data.update.state !== "available"}
+              disabled={
+                !data.available ||
+                busy ||
+                (schemaUpgrade ? !canUpgrade : data.update.state !== "available")
+              }
               onClick={() => {
                 action.reset();
+                setConfirmation("");
                 setUpdateReview(true);
               }}
             >
               <Download data-icon="inline-start" />
-              تثبيت التحديث
+              {schemaUpgrade ? "مراجعة ترقية المخطط" : "تثبيت التحديث"}
             </Button>
           </CardFooter>
         </Card>
+      )}
+      {view === "backups" && (
+        <RecoveryGuide view="backups" needsSetup={!data.available || !canConfigureBackups} />
       )}
       <AlertDialog
         open={restore !== null}
@@ -361,7 +354,9 @@ export function ServerMaintenance({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تثبيت تحديث الخادم</AlertDialogTitle>
+            <AlertDialogTitle>
+              {schemaUpgrade ? "ترقية مخطط البيانات والخادم" : "تثبيت تحديث الخادم"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               قد يتوقف الاتصال مؤقتًا أثناء التحديث. يتحقق الخادم من توقيع الإصدار وتوافق البيانات،
               وتستمر العملية بعد إغلاق التطبيق.
@@ -381,12 +376,40 @@ export function ServerMaintenance({
               </dd>
             </div>
           </dl>
+          {schemaUpgrade && (
+            <Field>
+              <FieldLabel htmlFor="schema-confirmation">
+                اكتب الإصدار {data.update.availableVersion} لتأكيد ترقية النسخة المنفصلة والتبديل
+                إليها
+              </FieldLabel>
+              <Input
+                id="schema-confirmation"
+                dir="ltr"
+                autoComplete="off"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                disabled={busy}
+              />
+            </Field>
+          )}
           {action.isError && <Failure error={action.error} />}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={action.isPending}>إلغاء</AlertDialogCancel>
             <Button
-              disabled={busy || !data.available || data.update.state !== "available"}
-              onClick={() => action.mutate({ operation: "update" })}
+              disabled={
+                busy ||
+                !data.available ||
+                (schemaUpgrade
+                  ? !canUpgrade || confirmation !== data.update.availableVersion
+                  : data.update.state !== "available")
+              }
+              onClick={() =>
+                action.mutate(
+                  schemaUpgrade
+                    ? { operation: "upgrade-schema", confirmation }
+                    : { operation: "update" },
+                )
+              }
             >
               تأكيد تثبيت التحديث
             </Button>

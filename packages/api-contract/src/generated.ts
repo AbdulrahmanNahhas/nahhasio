@@ -3275,6 +3275,15 @@ export const InstalledUpdateSchema = z.strictObject({
 });
 export type InstalledUpdate = z.infer<typeof InstalledUpdateSchema>;
 
+export const ServerBackupPolicyStatusSchema = z.strictObject({
+  dailyEnabled: z.boolean(),
+  retainDaily: z.number().int().min(1).max(30),
+  timerActive: z.boolean(),
+  schedule: z.string(),
+  retainCheckpoints: z.number().int(),
+});
+export type ServerBackupPolicyStatus = z.infer<typeof ServerBackupPolicyStatusSchema>;
+
 export const ServerOperationsSchema = z.strictObject({
   version: z.number().int(),
   available: z.boolean(),
@@ -3282,14 +3291,30 @@ export const ServerOperationsSchema = z.strictObject({
   update: InstalledUpdateSchema,
   activeJob: MaintenanceJobSchema.nullable(),
   lastJob: MaintenanceJobSchema.nullable(),
+  supportedOperations: z.array(z.string()).optional(),
+  backupPolicy: ServerBackupPolicyStatusSchema.optional(),
 });
 export type ServerOperations = z.infer<typeof ServerOperationsSchema>;
 
+export const ServerBackupPolicySchema = z.strictObject({
+  dailyEnabled: z.boolean(),
+  retainDaily: z.number().int().min(1).max(30),
+});
+export type ServerBackupPolicy = z.infer<typeof ServerBackupPolicySchema>;
+
 export const ServerOperationRequestSchema = z.strictObject({
   id: z.string().uuid(),
-  operation: z.enum(["backup", "restore", "check-update", "update"]),
+  operation: z.enum([
+    "backup",
+    "restore",
+    "check-update",
+    "update",
+    "upgrade-schema",
+    "configure-backups",
+  ]),
   backupId: z.string().max(80).optional(),
   confirmation: z.string().max(80).optional(),
+  backupPolicy: ServerBackupPolicySchema.optional(),
 });
 export type ServerOperationRequest = z.infer<typeof ServerOperationRequestSchema>;
 

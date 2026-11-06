@@ -107,6 +107,9 @@
       NAHHASIO_BROWSER_SERVER_ID=97900000-0000-4000-8000-000000000001 \
       NAHHASIO_BROWSER_CA_FILE= pnpm --filter @nahhasio/linux-ui dev
   '';
+  scripts.nahhasio-test-recovery.exec = ''
+    exec bash "${config.devenv.root}/bin/test-server-recovery"
+  '';
   scripts.nahhasio-storage.exec = ''
     du -h -d 1 "${config.devenv.root}" | sort -h
   '';

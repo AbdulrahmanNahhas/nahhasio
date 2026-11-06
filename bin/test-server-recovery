@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Socket-only disposable cluster; ignores every ambient production/development database URL.
+set -euo pipefail
+fixture_root="$(mktemp -d /tmp/nahhasio-recovery.XXXXXXXX)"
+chmod 700 "$fixture_root"
+cleanup() {
+  if pg_ctl -D "$fixture_root/database" status >/dev/null 2>&1; then
+    pg_ctl -D "$fixture_root/database" -m immediate -w stop >/dev/null
+  fi
+  rm -rf -- "$fixture_root"
+}
+trap cleanup EXIT
+initdb -D "$fixture_root/database" -U nahhasio_fixture --auth=trust --no-instructions >"$fixture_root/init.log"
+pg_ctl -D "$fixture_root/database" -l "$fixture_root/postgres.log" -o "-k $fixture_root -h '' -p 25486" -w start >/dev/null
+cargo build --locked -p nahhasio-cli
+NAHHASIO_RECOVERY_FIXTURE_ROOT="$fixture_root" python3 -m unittest discover -s packaging/release -p test_recovery_postgres.py -v

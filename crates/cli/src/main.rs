@@ -353,6 +353,9 @@ async fn run(args: &ArgMatches) -> Result<Value> {
         return Ok(editor::template());
     }
 
+    if text(args, "resource") == Some("migrate") && text(args, "action") == Some("fingerprint") {
+        return Ok(json!({"schemaVersion":migrations::fingerprint()}));
+    }
     if text(args, "resource") == Some("migrate") && text(args, "action") == Some("manifest") {
         return Ok(migrations::manifest(&migrations::bundled()?));
     }

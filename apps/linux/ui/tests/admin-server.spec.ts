@@ -7,6 +7,7 @@ declare global {
     fixtureLibraryCalls: LibraryCall[];
     fixtureMediaCalls: { command: string; payload: Record<string, string> }[];
     fixtureMaintenanceCalls: ServerOperationRequest[];
+    fixtureOperationsMode?: "schema" | "policy";
   }
 }
 import { expect, test } from "@playwright/test";
@@ -203,7 +204,10 @@ test.beforeEach(async ({ page }) => {
                     },
                   ],
                   update: {
-                    state: "available",
+                    state:
+                      window.fixtureOperationsMode === "schema"
+                        ? "maintenance-required"
+                        : "available",
                     currentVersion: "0.1.2",
                     availableVersion: "0.1.3",
                     message: "إصدار تجريبي جاهز للمراجعة",
@@ -219,6 +223,24 @@ test.beforeEach(async ({ page }) => {
                     : null,
                   lastJob: null,
                 };
+                if (window.fixtureOperationsMode)
+                  Object.assign(result, {
+                    supportedOperations: [
+                      "backup",
+                      "restore",
+                      "check-update",
+                      "update",
+                      "upgrade-schema",
+                      "configure-backups",
+                    ],
+                    backupPolicy: {
+                      dailyEnabled: true,
+                      retainDaily: 7,
+                      timerActive: true,
+                      schedule: "04:00",
+                      retainCheckpoints: 2,
+                    },
+                  });
                 break;
               case "requestServerOperation":
                 maintenanceCalls.push(request.payload);
@@ -390,7 +412,8 @@ test("overview uses server status and settings save name and write-only keys", a
   await page.getByRole("button", { name: "تفاصيل الخادم", exact: true }).click();
   await expect(page.getByText("متوافق", { exact: true })).toBeVisible();
   await expect(page.getByText("يحتاج إلى تجهيز", { exact: true }).first()).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/admin-server-overview.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-server-overview.png" });
   await page.getByRole("link", { name: "إعدادات الخادم", exact: true }).click();
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(page.getByRole("table")).toHaveCount(0);
@@ -411,10 +434,12 @@ test("overview uses server status and settings save name and write-only keys", a
   await expect(card.getByText("غير مفعّل", { exact: true })).toBeVisible();
   await card.getByRole("button", { name: "استخدام إعداد البيئة", exact: true }).click();
   await expect(card.getByText("يستخدم إعداد بيئة الخادم إن وُجد.", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/admin-server-settings.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-server-settings.png" });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "../../../data/previews/admin-server-settings-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-server-settings-narrow.png" });
   await page.setViewportSize({ width: 360, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -684,7 +709,8 @@ test("overview prioritizes editorial work, provides useful links and reveals det
   expect(readiness!.height).toBeLessThanOrEqual(48);
   expect(serverDetails!.height).toBeLessThanOrEqual(48);
   await expect(page.getByLabel("توزيع مراحل التحرير", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/admin-overview-redesign.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-overview-redesign.png" });
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.getByRole("link", { name: "عمل جديد", exact: true })).toBeVisible();
@@ -692,7 +718,8 @@ test("overview prioritizes editorial work, provides useful links and reveals det
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: "تفاصيل الخادم", exact: true }).click();
   await page.getByRole("heading", { name: "نظرة عامة", exact: true }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: "../../../data/previews/admin-overview-redesign-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-overview-redesign-narrow.png" });
 });
 
 test("overview makes incompatible schema prominent and handles an empty library", async ({
@@ -778,7 +805,8 @@ test("maintenance tasks have compact navigation and retain typed restore confirm
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(page.getByRole("table")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "معاينة التنظيف", exact: true })).toBeEnabled();
-  await page.screenshot({ path: "../../../data/previews/admin-maintenance-library.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-maintenance-library.png" });
   await page.getByRole("link", { name: "النسخ والاستعادة", exact: true }).click();
   await expect(page).toHaveURL(/tab=backups/);
   await expect(page.getByRole("button", { name: "إنشاء نسخة الآن", exact: true })).toBeEnabled();
@@ -786,7 +814,8 @@ test("maintenance tasks have compact navigation and retain typed restore confirm
   await page.getByRole("button", { name: "تفاصيل النسخة", exact: true }).first().click();
   await expect(page.getByText("backup-new", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "تفاصيل النسخة", exact: true }).first().click();
-  await page.screenshot({ path: "../../../data/previews/admin-maintenance-backups.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-maintenance-backups.png" });
   const restore = page.getByRole("button", { name: /^استعادة نسخة/ }).first();
   await restore.click();
   const dialog = page.getByRole("alertdialog");
@@ -843,7 +872,8 @@ test("maintenance separates server and app updates and reviews installation firs
   const first = await server.boundingBox();
   const second = await app.boundingBox();
   expect(Math.abs(first!.height - second!.height)).toBeLessThanOrEqual(1);
-  await page.screenshot({ path: "../../../data/previews/admin-maintenance-updates.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-maintenance-updates.png" });
   await page.getByRole("button", { name: "تثبيت التحديث", exact: true }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("0.1.3");
@@ -897,12 +927,12 @@ test("unconfigured maintenance keeps library tools available, disables host acti
   await expect(page.getByText("متوافق", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "فحص الملفات", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "معاينة الإصلاح", exact: true })).toBeDisabled();
-  await page.screenshot({ path: "../../../data/previews/admin-maintenance-checks-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-maintenance-checks-narrow.png" });
   await page.getByRole("link", { name: "النسخ والاستعادة", exact: true }).click();
   await expect(page.getByRole("button", { name: "إنشاء نسخة الآن", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "خيارات النسخ القادمة", exact: true }).click();
-  await expect(page.getByRole("switch", { name: /نسخ احتياطية مجدولة/ })).toBeDisabled();
-  await expect(page.getByLabel(/عدد النسخ المحتفَظ بها/)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "الجدولة والاحتفاظ", exact: true })).toHaveCount(0);
+  await expect(page.getByText("إعداد خدمة الصيانة مرة واحدة", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
   await page.getByRole("link", { name: "التحديثات", exact: true }).click();
   await expect(page.getByRole("button", { name: "فحص التحديثات", exact: true })).toBeDisabled();
@@ -976,10 +1006,12 @@ test("server media retirement requires confirmation and keeps catalog navigation
     page.getByRole("menuitem", { name: "نقل إلى المحذوفات", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.screenshot({ path: "../../../data/previews/media-library-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/media-library-desktop.png" });
   await page.setViewportSize({ width: 430, height: 900 });
   await expect(page.getByRole("button", { name: "استيراد فيديوهات", exact: true })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/media-library-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/media-library-narrow.png" });
 });
 
 test("server media queue cancellation and import dialog use their own controls", async ({
@@ -1009,9 +1041,11 @@ test("server media queue cancellation and import dialog use their own controls",
   await page.setViewportSize({ width: 430, height: 900 });
   await expect(dialog.getByRole("button", { name: "رفع من الجهاز", exact: true })).toBeVisible();
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.screenshot({ path: "/tmp/nahhasio-import-modal-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "/tmp/nahhasio-import-modal-narrow.png" });
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.screenshot({ path: "/tmp/nahhasio-import-modal-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "/tmp/nahhasio-import-modal-desktop.png" });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -1037,4 +1071,61 @@ test("server media coverage and file inspection stay useful on narrow layouts", 
   await expect(page.getByRole("button", { name: "تفاصيل الملف", exact: true })).toBeVisible();
   await expect(page.getByText(/المحذوفات: 0 ملفًا/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("schema upgrade reviews the release and queues only matching confirmation", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.fixtureOperationsMode = "schema";
+  });
+  await page.goto("/#/admin/maintenance?tab=updates");
+  await page.getByRole("button", { name: "مراجعة ترقية المخطط", exact: true }).click();
+  const dialog = page.getByRole("alertdialog", {
+    name: "ترقية مخطط البيانات والخادم",
+    exact: true,
+  });
+  const confirm = dialog.getByRole("button", { name: "تأكيد تثبيت التحديث", exact: true });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(/اكتب الإصدار/).fill("wrong");
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(/اكتب الإصدار/).fill("0.1.3");
+  await confirm.click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.fixtureMaintenanceCalls.map(({ operation, confirmation }) => ({
+          operation,
+          confirmation,
+        })),
+      ),
+    )
+    .toEqual([{ operation: "upgrade-schema", confirmation: "0.1.3" }]);
+  await expect(dialog).not.toBeVisible();
+});
+
+test("backup policy saves fixed schedule intent and retention without queuing a backup", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.fixtureOperationsMode = "policy";
+  });
+  await page.goto("/#/admin/maintenance?tab=backups");
+  await page.getByRole("button", { name: "الجدولة والاحتفاظ", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "نسخة يومية تلقائية", exact: true })).toBeChecked();
+  await page.getByRole("switch", { name: "نسخة يومية تلقائية", exact: true }).click();
+  await page.getByLabel("النسخ اليومية المحتفَظ بها", { exact: true }).fill("14");
+  await page.getByRole("button", { name: "حفظ سياسة النسخ", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.fixtureMaintenanceCalls.map(({ operation, backupPolicy }) => ({
+          operation,
+          backupPolicy,
+        })),
+      ),
+    )
+    .toEqual([
+      { operation: "configure-backups", backupPolicy: { dailyEnabled: false, retainDaily: 14 } },
+    ]);
 });

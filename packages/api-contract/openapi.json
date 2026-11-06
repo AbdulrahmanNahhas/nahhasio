@@ -14806,6 +14806,15 @@
               }
             ],
             "nullable": true
+          },
+          "supportedOperations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "backupPolicy": {
+            "$ref": "#/components/schemas/ServerBackupPolicyStatus"
           }
         }
       },
@@ -14819,7 +14828,14 @@
           },
           "operation": {
             "type": "string",
-            "enum": ["backup", "restore", "check-update", "update"]
+            "enum": [
+              "backup",
+              "restore",
+              "check-update",
+              "update",
+              "upgrade-schema",
+              "configure-backups"
+            ]
           },
           "backupId": {
             "type": "string",
@@ -14828,6 +14844,9 @@
           "confirmation": {
             "type": "string",
             "maxLength": 80
+          },
+          "backupPolicy": {
+            "$ref": "#/components/schemas/ServerBackupPolicy"
           }
         }
       },
@@ -15609,6 +15628,43 @@
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/MediaUnitStatus"
+        }
+      },
+      "ServerBackupPolicy": {
+        "type": "object",
+        "required": ["dailyEnabled", "retainDaily"],
+        "properties": {
+          "dailyEnabled": {
+            "type": "boolean"
+          },
+          "retainDaily": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          }
+        }
+      },
+      "ServerBackupPolicyStatus": {
+        "type": "object",
+        "required": ["dailyEnabled", "retainDaily", "timerActive", "schedule", "retainCheckpoints"],
+        "properties": {
+          "dailyEnabled": {
+            "type": "boolean"
+          },
+          "retainDaily": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "timerActive": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "retainCheckpoints": {
+            "type": "integer"
+          }
         }
       }
     }

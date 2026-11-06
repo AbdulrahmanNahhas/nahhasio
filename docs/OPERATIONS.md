@@ -2,7 +2,7 @@
 
 Current implementation: rootless Podman server/PostgreSQL, signed server releases, Flatpak client,
 coordinated backup/restore and app maintenance controls. The Fedora family server is installed;
-version 0.1.2, live HTTPS/admin access, rootless services, active backup/update timers and a verified
+version 0.1.3 is the recorded installed version; live HTTPS/admin access, rootless services, active backup/update timers and a verified
 coordinated backup were inspected on 2026-10-30. Restore/reboot and failure-recovery acceptance
 remain separate. [FAMILY-SERVER](FAMILY-SERVER.md) records the actual layout and agent access;
 [DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
@@ -53,7 +53,9 @@ backup, verify checksums, restore separately, and compare identities/content/con
 Retain Shadow's original catalog until the family installation is verified. Local server backups
 satisfy the initial app workflow; same-disk copies do not cover disk failure.
 
-Daily backups retain seven daily copies plus protected recovery checkpoints. Restore stages a
+Daily backups default to seven daily copies plus protected recovery checkpoints; the new worker
+allows 1–30 daily copies and schedule activation through fixed admin operations. The existing
+server needs the one-time signed host-tool/media bootstrap before new operations become available. Restore stages a
 separate database/artwork/config set, backs up the current state, validates, then switches while the
 application is stopped. Host credentials/TLS recovery is separate from normal app restoration.
 See the [maintenance guide](../packaging/operations/README.md) for journal and recovery commands.
@@ -210,3 +212,54 @@ bytes**. Backups preserve the prior API/worker activity states, including a work
 the API is stopped. Restoring preserves physical videos and newer journals; restored availability
 becomes unknown and pending media jobs require review before retry. Large video copies require a separately
 chosen backup destination/process. Daily catalog/artwork backup frequency is unchanged.
+
+## Weekly USB recovery set and sudden shutdown
+
+Use **Server maintenance → Backups** to create a manual copy and wait for a succeeded result.
+A directory still named `.pending-*` is not a backup. Copy the complete selected directory from
+`~/Nahhasio/data/backups/<backup-id>/`, preserving every file and `manifest.json`. Its database dump
+contains catalog, accounts, device registrations, tracking, artwork references, library roots, import
+records and the canonical migration ledger. Its archives contain registered artwork, provider
+configuration and protected host recovery material. Managed installations also include media
+journals and a video inventory. Check the copied files against the manifest hashes before relying
+on the USB copy. Keep the corresponding signed application/installer release or its exact version.
+
+Also copy these separately:
+
+| Path                                              | Recovery purpose                                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/Nahhasio/videos/`                              | Original videos and local subtitle companions; excluded from routine backups.                                                          |
+| `~/Nahhasio/config/`                              | Current installation, private provider settings, DB credentials, TLS trust/authority and release public key. Treat the USB as private. |
+| `~/Nahhasio/data/media-operations/`               | The latest import/trash recovery receipts; the backup already includes its capture-time snapshot.                                      |
+| `~/Nahhasio/downloads/` and `~/Nahhasio/imports/` | Needed only to retain current unfinished uploads/acquisitions or unmatched incoming files. Pause jobs before copying.                  |
+| `~/Nahhasio/trash/`                               | Optional: preserves the ability to restore videos still within their seven-day retention.                                              |
+
+For a coherent weekly media copy, pause/cancel active acquisitions and avoid video imports/deletions
+while copying. A simple MP4 copy is sufficient for completed videos, but it is not a database backup.
+Do not copy the live PostgreSQL volume as a substitute for `database.dump`. Missing partial staging
+can be retried; missing originals cannot be reconstructed from catalog metadata. Keep at least one
+older verified USB recovery set rather than replacing the only independent copy mid-transfer.
+
+A replacement machine needs the supported rootless prerequisites and matching signed release,
+then explicit installation/transfer restore. Restore the verified bundle with its matching schema,
+retain its stable server/catalog identities, restore videos under their configured roots, re-establish
+private credentials/trust intentionally, and rescan/verify registered files. Normal same-machine
+app restore keeps current TLS/role credentials; new-machine recovery uses the separate protected
+host archive and documented transfer flow. Never activate a copied older job queue against newer
+files: restored media jobs are marked for review, file availability becomes unknown until verified,
+and journal recovery material is retained separately. Device downloads, local subtitles and saved
+viewing packs belong to each client; back up that client's private state/video roots separately if
+those local copies must survive its loss.
+
+PostgreSQL uses WAL and transactional migrations. Uploads persist acknowledged offsets; publication
+uses verified staging and durable filesystem/database journals. Restart reconciles expired worker
+leases and interrupted transitions, and never publishes a partial file as a finished video. Schema
+upgrades retain a previous database and journal the switch; ordinary restore interruptions remain
+blocked for explicit operator recovery. A failed/unknown outcome is not reported as success.
+
+`bin/test-server-media` rehearses interrupted upload/import/subtitle/trash reconciliation;
+`bin/test-server-recovery` rehearses actual restored-data migration, failed-readiness rollback,
+interruptions between database renames, verified backup/restore and immediate PostgreSQL shutdown.
+These disposable software checks do not simulate failed disks or guarantee writes against a storage
+device that ignores flushes. They are not Fedora reboot or packaged-installation acceptance. A UPS
+can reduce outages, but is not required for the application recovery protocol.

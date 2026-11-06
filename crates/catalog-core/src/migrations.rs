@@ -170,7 +170,25 @@ pub async fn apply(connection: &mut PgConnection, history: &[Migration]) -> Resu
     })
 }
 
-/// Deployment tooling can compare this immutable artifact identity before an upgrade.
+/// Same source fingerprint as the signed release manifest; available without database access.
+pub fn fingerprint() -> String {
+    let mut sources: Vec<(String, &str)> = SOURCES
+        .iter()
+        .map(|(tag, sql)| (format!("{tag}.sql"), *sql))
+        .collect();
+    sources.push(("meta/_journal.json".into(), JOURNAL));
+    sources.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut digest = Sha256::new();
+    for (name, source) in sources {
+        digest.update(name.as_bytes());
+        digest.update(b"\0");
+        digest.update(source.as_bytes());
+        digest.update(b"\0");
+    }
+    hex::encode(digest.finalize())
+}
+
+/// Deployment tooling can inspect the immutable migration entries before an upgrade.
 pub fn manifest(history: &[Migration]) -> serde_json::Value {
     serde_json::json!(history.iter().map(|migration|serde_json::json!({"tag":migration.tag,"when":migration.when,"hash":migration.hash})).collect::<Vec<_>>())
 }

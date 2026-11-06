@@ -326,3 +326,21 @@ missing companions, interrupted companion retirement, restore/purge accounting, 
 restore replay, foreign-root and changed-video rejection, and unchanged catalog/watch state.
 The storage unit fixture distinguishes genuine absence from symlink/ancestor errors. Browser
 episode fixtures check the contextual confirmation and cancel behavior at 360/520/1440 pixels.
+
+### Disposable host recovery rehearsal
+
+Run `devenv --offline shell -- bash bin/test-server-recovery`. The script owns a fresh socket-only
+PostgreSQL cluster beneath `/tmp/nahhasio-recovery.*` and private temporary media/backup roots under
+ignored `data/development-local/recovery-test.*`. It never uses ambient DATABASE_URL or the live
+catalog. It builds the actual operator CLI and tests canonical migration from the preceding schema,
+verified dump/artwork restoration, preserved identities/data, rejected candidate readiness,
+interruption at both database renames and immediate database shutdown with committed/uncommitted
+writes. Container/systemd transport is substituted; PostgreSQL, CLI, migrations, hashes, archives
+and restore/rollback code execute for real. This is not installed Podman/Fedora acceptance.
+
+`python3 -m unittest discover -s packaging/release -p 'test_*.py'` covers signed host-tool selection,
+fixed backup policy validation, interrupted timer reconciliation, migration confirmation and recovery
+journal decisions; PostgreSQL cases skip unless the dedicated runner supplies its isolated root.
+`cargo test --locked -p nahhasio-linux subtitle_attachments` checks retained subtitle reload and
+replacement, original-file preservation, missing bytes, interrupted unpublished files and unsafe
+selection rejection without changing real client state.

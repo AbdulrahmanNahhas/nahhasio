@@ -342,6 +342,7 @@ multi-gigabyte growth. These warnings are not a hard disk quota; clean after pac
 devenv shell -- pnpm check
 devenv shell -- pnpm build
 devenv shell -- cargo test --workspace --locked
+devenv --offline shell -- nahhasio-test-recovery
 ```
 
 Use focused disposable checks for relevant risks and consolidated installation acceptance after

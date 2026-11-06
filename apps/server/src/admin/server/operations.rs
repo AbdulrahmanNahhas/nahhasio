@@ -120,6 +120,25 @@ struct Status {
     update: Update,
     active_job: Option<Job>,
     last_job: Option<Job>,
+    #[serde(default)]
+    supported_operations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    backup_policy: Option<BackupPolicyStatus>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BackupPolicy {
+    daily_enabled: bool,
+    retain_daily: u8,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupPolicyStatus {
+    daily_enabled: bool,
+    retain_daily: u8,
+    timer_active: bool,
+    schedule: String,
+    retain_checkpoints: u8,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -129,6 +148,8 @@ enum Operation {
     Restore,
     CheckUpdate,
     Update,
+    UpgradeSchema,
+    ConfigureBackups,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -137,6 +158,7 @@ struct Input {
     operation: Operation,
     backup_id: Option<String>,
     confirmation: Option<String>,
+    backup_policy: Option<BackupPolicy>,
 }
 fn valid_id(value: &str) -> bool {
     value.len() == 36
@@ -146,6 +168,26 @@ fn valid_id(value: &str) -> bool {
             } else {
                 b.is_ascii_digit() || (b'a'..=b'f').contains(&b)
             }
+        })
+}
+fn valid_version(value: &str) -> bool {
+    let (core, pre) = value
+        .split_once('-')
+        .map_or((value, None), |(core, pre)| (core, Some(pre)));
+    let numeric = |part: &str| {
+        !part.is_empty()
+            && part.bytes().all(|c| c.is_ascii_digit())
+            && (part == "0" || !part.starts_with('0'))
+    };
+    let parts: Vec<_> = core.split('.').collect();
+    parts.len() == 3
+        && parts.iter().all(|part| numeric(part))
+        && pre.is_none_or(|pre| {
+            pre.split('.').all(|part| {
+                !part.is_empty()
+                    && part.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+                    && (!part.bytes().all(|c| c.is_ascii_digit()) || numeric(part))
+            })
         })
 }
 fn valid_backup(value: &str) -> bool {
@@ -166,12 +208,26 @@ async fn request(
                 .backup_id
                 .as_deref()
                 .is_none_or(|id| !valid_backup(id) || input.confirmation.as_deref() != Some(id)),
+            Operation::UpgradeSchema => {
+                input.backup_id.is_some()
+                    || input
+                        .confirmation
+                        .as_ref()
+                        .is_none_or(|version| version.len() > 80 || !valid_version(version))
+            }
             _ => input.backup_id.is_some() || input.confirmation.is_some(),
+        }
+        || match input.operation {
+            Operation::ConfigureBackups => input
+                .backup_policy
+                .as_ref()
+                .is_none_or(|policy| !(1..=30).contains(&policy.retain_daily)),
+            _ => input.backup_policy.is_some(),
         }
     {
         return Err(Error(
             StatusCode::BAD_REQUEST,
-            "راجع العملية ومعرّف النسخة وتأكيد الاستعادة.",
+            "راجع إعدادات العملية وتأكيد الإصدار أو النسخة.",
         ));
     }
     // Authorization linearizes at the audited transaction commit, before dispatching host work.
@@ -181,7 +237,18 @@ async fn request(
         sqlx::query("set transaction read write").execute(&mut *tx).await?;
         let actor = crate::auth::lock_admin_session(&mut tx, &headers).await.map_err(|_| Error(StatusCode::FORBIDDEN,"Administrator session is no longer valid"))?;
         let requested_at: String = sqlx::query_scalar("select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").fetch_one(&mut *tx).await?;
-        let job = json!({"version":1,"id":input.id,"operation":input.operation,"requestedAt":requested_at,"actorAccountId":actor,"backupId":input.backup_id,"confirmation":input.confirmation});
+        let mut job = json!({
+            "version": 1,
+            "id": input.id,
+            "operation": input.operation,
+            "requestedAt": requested_at,
+            "actorAccountId": actor,
+            "backupId": input.backup_id,
+            "confirmation": input.confirmation,
+        });
+        if let Some(policy) = input.backup_policy {
+            job["backupPolicy"] = json!(policy);
+        }
         let returned = job.clone();
         sqlx::query("insert into audit_logs(actor_account_id,action,target_type,summary) values($1::uuid,'server.maintenance.request','server','Requested a fixed host maintenance operation')").bind(actor).execute(&mut *tx).await?;
         tx.commit().await?;
@@ -192,7 +259,20 @@ async fn request(
 fn enqueue(job: &Value) -> Result<(), Error> {
     let root = root()?.ok_or_else(unavailable)?;
     // Refuse requests when the worker has never published its installation status.
-    if bounded_json(&root.join("status.json"))?["available"] != true {
+    let status = bounded_json(&root.join("status.json"))?;
+    if matches!(
+        job["operation"].as_str(),
+        Some("upgrade-schema" | "configure-backups")
+    ) && !status["supportedOperations"]
+        .as_array()
+        .is_some_and(|operations| operations.contains(&job["operation"]))
+    {
+        return Err(Error(
+            StatusCode::CONFLICT,
+            "حدّث خدمة الصيانة مرة واحدة قبل استخدام هذه العملية.",
+        ));
+    }
+    if status["available"] != true {
         return Err(unavailable());
     }
     let inbox = root.join("inbox");
@@ -224,4 +304,40 @@ fn enqueue(job: &Value) -> Result<(), Error> {
     })();
     let _ = fs::remove_file(temporary);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn schema_confirmation_accepts_only_release_versions() {
+        for value in ["0.2.0", "0.2.0-rc.1"] {
+            assert!(valid_version(value));
+        }
+        for value in [
+            "",
+            "anything",
+            "0.2",
+            "01.2.0",
+            "0.2.0-",
+            "0.2.0-rc..1",
+            "0.2.0-01",
+            "0.2.0+build",
+        ] {
+            assert!(!valid_version(value));
+        }
+    }
+    #[test]
+    fn legacy_worker_status_does_not_claim_new_capabilities() {
+        let value = json!({"version":1,"available":true,"backups":[],"update":{"state":"available","currentVersion":"0.1.3"},"activeJob":null,"lastJob":null,"privatePath":"not exposed"});
+        let status: Status = serde_json::from_value(value).unwrap();
+        assert!(status.supported_operations.is_empty());
+        assert!(status.backup_policy.is_none());
+        assert!(
+            serde_json::to_value(status)
+                .unwrap()
+                .get("privatePath")
+                .is_none()
+        );
+    }
 }

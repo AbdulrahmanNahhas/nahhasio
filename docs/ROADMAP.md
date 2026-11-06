@@ -488,15 +488,17 @@ Remaining 0.2.0 release gates:
 - [ ] Complete packaged native playback/download/offline and physical input/focus acceptance.
 - [ ] Rehearse the final operational upgrade and independent backup/restore on restored data.
 - [ ] When Fedora is available, review/register the three retained collections and accept live playback.
-- [ ] Obtain the separate commit/publication/installation authorizations and deliver the release.
+- [ ] Obtain publication/installation authorization after final package review and deliver the release.
 
 The user clarified that languages are editorial per-work badges, with installment overrides and a
 combined work-page display. They are unrelated to preferred torrent/provider/player audio.
 
-The initial source checkpoint is committed as `1d75527`. The subsequent 0.2.0 work remains
-uncommitted and undeployed, in the main chat without subagents. Do not repeat the destructive family-server cleanup. Preserve the
-unrelated media-review skill edit and the existing 0.1.3 upgrade notes in FAMILY-SERVER.md.
-Committing, publishing and installing the new application builds still require separate authorization.
+The initial source checkpoint is committed as `1d75527`; follow-up checkpoints include the reviewed
+media/editor/viewer changes and six additional commits ending at `d47ccfa`. Work remains undeployed,
+in the main chat without subagents. Do not repeat the destructive family-server cleanup. The
+review-skill edit was checkpointed separately under the explicit commit-all instruction. Preserve
+the existing 0.1.3 upgrade notes in FAMILY-SERVER.md. Publication and installation still require
+their separate release authorization.
 No live catalog writes or additional family-server changes were made in this continuation.
 
 Implemented source includes authenticated original-file streaming/native relay, scoped server-file
@@ -645,13 +647,13 @@ commit-all instruction. Functional, operations and disposable recovery audits co
 
 - [ ] Review resume/first-unwatched playback, episode-title actions, device controls and sharper hero artwork in the freshly built Linux client.
 - [ ] Refresh saved viewing packs after curator notes become editor-only; the viewer API now redacts the field.
-- [ ] Run deferred regressions after rapid UI revisions; update stale assertions for intentionally changed controls.
-- [ ] Measure authored code separately from generated contracts/migration snapshots; remove duplication without deleting canonical history or Rust exercises.
-- [ ] Design explicit schema-upgrade/media-bootstrap UI, including old-server bootstrap limits, backup/recovery and final health checks.
-- [ ] Clarify compatible server updates, Flatpak Software updates, scheduled backups and retention as separate controls.
-- [ ] Define weekly USB recovery: completed verified database/artwork backup, managed videos, private configuration/trust, import journals and media inventory. Never copy the running PostgreSQL volume as a backup.
-- [ ] Rehearse abrupt power loss during uploads/imports/trash and database/host operations on disposable data; verify restart reconciliation and recovery limits.
-- [ ] Audit documentation together, remove only confirmed obsolete material and preserve recovery receipts.
+- [x] Run deferred focused regressions after rapid UI revisions: 16 browser cases across viewer/device/admin operations, 73 UI units, the Rust workspace suite, 22 offline maintenance tests and three real PostgreSQL recovery cases. Update stale controls/source defaults without weakening file-state or authorization checks. Browser screenshots remain opt-in.
+- [x] Separate generated-contract/migration churn from authored code during review. Consolidate device-library/transfer validation, target identity matching, dump loading and settings cards; preserve canonical history and Rust exercises. Failed device inventory/saved-list reads now block duplicate acquisition with retry.
+- [x] Implement explicit schema-upgrade review and staged database activation/rollback, capability-gated for old workers. Explain one-time signed host/media bootstrap and independent client updates; packaged host acceptance remains a release gate.
+- [x] Clarify compatible server updates, Flatpak Software updates, scheduled backups and retention as separate controls. Implement host-owned schedule/retention policy, actual timer status, bounds and restart reconciliation.
+- [x] Define weekly USB recovery: completed verified database/artwork backup, managed videos, private configuration/trust, import journals and media inventory. Never copy the running PostgreSQL volume as a backup.
+- [x] Rehearse interrupted uploads/imports/trash with the disposable media suite, and real PostgreSQL migration/restore, failed readiness, both interrupted database renames and abrupt shutdown with committed/uncommitted writes through `bin/test-server-recovery`. Container/service transport is substituted; installed Fedora reboot/Podman acceptance remains separate.
+- [x] Reconcile current client/deployment/operations/testing guidance, backup contents and the committed checkpoint status. Preserve dated release/recovery receipts; no archival Markdown was treated as disposable.
 
 Publication and installation still require their explicit release review. The cleanup, operations
 and disposable recovery work is authorized to continue after the source checkpoints.

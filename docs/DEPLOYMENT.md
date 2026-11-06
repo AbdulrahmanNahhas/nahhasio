@@ -50,6 +50,16 @@ scripts are outside the OCI image. Version 0.1.1 adds coordinated signed host-to
 atomic selection, rollback and post-job worker reload. The original 0.1.0 worker needs the
 [one-time bootstrap upgrade](RELEASE-0.1.1.md); subsequent compatible updates use the worker.
 
+## 0.2.0 operations continuation (source; not yet installed)
+
+The current source adds an explicitly reviewed schema upgrade using a verified restored database,
+retained previous database/image and interrupted-switch recovery. Compatible updates remain a
+separate action. Backup schedule/retention controls now use host-owned fixed operations rather
+than placeholders. Older installations advertise no such capabilities and need the one-time signed
+host-tool bootstrap plus media-root preparation. See [operations](OPERATIONS.md) for the complete
+weekly USB set and [maintenance](../packaging/operations/README.md) for the worker protocol.
+Disposable checks do not establish installed Fedora/Podman, final Flatpak or live upgrade acceptance.
+
 ## Deployment shape
 
 The Fedora Atomic family PC owns the authoritative PostgreSQL catalog, artwork, provider settings
