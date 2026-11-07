@@ -737,10 +737,12 @@ test("download intent chooses a torrent without starting playback", async ({ pag
   await page.getByRole("button", { name: "تنزيل هذا المصدر" }).first().click();
   await expect(page.getByText("جارٍ التنزيل", { exact: true })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
-  await page.screenshot({ path: test.info().outputPath("download-progress.png") });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: test.info().outputPath("download-progress.png") });
   await page.setViewportSize({ width: 520, height: 760 });
   await expect(page.getByRole("progressbar")).toBeVisible();
-  await page.screenshot({ path: test.info().outputPath("download-progress-narrow.png") });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: test.info().outputPath("download-progress-narrow.png") });
   await page.getByRole("button", { name: "إيقاف مؤقت", exact: true }).click();
   await expect.poll(async () => (await calls(page, "media.pause")).length).toBe(1);
   expect(await calls(page, "player.preview")).toHaveLength(0);
@@ -851,7 +853,8 @@ test("auto hide protects menus, focus, pause, ended and errors at 480px RTL", as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
-  await page.screenshot({ path: "test-results/player-480.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-480.png" });
 });
 
 test("request and snapshot schemas reject out-of-range, non-finite and path-bearing input", async ({
@@ -908,7 +911,8 @@ test("wide episode shelf shows artwork, exact labels and RTL keyboard navigation
   await expect(panel.getByRole("button", { name: "عنوان الحلقة 6", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(panel.getByRole("button", { name: "عنوان الحلقة 5", exact: true })).toBeFocused();
-  await page.screenshot({ path: "test-results/player-episodes-1440.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-episodes-1440.png" });
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "الحلقات", exact: true })).toHaveCount(0);
@@ -932,7 +936,8 @@ test("episode panel remains contained at narrow width and blocks upcoming episod
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(480);
   await expect(panel.getByRole("button", { name: "عنوان الحلقة 12", exact: true })).toBeDisabled();
-  await page.screenshot({ path: "test-results/player-episodes-480.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-episodes-480.png" });
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", {
@@ -988,7 +993,8 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   await page.keyboard.press("Escape");
   await drawer.getByRole("searchbox", { name: "البحث في المصادر" }).fill("1080");
   await expect(drawer.getByText("1 مصدر")).toBeVisible();
-  await page.screenshot({ path: "test-results/player-sources.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-sources.png" });
   await drawer.getByRole("button", { name: "تشغيل هذا المصدر", exact: true }).click();
   await expect(drawer).toHaveCount(0);
   expect(await calls(page, "media.play")).toHaveLength(1);
@@ -1010,7 +1016,8 @@ for (const width of [1440, 520]) {
 
     expect(await calls(page, "stream.open")).toHaveLength(0);
     expect(await calls(page, "media.search")).toHaveLength(1);
-    await page.screenshot({ path: `test-results/embed-selection-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `test-results/embed-selection-${width}.png` });
     await start.click();
     await expect(drawer.getByText("المشغّل مفتوح", { exact: true })).toBeVisible();
     expect(await calls(page, "stream.open")).toEqual([
@@ -1029,7 +1036,8 @@ for (const width of [1440, 520]) {
     ]);
     await drawer.getByRole("button", { name: "إظهار المشغّل", exact: true }).click();
     expect(await calls(page, "stream.present")).toHaveLength(1);
-    await page.screenshot({ path: `test-results/embed-loaded-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `test-results/embed-loaded-${width}.png` });
     await drawer.getByRole("tab", { name: "تورنت", exact: true }).click();
     await expect(
       drawer.getByRole("heading", { name: "Synthetic Season 1", exact: true }),
@@ -1093,7 +1101,8 @@ test("grouped subtitles search and customization use actual tracks and bounded c
     .toEqual([
       expect.objectContaining({ payload: { sessionId: "test-1", kind: "subtitle", trackId: 4 } }),
     ]);
-  await page.screenshot({ path: "test-results/player-subtitles.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-subtitles.png" });
   await panel.getByRole("button", { name: "تخصيص الترجمة" }).click();
   const size = panel.getByRole("slider", { name: "حجم الترجمة" });
   await size.focus();
@@ -1119,7 +1128,8 @@ test("speed presets, bottom fullscreen control and torrent keep-download remain 
   await expect
     .poll(() => calls(page, "player.speed"))
     .toEqual([expect.objectContaining({ payload: { sessionId: "test-1", speed: 1.5 } })]);
-  await page.screenshot({ path: "test-results/player-settings.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/player-settings.png" });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "تنزيل الفيديو", exact: true }).click();
   await page.getByRole("button", { name: "الاحتفاظ بتنزيل الفيديو", exact: true }).click();
@@ -1167,7 +1177,8 @@ test("anime prioritizes explicit dub, keeps uncertain audio secondary and switch
     payload: { provider: "vidsrc", audio: "original" },
   });
   expect(await calls(page, "media.search")).toHaveLength(1);
-  await page.screenshot({ path: "test-results/embed-anime.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "test-results/embed-anime.png" });
 });
 
 test("confirmed dub and Arabic subtitles get a star and outrank requested dub", async ({
@@ -1216,7 +1227,8 @@ for (const width of [1440, 520]) {
     await drawer.getByText("Synthetic anime Season 1", { exact: true }).click();
     await expect(drawer.getByText("720p", { exact: true })).toBeVisible();
     expect(await calls(page, "anime.play")).toHaveLength(0);
-    await page.screenshot({ path: `test-results/anime-direct-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `test-results/anime-direct-${width}.png` });
     await drawer.getByRole("button", { name: "تشغيل في نحّاسيو", exact: true }).click();
     expect(await calls(page, "anime.play")).toHaveLength(1);
     expect(await calls(page, "stream.open")).toHaveLength(0);

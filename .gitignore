@@ -84,3 +84,6 @@ apps/*/src/**/.claude/
 # Local Python packaging/test bytecode.
 __pycache__/
 *.pyc
+
+# Isolated browser production bundles must not race native package builds.
+/apps/linux/ui/.playwright-build/

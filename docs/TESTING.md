@@ -344,3 +344,9 @@ journal decisions; PostgreSQL cases skip unless the dedicated runner supplies it
 `cargo test --locked -p nahhasio-linux subtitle_attachments` checks retained subtitle reload and
 replacement, original-file preservation, missing bytes, interrupted unpublished files and unsafe
 selection rejection without changing real client state.
+
+Production browser fixtures now build into `apps/linux/ui/.playwright-build/<port>/`, independently
+of `ui/dist` used by Flatpak packaging. Parallel package builds cannot delete the preview's assets.
+Set `NAHHASIO_UI_SCREENSHOTS=1` for optional general diagnostic/pixel captures; media-tour captures
+retain their `NAHHASIO_MEDIA_SCREENSHOTS=1` switch. Runtime assertions remain enabled without images.
+The signing CI runs real GPG-verified application/AppStream pulls for both Alpha and RC branches.

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ export function ClientUpdateCard() {
     queryFn: ({ signal }) => gateway.clientUpdateStatus(signal),
     staleTime: Infinity,
   });
+  const openManager = useMutation({ mutationFn: () => gateway.openClientUpdateManager() });
   return (
     <Card size="sm" className="flex h-full flex-col">
       <CardHeader>
@@ -53,7 +54,28 @@ export function ClientUpdateCard() {
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col items-start gap-3">
+        {status.data?.manager === "flatpak" && (
+          <Button
+            variant="outline"
+            disabled={openManager.isPending}
+            onClick={() => openManager.mutate()}
+          >
+            فتح البرمجيات للتحديث
+          </Button>
+        )}
+        {openManager.isError && (
+          <Alert variant="destructive">
+            <AlertTitle>تعذّر فتح مدير التحديث</AlertTitle>
+            <AlertDescription>{openManager.error.message}</AlertDescription>
+          </Alert>
+        )}
+        {openManager.isSuccess && (
+          <p role="status" className="text-sm text-muted-foreground">
+            أُرسل طلب فتح البرمجيات. أكمل التحديث هناك ثم أغلق نحّاسيو وأعد فتحه لبدء الإصدار الجديد.
+          </p>
+        )}
+
         <p className="text-sm text-muted-foreground">
           {status.data?.manager === "development"
             ? "تُحدّث نسخة التطوير من المشروع المحلي."

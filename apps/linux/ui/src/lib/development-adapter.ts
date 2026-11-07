@@ -6,6 +6,7 @@ import {
 } from "@nahhasio/api-contract";
 import { z } from "zod";
 
+import packageInfo from "../../package.json";
 import { queryClient } from "../app/query-client";
 import { preferencesSchema } from "../features/catalog/browse-preferences-model";
 import { ArtworkQueue, DevelopmentArtwork } from "./development-artwork";
@@ -261,7 +262,7 @@ export async function developmentCall(
       automatic: null,
       lastCheck: null,
       manager: "development",
-      currentVersion: "0.1.2",
+      currentVersion: packageInfo.version,
       message: "معاينة تطوير محلية في المتصفح.",
     };
   if (!session || !token) throw new Error("سجّل الدخول إلى مكتبة التطوير أولًا.");

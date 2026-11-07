@@ -439,7 +439,7 @@ test.beforeEach(async ({ page }) => {
                       const value =
                         facet.key === "formats"
                           ? item.format
-                          : facet.key === "dubLanguages"
+                          : facet.key === "dubLanguages" || facet.key === "languages"
                             ? "ar"
                             : facet.key === "watchStates"
                               ? "unwatched"
@@ -670,15 +670,17 @@ test("multilingual search, three-state cycle, apply/cancel and focus", async ({ 
   await dialog.getByRole("button", { name: /مراجعة الاختيارات/ }).click();
   await expect(dialog.getByRole("button", { name: /إزالة.*الخيال/ })).toBeVisible();
   await search.fill("");
-  await page.screenshot({
-    path: "../../../data/previews/browse-filters-redesign.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-filters-redesign.png",
+      animations: "disabled",
+    });
   await page.keyboard.press("Escape");
-  await page.screenshot({
-    path: "../../../data/previews/browse-redesign.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-redesign.png",
+      animations: "disabled",
+    });
 });
 test("narrow drawer, year slider and empty filter search", async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 900 });
@@ -691,10 +693,11 @@ test("narrow drawer, year slider and empty filter search", async ({ page }) => {
   await expect(years).toBeVisible();
   await expect(years.getByRole("slider")).toHaveCount(2);
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.screenshot({
-    path: "../../../data/previews/browse-filters-narrow.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-filters-narrow.png",
+      animations: "disabled",
+    });
 });
 
 test("compact toolbar and one-step presentation settings", async ({ page }) => {
@@ -707,10 +710,11 @@ test("compact toolbar and one-step presentation settings", async ({ page }) => {
   await expect(page.getByRole("table")).toBeVisible();
   await expect(page.getByRole("cell").filter({ hasText: "A library work" }).first()).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.screenshot({
-    path: "../../../data/previews/browse-redesign-table.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-redesign-table.png",
+      animations: "disabled",
+    });
   await page.setViewportSize({ width: 520, height: 900 });
   await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
   const layout = page.getByRole("group", { name: "طريقة العرض", exact: true }).last();
@@ -761,16 +765,18 @@ test("library navigation preserves presentation and keeps refinements separate",
     "page",
   );
   await expect(page.getByRole("table")).toBeVisible();
-  await page.screenshot({
-    path: "../../../data/previews/browse-library-desktop.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-library-desktop.png",
+      animations: "disabled",
+    });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({
-    path: "../../../data/previews/browse-library-narrow.png",
-    animations: "disabled",
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/browse-library-narrow.png",
+      animations: "disabled",
+    });
 });
 
 test("tags remain usable within tag-based libraries and preserve category constraints", async ({

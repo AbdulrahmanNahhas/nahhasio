@@ -246,6 +246,9 @@ test.beforeEach(async ({ page }) => {
                 maintenanceCalls.push(request.payload);
                 result = { id: request.payload.id, state: "queued" };
                 break;
+              case "clientUpdate.openManager":
+                result = { opened: true };
+                break;
               case "clientUpdate.status":
                 result = {
                   available: true,
@@ -1128,4 +1131,15 @@ test("backup policy saves fixed schedule intent and retention without queuing a 
     .toEqual([
       { operation: "configure-backups", backupPolicy: { dailyEnabled: false, retainDaily: 14 } },
     ]);
+});
+
+test("installed client update opens Software without requesting a server update", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/maintenance?tab=updates");
+  await page.getByRole("button", { name: "فتح البرمجيات للتحديث", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "أُرسل طلب فتح البرمجيات" }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
 });

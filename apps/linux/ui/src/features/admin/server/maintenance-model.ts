@@ -10,6 +10,8 @@ const states = {
   "maintenance-required": "يتطلب صيانة",
   unavailable: "غير متاح",
   unmanaged: "نسخة تطوير",
+  development: "نسخة تطوير",
+  "external-managed": "تحديثات النظام",
   "up-to-date": "محدّث",
 };
 export const stateLabel = (value: string) =>

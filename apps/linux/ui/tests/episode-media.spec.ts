@@ -13,7 +13,8 @@ for (const width of [1440, 520, 360]) {
     const capture = async (name: string) => {
       if (process.env.NAHHASIO_MEDIA_SCREENSHOTS !== "1") return;
       await mkdir(captureRoot, { recursive: true });
-      await page.screenshot({ path: resolve(captureRoot, name), animations: "disabled" });
+      if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+        await page.screenshot({ path: resolve(captureRoot, name), animations: "disabled" });
     };
     await page.addInitScript(() => {
       const prefix = "00000000-0000-4000-8000-";

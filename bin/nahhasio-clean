@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = (
     "target", "dist", ".flatpak-source", ".flatpak-build", ".flatpak-builder",
     ".flatpak-user", "data/previews", ".devenv/account-tmp", ".tanstack",
-    "apps/linux/ui/dist", "apps/linux/ui/test-results",
+    "apps/linux/ui/dist", "apps/linux/ui/.playwright-build", "apps/linux/ui/test-results",
     "apps/linux/ui/playwright-report", "apps/linux/ui/.tanstack",
     "node_modules/.cache", "node_modules/.vite", "node_modules/.vite-temp",
 )

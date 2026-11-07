@@ -92,7 +92,8 @@ for (const width of [1440, 520, 360]) {
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
-    await page.screenshot({ path: `../../../data/previews/login-picker-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/login-picker-${width}.png` });
     await family.focus();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "عائلة النحاس" });
@@ -110,7 +111,8 @@ for (const width of [1440, 520, 360]) {
       password: "fixture-wrong-password",
       remember: false,
     });
-    await page.screenshot({ path: `../../../data/previews/login-password-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/login-password-${width}.png` });
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(family).toBeFocused();

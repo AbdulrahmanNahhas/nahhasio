@@ -205,7 +205,8 @@ test("appearance contains application controls without library presentation sett
   await expect(page.getByText("طريقة عرض المكتبة", { exact: true })).toHaveCount(0);
   await expect(page.getByText("جدول المكتبة", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/settings-appearance-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-appearance-desktop.png" });
 });
 
 test("password change is a compact action with clean dismissal and focus restoration", async ({
@@ -225,7 +226,8 @@ test("password change is a compact action with clean dismissal and focus restora
   await expect(dialog.getByLabel("كلمة المرور الحالية", { exact: true })).toHaveValue("");
   await page.keyboard.press("Escape");
   await expect(page.getByText("جلساتك وأجهزتك", { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/settings-account-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-account-desktop.png" });
 });
 
 test("connection management tests and renames the saved server inline", async ({ page }) => {
@@ -244,7 +246,8 @@ test("connection management tests and renames the saved server inline", async ({
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "رجوع", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/settings-connection-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-connection-desktop.png" });
 });
 
 test("all upcoming categories expose disabled controls without invoking integrations", async ({
@@ -278,7 +281,8 @@ test("all upcoming categories expose disabled controls without invoking integrat
   await expect(page.getByRole("heading", { name: "الحساب والأمان", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "دعوات الأصدقاء", exact: true })).toHaveCount(0);
   await page.goto("/#/settings?section=subtitles");
-  await page.screenshot({ path: "../../../data/previews/settings-subtitles-360.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-subtitles-360.png" });
 });
 
 test("inline connection status recovers from a failed recheck at narrow width", async ({
@@ -296,7 +300,8 @@ test("inline connection status recovers from a failed recheck at narrow width", 
   await expect(page.getByText("متصل", { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "../../../data/previews/settings-connection-360.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-connection-360.png" });
 });
 
 test("desktop settings, private diagnostic preview and cache control", async ({ page }) => {
@@ -309,7 +314,8 @@ test("desktop settings, private diagnostic preview and cache control", async ({ 
   ).toHaveAttribute("href", "#/settings?section=help");
   await expect(page.getByRole("link", { name: "إدارة الخادم" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/settings-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/settings-desktop.png" });
   await page.getByRole("button", { name: "معاينة تقرير التشخيص" }).click();
   const report = page.getByLabel("تقرير التشخيص", { exact: true });
   await expect(report).toContainText('"app": "Nahhasio"');
@@ -339,7 +345,7 @@ for (const width of [360, 520]) {
     await page.goto("/#/settings");
     const dock = page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true });
     await expect(dock).toBeVisible();
-    for (const name of ["الرئيسية", "المكتبة", "التنزيلات"]) {
+    for (const name of ["الرئيسية", "المكتبة", "مكتبة الجهاز"]) {
       await expect(dock.getByRole("link", { name, exact: true })).toBeVisible();
     }
     await expect(dock.getByRole("button", { name: "البحث السريع", exact: true })).toBeVisible();
@@ -352,7 +358,8 @@ for (const width of [360, 520]) {
     await page.getByRole("link", { name: "جميع الإعدادات" }).click();
     await expect(page.getByRole("navigation", { name: "أقسام الإعدادات" })).toBeVisible();
     await expect(page.getByRole("link", { name: "الخادم والاتصال", exact: false })).toBeFocused();
-    await page.screenshot({ path: `../../../data/previews/settings-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/settings-${width}.png` });
   });
 }
 
@@ -402,7 +409,7 @@ test("player defaults persist and personal subtitle setup stays explicit", async
     ),
   ).toBe(false);
   await page.getByLabel("مفتاح OpenSubtitles API", { exact: true }).fill("synthetic-api-key");
-  await page.getByLabel("اسم مستخدم OpenSubtitles.com", { exact: true }).fill("fixture-subs");
+  await page.getByLabel("اسم المستخدم (اختياري)", { exact: true }).fill("fixture-subs");
   await page.getByLabel("كلمة المرور", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "ربط الحساب", exact: true }).click();
   await expect(page.getByText("حساب مربوط على هذا الجهاز", { exact: true })).toBeVisible();

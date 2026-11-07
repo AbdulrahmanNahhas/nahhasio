@@ -610,7 +610,8 @@ for (const width of [360, 480, 1440]) {
       "href",
       "https://www.imdb.com/title/tt1234567/",
     );
-    await page.screenshot({ path: `../../../data/previews/watch-request-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/watch-request-${width}.png` });
     await page.getByLabel("الحلقة", { exact: true }).fill("3");
     await expect(page.getByRole("heading", { name: "الموسم 0 · الحلقة 2" })).toHaveCount(0);
     await page.getByRole("button", { name: "فيلم", exact: true }).click();
@@ -622,7 +623,8 @@ for (const width of [360, 480, 1440]) {
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
-    await page.screenshot({ path: `../../../data/previews/watch-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/watch-${width}.png` });
   });
 }
 async function openPublicPage(page: Page, label: string) {
@@ -728,7 +730,11 @@ for (const width of [360, 480, 1440]) {
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
-    await page.screenshot({ path: `../../../data/previews/releases-${width}.png`, fullPage: true });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `../../../data/previews/releases-${width}.png`,
+        fullPage: true,
+      });
   });
 }
 async function browse(page: Page) {
@@ -1247,7 +1253,8 @@ for (const width of [360, 640, 1024, 1440]) {
     await page.keyboard.press("Escape");
     await expect(profile).toBeFocused();
     if (width === 1440)
-      await page.screenshot({ path: test.info().outputPath("sidebar-review.png") });
+      if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+        await page.screenshot({ path: test.info().outputPath("sidebar-review.png") });
     await page.setViewportSize({ width, height: 400 });
     await expect(profile).toBeInViewport();
     await rail
@@ -1354,9 +1361,10 @@ for (const width of [480, 1440]) {
         const image = page.getByRole("region", { name: item.page }).locator("img").first();
         await expect(image).toHaveJSProperty("tagName", "IMG");
         await expect(image).toHaveJSProperty("naturalWidth", 200);
-        await page.screenshot({
-          path: `../../../data/previews/${item.route.split("/")[0]}-${width}.png`,
-        });
+        if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+          await page.screenshot({
+            path: `../../../data/previews/${item.route.split("/")[0]}-${width}.png`,
+          });
       }
       await page.getByRole("link", { name: new RegExp(item.name) }).click();
       await expect(page).toHaveURL(new RegExp(`#/${item.route}`));
@@ -1431,7 +1439,8 @@ for (const width of [480, 1440]) {
       return { width: main.clientWidth, scroll: main.scrollWidth };
     });
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.width);
-    await page.screenshot({ path: `test-results/search-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `test-results/search-${width}.png` });
     await page.getByRole("link", { name: /الخيال/ }).click();
     await expect(page).toHaveURL(/#\/planets\/fantasy/);
   });
@@ -1499,7 +1508,8 @@ for (const width of [480, 1440]) {
     await expect(cards.getByRole("heading")).toHaveCount(2);
     await page.keyboard.press("Escape");
     await cards.first().getByRole("link").focus();
-    await page.screenshot({ path: `test-results/card-refinement-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `test-results/card-refinement-${width}.png` });
     await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
     await page.getByRole("button", { name: "جدول", exact: true }).click();
     await expect(page.getByRole("table")).toBeVisible();
@@ -1524,7 +1534,8 @@ for (const width of [360, 520]) {
     await expect(dialog.getByText("إلى أين تريد الذهاب؟", { exact: true })).toHaveCount(0);
     await input.fill("رحلة");
     await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
-    await page.screenshot({ path: `../../../data/previews/mobile-search-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/mobile-search-${width}.png` });
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
     );
@@ -1559,7 +1570,8 @@ for (const width of [360, 520]) {
     await expect(menu.getByRole("heading", { name: "كل الصفحات", exact: true })).toHaveClass(
       /sr-only/,
     );
-    await page.screenshot({ path: `../../../data/previews/mobile-pages-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/mobile-pages-${width}.png` });
     expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await menu.getByRole("link", { name: "تصفّح المكتبة", exact: true }).click();
     await expect(menu).toHaveCount(0);
@@ -1567,7 +1579,8 @@ for (const width of [360, 520]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.screenshot({ path: `../../../data/previews/mobile-navigation-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/mobile-navigation-${width}.png` });
   });
 }
 
@@ -1603,7 +1616,8 @@ test("public shell: natural drawer height and nested connection navigation", asy
   });
   const nestedSize = await nested.boundingBox();
   expect(nestedSize!.height).toBeLessThan(600);
-  await page.screenshot({ path: "../../../data/previews/public-nested-drawer.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/public-nested-drawer.png" });
   await page.keyboard.press("Escape");
   await expect(nested).toHaveCount(0);
   await expect(server).toBeFocused();
@@ -1633,7 +1647,8 @@ test("quick search desktop: pages, content, keyboard selection and private opt-i
   await expect(dialog.getByRole("option", { name: /الخيال.*الكواكب/ })).toBeVisible();
   await input.fill("رحلة");
   await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/quick-search-desktop.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/quick-search-desktop.png" });
   await page.keyboard.press("Escape");
   await expect(home).toBeFocused();
   await page.keyboard.press("Control+k");
@@ -1698,7 +1713,8 @@ for (const width of [360, 1440]) {
       "href",
       `#/titles/${work.id}`,
     );
-    await page.screenshot({ path: `../../../data/previews/trailers-redesign-${width}.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/trailers-redesign-${width}.png` });
     await page.getByRole("button", { name: "تمثيل حي", exact: true }).click();
     await expect(featured).toHaveCount(0);
     await expect(page.getByRole("listitem")).toHaveCount(1);

@@ -206,7 +206,8 @@ test("select all includes all matching pages without the old thirty-work cap", a
   await page.getByRole("button", { name: "تحديد كل النتائج", exact: true }).click();
   const actions = page.getByRole("region", { name: "إجراءات الأعمال المحددة" });
   await expect(actions.getByText("31 عمل محدّد")).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/works-selection-compact-1440.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/works-selection-compact-1440.png" });
   await page.getByRole("button", { name: "التالي", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: "تحديد عنوان 31", exact: true })).toBeChecked();
   await actions.getByRole("link", { name: "تحرير JSON", exact: true }).click();
@@ -223,7 +224,8 @@ test("the compact selection bar remains usable in a narrow desktop window", asyn
   const bounds = await actions.boundingBox();
   expect(bounds?.x).toBeGreaterThanOrEqual(0);
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(520);
-  await page.screenshot({ path: "../../../data/previews/works-selection-compact-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/works-selection-compact-520.png" });
 });
 
 test("filters stay compact, update directly and reset without clearing search or selection", async ({
@@ -242,7 +244,8 @@ test("filters stay compact, update directly and reset without clearing search or
     .click();
   await expect(page).toHaveURL(/format=animated/);
   await expect(page.getByRole("button", { name: /^المرشحات/ })).toContainText("1");
-  await page.screenshot({ path: "../../../data/previews/works-filters-compact-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/works-filters-compact-520.png" });
   await page.getByRole("button", { name: "مسح", exact: true }).click();
   await expect(
     page
@@ -313,7 +316,8 @@ for (const [path, name] of [
       page.getByRole("menuitem", { name: "الحذف متاح حتى 50 سجلاً في الدفعة" }),
     ).toBeDisabled();
     await page.keyboard.press("Escape");
-    await page.screenshot({ path: `../../../data/previews/admin-${path}-compact-1440.png` });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({ path: `../../../data/previews/admin-${path}-compact-1440.png` });
     await actions.getByRole("link", { name: "تحرير JSON" }).click();
     await expect
       .poll(async () =>
@@ -342,7 +346,8 @@ test("entity filters and selection review work in a narrow window with isolated 
     .getByRole("button", { name: "بدون صورة", exact: true })
     .click();
   await expect(page).toHaveURL(/image=without/);
-  await page.screenshot({ path: "../../../data/previews/admin-people-filters-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-people-filters-520.png" });
   await page.getByRole("button", { name: "مسح", exact: true }).click();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "مراجعة التحديد" }).click();

@@ -868,10 +868,11 @@ test("episode watched mutation has exact scope, preserves progress and handles f
   await openEpisodes(page);
   const card = episodeCard(page, 2);
   const watched = card.getByRole("button", { name: "تحديد الحلقة 2 كمُشاهَد" });
-  await expect(card.getByRole("progressbar", { name: "تقدم الحلقة 2" })).toHaveAttribute(
-    "aria-valuenow",
-    "120",
-  );
+  expect(
+    Number(
+      await card.getByRole("progressbar", { name: /تقدم.*الحلقة 2/ }).getAttribute("aria-valuenow"),
+    ),
+  ).toBeCloseTo((120 / 1440) * 100);
   await watched.click();
   await expect(card.getByRole("button", { name: "إلغاء مشاهدة الحلقة 2" })).toHaveAttribute(
     "aria-pressed",
@@ -909,7 +910,9 @@ test("episode watched mutation has exact scope, preserves progress and handles f
   });
   await card.getByRole("button", { name: "إلغاء مشاهدة الحلقة 2" }).click();
   await expect(watched).toHaveAttribute("aria-pressed", "false");
-  await expect(card.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "120");
+  expect(Number(await card.getByRole("progressbar").getAttribute("aria-valuenow"))).toBeCloseTo(
+    (120 / 1440) * 100,
+  );
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(await requests(page, "setWatched")).toEqual([
     { workId, installmentId: seasonId, episodeId: id(102), isPlayed: true },
@@ -1411,12 +1414,12 @@ test("decimal episode labels are normalized everywhere without changing mutation
   await openWork(page, `?installment=${seasonId}`);
   const panel = page.getByRole("tabpanel");
   await expect(panel.getByRole("textbox")).toHaveCount(0);
-  await expect(episodeCard(page, 1).getByText("1", { exact: true })).toBeVisible();
-  await expect(episodeCard(page, 2).getByText("2", { exact: true })).toBeVisible();
+  await expect(episodeCard(page, 1).getByText("الحلقة 1", { exact: true })).toBeVisible();
+  await expect(episodeCard(page, 2).getByText("الحلقة 2", { exact: true })).toBeVisible();
   await expect(panel.getByText(/^[12]\.00$/)).toHaveCount(0);
   const fractional = page.getByRole("article", { name: "الحلقة 9.5", exact: true });
   await expect(fractional).toBeVisible();
-  await expect(fractional.getByText("9.5", { exact: true })).toBeVisible();
+  await expect(fractional.getByText("الحلقة 9.5", { exact: true })).toBeVisible();
   await expect(
     fractional.getByRole("button", { name: "تفاصيل الحلقة 9.5", exact: true }),
   ).toBeVisible();
@@ -1693,7 +1696,7 @@ for (const width of [520, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await openWork(page);
-    await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+    await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
@@ -1824,7 +1827,7 @@ test("watch page special: film-style sidebar distinguishes browsing and selected
     ),
   });
   await openWork(page);
-  await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+  await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
   await watch
     .getByLabel("حلقات العمل", { exact: true })
@@ -1851,7 +1854,7 @@ test("watch page local file: no sidebar, one filename and fullscreen in bottom c
   page,
 }) => {
   await openWork(page);
-  await page.getByRole("button", { name: "تشغيل", exact: true }).click();
+  await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
   await watch.getByRole("button", { name: "خيارات المصدر", exact: true }).click();
   await page.getByRole("menuitem", { name: "فتح فيديو من الجهاز", exact: true }).click();

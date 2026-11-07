@@ -197,7 +197,8 @@ test("account directory scopes details, sessions and viewing records without exp
   await page.getByLabel("البحث بالاسم أو المعرّف", { exact: true }).fill("المدير");
   await page.getByRole("button", { name: "بحث", exact: true }).click();
   await expect(opener).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/admin-accounts.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-accounts.png" });
 });
 
 test("devices and invitations have their own compact views and narrow details fit", async ({
@@ -213,7 +214,8 @@ test("devices and invitations have their own compact views and narrow details fi
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.screenshot({ path: "../../../data/previews/admin-accounts-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-accounts-narrow.png" });
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "الدعوات", exact: true }).click();
   await expect(page.getByText("ضيف المكتبة", { exact: true })).toBeVisible();

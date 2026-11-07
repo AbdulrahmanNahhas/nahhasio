@@ -9,7 +9,8 @@ const reviewRoot = resolve(process.cwd(), "../../../data/previews/media-full-rev
 async function capture(page: Page, name: string) {
   if (process.env.NAHHASIO_MEDIA_SCREENSHOTS !== "1") return;
   await mkdir(reviewRoot, { recursive: true });
-  await page.screenshot({ path: resolve(reviewRoot, name), animations: "disabled" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: resolve(reviewRoot, name), animations: "disabled" });
 }
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

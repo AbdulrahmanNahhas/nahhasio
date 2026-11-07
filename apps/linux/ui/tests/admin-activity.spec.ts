@@ -178,7 +178,8 @@ test("activity orders and filters jobs, preserves URL history, and opens read-on
   await page.keyboard.press("Escape");
   await page.goBack();
   await expect(page).toHaveURL(/page=2/);
-  await page.screenshot({ path: "../../../data/previews/admin-activity-jobs.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-activity-jobs.png" });
 });
 
 test("audit timeline opens masked details and the full activity layout fits narrow windows", async ({
@@ -194,7 +195,8 @@ test("audit timeline opens masked details and the full activity layout fits narr
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.screenshot({ path: "../../../data/previews/admin-activity-logs.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-activity-logs.png" });
   await page.getByRole("combobox", { name: "الترتيب", exact: true }).click();
   await page.getByRole("option", { name: "الأقدم أولًا", exact: true }).click();
   await expect(page).toHaveURL(/order=oldest/);
@@ -209,5 +211,6 @@ test("audit timeline opens masked details and the full activity layout fits narr
   await expect(page.getByRole("button", { name: /تفاصيل العملية/ })).toHaveCount(2);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "../../../data/previews/admin-activity-narrow.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-activity-narrow.png" });
 });

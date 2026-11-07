@@ -1,4 +1,4 @@
-//! Installation status only. Flatpak and the host software manager own installed updates.
+//! Installation status and an explicit handoff to the host software manager.
 //! The sandbox never downloads executables, changes /app, or invokes host commands.
 use crate::bridge::Error;
 use gtk::glib;
@@ -58,4 +58,15 @@ pub async fn status() -> Result<Value, Error> {
         "automatic": null,
         "lastCheck": null,
     }))
+}
+
+/// Fixed application identity only; React cannot supply a URI or a host command.
+pub fn manager_uri() -> Result<&'static str, Error> {
+    if !is_flatpak() {
+        return Err(Error::new(
+            "update_manager",
+            "إدارة التحديث من النظام متاحة لنسخة Flatpak المثبّتة.",
+        ));
+    }
+    Ok("appstream://io.nahhasio.Linux")
 }

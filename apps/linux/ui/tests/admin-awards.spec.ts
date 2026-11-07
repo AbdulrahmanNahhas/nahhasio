@@ -381,10 +381,11 @@ test("awards navigate, filter, inspect all data and review a definition save", a
   await expect(page.getByText("الفتى ومالك الحزين", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /أكاديمية فنون/ }).click();
   await expect(page.getByRole("button", { name: "تحرير الجهة", exact: true })).toBeVisible();
-  await page.screenshot({
-    path: "../../../data/previews/admin-awards-desktop.png",
-    fullPage: true,
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/admin-awards-desktop.png",
+      fullPage: true,
+    });
   await page.getByRole("button", { name: "التفاصيل", exact: true }).first().click();
   await expect(page.getByRole("dialog")).toContainText("فوز موثق من الجهة المانحة");
   await page.keyboard.press("Escape");
@@ -417,7 +418,11 @@ test("awards navigate, filter, inspect all data and review a definition save", a
     "false",
   );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "../../../data/previews/admin-awards-narrow.png", fullPage: true });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/admin-awards-narrow.png",
+      fullPage: true,
+    });
 });
 
 test("failed saves retain draft and Escape asks before discarding", async ({ page }) => {
@@ -452,10 +457,11 @@ test("planet destination search keeps selected destination and keyboard radio se
   await page.getByRole("radio", { name: /الخيال/ }).focus();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("radio", { name: /العلوم/ })).toBeChecked();
-  await page.screenshot({
-    path: "../../../data/previews/admin-planets-sidebar.png",
-    fullPage: true,
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      path: "../../../data/previews/admin-planets-sidebar.png",
+      fullPage: true,
+    });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -492,11 +498,12 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
   await expect(
     page.getByRole("switch", { name: "الجوائز البارزة فقط", exact: true }),
   ).not.toBeChecked();
-  await page.screenshot({
-    animations: "disabled",
-    path: "../../../data/previews/admin-awards-explore.png",
-    fullPage: true,
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      animations: "disabled",
+      path: "../../../data/previews/admin-awards-explore.png",
+      fullPage: true,
+    });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: /^المرشحات/ }).click();
@@ -504,9 +511,10 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
     "aria-expanded",
     "false",
   );
-  await page.screenshot({
-    animations: "disabled",
-    path: "../../../data/previews/admin-awards-explore-narrow.png",
-    fullPage: true,
-  });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({
+      animations: "disabled",
+      path: "../../../data/previews/admin-awards-explore-narrow.png",
+      fullPage: true,
+    });
 });

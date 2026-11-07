@@ -153,12 +153,14 @@ test("public profile, separate editor and supplied avatars work without exposing
   await expect(page.getByRole("heading", { name: "أكوا", exact: true })).toBeVisible();
   await expect(page.getByText("private@example.test")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "الاسم", exact: true })).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/account-profile.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/account-profile.png" });
   await page.getByRole("button", { name: "الملف والحساب", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "الملف الشخصي", exact: true })).toHaveCount(1);
   await expect(page.getByRole("menuitem", { name: "تعديل الملف والصورة" })).toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "إعدادات الحساب" })).toHaveCount(0);
-  await page.screenshot({ path: "../../../data/previews/account-menu.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/account-menu.png" });
   await page.getByRole("menuitem", { name: "الملف الشخصي", exact: true }).click();
   await expect(page).toHaveURL(/profiles\/00000000-0000-4000-8000-000000000001/);
   await expect(page.getByRole("button", { name: "تعديل الملف", exact: true })).toHaveCount(1);
@@ -169,7 +171,8 @@ test("public profile, separate editor and supplied avatars work without exposing
   await page.getByRole("searchbox", { name: "اختر صورة حسابك" }).fill("سونيك");
   await page.getByTitle("سونيك 2", { exact: true }).click();
   await expect(page.getByRole("radio", { name: "سونيك 2", exact: true })).toBeChecked();
-  await page.screenshot({ path: "../../../data/previews/account-profile-editor.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/account-profile-editor.png" });
   await page.getByRole("button", { name: "حفظ التغييرات", exact: true }).click();
   await expect(editor).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "أكوا الجديد", exact: true })).toBeVisible();
@@ -182,7 +185,8 @@ test("public profile, separate editor and supplied avatars work without exposing
   await expect(page.getByRole("button", { name: "تعديل الملف", exact: true })).toHaveCount(0);
   await expect(page.getByText("private@example.test")).toHaveCount(0);
   await page.setViewportSize({ width: 520, height: 900 });
-  await page.screenshot({ path: "../../../data/previews/account-profile-public-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/account-profile-public-520.png" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -214,7 +218,8 @@ test("discard restores the saved profile and keyboard can open and close setting
   await expect(editor).not.toBeVisible();
   await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "الاسم", exact: true })).toHaveValue("أكوا");
-  await page.screenshot({ path: "../../../data/previews/account-profile-editor-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/account-profile-editor-520.png" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -273,7 +278,8 @@ test("profile activity paginates discussion, protects spoilers and shows viewing
   await page.goto("/#/profile");
   await expect(page.getByRole("tab", { name: "المشاهدة", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "حكاية 1", exact: true })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/profile-activity-watched.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/profile-activity-watched.png" });
   await page.getByRole("tab", { name: "الآراء والقوائم", exact: true }).click();
   await expect(page.getByText("تعليق محفوظ 1", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "إظهار محتوى يحوي حرقًا", exact: true }).click();
@@ -290,9 +296,11 @@ test("profile activity paginates discussion, protects spoilers and shows viewing
     "false",
   );
   await expect(page.getByText("أعمال مكتملة", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "../../../data/previews/profile-activity-statistics.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/profile-activity-statistics.png" });
   await page.setViewportSize({ width: 520, height: 900 });
-  await page.screenshot({ path: "../../../data/previews/profile-activity-520.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/profile-activity-520.png" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

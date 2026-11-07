@@ -372,6 +372,20 @@ fn build_window(
                 );
                 return;
             }
+            if request.command == "clientUpdate.openManager" {
+                let uri = match updater::manager_uri() {
+                    Ok(uri) => uri,
+                    Err(error) => { send_reply(&view, reply(&id, Err(error))); return; }
+                };
+                let weak = view.downgrade();
+                gio::AppInfo::launch_default_for_uri_async(uri, None::<&gio::AppLaunchContext>, None::<&gio::Cancellable>, move |result| {
+                    if let Some(view) = weak.upgrade() {
+                        let result = result.map(|()| serde_json::json!({"opened":true})).map_err(|_| Error::new("update_manager", "تعذّر فتح البرمجيات. افتح مدير البرمجيات في النظام ثم صفحة نحّاسيو أو التحديثات."));
+                        send_reply(&view, reply(&id, result));
+                    }
+                });
+                return;
+            }
             let permit = match services.permits.clone().try_acquire_owned() {
                 Ok(permit) => permit,
                 Err(_) => {

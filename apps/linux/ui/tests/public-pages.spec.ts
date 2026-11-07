@@ -82,9 +82,10 @@ for (const width of [360, 1440]) {
         true,
       );
       if (["الكواكب", "الصنّاع", "مشاهدة مباشرة"].includes(label))
-        await page.screenshot({
-          path: `../../../data/previews/public-${label === "الكواكب" ? "planets" : label === "الصنّاع" ? "people" : "watch"}-${width}.png`,
-        });
+        if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+          await page.screenshot({
+            path: `../../../data/previews/public-${label === "الكواكب" ? "planets" : label === "الصنّاع" ? "people" : "watch"}-${width}.png`,
+          });
     }
     expect(failures).toEqual([]);
   });

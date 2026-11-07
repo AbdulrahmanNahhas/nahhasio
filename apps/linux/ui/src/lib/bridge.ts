@@ -280,6 +280,8 @@ export const gateway = {
     ServerOperationQueuedSchema.parse(
       await call("requestServerOperation", ServerOperationRequestSchema.parse(input)),
     ),
+  openClientUpdateManager: async () =>
+    z.object({ opened: z.literal(true) }).parse(await call("clientUpdate.openManager", {})),
   clientUpdateStatus: async (signal?: AbortSignal) =>
     ClientUpdateStatusSchema.parse(await call("clientUpdate.status", {}, signal)),
   serverSettings: async (signal?: AbortSignal) =>

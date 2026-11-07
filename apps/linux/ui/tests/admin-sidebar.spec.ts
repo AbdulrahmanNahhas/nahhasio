@@ -160,11 +160,13 @@ test("admin sidebar is right inset and collapses to icons with Ctrl+B", async ({
   await expect(page).toHaveURL(/admin\/people/);
   await expect(sidebar).toHaveAttribute("data-state", "collapsed");
   await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeLessThan(80);
-  await page.screenshot({ path: "../../../data/previews/admin-sidebar-icons.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-sidebar-icons.png" });
   await page.keyboard.press("Control+b");
   await expect(sidebar).toHaveAttribute("data-state", "expanded");
   await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeGreaterThan(240);
-  await page.screenshot({ path: "../../../data/previews/admin-sidebar-inset.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-sidebar-inset.png" });
   await page.setViewportSize({ width: 520, height: 900 });
   await page.getByRole("button", { name: "إظهار أو إخفاء القائمة", exact: true }).click();
   const mobile = page.locator('[data-slot="sidebar"][data-mobile="true"]');

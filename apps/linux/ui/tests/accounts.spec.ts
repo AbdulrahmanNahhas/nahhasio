@@ -241,10 +241,11 @@ for (const width of [520, 1440]) {
     await page.locator("#main-content").evaluate((element) => {
       element.scrollTop = 0;
     });
-    await page.screenshot({
-      path: `../../../data/previews/account-profile-${width}.png`,
-      fullPage: true,
-    });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `../../../data/previews/account-profile-${width}.png`,
+        fullPage: true,
+      });
     await page.getByRole("button", { name: "إغلاق الإعدادات", exact: true }).click();
     await openAccountDestination(page, "لوحة الإدارة");
     await expect(page.getByRole("region", { name: "لوحة الإدارة" })).toBeVisible();
@@ -279,8 +280,8 @@ test("admin navigation exposes current sections and marks the active route", asy
       title: element.textContent!.trim(),
     })),
   );
-  expect(links).toHaveLength(12);
-  for (const name of ["تنزيلات الخادم", "مكتبة الملفات", "جميع الجداول", "سجل التعديلات"])
+  expect(links).toHaveLength(14);
+  for (const name of ["جميع الجداول", "سجل التعديلات"])
     await expect(
       navigation.getByRole("button", { name: `${name} — غير متاح بعد`, exact: true }),
     ).toBeDisabled();
@@ -293,7 +294,8 @@ test("admin navigation exposes current sections and marks the active route", asy
     );
   }
   await navigation.getByRole("link", { name: "نظرة عامة" }).click();
-  await page.screenshot({ path: "../../../data/previews/admin-layout.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/admin-layout.png" });
   expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(
     page.viewportSize()!.width,
   );

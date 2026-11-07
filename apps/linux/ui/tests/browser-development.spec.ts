@@ -43,7 +43,8 @@ test("local browser signs in, edits demo settings, displays artwork and keeps se
     await expect(name).toBeEnabled();
     await expect(name).toHaveValue(original);
   }
-  await page.screenshot({ path: "../../../data/previews/browser-development-admin.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/browser-development-admin.png" });
   await page.getByRole("link", { name: "العودة إلى المكتبة", exact: true }).click();
   await expect.poll(() => page.locator('img[src^="blob:"]').count()).toBeGreaterThan(0);
   const images = page.locator('img[src^="blob:"]');
@@ -163,7 +164,8 @@ test("accounts workspace uses exact, protected-column-safe admin reads against t
   ).toBeVisible();
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.screenshot({ path: "../../../data/previews/browser-development-accounts.png" });
+  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+    await page.screenshot({ path: "../../../data/previews/browser-development-accounts.png" });
 });
 
 test("overview type counts agree with combined administrative Browse-equivalent filters", async ({

@@ -174,10 +174,11 @@ for (const width of [1440, 520]) {
     await drawer.getByRole("button", { name: "إضافة رابط", exact: true }).click();
     await drawer.getByLabel("اسم الرابط", { exact: true }).fill("الموقع الرسمي");
     await drawer.getByLabel("الرابط", { exact: true }).fill("https://example.test/studio");
-    await page.screenshot({
-      path: `../../../data/previews/studio-editor/links-${width}.png`,
-      fullPage: true,
-    });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `../../../data/previews/studio-editor/links-${width}.png`,
+        fullPage: true,
+      });
     await drawer.getByRole("tab", { name: "علاقات الجهات", exact: true }).click();
     await drawer.getByRole("button", { name: "إضافة علاقة", exact: true }).click();
     await page
@@ -187,16 +188,18 @@ for (const width of [1440, 520]) {
     await drawer.getByLabel("نوع العلاقة", { exact: true }).fill("تابعة لـ");
     await drawer.getByLabel("التاريخ (اختياري)", { exact: true }).fill("2020-01-02");
     await drawer.getByLabel("ملاحظات العلاقة", { exact: true }).fill("علاقة اختبار");
-    await page.screenshot({
-      path: `../../../data/previews/studio-editor/relations-${width}.png`,
-      fullPage: true,
-    });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `../../../data/previews/studio-editor/relations-${width}.png`,
+        fullPage: true,
+      });
     await drawer.getByRole("tab", { name: "الهوية", exact: true }).click();
     await expect(drawer.getByLabel("الاسم", { exact: true })).toHaveValue("جهة الاختبار");
-    await page.screenshot({
-      path: `../../../data/previews/studio-editor/identity-${width}.png`,
-      fullPage: true,
-    });
+    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
+      await page.screenshot({
+        path: `../../../data/previews/studio-editor/identity-${width}.png`,
+        fullPage: true,
+      });
     await drawer.getByRole("button", { name: "مراجعة التغييرات", exact: true }).click();
     const review = page.getByRole("dialog", { name: "مراجعة السجل والمساهمات", exact: true });
     await expect(

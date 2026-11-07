@@ -61,7 +61,7 @@ export function EpisodeThumbnail({
   const navigation = useCardNavigation();
   const [tilt, setTilt] = useState<string>(tilts[1]);
   const progress =
-    duration && duration > 0 && position > 0
+    !played && duration && duration > 0 && position > 0
       ? Math.min(100, Math.max(0, (position / duration) * 100))
       : null;
   return (
