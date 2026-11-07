@@ -155,8 +155,8 @@ for (const width of [520, 1440]) {
     }
     const thumbnails = await grid.locator("[data-episode-primary]").evaluateAll((buttons) =>
       buttons.slice(0, 2).map((button) => {
-        const { width, height } = getComputedStyle(button.parentElement!);
-        return { width: parseFloat(width), height: parseFloat(height) };
+        const style = getComputedStyle(button.parentElement!);
+        return { width: parseFloat(style.width), height: parseFloat(style.height) };
       }),
     );
     expect(thumbnails).toHaveLength(2);
