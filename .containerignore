@@ -10,3 +10,18 @@ dist
 **/.env*
 test-results
 playwright-report
+
+# Project-local SDKs and review data are not server build inputs.
+.flatpak*
+.agents
+.codex
+.claude
+.vscode
+.idea
+devenv.local.*
+catalog-lists
+**/dist
+**/test-results
+**/.playwright-build
+**/*.pem
+**/*.key

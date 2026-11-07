@@ -10,7 +10,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: nahhasio-alpha-channel
+  group: nahhasio-release-channels
   cancel-in-progress: false
 
 jobs:
@@ -22,7 +22,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Verify published release and update alpha channel
+      - name: Verify published release and select its isolated channel
+        id: channel
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -35,11 +36,26 @@ jobs:
           printf '%s\n' "$TRUSTED_KEY" > release/key.pem
           base64 --decode release/manifest.json.sig > release/signature.bin
           openssl pkeyutl -verify -pubin -inkey release/key.pem -rawin -in release/manifest.json -sigfile release/signature.bin
+          python3 - <<'PY'
+          import json, os, runpy
+          manifest = json.load(open("release/manifest.json"))
+          channel = runpy.run_path("packaging/release/manifest.py")["release_channel"](manifest["version"])
+          directory = "flatpak-rc" if channel == "rc" else "flatpak"
+          repository = os.environ["GITHUB_REPOSITORY"]
+          expected = f"https://{os.environ['GITHUB_REPOSITORY_OWNER'].lower()}.github.io/{repository.split('/')[1]}/{directory}/"
+          if (os.environ["RELEASE_TAG"] != "nahhasio-v" + manifest["version"]
+                  or manifest["client"]["branch"] != channel
+                  or manifest["client"]["repositoryUrl"] != expected):
+              raise SystemExit("Signed release identity/channel mismatch")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"name={channel}\ndirectory={directory}\n")
+          PY
       - name: Retain and publish signed client repository
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REPOSITORY_DIRECTORY: ${{ steps.channel.outputs.directory }}
         run: |
           if git fetch origin flatpak-repository; then
             git worktree add --detach published FETCH_HEAD
@@ -47,10 +63,10 @@ jobs:
             git worktree add --detach published HEAD
             git -C published switch --orphan flatpak-repository
           fi
-          python3 packaging/release/publish-flatpak.py release/manifest.json release/flatpak-repository.tar.gz published/flatpak
+          python3 packaging/release/publish-flatpak.py release/manifest.json release/flatpak-repository.tar.gz "published/$REPOSITORY_DIRECTORY"
           git -C published config user.name github-actions[bot]
           git -C published config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git -C published add flatpak
+          git -C published add "$REPOSITORY_DIRECTORY"
           if ! git -C published diff --cached --quiet; then
             git -C published commit -m "Publish $RELEASE_TAG Flatpak repository"
             git -C published push origin HEAD:flatpak-repository
@@ -64,8 +80,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_CHANNEL: ${{ steps.channel.outputs.name }}
         run: |
-          if ! gh release view nahhasio-alpha >/dev/null 2>&1; then
-            gh release create nahhasio-alpha --title "Nahhasio Alpha update channel" --prerelease --notes "Signed release information for installed Nahhasio clients and servers."
+          channel="nahhasio-$RELEASE_CHANNEL"
+          if ! gh release view "$channel" >/dev/null 2>&1; then
+            gh release create "$channel" --title "Nahhasio $RELEASE_CHANNEL update channel" --prerelease --notes "Signed release information for installed Nahhasio clients and servers."
           fi
-          gh release upload nahhasio-alpha release/manifest.json release/manifest.json.sig --clobber
+          gh release upload "$channel" release/manifest.json release/manifest.json.sig --clobber

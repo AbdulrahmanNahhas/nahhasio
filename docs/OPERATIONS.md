@@ -263,3 +263,33 @@ interruptions between database renames, verified backup/restore and immediate Po
 These disposable software checks do not simulate failed disks or guarantee writes against a storage
 device that ignores flushes. They are not Fedora reboot or packaged-installation acceptance. A UPS
 can reduce outages, but is not required for the application recovery protocol.
+
+## Receiving updates from the app
+
+Administrators use **Server maintenance → Updates**. Check updates, review the signed release,
+then choose either compatible application update or explicit schema-upgrade review. The latter
+requires the exact reviewed version and rehearses a separate restored database before switching.
+The operation stays on the host if the client closes or reconnects. Read its actual result before
+retrying an unknown/interrupted request. Backup/restore and daily schedule/retention have their
+own controls under **Backups and restore**; video bytes remain a separate recovery copy.
+
+For the installed Linux application, choose **Open Software for updates** on that page. This opens
+the fixed Nahhasio AppStream identity through the desktop's URI/portal handler. Flatpak/Software
+owns installation and any confirmation; Nahhasio does not execute host update commands or replace
+its running executable. Close and relaunch after updating. A missing software handler produces an
+explicit error and manual Software guidance. This handoff still needs installed Fedora acceptance.
+
+The already-installed 0.1.3 API cannot accept the new schema-maintenance operations. Its one-time
+signed host-tool/bootstrap and media-root setup must be completed by the operator using the
+selected `~/Nahhasio/config` root; the current protocol cannot make that initial transition a button
+in the old application. After setup, supported capabilities enable the new app controls. Host account,
+lingering/firewall preparation, PostgreSQL major upgrades and replacement-machine recovery remain
+explicit operator work. Ordinary compatible updates, schema upgrades, backup creation, retention
+and same-machine data restoration belong to the app's maintenance workflow.
+
+The candidate is `0.2.0-rc.1`. Its server feed is `nahhasio-rc`, its Flatpak branch is `rc`, and its
+repository is `/flatpak-rc/`. Publishing an RC must not replace the installed Alpha server manifest
+or `/flatpak/` client repository. Existing installations stay on Alpha unless deliberately enrolled
+in RC testing. Both channels keep signature verification and older repository objects. RC and Alpha
+use the same application identity, so changing an installed client's branch requires preserving its
+private state and deliberate Flatpak selection; development tests should use isolated state.

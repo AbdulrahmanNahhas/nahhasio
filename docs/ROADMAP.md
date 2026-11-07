@@ -657,3 +657,20 @@ commit-all instruction. Functional, operations and disposable recovery audits co
 
 Publication and installation still require their explicit release review. The cleanup, operations
 and disposable recovery work is authorized to continue after the source checkpoints.
+
+### Release candidate verification
+
+The candidate version is `0.2.0-rc.1`. Four focused source checkpoints through `7d22677` cover
+client appearance, device acquisition, media fixtures and schema recovery. The RC release
+workflow builds the final source and signs the isolated channel artifacts.
+
+The complete fixture browser suite now passes 160 cases, with eight explicit opt-in environment
+cases skipped. Stale navigation/language/progress/source assertions were updated; production fixture
+bundles are isolated from package output so simultaneous builds cannot cause false asset 404s.
+Repository lint/format/TypeScript/Rust Clippy checks pass. The client has a typed, fixed-identity
+Software handoff with a failure path and a fixture test. The release workflow checks the packaged
+server image's operator version, migration fingerprint and media tools before publishing its digest.
+
+The disposable PostgreSQL recovery runner passed with substituted service/container transport.
+Installed Fedora reboot, Software-manager behavior and installed-device playback/offline
+acceptance are separate from release artifact verification.

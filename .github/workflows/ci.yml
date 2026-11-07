@@ -116,7 +116,9 @@ jobs:
       - name: Signatures, archives and private source exclusions
         run: python3 -m unittest discover -s packaging/release -p 'test_*.py' -v
       - name: Verify signed app and AppStream pulls
-        run: bash packaging/release/test-flatpak-signing.sh
+        run: |
+          bash packaging/release/test-flatpak-signing.sh
+          NAHHASIO_SIGNING_TEST_VERSION=0.2.0-rc.1 bash packaging/release/test-flatpak-signing.sh
 
   native:
     name: Rust Linux client and media core

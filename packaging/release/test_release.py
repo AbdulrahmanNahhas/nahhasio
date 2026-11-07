@@ -32,6 +32,21 @@ installer = module("installer", ROOT / "packaging/server/install.py")
 
 
 class ReleaseBoundaries(unittest.TestCase):
+    def test_candidate_channel_and_descriptors_are_separate_from_alpha(self):
+        manifest = module("release_manifest", ROOT / "packaging/release/manifest.py")
+        self.assertEqual(manifest.release_channel("0.2.0-rc.1"), "rc")
+        self.assertEqual(manifest.release_channel("0.2.0"), "alpha")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            key = root / "key.gpg"
+            key.write_bytes(b"disposable public key")
+            subprocess.run([sys.executable, str(ROOT / "packaging/release/flatpak-descriptors.py"), str(key), str(root), "https://example.test/flatpak-rc/", "rc"], check=True)
+            descriptor = (root / "nahhasio.flatpakref").read_text()
+            self.assertIn("Branch=rc\n", descriptor)
+            self.assertIn("SuggestRemoteName=nahhasio-rc\n", descriptor)
+            self.assertNotIn("Branch=alpha", descriptor)
+
+
     def test_source_connection_uses_explicit_libpq_fields_without_argv_secrets(self):
         connection = "postgresql://fixture:example%2Bpassword@127.0.0.1:25483/catalog?sslmode=require"
         with patch.dict(os.environ, {"DATABASE_URL": connection, "NAHHASIO_SERVER_TOKEN": "private"}, clear=True):

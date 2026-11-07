@@ -127,7 +127,10 @@ Release preparation creates a draft with a signed `.flatpak` test bundle, reposi
 client feed at this stage. Publishing an approved `nahhasio-v*` release verifies its manifest and
 repository archive, merges the new objects into the retained `flatpak-repository` branch, and
 deploys Pages. Previous commit objects remain available; no repository prune runs automatically.
-The server alpha manifest is promoted only after Pages deployment succeeds.
+The corresponding server manifest is promoted only after Pages deployment succeeds.
+Release candidates (`0.2.0-rc.N`) use the independent `rc` branch, `/flatpak-rc/` repository,
+`nahhasio-rc` remote/feed and explicit opt-in. Candidate publication preserves the Alpha feed
+and `/flatpak/` repository. The manifest, Builder branch and descriptors must agree.
 
 Default client repository: `https://abdulrahmannahhas.github.io/nahhasio/flatpak/`.
 Static Pages hosting has storage/bandwidth limits; repository size must be checked as releases
@@ -147,6 +150,10 @@ The host installer verifies the Ed25519 manifest before importing the bound Flat
 Flatpak presents its normal installation/permission review and installs dependencies from Flathub.
 The `.flatpakref` is also available for Software-based installation when its origin is trusted.
 No custom host updater or background Python helper is installed.
+
+The app’s **Server maintenance → Updates → Open Software for updates** action opens its fixed
+AppStream identity through the desktop handler. Software owns update confirmation; missing handlers
+show a recoverable error. The native handoff has no arbitrary URI or host-command input.
 
 Later application/runtime updates use Software or:
 

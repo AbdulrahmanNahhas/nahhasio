@@ -10,6 +10,10 @@ trap 'rm -rf "$GNUPGHOME"' EXIT
 printf '%s\n' "$NAHHASIO_FLATPAK_GPG_KEY" | gpg --batch --import
 key=$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1=="fpr" {print $10; exit}')
 test "$key" = "$NAHHASIO_FLATPAK_GPG_FINGERPRINT"
+branch=$(python3 packaging/release/manifest.py --channel-for "$RELEASE_VERSION")
+repository_path=flatpak
+if test "$branch" = rc; then repository_path=flatpak-rc; fi
+repository_url="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/$repository_path/"
 mkdir -p dist/release
 tar --extract --gzip --file dist/unsigned-flatpak-repo.tar.gz
 # Builder may already have generated unsigned, unchanged AppStream commits. Updating the
@@ -32,11 +36,11 @@ done
 flatpak build-update-repo --no-update-appstream --gpg-homedir="$GNUPGHOME" --gpg-sign="$key" --generate-static-deltas dist/flatpak-repo
 gpg --batch --export "$key" > dist/release/flatpak-key.gpg
 python3 packaging/release/flatpak-descriptors.py dist/release/flatpak-key.gpg dist/flatpak-repo \
-  "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/"
+  "$repository_url" "$branch"
 cp dist/flatpak-repo/nahhasio.flatpakref dist/flatpak-repo/nahhasio.flatpakrepo dist/release/
 flatpak build-bundle --gpg-homedir="$GNUPGHOME" --gpg-sign="$key" \
   --gpg-keys=dist/release/flatpak-key.gpg \
-  --repo-url="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/flatpak/" \
+  --repo-url="$repository_url" \
   --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-  dist/flatpak-repo "dist/release/Nahhasio-$RELEASE_VERSION-x86_64.flatpak" io.nahhasio.Linux alpha
+  dist/flatpak-repo "dist/release/Nahhasio-$RELEASE_VERSION-x86_64.flatpak" io.nahhasio.Linux "$branch"
 tar --create --gzip --hard-dereference --exclude=./tmp --file dist/release/flatpak-repository.tar.gz --directory dist/flatpak-repo .

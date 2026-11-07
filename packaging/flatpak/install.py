@@ -13,7 +13,6 @@ import urllib.parse
 import urllib.request
 
 APP = "io.nahhasio.Linux"
-REMOTE = "nahhasio-alpha"
 DEFAULT = "https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-alpha/manifest.json"
 
 
@@ -61,8 +60,9 @@ def install(public_key, manifest_url):
         subprocess.run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(public_key), "-rawin", "-in", str(root / "manifest"), "-sigfile", str(root / "signature")], check=True, stdout=subprocess.DEVNULL)
         manifest = json.loads(raw)
         client = manifest["client"]
-        if manifest.get("formatVersion") != 1 or manifest.get("apiVersion") != 1 or client.get("format") != "flatpak" or client.get("appId") != APP or client.get("branch") != "alpha":
+        if manifest.get("formatVersion") != 1 or manifest.get("apiVersion") != 1 or client.get("format") != "flatpak" or client.get("appId") != APP or client.get("branch") not in {"alpha", "rc"}:
             raise ValueError("This release does not describe the supported Flatpak client")
+        remote = "nahhasio-" + client["branch"]
         repository = urllib.parse.urlsplit(client["repositoryUrl"])
         if repository.scheme != "https" or not repository.hostname or repository.username or repository.password or repository.port not in (None, 443) or repository.query or repository.fragment:
             raise ValueError("Flatpak repository must use credential-free HTTPS")
@@ -72,11 +72,11 @@ def install(public_key, manifest_url):
         key_file = root / "flatpak-key.gpg"
         key_file.write_bytes(key)
         remotes = subprocess.check_output(["flatpak", "remotes", "--user", "--columns=name"], text=True).splitlines()
-        if REMOTE in remotes:
+        if remote in remotes:
             raise ValueError("Nahhasio remote already exists. Use Flatpak updates; changing publisher trust requires explicit review")
         subprocess.run(["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"], check=True)
-        subprocess.run(["flatpak", "remote-add", "--user", "--no-use-for-deps", "--gpg-import=" + str(key_file), REMOTE, client["repositoryUrl"]], check=True)
-        subprocess.run(["flatpak", "install", "--user", REMOTE, APP + "//alpha"], check=True)
+        subprocess.run(["flatpak", "remote-add", "--user", "--no-use-for-deps", "--gpg-import=" + str(key_file), remote, client["repositoryUrl"]], check=True)
+        subprocess.run(["flatpak", "install", "--user", remote, APP + "//" + client["branch"]], check=True)
     print("Installed. Launch with: flatpak run io.nahhasio.Linux")
     print("Future updates are owned by Flatpak and your desktop Software application.")
 

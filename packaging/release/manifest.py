@@ -21,23 +21,31 @@ def schema_fingerprint(root):
     return digest.hexdigest()
 
 
+def release_channel(version):
+    return "rc" if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+", version) else "alpha"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schema-root", type=Path, default=Path("packages/database/drizzle"))
     parser.add_argument("--fingerprint", action="store_true")
+    parser.add_argument("--channel-for")
     parser.add_argument("--version")
     parser.add_argument("--client", type=Path)
     parser.add_argument("--client-url")
     parser.add_argument("--flatpak-key", type=Path)
     parser.add_argument("--flatpak-fingerprint")
     parser.add_argument("--flatpak-repo", type=Path)
-    parser.add_argument("--repository-url", default="https://abdulrahmannahhas.github.io/nahhasio/flatpak/")
+    parser.add_argument("--repository-url")
     parser.add_argument("--server-image")
     parser.add_argument("--installer-bundle", type=Path)
     parser.add_argument("--installer-url")
     parser.add_argument("--signing-key", type=Path)
     parser.add_argument("--output", type=Path, default=Path("dist/release"))
     args = parser.parse_args()
+    if args.channel_for:
+        print(release_channel(args.channel_for))
+        return
     schema = schema_fingerprint(args.schema_root)
     if args.fingerprint:
         print(schema)
@@ -57,6 +65,12 @@ def main():
         parser.error("--client and --signing-key are required")
     if not args.flatpak_key or not args.flatpak_repo or not re.fullmatch(r"[A-F0-9]{40,64}", args.flatpak_fingerprint or ""):
         parser.error("A signed Flatpak repository, exported GPG key and full fingerprint are required")
+    channel = release_channel(args.version)
+    if args.repository_url is None:
+        directory = "flatpak-rc" if channel == "rc" else "flatpak"
+        args.repository_url = f"https://abdulrahmannahhas.github.io/nahhasio/{directory}/"
+    if channel == "rc" and not args.repository_url.endswith("/flatpak-rc/"):
+        parser.error("Release candidates require an isolated flatpak-rc repository")
     if not args.repository_url.startswith("https://") or not args.repository_url.endswith("/"):
         parser.error("The Flatpak repository must use an HTTPS directory URL")
     public_der = subprocess.run(["openssl", "pkey", "-in", str(args.signing_key), "-pubout", "-outform", "DER"], check=True, capture_output=True).stdout
@@ -70,7 +84,7 @@ def main():
                 "schemaVersion": schema,
                 "client": {"url": args.client_url, "sha256": digest.hexdigest(),
                            "size": args.client.stat().st_size, "architecture": "x86_64",
-                           "format": "flatpak", "appId": "io.nahhasio.Linux", "branch": "alpha",
+                           "format": "flatpak", "appId": "io.nahhasio.Linux", "branch": release_channel(args.version),
                            "repositoryUrl": args.repository_url,
                            "gpgFingerprint": args.flatpak_fingerprint,
                            "gpgKey": base64.b64encode(args.flatpak_key.read_bytes()).decode(),
