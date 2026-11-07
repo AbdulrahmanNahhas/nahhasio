@@ -153,14 +153,16 @@ for (const width of [520, 1440]) {
       expect(bounds[0].left).toBeGreaterThan(bounds[1].left);
       expect(bounds[4].top).toBeGreaterThan(bounds[0].top);
     }
-    const ratios = await grid.locator("article button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const rect = button.getBoundingClientRect();
-        return rect.width / rect.height;
+    const thumbnails = await grid.locator("[data-episode-primary]").evaluateAll((buttons) =>
+      buttons.slice(0, 2).map((button) => {
+        const { width, height } = getComputedStyle(button.parentElement!);
+        return { width: parseFloat(width), height: parseFloat(height) };
       }),
     );
-    expect(ratios[0]).toBeCloseTo(16 / 9, 1);
-    expect(ratios[1]).toBeCloseTo(16 / 9, 1);
+    expect(thumbnails).toHaveLength(2);
+    for (const thumbnail of thumbnails) {
+      expect(Math.abs(thumbnail.width - (thumbnail.height * 16) / 9)).toBeLessThan(1);
+    }
     expect(
       await grid.evaluate(
         (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,

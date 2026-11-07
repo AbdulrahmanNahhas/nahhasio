@@ -87,7 +87,7 @@ jobs:
             test -x /usr/local/bin/nahhasio-server
             test -x /usr/local/bin/nahhasio-media-worker
             test "$(nahhasio --version)" = "nahhasio $1"
-            nahhasio migrate fingerprint | python3 -c '"'"'import json, sys; assert json.load(sys.stdin)["schemaVersion"] == sys.argv[1]'"'"' "$2"
+            nahhasio migrate fingerprint --json | python3 -c '"'"'import json, sys; assert json.load(sys.stdin)["schemaVersion"] == sys.argv[1]'"'"' "$2"
             yt-dlp --version
             deno --version
             ffprobe -version
