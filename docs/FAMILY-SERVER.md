@@ -413,3 +413,20 @@ Port 8096 no longer had a listener. Nahhasio 0.1.3/PostgreSQL containers remaine
 HTTPS readiness passed after cleanup. The new media API/worker/client source has not been
 installed as part of this operation; no live catalog mutation or new application deployment
 was performed. SSH was closed afterward.
+
+## Installed RC upgrade — 2026-11-07
+
+The family PC opted into the signed RC server feed and user Flatpak remote. The API reports
+`0.2.0-rc.1`, the original server identity, readiness and stored-media support. The staged schema
+upgrade completed with three applied migrations and zero pending. The server, PostgreSQL,
+maintenance and media worker services are active, as are both timers. The API's video mount is
+read-only and the media worker's mount is writable.
+
+The verified on-host preflight backup is `20261107T072737Z-f2493f4e`. The verified cutover backup
+`20261107T073146Z-47b609b1` includes the media inventory and journal archive. The previous
+database is retained by the upgrade journal. Fedora's rootless Podman network wait delayed
+worker startup during this cutover.
+
+The user Flatpak selects the signed `rc` branch at `0.2.0-rc.1`; the previous Alpha branch remains
+installed. Live in-app playback, restore and reboot acceptance are pending. The retained
+collection files still need reviewed catalog matching.

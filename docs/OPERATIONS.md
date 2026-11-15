@@ -1,9 +1,9 @@
 # Operations
 
 Current implementation: rootless Podman server/PostgreSQL, signed server releases, Flatpak client,
-coordinated backup/restore and app maintenance controls. The Fedora family server is installed;
-version 0.1.3 is the recorded installed version; live HTTPS/admin access, rootless services, active backup/update timers and a verified
-coordinated backup were inspected on 2026-10-30. Restore/reboot and failure-recovery acceptance
+coordinated backup/restore and app maintenance controls. The Fedora family server and its desktop
+client were upgraded to `0.2.0-rc.1` on 2026-11-07. HTTPS readiness, the media worker, backup/update
+timers and the verified cutover backup passed. Installed restore, reboot and playback acceptance
 remain separate. [FAMILY-SERVER](FAMILY-SERVER.md) records the actual layout and agent access;
 [DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
 [server installer](../packaging/server/README.md), [maintenance tools](../packaging/operations/README.md)
@@ -279,7 +279,7 @@ owns installation and any confirmation; Nahhasio does not execute host update co
 its running executable. Close and relaunch after updating. A missing software handler produces an
 explicit error and manual Software guidance. This handoff still needs installed Fedora acceptance.
 
-The already-installed 0.1.3 API cannot accept the new schema-maintenance operations. Its one-time
+A 0.1.3 API cannot accept the new schema-maintenance operations. Its one-time
 signed host-tool/bootstrap and media-root setup must be completed by the operator using the
 selected `~/Nahhasio/config` root; the current protocol cannot make that initial transition a button
 in the old application. After setup, supported capabilities enable the new app controls. Host account,
