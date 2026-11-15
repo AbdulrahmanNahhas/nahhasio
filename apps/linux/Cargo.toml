@@ -6,36 +6,37 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-native-diagnostics = ["media-transfer/test-fixtures", "dep:tempfile"]
+native-diagnostics = ["dep:tempfile", "media-transfer/test-fixtures"]
 
 [dependencies]
-rustix.workspace = true
-ashpd = { version = "0.13", default-features = false, features = ["tokio", "secret"] }
-chacha20poly1305 = "0.10"
-native_player = { package = "nahhasio-native-player", path = "../../crates/native-player" }
-sha2.workspace = true
-hex.workspace = true
-regex = "1"
-media-transfer = { path = "../../crates/media-transfer" }
-axum.workspace = true
-getrandom.workspace = true
-subtle.workspace = true
-tokio-stream = "0.1"
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-tempfile = { version = "3", optional = true }
-gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }
 adw = { package = "libadwaita", version = "0.8", features = ["v1_4"] }
-webkit6 = "0.5"
+ashpd = { version = "0.13", default-features = false, features = ["secret", "tokio"] }
+axum.workspace = true
+base64 = "0.22"
+chacha20poly1305 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+getrandom.workspace = true
+gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }
+hex.workspace = true
+media-transfer = { path = "../../crates/media-transfer" }
+nahhasio-client-core = { path = "../../crates/client-core", version = "=0.2.0-rc.1" }
+native_player = { package = "nahhasio-native-player", path = "../../crates/native-player" }
+regex = "1"
 reqwest = { version = "0.12", default-features = false, features = [
-  "rustls-tls",
   "json",
+  "rustls-tls",
   "stream",
 ] }
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+tempfile = { version = "3", optional = true }
 tokio = { workspace = true, features = ["process"] }
-base64 = "0.22"
+tokio-stream = "0.1"
 url = "2"
+webkit6 = "0.5"
 
 [lints]
 workspace = true

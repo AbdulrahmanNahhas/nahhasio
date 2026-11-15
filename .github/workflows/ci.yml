@@ -77,6 +77,30 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  client-core:
+    name: UI-independent client core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.94.0
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          shared-key: client-core-ubuntu24-rust1.94
+      - name: Core formatting and lint
+        run: |
+          cargo fmt -p nahhasio-client-core -- --check
+          cargo clippy --locked -p nahhasio-client-core --all-targets -- -D warnings
+      - name: Core policies and compatibility tests
+        run: cargo test --locked -p nahhasio-client-core
+      - name: Enforce the dependency boundary
+        run: |
+          python3 -m unittest discover -s tools/architecture -p 'test_*.py' -v
+          python3 tools/architecture/check_client_core.py
+
   server:
     name: Rust server and operator CLI
     runs-on: ubuntu-24.04

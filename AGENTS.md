@@ -97,6 +97,7 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 
 - `apps/server`: Rust/Axum/Tokio/SQLx server, in the root Cargo workspace.
 - Removed website/deployment references remain recoverable at `d77096f:reference/` in Git.
+- `crates/client-core`: UI-independent client policies/models. Keep toolkit/player/server/database dependencies out; run `pnpm check:architecture`. See docs/ARCHITECTURE.md before extracting more runtime services or splitting repositories.
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
 - `crates/catalog-core`: shared Rust catalog/database services and Drizzle-compatible explicit migration runner.

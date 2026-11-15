@@ -355,7 +355,7 @@ impl ServerSession {
         base: &str,
         trust: Option<&crate::server_trust::Trust>,
     ) -> Result<Self, Error> {
-        let roots = crate::media_storage::Roots::discover()
+        let roots = crate::media_storage::discover()
             .map_err(|_| Error::new("configuration", "تعذّر تحديد مجلد حالة التطبيق."))?;
         Self::new_persistent_at(base, trust, &roots.state)
     }
@@ -503,6 +503,7 @@ impl ServerSession {
         *self.renewal.lock().await = Some(login);
         Ok(())
     }
+    #[cfg(any(test, feature = "native-diagnostics"))]
     pub fn new(base: &str) -> Result<Self, Error> {
         Self::with_trust(base, None)
     }
@@ -510,25 +511,7 @@ impl ServerSession {
         base: &str,
         trust: Option<&crate::server_trust::Trust>,
     ) -> Result<Self, Error> {
-        let base =
-            Url::parse(base).map_err(|_| Error::new("configuration", "Invalid server address"))?;
-        if base.username() != ""
-            || base.password().is_some()
-            || base.query().is_some()
-            || base.fragment().is_some()
-            || base.path() != "/"
-            || !(base.scheme() == "https"
-                || (base.scheme() == "http"
-                    && matches!(
-                        base.host_str(),
-                        Some("127.0.0.1" | "localhost" | "::1" | "[::1]")
-                    )))
-        {
-            return Err(Error::new(
-                "configuration",
-                "Server must use HTTPS or a loopback HTTP address",
-            ));
-        }
+        let base = nahhasio_client_core::server_address::parse(base)?;
         let mut builder = Client::builder()
             .no_proxy()
             .timeout(Duration::from_secs(15))

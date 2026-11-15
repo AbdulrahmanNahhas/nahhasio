@@ -12,6 +12,7 @@ Do not inspect `/saved/nixos-config` without Aqua's permission.
 | apps/server                    | Rust/Axum/SQLx authentication, bounded catalog/viewer API and authorized administration                                               |
 | apps/linux/src                 | GTK/WebKit lifecycle, contained assets, native network/session, player/device media                                                   |
 | apps/linux/ui                  | React/Vite viewing/admin UI, TanStack Router/Query, Tailwind/shadcn                                                                   |
+| crates/client-core             | UI-independent client policies/models, shared errors, preferences, byte ranges and storage-layout rules                               |
 | crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                                                                   |
 | crates/media-transfer          | UI-independent torrent engine and durable device state                                                                                |
 | crates/catalog-core            | Shared Rust database pool, schema discovery, local operator operations, redaction and explicit Drizzle-compatible migration execution |
@@ -229,6 +230,10 @@ in Rust. `pnpm typecheck` checks schema drift; regenerate with
 `pnpm --filter @arcadia/contracts generate:rust-editor`. Old open reviews must reload after this transition.
 
 ## Native and interface boundary
+
+[Client architecture](ARCHITECTURE.md) records the initial `nahhasio-client-core` extraction,
+dependency guard and future repository/build boundaries. The core builds/tests without GTK,
+WebKit, mpv or PostgreSQL; it does not yet contain the complete client runtime.
 
 Rust owns HTTP/session secrets, server trust, player and storage. React calls typed, bounded
 native operations; it never receives session tokens or arbitrary native command access. The

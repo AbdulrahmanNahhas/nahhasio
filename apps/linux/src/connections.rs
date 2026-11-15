@@ -1,11 +1,11 @@
 //! Saved server addresses and immutable per-server transports. Switching is gated by the shell.
 use crate::{
     bridge::{Error, Request},
-    media_storage::Roots,
-    private_state,
+    media_storage, private_state,
     services::ServerSession,
     session_store::SessionStore,
 };
+use nahhasio_client_core::server_address::normalize as address;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -76,25 +76,7 @@ pub struct Services {
 fn storage() -> Error {
     Error::new("device_storage", "تعذّر قراءة إعدادات الخوادم أو حفظها.")
 }
-fn address(input: &str) -> Result<String, Error> {
-    let input = input.trim();
-    if input.len() > 2048 || input.is_empty() {
-        return Err(Error::new("server_address", "أدخل عنوان الخادم."));
-    }
-    let url = if input.contains("://") {
-        input.to_owned()
-    } else {
-        format!("https://{input}")
-    };
-    ServerSession::new(&url)
-        .map(|server| server.address().to_owned())
-        .map_err(|_| {
-            Error::new(
-                "server_address",
-                "استخدم عنوان HTTPS دون اسم مستخدم أو مسار إضافي. HTTP متاح للجهاز المحلي فقط.",
-            )
-        })
-}
+
 fn identity_error() -> Error {
     Error::new(
         "server_identity",
@@ -206,7 +188,7 @@ impl Services {
     }
     pub async fn playback_defaults(&self) -> Result<native_player::PlaybackDefaults, Error> {
         let scope = self.catalog_scope().await?;
-        Ok(crate::playback_preferences::load(&self.root, &scope)?.native())
+        Ok(crate::playback_preferences::load(&self.root, &scope)?.playback_defaults())
     }
     pub async fn saved_work(&self, id: &str) -> Result<Value, Error> {
         self.offline.read("work", &json!({"id":id})).await
@@ -217,7 +199,7 @@ impl Services {
         self.check_revision(revision)
     }
     pub fn new_persistent(default: &str) -> Result<Self, Error> {
-        let root = Roots::discover().map_err(|_| storage())?.state;
+        let root = media_storage::discover().map_err(|_| storage())?.state;
         let default = address(default)?;
         let mut settings =
             private_state::read_limit::<Settings>(&root, "connections.json", 96 * 1024)?
@@ -426,7 +408,7 @@ impl Services {
         if request.command == "client.info" {
             self.catalog_scope().await?;
             let info = self.snapshot()?.probe().await?;
-            let roots = Roots::discover().map_err(|_| storage())?;
+            let roots = media_storage::discover().map_err(|_| storage())?;
             return Ok(
                 json!({"version":env!("CARGO_PKG_VERSION"),"platform":"linux","serverVersion":info.version,"apiVersion":info.api_version,"videoRoot":roots.videos,"capabilities":{"nativePlayback":true,"offlineLibrary":true,"artworkVariants":info.capabilities.artwork_variants,"rememberedAccounts":info.capabilities.remembered_accounts,"subtitleSearch":true,"debrid":false}}),
             );

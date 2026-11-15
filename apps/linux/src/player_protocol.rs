@@ -107,7 +107,7 @@ impl Command {
             Self::Track { track_id, .. } => track_id.is_none_or(|id| id > 0),
             Self::Delay { seconds, .. } => within(*seconds, -600.0, 600.0),
             Self::SubtitleStyle { size, position, .. } => {
-                within(*size, 10.0, 120.0) && within(*position, 0.0, 100.0)
+                nahhasio_client_core::playback::valid_subtitle_style(*size, *position)
             }
             _ => true,
         };

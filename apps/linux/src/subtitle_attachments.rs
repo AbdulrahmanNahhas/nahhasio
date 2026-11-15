@@ -1,5 +1,5 @@
 //! Device-owned subtitle copies, scoped to the account/server and catalog episode.
-use crate::{bridge::Error, media::ResolvedTarget, media_storage::Roots, private_state};
+use crate::{bridge::Error, media::ResolvedTarget, media_storage, private_state};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -45,7 +45,7 @@ fn directory(scope: &str, target: &ResolvedTarget) -> Result<PathBuf, Error> {
         target.installment_id,
         target.episode_id.as_deref().unwrap_or("movie")
     );
-    Ok(Roots::discover()
+    Ok(media_storage::discover()
         .map_err(|_| error())?
         .state
         .join("episode-subtitles-v1")

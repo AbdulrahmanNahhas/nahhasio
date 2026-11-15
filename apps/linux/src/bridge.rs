@@ -1,5 +1,6 @@
 //! The desktop bridge accepts catalog operations, never arbitrary URLs or native commands.
-use serde::{Deserialize, Serialize};
+pub use nahhasio_client_core::{Error, identifiers::valid_id};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 #[derive(Deserialize)]
@@ -47,34 +48,12 @@ impl Request {
         Ok(request)
     }
 }
-#[derive(Clone, Debug, Serialize)]
-pub struct Error {
-    pub code: String,
-    pub message: String,
-}
-impl Error {
-    pub fn new(code: &str, message: &str) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-}
+
 pub fn reply(id: &str, result: Result<Value, Error>) -> Value {
     match result {
         Ok(result) => json!({"id": id, "ok": true, "result": result}),
         Err(error) => json!({"id": id, "ok": false, "error": error}),
     }
-}
-pub fn valid_id(id: &str) -> bool {
-    id.len() == 36
-        && id.bytes().enumerate().all(|(i, c)| {
-            if [8, 13, 18, 23].contains(&i) {
-                c == b'-'
-            } else {
-                c.is_ascii_hexdigit()
-            }
-        })
 }
 
 #[cfg(test)]

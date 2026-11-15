@@ -216,17 +216,12 @@ impl Media {
         Ok(())
     }
     pub fn new(services: Services) -> Result<Arc<Self>, Error> {
+        let roots = crate::media_storage::discover().map_err(|_| transfer_error())?;
         Ok(Arc::new(Self {
-            home_downloads: crate::home_downloads::Downloads::new(
-                services.clone(),
-                &Roots::discover().map_err(|_| transfer_error())?,
-            ),
-            uploads: crate::uploads::Uploads::new(
-                services.clone(),
-                &Roots::discover().map_err(|_| transfer_error())?,
-            ),
+            home_downloads: crate::home_downloads::Downloads::new(services.clone(), &roots),
+            uploads: crate::uploads::Uploads::new(services.clone(), &roots),
             services,
-            roots: Roots::discover().map_err(|_| transfer_error())?,
+            roots,
             engine: OnceCell::new(),
             sources: Mutex::new(BTreeMap::new()),
         }))

@@ -100,6 +100,7 @@ explicit host maintenance; SSH is not the desired routine catalog-editing workfl
 ## Working guides
 
 - [Development](DEVELOPMENT.md): commands, architecture and storage boundaries.
+- [Client architecture](ARCHITECTURE.md): reusable core, adapters and future repository/build boundaries.
 - [Client behavior](CLIENT.md): reviewed administration/viewer behavior.
 - [Testing](TESTING.md): isolated checks and acceptance limits.
 - [Operations](OPERATIONS.md): runtime configuration, trust and recovery.

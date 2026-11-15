@@ -2174,6 +2174,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nahhasio-client-core"
+version = "0.2.0-rc.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "nahhasio-linux"
 version = "0.2.0-rc.1"
 dependencies = [
@@ -2187,6 +2196,7 @@ dependencies = [
  "hex",
  "libadwaita",
  "media-transfer",
+ "nahhasio-client-core",
  "nahhasio-native-player",
  "regex",
  "reqwest 0.12.28",
@@ -2209,6 +2219,7 @@ dependencies = [
  "gtk4",
  "libloading",
  "libmpv2-sys",
+ "nahhasio-client-core",
  "url",
  "webkit6",
 ]

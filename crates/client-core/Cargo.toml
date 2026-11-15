@@ -1,0 +1,17 @@
+[package]
+name = "nahhasio-client-core"
+version = "0.2.0-rc.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "UI-independent client policies and models for Nahhasio"
+repository = "https://github.com/AbdulrahmanNahhas/nahhasio"
+license.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+url = "2"
+
+[lints]
+workspace = true

@@ -1,6 +1,7 @@
 //! Typed production controls; all mpv state is copied from asynchronous native events.
 use crate::{Diagnostics, backend};
 use gtk::{glib, prelude::*};
+pub use nahhasio_client_core::playback::PlaybackDefaults;
 use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,26 +66,6 @@ impl Default for PlaybackState {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PlaybackDefaults {
-    pub audio_languages: String,
-    pub subtitle_languages: String,
-    pub subtitles_enabled: bool,
-    pub subtitle_size: f64,
-    pub subtitle_position: f64,
-}
-impl Default for PlaybackDefaults {
-    fn default() -> Self {
-        Self {
-            audio_languages: String::new(),
-            subtitle_languages: "ar,ara,en,eng".into(),
-            subtitles_enabled: true,
-            subtitle_size: 55.0,
-            subtitle_position: 100.0,
-        }
-    }
-}
-
 struct State {
     defaults: PlaybackDefaults,
     engine: Option<backend::Engine>,
@@ -106,18 +87,7 @@ impl NativePlayer {
         if self.state.borrow().engine.is_some() {
             return Err("Playback defaults must precede loading".into());
         }
-        if defaults.audio_languages.len() > 100
-            || defaults.subtitle_languages.len() > 100
-            || !defaults
-                .audio_languages
-                .bytes()
-                .chain(defaults.subtitle_languages.bytes())
-                .all(|b| b.is_ascii_lowercase() || b == b',')
-            || !defaults.subtitle_size.is_finite()
-            || !(10.0..=120.0).contains(&defaults.subtitle_size)
-            || !defaults.subtitle_position.is_finite()
-            || !(0.0..=100.0).contains(&defaults.subtitle_position)
-        {
+        if !defaults.is_valid() {
             return Err("Invalid playback defaults".into());
         }
         self.state.borrow_mut().defaults = defaults;
@@ -476,7 +446,7 @@ impl NativePlayer {
     }
 
     pub fn subtitle_style(&self, size: f64, position: f64) -> Result<(), String> {
-        if !(10.0..=120.0).contains(&size) || !(0.0..=100.0).contains(&position) {
+        if !nahhasio_client_core::playback::valid_subtitle_style(size, position) {
             return Err("Invalid subtitle appearance".into());
         }
         self.set("sub-font-size", &size.to_string())?;

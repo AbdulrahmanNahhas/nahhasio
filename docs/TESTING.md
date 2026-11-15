@@ -7,6 +7,21 @@ available verification procedures, not a requirement to run every suite on every
 Use disposable restored databases for mutations. Documentation-only changes need link/format
 checks, not application tests. Preserve Aqua's Rust-learning ownership.
 
+## UI-independent client core
+
+```sh
+devenv shell -- cargo test --locked -p nahhasio-client-core
+devenv shell -- cargo build --locked -p nahhasio-client-core
+devenv shell -- pnpm check:architecture
+```
+
+Core tests exercise existing preference serialization/validation, player configuration, server
+origin restrictions, identifiers, byte ranges and explicit-input storage layout. They do not need
+GTK, WebKit, mpv, PostgreSQL, credentials or network. The transitive dependency guard is included in
+`pnpm check` and its fixture tests run without Cargo; a dedicated CI job verifies the core separately.
+Account-scoped persistence and native bridge/player tests remain desktop checks. Extraction is not
+proof of packaged input, playback or cross-platform acceptance. See [architecture](ARCHITECTURE.md).
+
 ## Rust CLI and migration acceptance
 
 ```sh

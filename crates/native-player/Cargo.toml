@@ -7,18 +7,19 @@ license.workspace = true
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }
-libmpv2-sys = "=4.0.1"
 libloading = "0.8"
+libmpv2-sys = "=4.0.1"
+nahhasio-client-core = { path = "../client-core", version = "=0.2.0-rc.1" }
 url = "2"
 
 [dev-dependencies]
 webkit6 = "0.5"
+
+[lints.clippy]
+all = "warn"
 
 # Deliberate isolated FFI exception; the workspace/server forbid is unchanged.
 # Only backend.rs may contain unsafe; lib.rs and the example forbid it.
 [lints.rust]
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
-
-[lints.clippy]
-all = "warn"
