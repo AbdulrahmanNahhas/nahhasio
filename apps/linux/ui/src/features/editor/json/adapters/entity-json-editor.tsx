@@ -46,6 +46,7 @@ import { useConfirm } from "@/features/editor/use-confirm";
 
 import { ChangeReview } from "../document/change-review";
 import type { DocumentReview } from "../document/document-model";
+import { downloadJson, maxJsonFileBytes } from "../json-file";
 import { jsonEntityAdapters, type JsonEntityTarget } from "./registry";
 
 const CodeEditor = lazy(() =>
@@ -193,15 +194,10 @@ function Workspace({ target, loaded }: { target: JsonEntityTarget; loaded: Loade
     save.reset();
   }
   function exportFile() {
-    const url = URL.createObjectURL(new Blob([draft], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${target}-${loaded.originals.length}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadJson(draft, `${target}-${loaded.originals.length}.json`);
   }
   async function importFile(file: File) {
-    if (file.size > 4000000) {
+    if (file.size > maxJsonFileBytes) {
       setMessage("الملف يتجاوز ٤ ميغابايت.");
       return;
     }
