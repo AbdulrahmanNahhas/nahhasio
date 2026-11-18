@@ -467,7 +467,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   const part = fixtureWork.installments[0];
                   success(
                     fixture.homeFiles && part
-                      ? part.episodes.slice(0, 2).map((mediaEpisode, index) => ({
+                      ? part.episodes.slice(0, 2).map<ServerMediaFile>((mediaEpisode, index) => ({
                           id: `90000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
                           workId: fixtureWork.id,
                           workTitle: fixtureWork.canonicalTitle,

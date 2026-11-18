@@ -9,10 +9,10 @@ ui-sdk is a library of UI behaviors: keyboard navigation, focus, selection, dism
 
 ## Nahhasio desktop boundary
 
-Use the installed React docs under `apps/linux/ui/node_modules/@ui-sdk/react/docs/`. The CSS is
-already loaded once in the global Tailwind stylesheet. Preserve existing shadcn components and
-follow the [desktop skill](../nahhasio-desktop-ui/SKILL.md). Do not add CDN assets, WebMCP tools,
-model providers or bridge actions merely because the SDK supports them.
+Use the installed React docs under `apps/linux/ui/node_modules/@ui-sdk/react/docs/`. Use scoped
+styles for SDK components: do not import `@ui-sdk/core/web.css` into the desktop stylesheet, since
+its slot selectors also match existing shadcn primitives. Follow the [desktop skill](../nahhasio-desktop-ui/SKILL.md).
+Do not add CDN assets, WebMCP tools, model providers or bridge actions merely because the SDK supports them.
 
 ## Read first
 
@@ -48,7 +48,7 @@ Every path ends the same way:
 - **Default or controlled.** `defaultValue` to start, or `value` with `onValueChange(value, details)` to control it (each framework's idiom: `v-model` in Vue, `bind:value` in Svelte, properties and events in web components). `details` has `reason`, `source` and `cancel()`.
 - **Name every control.** Use the component's label part (`FieldLabel`, `SelectLabel`, `DialogTitle`), or `aria-label` when there's no visible text. People using screen readers and agents both find controls by name.
 - **Style from state.** Target `data-slot` and state attributes like `data-open` or `data-pressed`, and the CSS variables each component lists. Never inline styles for state, and never generated ids. When the app uses `web.css`, read [references/styles.md](references/styles.md) first: it draws icons and sets sizes you can't see in the markup.
-- **Declare the ui-sdk layer.** Put `@layer ui-sdk;` at the top of the global stylesheet, above `@import "tailwindcss"` if there is one.
+- **Declare the ui-sdk layer when using the SDK stylesheet.** For standalone interfaces using it, put `@layer ui-sdk;` above `@import "tailwindcss"` if there is one. Follow the scoped styling rule for Nahhasio.
 - **Check color.** Text needs 4.5:1 against what's behind it, and control edges, focus rings and state fills 3:1. jsdom can't see color, so check it in a real browser.
 - **Key lists by value or id**, never by index.
 - **Right to left needs no provider.** Components read the direction from the page.

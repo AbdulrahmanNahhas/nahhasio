@@ -11,8 +11,13 @@ Do not inspect `/saved/nixos-config` without Aqua's permission.
 
 ## Editor and workspace diagnostics
 
-Open the repository root in Zed. If both Oxlint and TypeScript suddenly report missing packages,
-run `devenv shell -- pnpm install --frozen-lockfile` from the root, then use Zed's
+Open the repository root in Zed so both workspaces resolve correctly. To declutter the sidebar,
+run **project panel: toggle hide git ignore** in the command palette. It hides ignored build outputs
+and local state from the panel without deleting anything or changing build paths. Toggle it again
+when you need to inspect them. Not all of `data/` is disposable.
+
+If both Oxlint and TypeScript suddenly report missing packages, run
+`devenv shell -- pnpm install --frozen-lockfile` from the root, then use Zed's
 **editor: restart language server** action or reopen the worktree. Confirm the CLI can start with
 `pnpm exec oxlint --version`. An unresolved `vite/client` can make `import.meta.env` and CSS
 imports appear untyped; restore the dependencies instead of adding ambient shims. If an editor

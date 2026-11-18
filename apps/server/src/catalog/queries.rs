@@ -53,9 +53,16 @@ s.story between 0 and 10 and s.characters between 0 and 10 and s.depth between 0
 and s.world_building between 0 and 10 and s.originality between 0 and 10 and s.craft between 0 and 10
 then s.story::double precision*0.25+s.characters::double precision*0.20+s.depth::double precision*0.20+s.world_building::double precision*0.10+s.originality::double precision*0.10+s.craft::double precision*0.15 end"#;
 
+pub(super) fn work_score() -> String {
+    format!(
+        "(select jsonb_build_object('rating',floor(avg(rating order by position,id)*10+0.5)/10,'scored',count(rating),'total',count(*)) from (select {SCORE_VALUE} rating,i.position,i.id from installments i left join installment_scores s on s.installment_id=i.id where i.title_id=t.id) rated)"
+    )
+}
+
 pub(super) fn summary() -> String {
     format!(
-        "{SUMMARY} || jsonb_build_object('banner',(select {ARTWORK} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner' order by m.is_primary desc,m.id limit 1),'logo',(select {ARTWORK} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='logo' order by m.is_primary desc,m.id limit 1),'score',(select jsonb_build_object('rating',floor(avg(rating order by position,id)*10+0.5)/10,'scored',count(rating),'total',count(*)) from (select {SCORE_VALUE} rating,i.position,i.id from installments i left join installment_scores s on s.installment_id=i.id where i.title_id=t.id) rated))"
+        "{SUMMARY} || jsonb_build_object('banner',(select {ARTWORK} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner' order by m.is_primary desc,m.id limit 1),'logo',(select {ARTWORK} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='logo' order by m.is_primary desc,m.id limit 1),'score',{})",
+        work_score()
     )
 }
 
