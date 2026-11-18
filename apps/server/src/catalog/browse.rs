@@ -297,7 +297,7 @@ pub(super) async fn browse(
         format!("{group_rank} asc nulls last,{group_key},{order}")
     };
     let query = format!(
-        "with base as ({base}), filtered as (select * from base where {condition}), expanded as ({expanded}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from expanded group by {group_key}), page as (select entry || jsonb_build_object('groupKey',{group_key},'contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=expanded.id) work_roles),'[]'::jsonb)) entry,row_number() over(order by {order}) ord from expanded order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from expanded),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',{page},'pageSize',{size})",
+        "with base as ({base}), filtered as (select * from base where {condition}), expanded as ({expanded}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from expanded group by {group_key}), page as (select entry || jsonb_build_object('groupKey',{group_key},'contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=expanded.id) work_roles),'[]'::jsonb)) entry,row_number() over(order by {order}) ord from expanded order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from expanded),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',$10::bigint,'pageSize',$8::bigint)",
         base = base(user.is_admin),
         condition = condition()
     );
@@ -311,6 +311,7 @@ pub(super) async fn browse(
         .bind(input.year_to)
         .bind(size)
         .bind((page - 1) * size)
+        .bind(page)
         .fetch_one(&pool)
         .await?;
     Ok(Json(value.0))

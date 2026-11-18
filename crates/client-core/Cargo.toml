@@ -1,6 +1,6 @@
 [package]
 name = "nahhasio-client-core"
-version = "0.2.0-rc.1"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 description = "UI-independent client policies and models for Nahhasio"

@@ -123,6 +123,25 @@ async fn range_authorization_and_durable_import() {
     let root = std::env::var("NAHHASIO_LIBRARY_ROOT").unwrap();
     let hash = format!("nh1:{}", hex::encode(Sha256::digest(token().as_bytes())));
     execute(&pool,&format!("insert into auth_users(id,name,email,role) values('media-admin','Media','media@example.invalid','owner');insert into accounts(id,auth_user_id,kind,status,display_name) values('{ACTOR}','media-admin','admin','active','Media');insert into auth_sessions(id,token,user_id,expires_at) values('media-session','{hash}','media-admin',now()+interval '1 day');insert into titles(id,canonical_title,sort_title) values('{WORK}','Media fixture','Media fixture');insert into installments(id,title_id,title,kind,position) values('{PART}','{WORK}','Film','movie',1);insert into library_roots(id,name,path) values('a5000000-0000-4000-8000-000000000001','Fixture','{root}');insert into media_files(id,installment_id,path,library_root_id,relative_path,byte_size,availability) values('{FILE}','{PART}','{root}/range.mp4','a5000000-0000-4000-8000-000000000001','range.mp4',10,'present');")).await;
+    // Terminal lease recovery must persist even when there is no runnable job to claim.
+    let exhausted = "a7000000-0000-4000-8000-000000000001";
+    let cancelled = "a7000000-0000-4000-8000-000000000002";
+    execute(&pool, &format!(
+        "insert into background_jobs(id,type,status,created_by_account_id,attempts,max_attempts,lease_owner,lease_expires_at,cancel_requested_at) values
+         ('{exhausted}','media.import','running','{ACTOR}',1,1,'fixture-worker',now()-interval '1 minute',null),
+         ('{cancelled}','media.import','running','{ACTOR}',1,3,'fixture-worker',now()-interval '1 minute',now())"
+    )).await;
+    let recovery_pool = pool.clone();
+    let recovery = tokio::spawn(async move {
+        nahhasio_server::run_media_worker(recovery_pool)
+            .await
+            .is_ok()
+    });
+    wait_job(&pool, exhausted, "failed").await;
+    wait_job(&pool, cancelled, "cancelled").await;
+    recovery.abort();
+    let _ = recovery.await;
+
     let api = router(pool.clone());
     let subtitle = b"1\n00:00:00,000 --> 00:00:01,000\nSubtitle fixture\n";
     std::fs::write(std::path::Path::new(&root).join("range.ar.srt"), subtitle).unwrap();

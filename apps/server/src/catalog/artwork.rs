@@ -102,13 +102,17 @@ pub(super) async fn serve(
         if let Some(cached) = cached {
             cached
         } else {
-            let _permit = TRANSFORMS
+            let permit = TRANSFORMS
                 .acquire()
                 .await
                 .map_err(|_| ApiError(StatusCode::SERVICE_UNAVAILABLE, "Artwork busy"))?;
             tokio::task::spawn_blocking({
                 let revision = revision.clone();
-                move || cached_thumbnail(&revision, &file, width)
+                move || {
+                    // Dropping the HTTP request does not stop an already-running blocking task.
+                    let _permit = permit;
+                    cached_thumbnail(&revision, &file, width)
+                }
             })
             .await
             .map_err(|_| ApiError(StatusCode::SERVICE_UNAVAILABLE, "Artwork unavailable"))??

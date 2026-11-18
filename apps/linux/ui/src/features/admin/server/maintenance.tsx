@@ -282,7 +282,7 @@ export function ServerMaintenance({
               }}
             >
               <Download data-icon="inline-start" />
-              {schemaUpgrade ? "مراجعة ترقية المخطط" : "تثبيت التحديث"}
+              {schemaUpgrade ? "مراجعة ترقية المخطط" : "نسخ احتياطي وتحديث الخادم"}
             </Button>
           </CardFooter>
         </Card>
@@ -358,8 +358,8 @@ export function ServerMaintenance({
               {schemaUpgrade ? "ترقية مخطط البيانات والخادم" : "تثبيت تحديث الخادم"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              قد يتوقف الاتصال مؤقتًا أثناء التحديث. يتحقق الخادم من توقيع الإصدار وتوافق البيانات،
-              وتستمر العملية بعد إغلاق التطبيق.
+              يتحقق الخادم من توقيع الإصدار وينشئ نسخة احتياطية قبل تثبيت التحديث. قد يتوقف الاتصال
+              مؤقتًا، وتستمر العملية بعد إغلاق التطبيق.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <dl className="flex flex-col gap-2 text-sm">

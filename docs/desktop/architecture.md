@@ -86,9 +86,9 @@ add dynamic libraries, a local daemon or an executable downloader solely to avoi
 consumer. Those are separate architectural/security decisions, not necessary consequences of
 splitting Git repositories.
 
-Current desktop/player manifests declare both a local core path and its exact prerelease version.
-The lockfile remains authoritative. The core version initially matches the current RC and registry publication is disabled; this does
-not establish an independent core release pipeline or a stable public API promise.
+The desktop and player use the workspace-local `client-core` path. The core inherits the Cargo
+workspace release version and registry publication is disabled. This does not establish an
+independent core release pipeline or a stable public API promise.
 
 Before an actual repository split:
 

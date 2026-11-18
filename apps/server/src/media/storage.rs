@@ -36,6 +36,11 @@ impl SourceRoot {
     }
 }
 
+pub(super) fn available_bytes(root: &Path) -> rustix::io::Result<u64> {
+    let stat = rustix::fs::statvfs(root)?;
+    Ok(stat.f_bavail.saturating_mul(stat.f_frsize))
+}
+
 pub(super) fn unavailable() -> Error {
     Error(
         StatusCode::SERVICE_UNAVAILABLE,

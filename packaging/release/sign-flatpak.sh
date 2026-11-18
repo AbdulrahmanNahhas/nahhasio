@@ -15,7 +15,7 @@ repository_path=flatpak
 if test "$branch" = rc; then repository_path=flatpak-rc; fi
 repository_url="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/$repository_path/"
 mkdir -p dist/release
-tar --extract --gzip --file dist/unsigned-flatpak-repo.tar.gz
+tar --extract --use-compress-program=zstd --file dist/unsigned-flatpak-repo.tar.zst
 # Builder may already have generated unsigned, unchanged AppStream commits. Updating the
 # summary alone does not sign those commits. Generate metadata first, sign every referenced
 # commit, then produce the signed summary/deltas without regenerating AppStream afterward.

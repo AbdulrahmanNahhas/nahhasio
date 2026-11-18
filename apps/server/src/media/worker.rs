@@ -55,7 +55,11 @@ async fn claim(pool: &PgPool) -> std::result::Result<Option<(String, Value, Stri
         .await?;
     sqlx::query("update background_jobs set status=case when cancel_requested_at is not null then 'cancelled'::background_job_status else 'failed'::background_job_status end,error=case when cancel_requested_at is not null then null else 'Worker retry limit reached; review and retry explicitly' end,lease_owner=null,lease_expires_at=null,finished_at=now(),updated_at=now() where type in ('media.import','media.youtube.preview','media.file','media.upload.verify') and status='running' and lease_expires_at<now() and (cancel_requested_at is not null or attempts>=max_attempts)").execute(&mut *tx).await?;
     let row=sqlx::query("select id::text,payload || jsonb_build_object('jobType',type,'jobId',id::text) payload,created_by_account_id::text actor from background_jobs where type in ('media.import','media.youtube.preview','media.file','media.upload.verify') and cancel_requested_at is null and attempts<max_attempts and run_after<=now() and (status='queued' or (status='running' and lease_expires_at<now())) order by created_at,id for update skip locked limit 1").fetch_optional(&mut *tx).await?;
-    let Some(row) = row else { return Ok(None) };
+    let Some(row) = row else {
+        // Expired jobs may have reached a terminal state even when no job can be claimed.
+        tx.commit().await?;
+        return Ok(None);
+    };
     let id: String = row.get("id");
     let actor: Option<String> = row.get("actor");
     sqlx::query("update background_jobs set status='running',attempts=attempts+1,started_at=coalesce(started_at,now()),lease_owner=$2,lease_expires_at=now()+interval '2 minutes',heartbeat_at=now(),updated_at=now() where id=$1::uuid").bind(&id).bind(LEASE).execute(&mut *tx).await?;
@@ -852,8 +856,7 @@ impl Drop for ProcessGroup {
     }
 }
 fn available_bytes(root: &Path) -> WorkerResult<u64> {
-    let stat = rustix::fs::statvfs(root).map_err(|_| "Cannot inspect staging capacity")?;
-    Ok(stat.f_bavail.saturating_mul(stat.f_frsize))
+    storage::available_bytes(root).map_err(|_| "Cannot inspect staging capacity")
 }
 async fn command_with_storage(
     program: &str,

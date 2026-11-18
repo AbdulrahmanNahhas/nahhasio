@@ -6,7 +6,7 @@ on:
       version:
         description: Nahhasio version (must match the Rust and client package versions)
         required: true
-        default: "0.2.0-rc.1"
+        default: "0.2.0"
   push:
     tags: ["nahhasio-v*"]
 
@@ -36,14 +36,15 @@ jobs:
           if os.environ.get("HAS_FLATPAK_KEY") != "true" or not re.fullmatch(r"[A-F0-9]{40,64}", os.environ.get("FLATPAK_FINGERPRINT", "")):
               raise SystemExit("Configure NAHHASIO_FLATPAK_GPG_KEY secret and NAHHASIO_FLATPAK_GPG_FINGERPRINT variable before building")
           version = os.environ.get("REQUESTED_VERSION") or os.environ["GITHUB_REF_NAME"].removeprefix("nahhasio-v")
-          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?", version):
-              raise SystemExit("Invalid release version")
-          for path in ("apps/server/Cargo.toml", "apps/linux/Cargo.toml", "crates/cli/Cargo.toml"):
-              with open(path, "rb") as stream:
-                  if tomllib.load(stream)["package"]["version"] != version:
+          if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+              raise SystemExit("Use a numbered release version without a prerelease suffix")
+          with open("Cargo.toml", "rb") as stream:
+              if tomllib.load(stream)["workspace"]["package"]["version"] != version:
+                  raise SystemExit("Rust workspace version mismatch")
+          for path in ("package.json", "apps/linux/ui/package.json"):
+              with open(path) as stream:
+                  if json.load(stream)["version"] != version:
                       raise SystemExit(f"Version mismatch: {path}")
-          if json.load(open("apps/linux/ui/package.json"))["version"] != version:
-              raise SystemExit("Client package version mismatch")
           tree = ast.parse(open("packaging/operations/operations.py").read())
           host_version = next(ast.literal_eval(item.value) for item in tree.body if isinstance(item, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "HOST_TOOLS_VERSION" for target in item.targets))
           if host_version != version:
@@ -143,6 +144,14 @@ jobs:
           path: dist
       - name: Unpack offline sources
         run: tar -I zstd -xf dist/flatpak-sources.tar.zst
+      - name: Restore Flatpak build stages and compiler cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .flatpak-builder
+          key: nahhasio-gnome50-x86_64-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', 'packaging/flatpak/python-sources.json', 'Cargo.lock', '.github/workflows/nahhasio-release.yml') }}
+          restore-keys: |
+            nahhasio-gnome50-x86_64-
+            nahhasio-gnome50-
       - name: Build client against the GNOME runtime
         uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6
         with:
@@ -151,13 +160,14 @@ jobs:
           build-bundle: false
           run-tests: false
           repo-dir: dist/flatpak-repo
-          cache-key: nahhasio-gnome50-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', 'packaging/flatpak/python-sources.json', 'Cargo.lock') }}
+          restore-cache: false
+          save-cache: false
       - name: Export unsigned repository for the isolated signing job
-        run: tar -czf dist/unsigned-flatpak-repo.tar.gz dist/flatpak-repo
+        run: tar -I 'zstd -T0 -1' -cf dist/unsigned-flatpak-repo.tar.zst dist/flatpak-repo
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nahhasio-client-release
-          path: dist/unsigned-flatpak-repo.tar.gz
+          path: dist/unsigned-flatpak-repo.tar.zst
           compression-level: 0
   draft:
     needs: [version, server, client]
@@ -180,7 +190,7 @@ jobs:
           NAHHASIO_FLATPAK_GPG_FINGERPRINT: ${{ vars.NAHHASIO_FLATPAK_GPG_FINGERPRINT }}
         run: |
           sudo apt-get update
-          sudo apt-get install --yes flatpak ostree
+          sudo apt-get install --yes flatpak ostree zstd
           bash packaging/release/sign-flatpak.sh
           mv dist/server-image.txt dist/build-bases.txt dist/server.digest dist/release/
           test -n "$SIGNING_KEY"
@@ -197,4 +207,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: gh release create "nahhasio-v$RELEASE_VERSION" dist/release/* --target "$GITHUB_SHA" --draft --prerelease --title "Nahhasio $RELEASE_VERSION" --generate-notes
+        run: gh release create "nahhasio-v$RELEASE_VERSION" dist/release/* --target "$GITHUB_SHA" --draft --title "Nahhasio $RELEASE_VERSION" --generate-notes

@@ -21,6 +21,16 @@ Push CI on the same commit failed because Ubuntu packaged libtorrent 2.0.10 whil
 requires 2.0.12. The local workflow correction uses the release manifest's verified source and
 independent interface/backend/native jobs; its hosted result must be checked after push.
 
+### Release version inputs
+
+The root `Cargo.toml` owns the Rust release version for the server, Linux client, operator CLI, and
+client core. Keep the root and UI `package.json` versions and `HOST_TOOLS_VERSION` in
+`packaging/operations/operations.py` aligned. Refresh `Cargo.lock` for a version bump. Flatpak
+source preparation takes the AppStream version from the Cargo workspace. The release preflight
+requires a numbered version and the `alpha` Flatpak branch. Older RC receipts remain historical.
+Use a reviewable draft for release validation instead of another RC feed. A version bump alone
+does not authorize publication or installation.
+
 ## Installed family-PC checkpoint — 2026-10-26
 
 Release 0.1.0 is published and its package-feed deployment passed. Aqua installed the rootless

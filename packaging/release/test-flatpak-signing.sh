@@ -36,7 +36,7 @@ EOF
   # Require the metadata refs that GNOME Software pulls, before the signing step runs.
   ostree --repo=dist/flatpak-repo rev-parse appstream/x86_64 >/dev/null
   ostree --repo=dist/flatpak-repo rev-parse appstream2/x86_64 >/dev/null
-  tar -czf dist/unsigned-flatpak-repo.tar.gz dist/flatpak-repo
+  tar -I 'zstd -T0 -1' -cf dist/unsigned-flatpak-repo.tar.zst dist/flatpak-repo
   bash "$signer"
   ostree --repo=consumer init --mode=archive
   ostree --repo=consumer remote add --gpg-import=dist/release/flatpak-key.gpg \

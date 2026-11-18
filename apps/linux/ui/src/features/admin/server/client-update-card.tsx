@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,24 @@ import { gateway } from "@/lib/bridge";
 
 import { stateLabel } from "./maintenance-model";
 
+const updateKey = ["device", "client-update"];
+
 export function ClientUpdateCard() {
+  const client = useQueryClient();
   const status = useQuery({
-    queryKey: ["device", "client-update"],
+    queryKey: updateKey,
     queryFn: ({ signal }) => gateway.clientUpdateStatus(signal),
-    staleTime: Infinity,
+    refetchInterval: (query) => (query.state.data?.state === "running" ? 2000 : false),
   });
+  const install = useMutation({
+    mutationFn: gateway.installClientUpdate,
+    onSuccess: async (data) => {
+      await client.cancelQueries({ queryKey: updateKey });
+      client.setQueryData(updateKey, data);
+    },
+  });
+  const flatpak = status.data?.manager === "flatpak";
+  const running = install.isPending || status.data?.state === "running";
   const openManager = useMutation({ mutationFn: () => gateway.openClientUpdateManager() });
   return (
     <Card size="sm" className="flex h-full flex-col">
@@ -29,7 +41,9 @@ export function ClientUpdateCard() {
         <CardTitle>
           <h2>تحديث تطبيق Linux</h2>
         </CardTitle>
-        <CardDescription>تُدار النسخة المثبّتة من خلال نظام البرمجيات على هذا الجهاز.</CardDescription>
+        <CardDescription>
+          يتولّى Flatpak التحقق من تحديثات التطبيق وتثبيتها على هذا الجهاز.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
         {status.isPending ? (
@@ -45,7 +59,7 @@ export function ClientUpdateCard() {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" role="status">
             <Badge variant="outline">{stateLabel(status.data.state)}</Badge>
             <p>
               الإصدار <bdi>{status.data.currentVersion}</bdi>
@@ -55,14 +69,30 @@ export function ClientUpdateCard() {
         )}
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-3">
-        {status.data?.manager === "flatpak" && (
-          <Button
-            variant="outline"
-            disabled={openManager.isPending}
-            onClick={() => openManager.mutate()}
-          >
-            فتح البرمجيات للتحديث
-          </Button>
+        {flatpak && (
+          <div className="flex flex-wrap gap-2">
+            {status.data?.state !== "external-managed" && (
+              <Button
+                disabled={running || status.data?.state === "staged" || openManager.isPending}
+                onClick={() => install.mutate()}
+              >
+                {running ? "جارٍ تحديث التطبيق…" : "فحص تحديث التطبيق وتثبيته"}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={running || openManager.isPending}
+              onClick={() => openManager.mutate()}
+            >
+              فتح البرمجيات للتحديث
+            </Button>
+          </div>
+        )}
+        {install.isError && (
+          <Alert variant="destructive">
+            <AlertTitle>تعذّر بدء تحديث التطبيق</AlertTitle>
+            <AlertDescription>{install.error.message}</AlertDescription>
+          </Alert>
         )}
         {openManager.isError && (
           <Alert variant="destructive">

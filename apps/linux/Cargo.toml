@@ -1,6 +1,6 @@
 [package]
 name = "nahhasio-linux"
-version = "0.2.0-rc.1"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -10,7 +10,7 @@ native-diagnostics = ["dep:tempfile", "media-transfer/test-fixtures"]
 
 [dependencies]
 adw = { package = "libadwaita", version = "0.8", features = ["v1_4"] }
-ashpd = { version = "0.13", default-features = false, features = ["secret", "tokio"] }
+ashpd = { version = "0.13", default-features = false, features = ["flatpak", "secret", "tokio"] }
 axum.workspace = true
 base64 = "0.22"
 chacha20poly1305 = "0.10"
@@ -19,7 +19,7 @@ getrandom.workspace = true
 gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }
 hex.workspace = true
 media-transfer = { path = "../../crates/media-transfer" }
-nahhasio-client-core = { path = "../../crates/client-core", version = "=0.2.0-rc.1" }
+nahhasio-client-core.workspace = true
 native_player = { package = "nahhasio-native-player", path = "../../crates/native-player" }
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = [

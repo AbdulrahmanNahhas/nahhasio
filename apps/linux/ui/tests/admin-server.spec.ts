@@ -249,10 +249,18 @@ test.beforeEach(async ({ page }) => {
               case "clientUpdate.openManager":
                 result = { opened: true };
                 break;
+              case "clientUpdate.install":
               case "clientUpdate.status":
+                if (request.command === "clientUpdate.install")
+                  sessionStorage.setItem("fixture-flatpak-update", "1");
                 result = {
-                  available: true,
-                  state: "up-to-date",
+                  available: false,
+                  state:
+                    request.command === "clientUpdate.install"
+                      ? "running"
+                      : sessionStorage.getItem("fixture-flatpak-update")
+                        ? "staged"
+                        : "unchecked",
                   currentVersion: "0.1.2",
                   availableVersion: null,
                   pendingVersion: null,
@@ -877,7 +885,7 @@ test("maintenance separates server and app updates and reviews installation firs
   expect(Math.abs(first!.height - second!.height)).toBeLessThanOrEqual(1);
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/admin-maintenance-updates.png" });
-  await page.getByRole("button", { name: "تثبيت التحديث", exact: true }).click();
+  await page.getByRole("button", { name: "نسخ احتياطي وتحديث الخادم", exact: true }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("0.1.3");
   expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
@@ -939,7 +947,9 @@ test("unconfigured maintenance keeps library tools available, disables host acti
   expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
   await page.getByRole("link", { name: "التحديثات", exact: true }).click();
   await expect(page.getByRole("button", { name: "فحص التحديثات", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "تثبيت التحديث", exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "نسخ احتياطي وتحديث الخادم", exact: true }),
+  ).toBeDisabled();
 });
 
 test("maintenance connection errors recover without blocking library inspection", async ({
@@ -1141,5 +1151,17 @@ test("installed client update opens Software without requesting a server update"
   await expect(
     page.getByRole("status").filter({ hasText: "أُرسل طلب فتح البرمجيات" }),
   ).toBeVisible();
+  expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
+});
+
+test("client update requests Flatpak installation and prompts for relaunch without touching the server", async ({
+  page,
+}) => {
+  await page.goto("/#/admin/maintenance?tab=updates");
+  const install = page.getByRole("button", { name: "فحص تحديث التطبيق وتثبيته", exact: true });
+  await install.click();
+  await expect(page.getByRole("button", { name: "جارٍ تحديث التطبيق…" })).toBeDisabled();
+  await expect(page.getByText("جاهز لإعادة التشغيل", { exact: true })).toBeVisible();
+  await expect(install).toBeDisabled();
   expect(await page.evaluate(() => window.fixtureMaintenanceCalls)).toEqual([]);
 });

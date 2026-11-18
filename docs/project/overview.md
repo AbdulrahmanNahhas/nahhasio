@@ -89,7 +89,8 @@ inspector or placeholder page does not establish mutation/job support. Provider 
 server-owned, write-only through settings, with masked status responses.
 
 Server updates use verified artifacts, compatibility checks, recovery checkpoints and health
-rollback. Flatpak/Software owns client updates and host automatic-update policy. Startup never
+rollback. The app requests self-updates through Flatpak; Software handles fallback and the host
+still owns automatic-update policy. Startup never
 migrates or seeds; schema and PostgreSQL major upgrades are explicit maintenance.
 
 A future operator CLI will run on Shadow and connect to the server over authenticated HTTPS

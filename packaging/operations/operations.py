@@ -12,7 +12,6 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import ssl
@@ -26,16 +25,34 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from collections.abc import Mapping
+from pathlib import Path
+from typing import NotRequired, TypedDict
 
 VERSION = 1
-HOST_TOOLS_VERSION = "0.2.0-rc.1"
+HOST_TOOLS_VERSION = "0.2.0"
+OFFICIAL_FEED = "https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-"
 _tools_spec = importlib.util.spec_from_file_location("nahhasio_host_tools", Path(__file__).resolve().with_name("host_tools.py"))
+if _tools_spec is None or _tools_spec.loader is None:
+    raise ImportError("Could not load the installed host tools")
 host_tools = importlib.util.module_from_spec(_tools_spec)
 _tools_spec.loader.exec_module(host_tools)
 OPERATIONS = {"backup", "restore", "check-update", "update", "upgrade-schema", "configure-backups"}
 BACKUP_ID = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 DB_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+
+
+class MaintenanceStatus(TypedDict):
+    version: int
+    available: bool
+    backups: list[dict[str, object]]
+    update: dict[str, str]
+    activeJob: Mapping[str, object] | None
+    lastJob: Mapping[str, object] | None
+    backupPolicy: NotRequired[dict[str, object]]
+    supportedOperations: NotRequired[list[str]]
+    updatedAt: NotRequired[str]
 
 
 def version_key(value):
@@ -53,7 +70,7 @@ def version_key(value):
 
 
 def now():
-    return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return dt.datetime.now(dt.UTC).isoformat().replace("+00:00", "Z")
 
 
 def private_directory(path):
@@ -122,7 +139,7 @@ class FixedRedirects(urllib.request.HTTPRedirectHandler):
     def __init__(self, origin):
         self.origin = origin
 
-    def redirect_request(self, request, fp, code, message, headers, newurl):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         destination = urllib.parse.urlparse(newurl)
         allowed = {self.origin.hostname}
         if self.origin.hostname == "github.com":
@@ -132,7 +149,7 @@ class FixedRedirects(urllib.request.HTTPRedirectHandler):
                 or destination.username or destination.password
                 or destination.port not in (None, 443)):
             raise ValueError("Release redirect is outside the configured trusted origin")
-        return super().redirect_request(request, fp, code, message, headers, newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def download(url, maximum):
@@ -173,7 +190,7 @@ class Maintenance:
         self.container = self.config.get("databaseContainer", "nahhasio-postgres")
         self.unit = "nahhasio-server.service"
         self.status_path = self.control / "status.json"
-        self.status = {"version": VERSION, "available": True, "backups": [],
+        self.status: MaintenanceStatus = {"version": VERSION, "available": True, "backups": [],
                        "update": {"state": "unchecked", "currentVersion": self.config.get("version", "unknown")},
                        "activeJob": None, "lastJob": None}
         if self.status_path.exists():
@@ -372,7 +389,7 @@ class Maintenance:
     def backup(self, reason="manual", *, stopped=False, allow_damaged=False):
         if allow_damaged and reason != "before-restore":
             raise ValueError("Damaged-state capture is reserved for a verified restore operation")
-        identifier = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
+        identifier = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
         temporary = self.backups / (".pending-" + identifier)
         temporary.mkdir(mode=0o700)
         restart_units = [] if stopped else self.running_units()
@@ -500,7 +517,10 @@ class Maintenance:
                     target.mkdir(mode=0o700, parents=True, exist_ok=True)
                 else:
                     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                    with archive.extractfile(member) as source, target.open("xb") as output:
+                    source = archive.extractfile(member)
+                    if source is None:
+                        raise ValueError("Backup archive file is unreadable")
+                    with source, target.open("xb") as output:
                         os.chmod(target, 0o600)
                         shutil.copyfileobj(source, output)
 
@@ -642,14 +662,14 @@ class Maintenance:
         if journal.get("wasActive", True):
             self.start()
 
-    def release(self):
+    def release(self, url=None):
         key = self.config_root / "release-key.pem"
         if key.is_symlink() or not key.is_file():
             raise ValueError("Install a trusted release public key before enabling updates")
         public_der = run(["openssl", "pkey", "-pubin", "-in", str(key), "-pubout", "-outform", "DER"], timeout=10)
         if len(public_der) != 44 or not public_der.startswith(bytes.fromhex("302a300506032b6570032100")):
             raise ValueError("The pinned release public key must be Ed25519")
-        url = self.config.get("releaseManifestUrl")
+        url = url or self.config.get("releaseManifestUrl")
         if not url:
             raise ValueError("Release channel is not configured")
         manifest_bytes = download(url, 65536)
@@ -688,6 +708,32 @@ class Maintenance:
             raise ValueError("Release lacks a compatible, signed host-tool bundle")
         return manifest
 
+    def switch_to_numbered_feed(self):
+        target = OFFICIAL_FEED + "alpha/manifest.json"
+        source = self.config.get("releaseManifestUrl")
+        if source == target:
+            return {"changed": False}
+        if source != OFFICIAL_FEED + "rc/manifest.json":
+            raise ValueError(
+                "Only the official Nahhasio RC feed can use this transition"
+            )
+        manifest = self.release(target)
+        version = version_key(manifest["version"])
+        current = version_key(self.config["version"])
+        if (
+            not version[1]
+            or version < version_key("0.2.0")
+            or version <= current
+            or manifest.get("client", {}).get("branch") != "alpha"
+        ):
+            raise ValueError(
+                "The numbered feed must offer a newer signed numbered release"
+            )
+        next_config = {**self.config, "releaseManifestUrl": target}
+        atomic_json(self.installation_path, next_config)
+        self.config = next_config
+        return {"changed": True, "availableVersion": manifest["version"]}
+
     def check_update(self):
         manifest = self.release()
         current = self.config.get("version", "0.0.0")
@@ -724,7 +770,7 @@ class Maintenance:
             result = subprocess.run(["podman", "exec", "-i", self.container, "pg_restore", "--exit-on-error",
                                      "--no-owner", "--no-acl", "--role=" + self.config["databaseOwner"],
                                      "-U", self.config["databaseAdmin"], "-d", database], stdin=stream,
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=3600)
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=3600, check=False)
             if result.returncode:
                 raise RuntimeError("Restored database validation failed")
 
@@ -744,8 +790,10 @@ class Maintenance:
         if status.get("pending") != []:
             raise ValueError("Candidate migrations did not finish")
         summary = self.summary(stage)
+        counts = summary["counts"]
         if (summary["serverId"] != backup["catalog"]["serverId"]
-                or any(summary["counts"].get(table) != count for table, count in backup["catalog"]["counts"].items())):
+                or not isinstance(counts, dict)
+                or any(counts.get(table) != count for table, count in backup["catalog"]["counts"].items())):
             raise ValueError("Additive upgrade changed existing catalog identities or row counts")
         self.verify_artwork(self.artwork, stage)
         self.grants(stage)
@@ -1089,6 +1137,7 @@ def main():
     commands.add_parser("status")
     commands.add_parser("install-units")
     commands.add_parser("recover-interrupted-restore")
+    commands.add_parser("switch-to-numbered-feed", help="verify and select the numbered feed; does not install an update")
     enqueue = commands.add_parser("enqueue")
     enqueue.add_argument("operation", choices=sorted(OPERATIONS))
     enqueue.add_argument("--backup-id")
@@ -1115,6 +1164,9 @@ def main():
         elif args.command == "recover-interrupted-restore":
             with maintenance.lock():
                 maintenance.recover()
+        elif args.command == "switch-to-numbered-feed":
+            with maintenance.lock():
+                print(json.dumps(maintenance.switch_to_numbered_feed()))
         else:
             identifier = str(uuid.uuid4())
             request = {"version": VERSION, "id": identifier, "operation": args.operation,

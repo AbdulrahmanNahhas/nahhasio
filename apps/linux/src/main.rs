@@ -403,7 +403,8 @@ fn build_window(
                     .spawn(async move {
                         let _permit = permit;
                         match request.command.as_str() {
-                            "clientUpdate.status" => updater::status().await,
+                            "clientUpdate.status" => Ok(updater::status().await),
+                            "clientUpdate.install" => updater::install().await,
                             _ => Err(Error::new("bad_request", "Unknown update operation")),
                         }
                     })

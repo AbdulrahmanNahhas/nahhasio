@@ -4,6 +4,7 @@
 
 | Version                     | Channel | What the repository records                                                                        |
 | --------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| [0.2.0](0.2.0.md)           | Alpha   | Numbered-channel transition and in-app updates; source preparation only                            |
 | [0.2.0-rc.1](0.2.0-rc.1.md) | RC      | Signed RC cutover recorded on the family PC; playback, restore, and reboot acceptance are separate |
 | [0.1.3](0.1.3.md)           | Alpha   | Calendar, desktop presentation, and remembered-account changes                                     |
 | [0.1.2](0.1.2.md)           | Alpha   | Flatpak player startup and browsing fixes                                                          |
@@ -13,7 +14,7 @@
 These are versioned records, not a live inventory or permission to deploy. For the version last
 observed on the family PC, read the [dated host handoff](../operations/family-server.md).
 
-For a new release, add `docs/releases/<version>.md` and link it here. Record the channel, what
+For a new release, update the [workspace release version and channel inputs](../operations/deployment.md#release-version-inputs), add `docs/releases/<version>.md`, and link it here. Record the channel, what
 changed, compatibility or one-time prerequisites, and verification by environment. Link to the
 runbook for reusable commands and the host handoff for dated installation evidence. Do not mark
 build, publication, installation, or runtime acceptance complete without evidence for that step.

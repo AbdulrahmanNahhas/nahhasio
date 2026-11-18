@@ -1,7 +1,7 @@
 """Maintenance failure/restart boundaries. Every installation is disposable."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import test_host_tools as fixtures
@@ -11,7 +11,7 @@ operations = fixtures.operations
 
 class OperationsRecovery(unittest.TestCase):
     def installation(self, root):
-        return fixtures.HostUpdates.setup_installation(self, root)
+        return fixtures.setup_installation(root)
 
     def test_policy_validates_bounds_and_reconciles_persisted_intent(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -23,13 +23,45 @@ class OperationsRecovery(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     worker.configure_backups(policy)
             policy = {"dailyEnabled": False, "retainDaily": 14}
-            with patch.object(operations, "run", side_effect=RuntimeError("interrupted timer change")):
-                with self.assertRaises(RuntimeError):
-                    worker.configure_backups(policy)
+            with patch.object(operations, "run", side_effect=RuntimeError("interrupted timer change")), self.assertRaises(RuntimeError):
+                worker.configure_backups(policy)
             self.assertEqual(worker.backup_policy(), policy)
             with patch.object(operations, "run") as run:
                 worker.reconcile_backup_timer()
             self.assertEqual(run.call_args.args[0], ["systemctl", "--user", "disable", "--now", "nahhasio-backup.timer"])
+
+    def test_rc_feed_switch_does_not_change_the_installed_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            worker, _, _, _ = self.installation(Path(directory))
+            rc = operations.OFFICIAL_FEED + "rc/manifest.json"
+            alpha = operations.OFFICIAL_FEED + "alpha/manifest.json"
+            worker.config.update(version="0.2.0-rc.1", releaseManifestUrl=rc)
+            operations.atomic_json(worker.installation_path, worker.config)
+            for version, branch in (
+                ("0.1.3", "alpha"),
+                ("0.2.0-rc.2", "rc"),
+                ("0.2.0", "rc"),
+            ):
+                with patch.object(
+                    worker,
+                    "release",
+                    return_value={"version": version, "client": {"branch": branch}},
+                ), self.assertRaises(ValueError):
+                    worker.switch_to_numbered_feed()
+                self.assertEqual(
+                    operations.read_json(worker.installation_path)[
+                        "releaseManifestUrl"
+                    ],
+                    rc,
+                )
+            manifest = {"version": "0.2.0", "client": {"branch": "alpha"}}
+            with patch.object(worker, "release", return_value=manifest) as verified:
+                self.assertTrue(worker.switch_to_numbered_feed()["changed"])
+                self.assertFalse(worker.switch_to_numbered_feed()["changed"])
+                verified.assert_called_once_with(alpha)
+            saved = operations.read_json(worker.installation_path)
+            self.assertEqual(saved["releaseManifestUrl"], alpha)
+            self.assertEqual(saved["version"], "0.2.0-rc.1")
 
     def test_schema_update_requires_review_of_the_same_release(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,9 +85,9 @@ class OperationsRecovery(unittest.TestCase):
                     patch.object(worker, "stage_schema", side_effect=RuntimeError("migration rejected")), \
                     patch.object(worker, "rollback_schema", side_effect=lambda journal: events.append("rollback")), \
                     patch.object(worker, "resume_units", side_effect=lambda units: events.append("resume")), \
-                    patch.object(operations, "download", return_value=body), patch.object(operations, "run", return_value=b""):
-                with self.assertRaises(RuntimeError):
-                    worker.update("0.1.2")
+                    patch.object(operations, "download", return_value=body), patch.object(operations, "run", return_value=b""), \
+                    self.assertRaises(RuntimeError):
+                worker.update("0.1.2")
             backup.assert_called_once_with("before-update", stopped=True)
             self.assertEqual(events, ["rollback", "resume"])
             self.assertEqual(operations.read_json(worker.installation_path), before)

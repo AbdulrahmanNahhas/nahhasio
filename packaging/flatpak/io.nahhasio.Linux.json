@@ -5,7 +5,7 @@
   "sdk": "org.gnome.Sdk",
   "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
   "command": "nahhasio",
-  "default-branch": "rc",
+  "default-branch": "alpha",
   "finish-args": [
     "--share=network",
     "--share=ipc",

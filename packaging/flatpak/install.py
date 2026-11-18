@@ -4,13 +4,13 @@ import argparse
 import base64
 import json
 import os
-from pathlib import Path
 import shutil
 import ssl
 import subprocess
 import tempfile
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 APP = "io.nahhasio.Linux"
 DEFAULT = "https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-alpha/manifest.json"
@@ -22,11 +22,11 @@ class Redirects(urllib.request.HTTPRedirectHandler):
         if host == "github.com":
             self.allowed |= {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}
 
-    def redirect_request(self, request, fp, code, message, headers, target):
-        parsed = urllib.parse.urlsplit(target)
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlsplit(newurl)
         if parsed.scheme != "https" or parsed.hostname not in self.allowed or parsed.username or parsed.password or parsed.port not in (None, 443):
             raise ValueError("Release redirect left the trusted publisher hosts")
-        return super().redirect_request(request, fp, code, message, headers, target)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def download(url, bound):

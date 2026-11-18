@@ -225,6 +225,7 @@ async fn race(api: &Router, pool: &PgPool, operation: &str, change: &str) {
     );
 }
 pub(super) async fn acceptance(api: &Router, pool: &PgPool) {
+    browse_pagination(api, pool).await;
     studio_grouping(api, pool).await;
     draft_visibility(api, pool).await;
     for operation in [
@@ -269,6 +270,37 @@ pub(super) async fn acceptance(api: &Router, pool: &PgPool) {
     eprintln!(
         "53 deterministic session/policy/visibility races rejected without state changes; valid writes preserved"
     );
+}
+
+async fn browse_pagination(api: &Router, pool: &PgPool) {
+    reset(pool).await;
+    let second = "98000000-0000-4000-8000-000000000010";
+    let mut tx = pool.begin().await.unwrap();
+    sql(&mut tx, "set transaction read write").await;
+    sqlx::query("insert into titles(id,canonical_title,sort_title,workflow_status,is_private) values($1::uuid,'Authorization film two','Authorization film two','published',false)")
+        .bind(second).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    for (page, expected) in [(1, WORK), (2, second)] {
+        let (status, body) = call(
+            api.clone(), "GET",
+            format!("/api/v1/catalog/browse?view=works&sort=title&q=Authorization%20film&page={page}&pageSize=1"),
+            Value::Null,
+        ).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["page"], page);
+        assert_eq!(body["pageSize"], 1);
+        assert_eq!(body["total"], 2);
+        assert_eq!(body["items"].as_array().unwrap().len(), 1);
+        assert_eq!(body["items"][0]["work"]["id"], expected);
+    }
+    let mut tx = pool.begin().await.unwrap();
+    sql(&mut tx, "set transaction read write").await;
+    sqlx::query("delete from titles where id=$1::uuid")
+        .bind(second)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
 }
 
 async fn studio_grouping(api: &Router, pool: &PgPool) {

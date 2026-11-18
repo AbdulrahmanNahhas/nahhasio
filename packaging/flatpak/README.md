@@ -128,9 +128,10 @@ client feed at this stage. Publishing an approved `nahhasio-v*` release verifies
 repository archive, merges the new objects into the retained `flatpak-repository` branch, and
 deploys Pages. Previous commit objects remain available; no repository prune runs automatically.
 The corresponding server manifest is promoted only after Pages deployment succeeds.
-Release candidates (`0.2.0-rc.N`) use the independent `rc` branch, `/flatpak-rc/` repository,
-`nahhasio-rc` remote/feed and explicit opt-in. Candidate publication preserves the Alpha feed
-and `/flatpak/` repository. The manifest, Builder branch and descriptors must agree.
+Numbered releases use the `alpha` branch and `/flatpak/` repository. The old `rc` branch and
+`/flatpak-rc/` repository are historical recovery sources, not where new updates appear. Existing
+RC installations must [switch once](../../docs/releases/0.2.0.md). The manifest, Builder branch
+and descriptors must agree.
 
 Default client repository: `https://abdulrahmannahhas.github.io/nahhasio/flatpak/`.
 Static Pages hosting has storage/bandwidth limits; repository size must be checked as releases
@@ -151,19 +152,21 @@ Flatpak presents its normal installation/permission review and installs dependen
 The `.flatpakref` is also available for Software-based installation when its origin is trusted.
 No custom host updater or background Python helper is installed.
 
-The app’s **Server maintenance → Updates → Open Software for updates** action opens its fixed
-AppStream identity through the desktop handler. Software owns update confirmation; missing handlers
-show a recoverable error. The native handoff has no arbitrary URI or host-command input.
+In **Server maintenance → Updates**, select the application update action. The native process
+asks Flatpak's update portal to update only its own app ref. Keep Nahhasio open during the job and
+relaunch when prompted. The portal cannot change branches or grant new permissions. **Open Software
+for updates** remains the fallback, opening only Nahhasio's fixed AppStream identity. No host-command
+or arbitrary URI permission is granted.
 
-Later application/runtime updates use Software or:
+System-wide/runtime maintenance otherwise uses Software or:
 
 ```sh
 flatpak update --user
 ```
 
-GNOME Software's automatic-update policy belongs to the host and user settings. The app cannot
-infer that policy or claim a newer version is available from inside its sandbox; its Device
-settings show the running version and explain who manages updates. Relaunch after an update.
+GNOME Software's automatic-update policy remains host-owned. The app shows the running version
+and the explicit update attempt's outcome; a staged update does not change the displayed running
+version until relaunch.
 An operator can choose a retained commit with `flatpak update --user --commit=COMMIT
 io.nahhasio.Linux`; binary rollback does not undo newer device-state format changes.
 

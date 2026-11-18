@@ -4,12 +4,12 @@ import argparse
 import datetime
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tomllib
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,13 +46,15 @@ def prepare():
     shutil.copytree(ui, output / "apps/linux/ui/dist")
     shutil.copytree(ROOT / "packaging/flatpak", output / "packaging/flatpak",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    version = tomllib.loads((ROOT / "apps/linux/Cargo.toml").read_text())["package"]["version"]
+    version = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]["version"]
     epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", "HEAD"], cwd=ROOT))
     metadata = output / "packaging/flatpak/io.nahhasio.Linux.metainfo.xml"
     tree = ET.parse(metadata)
     release = tree.find("releases/release")
+    if release is None:
+        raise ValueError("Flatpak AppStream metadata is missing its release entry")
     release.set("version", version)
-    release.set("date", datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat())
+    release.set("date", datetime.datetime.fromtimestamp(epoch, datetime.UTC).date().isoformat())
     tree.write(metadata, encoding="utf-8", xml_declaration=True)
     configuration = subprocess.check_output(["cargo", "vendor", "--locked", "--versioned-dirs", str(output / "vendor")], cwd=ROOT).decode()
     # cargo emits the host absolute vendor path; use a relocatable sandbox-local path.

@@ -282,6 +282,8 @@ export const gateway = {
     ),
   openClientUpdateManager: async () =>
     z.object({ opened: z.literal(true) }).parse(await call("clientUpdate.openManager", {})),
+  installClientUpdate: async () =>
+    ClientUpdateStatusSchema.parse(await call("clientUpdate.install", {})),
   clientUpdateStatus: async (signal?: AbortSignal) =>
     ClientUpdateStatusSchema.parse(await call("clientUpdate.status", {}, signal)),
   serverSettings: async (signal?: AbortSignal) =>

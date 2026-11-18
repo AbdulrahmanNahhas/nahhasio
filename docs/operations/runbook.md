@@ -75,8 +75,9 @@ checkpoint is `data/backups/tvdb-removal-20261008`. Git retains the old rehearsa
 Server maintenance verifies signed artifacts, API/schema and host-tool compatibility, taking a
 backup before coordinated server-image/tool activation. Versioned tools use an atomic selector
 and retain previous files for rollback. The worker reloads after completing its update job. Schema-changing releases require explicit maintenance. PostgreSQL
-major upgrades have separate ownership. Client updates are managed by Flatpak/Software and the
-host's policy; the app reports its running version without claiming automatic updates are enabled.
+major upgrades have separate ownership. The app can request its own update from Flatpak, while
+Software remains the fallback and the host still owns automatic-update policy. See the
+[0.2.0 transition](../releases/0.2.0.md) for installations on the historical RC feed.
 
 The app queues fixed authenticated maintenance requests. It has no Podman socket or arbitrary host
 command interface. Recovery tools remain usable if the API cannot start. Full installation and

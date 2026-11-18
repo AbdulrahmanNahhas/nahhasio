@@ -56,7 +56,7 @@ class PostgreSQLRecovery(unittest.TestCase):
     def prepare(self):
         directory = tempfile.TemporaryDirectory(prefix="recovery-test.", dir=ROOT / "data/development-local")
         self.addCleanup(directory.cleanup)
-        worker, release, body, _ = fixtures.HostUpdates.setup_installation(self, Path(directory.name))
+        worker, release, body, _ = fixtures.setup_installation(Path(directory.name))
         database = "rehearsal_" + Path(directory.name).name.replace("tmp", "")
         database = re.sub("[^a-z0-9_]", "", database)
         self.command(["createdb", "-O", "nahhasio_owner", database])

@@ -9,7 +9,7 @@ license.workspace = true
 gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }
 libloading = "0.8"
 libmpv2-sys = "=4.0.1"
-nahhasio-client-core = { path = "../client-core", version = "=0.2.0-rc.1" }
+nahhasio-client-core.workspace = true
 url = "2"
 
 [dev-dependencies]

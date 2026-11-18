@@ -270,7 +270,13 @@ devenv shell -- python3 -m unittest discover -s packaging/release -p test_releas
 
 These offline tests cover signature integrity, source-private exclusions, archive tampering/path
 containment and retained repository objects. They do not install a client or contact the family PC.
-Release build, publication and installation details are in [DEPLOYMENT](../operations/deployment.md).
+Release build, publication and installation details are in [deployment](../operations/deployment.md).
+For the numbered-channel cutover, rehearse [the transition](../releases/0.2.0.md) on an isolated
+installation. Use two signed Flatpak builds on the same branch to verify in-app installation,
+unchanged running version before relaunch, and the new version after relaunch. Test the Software
+fallback separately. Browser fixture replies and signed OSTree pulls do not exercise the portal.
+Compare cold and warm GitHub build timings for source preparation, Flatpak compilation, and
+signing; a local build cannot demonstrate a hosted cache hit.
 
 ## Push and pull-request CI
 
@@ -308,8 +314,8 @@ on Shadow is only a 4 GiB tmpfs. The runner removes its fixture directories and 
 
 It covers authenticated byte ranges/HEAD, paginated library-root selection and path guards,
 import request replay/conflict, real FFmpeg probing/import, source removal after registration,
-interrupted restore, trash/purge accounting, resumable upload offsets/hash verification and
-administrator revocation. It also checks subtitle HEAD/ranges, companion lifecycle and external
+interrupted restore, trash/purge accounting, resumable upload offsets/hash verification,
+expired-job cleanup with no runnable work, and administrator revocation. It also checks subtitle HEAD/ranges, companion lifecycle and external
 track registration, plus reviewed replacement of a current file with a verified alternative.
 Browser media cases live in `admin-server.spec.ts`; explicit batch-device confirmation is in
 `work-page.spec.ts`. Use the independent fixture port during interactive UI review.

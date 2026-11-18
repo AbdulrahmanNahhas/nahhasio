@@ -81,6 +81,7 @@ dependencies = [
  "futures-util",
  "getrandom 0.4.3",
  "serde",
+ "serde_repr",
  "tokio",
  "zbus",
 ]
@@ -2163,7 +2164,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-cli"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "clap",
  "hex",
@@ -2175,7 +2176,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-client-core"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2184,7 +2185,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-linux"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "ashpd",
  "axum",
@@ -2226,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "nahhasio-server"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "axum",
  "axum-server",

@@ -81,7 +81,7 @@ pub(super) async fn chunk(
     Query(offset): Query<Offset>,
     request: Request,
 ) -> Result<Json<Value>> {
-    let _permit = state.uploads.clone().try_acquire_owned().map_err(|_| {
+    let permit = state.uploads.clone().try_acquire_owned().map_err(|_| {
         Error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Upload workers are busy; retry this chunk",
@@ -96,25 +96,16 @@ pub(super) async fn chunk(
         return Err(storage::invalid());
     }
     let root = storage::root("NAHHASIO_IMPORT_ROOT")?;
-    let output = tokio::time::timeout(
+    let capacity_root = root.clone();
+    let (free, _permit) = tokio::time::timeout(
         std::time::Duration::from_secs(5),
-        tokio::process::Command::new("df")
-            .args(["-Pk"])
-            .arg(&root)
-            .kill_on_drop(true)
-            .output(),
+        // Retain the upload slot if a stalled filesystem outlasts the request.
+        tokio::task::spawn_blocking(move || (storage::available_bytes(&capacity_root), permit)),
     )
     .await
     .map_err(|_| storage::unavailable())?
     .map_err(|_| storage::unavailable())?;
-    let free = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .last()
-        .and_then(|line| line.split_whitespace().nth(3))
-        .and_then(|value| value.parse::<u64>().ok())
-        .ok_or_else(storage::unavailable)?
-        * 1024;
-    if !output.status.success() || free < 5 * 1024 * 1024 * 1024 + bytes.len() as u64 {
+    if free.map_err(|_| storage::unavailable())? < 5 * 1024 * 1024 * 1024 + bytes.len() as u64 {
         return Err(Error(
             StatusCode::INSUFFICIENT_STORAGE,
             "Upload paused to preserve the 5 GiB reserve",

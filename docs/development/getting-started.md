@@ -15,7 +15,9 @@ Open the repository root in Zed. If both Oxlint and TypeScript suddenly report m
 run `devenv shell -- pnpm install --frozen-lockfile` from the root, then use Zed's
 **editor: restart language server** action or reopen the worktree. Confirm the CLI can start with
 `pnpm exec oxlint --version`. An unresolved `vite/client` can make `import.meta.env` and CSS
-imports appear untyped; restore the dependencies instead of adding ambient shims.
+imports appear untyped; restore the dependencies instead of adding ambient shims. If an editor
+buffer reports errors for a file that Git already shows as deleted, close that tab; do not recreate
+the retired file just to clear stale diagnostics.
 
 The repository uses Zed's Tailwind-aware CSS server for `@theme`, `@utility`, and related syntax.
 For a complete check, agents should read Zed diagnostics for the files they touch and also run
