@@ -31,24 +31,13 @@ from typing import NotRequired, TypedDict
 
 VERSION = 1
 HOST_TOOLS_VERSION = "0.2.0"
-OFFICIAL_FEED = (
-    "https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-"
-)
-_tools_spec = importlib.util.spec_from_file_location(
-    "nahhasio_host_tools", Path(__file__).resolve().with_name("host_tools.py")
-)
+OFFICIAL_FEED = "https://github.com/AbdulrahmanNahhas/nahhasio/releases/download/nahhasio-"
+_tools_spec = importlib.util.spec_from_file_location("nahhasio_host_tools", Path(__file__).resolve().with_name("host_tools.py"))
 if _tools_spec is None or _tools_spec.loader is None:
     raise ImportError("Could not load the installed host tools")
 host_tools = importlib.util.module_from_spec(_tools_spec)
 _tools_spec.loader.exec_module(host_tools)
-OPERATIONS = {
-    "backup",
-    "restore",
-    "check-update",
-    "update",
-    "upgrade-schema",
-    "configure-backups",
-}
+OPERATIONS = {"backup", "restore", "check-update", "update", "upgrade-schema", "configure-backups"}
 BACKUP_ID = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 DB_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
@@ -67,10 +56,7 @@ class MaintenanceStatus(TypedDict):
 
 
 def version_key(value):
-    match = re.fullmatch(
-        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([a-zA-Z0-9.-]+))?",
-        value,
-    )
+    match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([a-zA-Z0-9.-]+))?", value)
     if not match:
         raise ValueError("Release version is not supported SemVer")
     pre = match.group(4)
@@ -80,11 +66,7 @@ def version_key(value):
             if not part or part.isdigit() and len(part) > 1 and part.startswith("0"):
                 raise ValueError("Invalid release prerelease identifier")
             parts.append((0, int(part)) if part.isdigit() else (1, part))
-    return (
-        tuple(int(match.group(index)) for index in (1, 2, 3)),
-        pre is None,
-        tuple(parts),
-    )
+    return tuple(int(match.group(index)) for index in (1, 2, 3)), pre is None, tuple(parts)
 
 
 def now():
@@ -134,19 +116,10 @@ def atomic_json(path, value):
 
 def run(arguments, *, output=None, input_bytes=None, timeout=3600, environment=None):
     """Never log subprocess output: PostgreSQL and registry errors may contain secrets."""
-    result = subprocess.run(
-        arguments,
-        input=input_bytes,
-        stdout=output or subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        check=False,
-        env=environment,
-    )
+    result = subprocess.run(arguments, input=input_bytes, stdout=output or subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=timeout, check=False, env=environment)
     if result.returncode:
-        raise RuntimeError(
-            f"{Path(arguments[0]).name} operation failed (exit {result.returncode})"
-        )
+        raise RuntimeError(f"{Path(arguments[0]).name} operation failed (exit {result.returncode})")
     return result.stdout
 
 
@@ -172,39 +145,23 @@ class FixedRedirects(urllib.request.HTTPRedirectHandler):
         if self.origin.hostname == "github.com":
             allowed.add("release-assets.githubusercontent.com")
             allowed.add("objects.githubusercontent.com")
-        if (
-            destination.scheme != "https"
-            or destination.hostname not in allowed
-            or destination.username
-            or destination.password
-            or destination.port not in (None, 443)
-        ):
-            raise ValueError(
-                "Release redirect is outside the configured trusted origin"
-            )
+        if (destination.scheme != "https" or destination.hostname not in allowed
+                or destination.username or destination.password
+                or destination.port not in (None, 443)):
+            raise ValueError("Release redirect is outside the configured trusted origin")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def download(url, maximum):
     origin = urllib.parse.urlparse(url)
-    if (
-        origin.scheme != "https"
-        or not origin.hostname
-        or origin.username
-        or origin.password
-        or origin.port not in (None, 443)
-        or origin.fragment
-    ):
+    if (origin.scheme != "https" or not origin.hostname or origin.username
+            or origin.password or origin.port not in (None, 443) or origin.fragment):
         raise ValueError("Release URL must be HTTPS without credentials")
     opener = urllib.request.build_opener(
-        urllib.request.ProxyHandler({}),
-        FixedRedirects(origin),
-        urllib.request.HTTPSHandler(context=ssl.create_default_context()),
-    )
-    with opener.open(
-        urllib.request.Request(url, headers={"User-Agent": "Nahhasio-maintenance/1"}),
-        timeout=30,
-    ) as response:
+        urllib.request.ProxyHandler({}), FixedRedirects(origin),
+        urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+    with opener.open(urllib.request.Request(url, headers={"User-Agent": "Nahhasio-maintenance/1"}),
+                     timeout=30) as response:
         body = response.read(maximum + 1)
     if len(body) > maximum:
         raise ValueError("Release document is too large")
@@ -233,17 +190,9 @@ class Maintenance:
         self.container = self.config.get("databaseContainer", "nahhasio-postgres")
         self.unit = "nahhasio-server.service"
         self.status_path = self.control / "status.json"
-        self.status: MaintenanceStatus = {
-            "version": VERSION,
-            "available": True,
-            "backups": [],
-            "update": {
-                "state": "unchecked",
-                "currentVersion": self.config.get("version", "unknown"),
-            },
-            "activeJob": None,
-            "lastJob": None,
-        }
+        self.status: MaintenanceStatus = {"version": VERSION, "available": True, "backups": [],
+                       "update": {"state": "unchecked", "currentVersion": self.config.get("version", "unknown")},
+                       "activeJob": None, "lastJob": None}
         if self.status_path.exists():
             previous = read_json(self.status_path)
             self.status["lastJob"] = previous.get("lastJob")
@@ -254,11 +203,7 @@ class Maintenance:
 
     @contextlib.contextmanager
     def lock(self):
-        descriptor = os.open(
-            self.private / "maintenance.lock",
-            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
-            0o600,
-        )
+        descriptor = os.open(self.private / "maintenance.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             yield
@@ -267,26 +212,16 @@ class Maintenance:
 
     def backup_policy(self):
         path = self.private / "backup-policy.json"
-        policy = (
-            read_json(path)
-            if path.exists()
-            else {"dailyEnabled": True, "retainDaily": 7}
-        )
+        policy = read_json(path) if path.exists() else {"dailyEnabled": True, "retainDaily": 7}
         self.validate_policy(policy)
         return policy
 
     @staticmethod
     def validate_policy(policy):
-        if (
-            not isinstance(policy, dict)
-            or set(policy) != {"dailyEnabled", "retainDaily"}
-            or type(policy["dailyEnabled"]) is not bool
-            or type(policy["retainDaily"]) is not int
-            or not 1 <= policy["retainDaily"] <= 30
-        ):
-            raise ValueError(
-                "Backup policy needs a daily schedule and 1–30 retained daily copies"
-            )
+        if (not isinstance(policy, dict) or set(policy) != {"dailyEnabled", "retainDaily"}
+                or type(policy["dailyEnabled"]) is not bool
+                or type(policy["retainDaily"]) is not int or not 1 <= policy["retainDaily"] <= 30):
+            raise ValueError("Backup policy needs a daily schedule and 1–30 retained daily copies")
 
     def configure_backups(self, policy):
         self.validate_policy(policy)
@@ -297,33 +232,17 @@ class Maintenance:
 
     def reconcile_backup_timer(self):
         policy = self.backup_policy()
-        run(
-            [
-                "systemctl",
-                "--user",
-                "enable" if policy["dailyEnabled"] else "disable",
-                "--now",
-                "nahhasio-backup.timer",
-            ],
-            timeout=60,
-        )
+        run(["systemctl", "--user", "enable" if policy["dailyEnabled"] else "disable",
+             "--now", "nahhasio-backup.timer"], timeout=60)
 
     def publish(self):
         self.status["supportedOperations"] = sorted(OPERATIONS)
         policy = self.backup_policy()
-        timer = subprocess.run(
-            ["systemctl", "--user", "is-active", "--quiet", "nahhasio-backup.timer"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=10,
-        )
-        self.status["backupPolicy"] = {
-            **policy,
-            "timerActive": timer.returncode == 0,
-            "schedule": "04:00 (server local time; up to 15 minutes delay)",
-            "retainCheckpoints": 2,
-        }
+        timer = subprocess.run(["systemctl", "--user", "is-active", "--quiet", "nahhasio-backup.timer"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=10)
+        self.status["backupPolicy"] = {**policy, "timerActive": timer.returncode == 0,
+                                       "schedule": "04:00 (server local time; up to 15 minutes delay)",
+                                       "retainCheckpoints": 2}
         self.status["backups"] = self.inventory()
         self.status["updatedAt"] = now()
         atomic_json(self.status_path, self.status)
@@ -331,51 +250,21 @@ class Maintenance:
     def progress(self, stage, message):
         if self.job:
             self.job.update(stage=stage, message=message)
-            atomic_json(self.jobs / f"{self.job['id']}.json", self.job)
+            atomic_json(self.jobs / f'{self.job["id"]}.json', self.job)
             self.status["activeJob"] = self.job.copy()
             self.publish()
 
     def sql(self, statement, database=None):
-        return (
-            run(
-                [
-                    "podman",
-                    "exec",
-                    "-i",
-                    self.container,
-                    "psql",
-                    "-X",
-                    "-q",
-                    "-A",
-                    "-t",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-U",
-                    self.config["databaseAdmin"],
-                    "-d",
-                    database or self.config["database"],
-                    "-c",
-                    statement,
-                ],
-                timeout=120,
-            )
-            .decode()
-            .strip()
-        )
+        return run(["podman", "exec", "-i", self.container, "psql", "-X", "-q", "-A", "-t",
+                    "-v", "ON_ERROR_STOP=1", "-U", self.config["databaseAdmin"],
+                    "-d", database or self.config["database"], "-c", statement], timeout=120).decode().strip()
 
     def summary(self, database=None):
-        tables = self.sql(
-            "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename",
-            database,
-        ).splitlines()
+        tables = self.sql("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename", database).splitlines()
         counts = {}
         for table in tables:
-            counts[table] = int(
-                self.sql(f"SELECT count(*) FROM public.{quote(table)}", database)
-            )
-        identity = self.sql(
-            "SELECT id::text FROM server_instance WHERE singleton", database
-        )
+            counts[table] = int(self.sql(f"SELECT count(*) FROM public.{quote(table)}", database))
+        identity = self.sql("SELECT id::text FROM server_instance WHERE singleton", database)
         return {"serverId": identity, "counts": counts}
 
     def verify_artwork(self, root, database=None):
@@ -383,26 +272,16 @@ class Maintenance:
         offset = 0
         verified = 0
         while True:
-            statement = (
-                "SELECT coalesce(json_agg(row_to_json(assets)),'[]'::json) FROM "
-                "(SELECT path,sha256,byte_size FROM media_assets ORDER BY id "
-                f"LIMIT 256 OFFSET {offset}) assets"
-            )
+            statement = ("SELECT coalesce(json_agg(row_to_json(assets)),'[]'::json) FROM "
+                         "(SELECT path,sha256,byte_size FROM media_assets ORDER BY id "
+                         f"LIMIT 256 OFFSET {offset}) assets")
             rows = json.loads(self.sql(statement, database))
             for row in rows:
                 registered = row.get("path")
-                if not isinstance(registered, str) or not registered.startswith(
-                    "/media/"
-                ):
-                    raise ValueError(
-                        "Registered artwork uses an unsupported local namespace"
-                    )
+                if not isinstance(registered, str) or not registered.startswith("/media/"):
+                    raise ValueError("Registered artwork uses an unsupported local namespace")
                 relative = Path(registered.removeprefix("/media/"))
-                if (
-                    relative.is_absolute()
-                    or not relative.parts
-                    or ".." in relative.parts
-                ):
+                if relative.is_absolute() or not relative.parts or ".." in relative.parts:
                     raise ValueError("Registered artwork escapes the configured root")
                 file = root
                 for part in relative.parts:
@@ -411,47 +290,32 @@ class Maintenance:
                         raise ValueError("Registered artwork contains a symlink")
                 try:
                     info = file.lstat()
-                    valid = (
-                        stat.S_ISREG(info.st_mode)
-                        and info.st_size == row["byte_size"]
-                        and SHA256.fullmatch(row.get("sha256", ""))
-                        and sha256(file) == row["sha256"]
-                    )
+                    valid = (stat.S_ISREG(info.st_mode) and info.st_size == row["byte_size"]
+                             and SHA256.fullmatch(row.get("sha256", ""))
+                             and sha256(file) == row["sha256"])
                 except OSError:
                     valid = False
                 if not valid:
-                    raise ValueError(
-                        "Registered artwork is missing or does not match its database size/hash"
-                    )
+                    raise ValueError("Registered artwork is missing or does not match its database size/hash")
                 verified += 1
             if len(rows) < 256:
                 return verified
             offset += 256
 
     def active(self):
-        result = subprocess.run(
-            ["systemctl", "--user", "is-active", "--quiet", self.unit], check=False
-        )
+        result = subprocess.run(["systemctl", "--user", "is-active", "--quiet", self.unit], check=False)
         return result.returncode == 0
 
     def running_units(self):
         units = [self.unit]
         if self.config.get("mediaWorkerUnit"):
             units.append(self.config["mediaWorkerUnit"])
-        return [
-            unit
-            for unit in units
-            if subprocess.run(
-                ["systemctl", "--user", "is-active", "--quiet", unit], check=False
-            ).returncode
-            == 0
-        ]
+        return [unit for unit in units if subprocess.run(
+            ["systemctl", "--user", "is-active", "--quiet", unit], check=False).returncode == 0]
 
     def resume_units(self, units):
         allowed = {self.unit, self.config.get("mediaWorkerUnit")}
-        if not isinstance(units, list) or any(
-            unit not in allowed or not unit for unit in units
-        ):
+        if not isinstance(units, list) or any(unit not in allowed or not unit for unit in units):
             raise ValueError("Invalid service recovery state")
         for unit in dict.fromkeys(units):
             run(["systemctl", "--user", "start", unit], timeout=180)
@@ -460,31 +324,21 @@ class Maintenance:
 
     def stop(self):
         if self.config.get("mediaWorkerUnit"):
-            run(
-                ["systemctl", "--user", "stop", self.config["mediaWorkerUnit"]],
-                timeout=120,
-            )
+            run(["systemctl", "--user", "stop", self.config["mediaWorkerUnit"]], timeout=120)
         run(["systemctl", "--user", "stop", self.unit], timeout=120)
 
     def start(self, *, media_worker=True):
         run(["systemctl", "--user", "start", self.unit], timeout=180)
         self.ready()
         if media_worker and self.config.get("mediaWorkerUnit"):
-            run(
-                ["systemctl", "--user", "start", self.config["mediaWorkerUnit"]],
-                timeout=180,
-            )
+            run(["systemctl", "--user", "start", self.config["mediaWorkerUnit"]], timeout=180)
 
     def ready(self):
         # The image health command checks the HTTPS readiness endpoint with its configured CA.
         for _ in range(30):
-            result = subprocess.run(
-                ["podman", "healthcheck", "run", "nahhasio-server"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-                timeout=15,
-            )
+            result = subprocess.run(["podman", "healthcheck", "run", "nahhasio-server"],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    check=False, timeout=15)
             if result.returncode == 0:
                 return
             time.sleep(2)
@@ -493,29 +347,14 @@ class Maintenance:
     def inventory(self):
         result = []
         for directory in sorted(self.backups.iterdir(), reverse=True):
-            if (
-                not BACKUP_ID.fullmatch(directory.name)
-                or directory.is_symlink()
-                or not directory.is_dir()
-            ):
+            if not BACKUP_ID.fullmatch(directory.name) or directory.is_symlink() or not directory.is_dir():
                 continue
             try:
                 manifest = read_json(directory / "manifest.json")
                 if manifest.get("recoveryOnly"):
                     continue
-                result.append(
-                    {
-                        key: manifest[key]
-                        for key in (
-                            "id",
-                            "createdAt",
-                            "reason",
-                            "byteSize",
-                            "version",
-                            "schema",
-                        )
-                    }
-                )
+                result.append({key: manifest[key] for key in
+                               ("id", "createdAt", "reason", "byteSize", "version", "schema")})
             except (OSError, ValueError, KeyError):
                 continue
         return result
@@ -532,17 +371,8 @@ class Maintenance:
     def host_recovery_archive(self, destination):
         # Restoring app data must not silently replace the current machine's DB credentials
         # or certificate trust. Keep these in an operator-only recovery archive instead.
-        selected = [
-            "tls",
-            "authority",
-            "postgres-password",
-            "owner-password",
-            "runtime-password",
-            "server.env",
-            "operator.env",
-            "media-worker.env",
-            "release-key.pem",
-        ]
+        selected = ["tls", "authority", "postgres-password", "owner-password", "runtime-password",
+                    "server.env", "operator.env", "media-worker.env", "release-key.pem"]
         with tarfile.open(destination, "w:gz", dereference=True) as archive:
             for name in selected:
                 root = self.config_root / name
@@ -551,60 +381,29 @@ class Maintenance:
                 paths = [root] + sorted(root.rglob("*")) if root.is_dir() else [root]
                 for path in paths:
                     info = path.lstat()
-                    if not stat.S_ISREG(info.st_mode) and not stat.S_ISDIR(
-                        info.st_mode
-                    ):
-                        raise ValueError(
-                            "Host recovery source contains a symlink or special file"
-                        )
-                    archive.add(
-                        path,
-                        arcname=str(path.relative_to(self.config_root)),
-                        recursive=False,
-                    )
+                    if not stat.S_ISREG(info.st_mode) and not stat.S_ISDIR(info.st_mode):
+                        raise ValueError("Host recovery source contains a symlink or special file")
+                    archive.add(path, arcname=str(path.relative_to(self.config_root)), recursive=False)
         os.chmod(destination, 0o600)
 
     def backup(self, reason="manual", *, stopped=False, allow_damaged=False):
         if allow_damaged and reason != "before-restore":
-            raise ValueError(
-                "Damaged-state capture is reserved for a verified restore operation"
-            )
-        identifier = (
-            dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
-        )
+            raise ValueError("Damaged-state capture is reserved for a verified restore operation")
+        identifier = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
         temporary = self.backups / (".pending-" + identifier)
         temporary.mkdir(mode=0o700)
         restart_units = [] if stopped else self.running_units()
         restart = bool(restart_units)
         backup_journal = self.private / "backup-journal.json"
-        atomic_json(
-            backup_journal,
-            {
-                "formatVersion": VERSION,
-                "id": identifier,
-                "stage": "capturing",
-                "restartApi": self.unit in restart_units,
-                "restartUnits": restart_units,
-            },
-        )
+        atomic_json(backup_journal, {"formatVersion": VERSION, "id": identifier,
+                                     "stage": "capturing", "restartApi": self.unit in restart_units,
+                                     "restartUnits": restart_units})
         try:
-            database_bytes = int(
-                self.sql("SELECT pg_database_size(current_database())")
-            )
-            artwork_bytes = sum(
-                path.stat().st_size
-                for path in self.artwork.rglob("*")
-                if path.is_file()
-            )
-            if (
-                shutil.disk_usage(self.backups).free
-                < database_bytes + artwork_bytes + 64 * 1024 * 1024
-            ):
+            database_bytes = int(self.sql("SELECT pg_database_size(current_database())"))
+            artwork_bytes = sum(path.stat().st_size for path in self.artwork.rglob("*") if path.is_file())
+            if shutil.disk_usage(self.backups).free < database_bytes + artwork_bytes + 64 * 1024 * 1024:
                 raise ValueError("Not enough disk space for a complete backup")
-            self.progress(
-                "backup",
-                "Creating a coordinated database, artwork and configuration backup",
-            )
+            self.progress("backup", "Creating a coordinated database, artwork and configuration backup")
             if restart:
                 self.stop()
             summary = self.summary()
@@ -621,22 +420,8 @@ class Maintenance:
                 damaged = True
             with (temporary / "database.dump").open("wb") as stream:
                 os.chmod(temporary / "database.dump", 0o600)
-                run(
-                    [
-                        "podman",
-                        "exec",
-                        self.container,
-                        "pg_dump",
-                        "-U",
-                        self.config["databaseAdmin"],
-                        "-d",
-                        self.config["database"],
-                        "--format=custom",
-                        "--no-owner",
-                        "--no-acl",
-                    ],
-                    output=stream,
-                )
+                run(["podman", "exec", self.container, "pg_dump", "-U", self.config["databaseAdmin"],
+                     "-d", self.config["database"], "--format=custom", "--no-owner", "--no-acl"], output=stream)
                 stream.flush()
                 os.fsync(stream.fileno())
             self.archive(self.artwork, temporary / "artwork.tar.gz")
@@ -644,23 +429,13 @@ class Maintenance:
             self.host_recovery_archive(temporary / "host-recovery.tar.gz")
             # Installation metadata is needed for recovery but never includes credential values.
             atomic_json(temporary / "installation.json", self.config)
-            files = {
-                name: sha256(temporary / name)
-                for name in (
-                    "database.dump",
-                    "artwork.tar.gz",
-                    "configuration.tar.gz",
-                    "host-recovery.tar.gz",
-                    "installation.json",
-                )
-            }
+            files = {name: sha256(temporary / name) for name in
+                     ("database.dump", "artwork.tar.gz", "configuration.tar.gz", "host-recovery.tar.gz", "installation.json")}
             if self.config.get("mediaRoot"):
                 media_root = Path(self.config["mediaRoot"])
                 journals = media_root / "data/media-operations"
                 self.archive(journals, temporary / "media-operations.tar.gz")
-                inventory = self.sql(
-                    "SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'rootId',library_root_id,'relativePath',relative_path,'byteSize',byte_size,'sha256',sha256,'availability',availability)),'[]'::jsonb) FROM media_files"
-                )
+                inventory = self.sql("SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'rootId',library_root_id,'relativePath',relative_path,'byteSize',byte_size,'sha256',sha256,'availability',availability)),'[]'::jsonb) FROM media_files")
                 atomic_json(temporary / "media-inventory.json", json.loads(inventory))
                 for name in ("media-operations.tar.gz", "media-inventory.json"):
                     files[name] = sha256(temporary / name)
@@ -668,21 +443,12 @@ class Maintenance:
             if policy.exists():
                 atomic_json(temporary / "backup-policy.json", self.backup_policy())
                 files["backup-policy.json"] = sha256(temporary / "backup-policy.json")
-            manifest = {
-                "formatVersion": VERSION,
-                "id": identifier,
-                "createdAt": now(),
-                "reason": reason,
-                "version": self.config.get("version", "unknown"),
-                "schema": self.config.get("schemaVersion", ""),
-                "byteSize": sum((temporary / name).stat().st_size for name in files),
-                "files": files,
-                "catalog": summary,
-                "databaseMajor": 17,
-                "verifiedArtwork": verified_artwork,
-                "recoveryOnly": damaged,
-                "integrity": "damaged" if damaged else "verified",
-            }
+            manifest = {"formatVersion": VERSION, "id": identifier, "createdAt": now(), "reason": reason,
+                        "version": self.config.get("version", "unknown"), "schema": self.config.get("schemaVersion", ""),
+                        "byteSize": sum((temporary / name).stat().st_size for name in files),
+                        "files": files, "catalog": summary, "databaseMajor": 17,
+                        "verifiedArtwork": verified_artwork, "recoveryOnly": damaged,
+                        "integrity": "damaged" if damaged else "verified"}
             for name in files:
                 with (temporary / name).open("rb") as stream:
                     os.fsync(stream.fileno())
@@ -705,20 +471,12 @@ class Maintenance:
                 shutil.rmtree(temporary)
             if restart:
                 self.resume_units(restart_units)
-            atomic_json(
-                backup_journal,
-                {
-                    "formatVersion": VERSION,
-                    "id": identifier,
-                    "stage": "complete",
-                    "restartApi": False,
-                    "restartUnits": [],
-                },
-            )
+            atomic_json(backup_journal, {"formatVersion": VERSION, "id": identifier,
+                                         "stage": "complete", "restartApi": False,"restartUnits": []})
 
     def prune(self):
         daily = [item for item in self.inventory() if item["reason"] == "daily"]
-        for item in daily[self.backup_policy()["retainDaily"] :]:
+        for item in daily[self.backup_policy()["retainDaily"]:]:
             shutil.rmtree(self.backups / item["id"])
         for reason in ("before-update", "before-restore"):
             protected = [item for item in self.inventory() if item["reason"] == reason]
@@ -733,37 +491,18 @@ class Maintenance:
             raise ValueError("Backup is unavailable")
         manifest = read_json(root / "manifest.json")
         if manifest.get("recoveryOnly"):
-            raise ValueError(
-                "Damaged-state recovery material cannot be restored as a verified backup"
-            )
-        required = {
-            "database.dump",
-            "artwork.tar.gz",
-            "configuration.tar.gz",
-            "host-recovery.tar.gz",
-            "installation.json",
-        }
-        if (
-            manifest.get("formatVersion") != VERSION
-            or manifest.get("id") != identifier
-            or not required.issubset(manifest.get("files", {}))
-            or set(manifest.get("files", {}))
-            - required
-            - {"media-operations.tar.gz", "media-inventory.json", "backup-policy.json"}
-        ):
+            raise ValueError("Damaged-state recovery material cannot be restored as a verified backup")
+        required = {"database.dump", "artwork.tar.gz", "configuration.tar.gz", "host-recovery.tar.gz", "installation.json"}
+        if (manifest.get("formatVersion") != VERSION or manifest.get("id") != identifier
+                or not required.issubset(manifest.get("files", {}))
+                or set(manifest.get("files", {})) - required - {"media-operations.tar.gz", "media-inventory.json", "backup-policy.json"}):
             raise ValueError("Unsupported or incomplete backup")
         for name in manifest["files"]:
             path = root / name
-            if (
-                path.is_symlink()
-                or not path.is_file()
-                or sha256(path) != manifest["files"][name]
-            ):
+            if path.is_symlink() or not path.is_file() or sha256(path) != manifest["files"][name]:
                 raise ValueError("Backup checksum verification failed")
         if manifest.get("schema") != self.config.get("schemaVersion"):
-            raise ValueError(
-                "Backup schema requires a matching application version before restore"
-            )
+            raise ValueError("Backup schema requires a matching application version before restore")
         return root, manifest
 
     def extract(self, archive_path, destination):
@@ -771,11 +510,7 @@ class Maintenance:
         with tarfile.open(archive_path, "r:gz") as archive:
             for member in archive:
                 path = Path(member.name)
-                if (
-                    path.is_absolute()
-                    or ".." in path.parts
-                    or not (member.isfile() or member.isdir())
-                ):
+                if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
                     raise ValueError("Unsafe backup archive member")
                 target = destination / path
                 if member.isdir():
@@ -790,72 +525,36 @@ class Maintenance:
                         shutil.copyfileobj(source, output)
 
     def terminate(self, database):
-        self.sql(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname="
-            + "'"
-            + database.replace("'", "''")
-            + "' AND pid<>pg_backend_pid()",
-            "postgres",
-        )
+        self.sql("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname="
+                 + "'" + database.replace("'", "''") + "' AND pid<>pg_backend_pid()", "postgres")
 
     def restore(self, identifier, confirmation, *, initial=False):
         if identifier != confirmation:
-            raise ValueError(
-                "Restore requires confirmation matching the selected backup identifier"
-            )
+            raise ValueError("Restore requires confirmation matching the selected backup identifier")
         was_active = self.active()
         if initial:
-            tables = int(
-                self.sql(
-                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"
-                )
-            )
+            tables = int(self.sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"))
             if tables != 0 or self.running_units():
-                raise ValueError(
-                    "Initial transfer requires an empty bootstrap database and an inactive API"
-                )
+                raise ValueError("Initial transfer requires an empty bootstrap database and an inactive API")
         source, manifest = self.validate_backup(identifier)
         suffix = uuid.uuid4().hex[:12]
         stage_db, old_db = "nahhasio_restore_" + suffix, "nahhasio_previous_" + suffix
-        stage_art, old_art = (
-            self.data / (".restore-artwork-" + suffix),
-            self.data / (".previous-artwork-" + suffix),
-        )
-        stage_config, old_config = (
-            self.config_root / (".restore-private-" + suffix),
-            self.config_root / (".previous-private-" + suffix),
-        )
+        stage_art, old_art = self.data / (".restore-artwork-" + suffix), self.data / (".previous-artwork-" + suffix)
+        stage_config, old_config = self.config_root / (".restore-private-" + suffix), self.config_root / (".previous-private-" + suffix)
         current = self.config["database"]
-        journal = {
-            "formatVersion": VERSION,
-            "backupId": identifier,
-            "database": current,
-            "initial": initial,
-            "wasActive": was_active,
-            "stageDatabase": stage_db,
-            "previousDatabase": old_db,
-            "stageArtwork": str(stage_art),
-            "previousArtwork": str(old_art),
-            "stageConfig": str(stage_config),
-            "previousConfig": str(old_config),
-            "stage": "preparing",
-        }
+        journal = {"formatVersion": VERSION, "backupId": identifier, "database": current,
+                   "initial": initial, "wasActive": was_active,
+                   "stageDatabase": stage_db, "previousDatabase": old_db,
+                   "stageArtwork": str(stage_art), "previousArtwork": str(old_art),
+                   "stageConfig": str(stage_config), "previousConfig": str(old_config), "stage": "preparing"}
         journal_path = self.private / "restore-journal.json"
         if journal_path.exists():
             previous = read_json(journal_path)
             if previous.get("stage") not in ("complete", "rolled-back"):
-                raise ValueError(
-                    "An interrupted restore requires local recovery before another restore"
-                )
+                raise ValueError("An interrupted restore requires local recovery before another restore")
         atomic_json(journal_path, journal)
-        self.progress(
-            "restore-validation",
-            "Validating a separate restored database and artwork set",
-        )
-        self.sql(
-            f"CREATE DATABASE {quote(stage_db)} OWNER {quote(self.config['databaseOwner'])}",
-            "postgres",
-        )
+        self.progress("restore-validation", "Validating a separate restored database and artwork set")
+        self.sql(f"CREATE DATABASE {quote(stage_db)} OWNER {quote(self.config['databaseOwner'])}", "postgres")
         switched = False
         paused = False
         try:
@@ -864,9 +563,7 @@ class Maintenance:
             # complex catalog/filter queries from the restored installation.
             self.sql("ANALYZE", stage_db)
             if self.summary(stage_db) != manifest["catalog"]:
-                raise ValueError(
-                    "Restored catalog identity or row counts do not match the backup"
-                )
+                raise ValueError("Restored catalog identity or row counts do not match the backup")
             self.extract(source / "artwork.tar.gz", stage_art)
             self.extract(source / "configuration.tar.gz", stage_config)
             self.verify_artwork(stage_art, stage_db)
@@ -876,35 +573,21 @@ class Maintenance:
                 if not recovery.exists():
                     self.extract(source / "media-operations.tar.gz", recovery)
                 # Restoring catalog state must not move/delete videos or overwrite newer journals.
-                self.sql(
-                    "UPDATE media_files SET availability='unknown',last_verified_at=NULL WHERE library_root_id IS NOT NULL",
-                    stage_db,
-                )
+                self.sql("UPDATE media_files SET availability='unknown',last_verified_at=NULL WHERE library_root_id IS NOT NULL", stage_db)
                 # A restored queue predates current staging/journals. Acquisition and trash
                 # expiration need an explicit review rather than replaying old side effects.
-                self.sql(
-                    "UPDATE background_jobs SET status='failed',error='Restored media job requires review before retry',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,finished_at=now() WHERE type LIKE 'media.%' AND status IN ('queued','running')",
-                    stage_db,
-                )
+                self.sql("UPDATE background_jobs SET status='failed',error='Restored media job requires review before retry',lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,finished_at=now() WHERE type LIKE 'media.%' AND status IN ('queued','running')", stage_db)
             self.grants(stage_db)
             self.stop()
             paused = True
             if not initial:
                 self.backup("before-restore", stopped=True, allow_damaged=True)
-            self.progress(
-                "restore-switch",
-                "Switching to the verified backup; the server will reconnect",
-            )
+            self.progress("restore-switch", "Switching to the verified backup; the server will reconnect")
             journal["stage"] = "switching"
             atomic_json(journal_path, journal)
             self.terminate(current)
-            self.sql(
-                f"ALTER DATABASE {quote(current)} RENAME TO {quote(old_db)}", "postgres"
-            )
-            self.sql(
-                f"ALTER DATABASE {quote(stage_db)} RENAME TO {quote(current)}",
-                "postgres",
-            )
+            self.sql(f"ALTER DATABASE {quote(current)} RENAME TO {quote(old_db)}", "postgres")
+            self.sql(f"ALTER DATABASE {quote(stage_db)} RENAME TO {quote(current)}", "postgres")
             self.artwork.rename(old_art)
             stage_art.rename(self.artwork)
             self.providers.rename(old_config)
@@ -934,16 +617,13 @@ class Maintenance:
 
     def grants(self, database):
         role = quote(self.config["databaseRuntime"])
-        self.sql(
-            f"REVOKE ALL ON DATABASE {quote(database)} FROM PUBLIC; "
-            "REVOKE CREATE ON SCHEMA public FROM PUBLIC; "
-            f"GRANT CONNECT ON DATABASE {quote(database)} TO {role}; "
-            f"GRANT USAGE ON SCHEMA public,drizzle TO {role}; "
-            f"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {role}; "
-            f"GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {role}; "
-            f"GRANT SELECT ON ALL TABLES IN SCHEMA drizzle TO {role}",
-            database,
-        )
+        self.sql(f"REVOKE ALL ON DATABASE {quote(database)} FROM PUBLIC; "
+                 "REVOKE CREATE ON SCHEMA public FROM PUBLIC; "
+                 f"GRANT CONNECT ON DATABASE {quote(database)} TO {role}; "
+                 f"GRANT USAGE ON SCHEMA public,drizzle TO {role}; "
+                 f"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {role}; "
+                 f"GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {role}; "
+                 f"GRANT SELECT ON ALL TABLES IN SCHEMA drizzle TO {role}", database)
 
     def rollback_restore(self, journal):
         self.stop()
@@ -952,25 +632,11 @@ class Maintenance:
         if old in names:
             if current in names:
                 self.terminate(current)
-                self.sql(
-                    f"ALTER DATABASE {quote(current)} RENAME TO {quote(journal['stageDatabase'])}",
-                    "postgres",
-                )
-            self.sql(
-                f"ALTER DATABASE {quote(old)} RENAME TO {quote(current)}", "postgres"
-            )
+                self.sql(f"ALTER DATABASE {quote(current)} RENAME TO {quote(journal['stageDatabase'])}", "postgres")
+            self.sql(f"ALTER DATABASE {quote(old)} RENAME TO {quote(current)}", "postgres")
         for active, retained, stage in (
-            (
-                self.artwork,
-                Path(journal["previousArtwork"]),
-                Path(journal["stageArtwork"]),
-            ),
-            (
-                self.providers,
-                Path(journal["previousConfig"]),
-                Path(journal["stageConfig"]),
-            ),
-        ):
+                (self.artwork, Path(journal["previousArtwork"]), Path(journal["stageArtwork"])),
+                (self.providers, Path(journal["previousConfig"]), Path(journal["stageConfig"]))):
             if retained.exists():
                 if active.exists():
                     active.rename(stage)
@@ -981,12 +647,8 @@ class Maintenance:
         if journal.get("stage") in ("complete", "rolled-back"):
             raise ValueError("No interrupted restore needs recovery")
         # Journal is host-owned; confirm destinations still match this installation before acting.
-        for key, parent in (
-            ("previousArtwork", self.data),
-            ("stageArtwork", self.data),
-            ("previousConfig", self.config_root),
-            ("stageConfig", self.config_root),
-        ):
+        for key, parent in (("previousArtwork", self.data), ("stageArtwork", self.data),
+                            ("previousConfig", self.config_root), ("stageConfig", self.config_root)):
             if Path(journal[key]).parent != parent or Path(journal[key]).is_symlink():
                 raise ValueError("Invalid restore recovery journal")
         for key in ("database", "previousDatabase", "stageDatabase"):
@@ -1003,101 +665,46 @@ class Maintenance:
     def release(self, url=None):
         key = self.config_root / "release-key.pem"
         if key.is_symlink() or not key.is_file():
-            raise ValueError(
-                "Install a trusted release public key before enabling updates"
-            )
-        public_der = run(
-            [
-                "openssl",
-                "pkey",
-                "-pubin",
-                "-in",
-                str(key),
-                "-pubout",
-                "-outform",
-                "DER",
-            ],
-            timeout=10,
-        )
-        if len(public_der) != 44 or not public_der.startswith(
-            bytes.fromhex("302a300506032b6570032100")
-        ):
+            raise ValueError("Install a trusted release public key before enabling updates")
+        public_der = run(["openssl", "pkey", "-pubin", "-in", str(key), "-pubout", "-outform", "DER"], timeout=10)
+        if len(public_der) != 44 or not public_der.startswith(bytes.fromhex("302a300506032b6570032100")):
             raise ValueError("The pinned release public key must be Ed25519")
         url = url or self.config.get("releaseManifestUrl")
         if not url:
             raise ValueError("Release channel is not configured")
         manifest_bytes = download(url, 65536)
-        signature = base64.b64decode(
-            download(url + ".sig", 1024).strip(), validate=True
-        )
+        signature = base64.b64decode(download(url + ".sig", 1024).strip(), validate=True)
         if len(signature) != 64:
             raise ValueError("Release signature must be Ed25519")
-        with tempfile.TemporaryDirectory(
-            dir=self.private, prefix=".verify-"
-        ) as temporary:
+        with tempfile.TemporaryDirectory(dir=self.private, prefix=".verify-") as temporary:
             root = Path(temporary)
             (root / "manifest.json").write_bytes(manifest_bytes)
             (root / "manifest.sig").write_bytes(signature)
-            run(
-                [
-                    "openssl",
-                    "pkeyutl",
-                    "-verify",
-                    "-pubin",
-                    "-inkey",
-                    str(key),
-                    "-rawin",
-                    "-in",
-                    str(root / "manifest.json"),
-                    "-sigfile",
-                    str(root / "manifest.sig"),
-                ],
-                timeout=10,
-            )
+            run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(key), "-rawin",
+                 "-in", str(root / "manifest.json"), "-sigfile", str(root / "manifest.sig")], timeout=10)
         manifest = json.loads(manifest_bytes)
-        if (
-            manifest.get("formatVersion") != 1
-            or manifest.get("apiVersion") != 1
-            or not isinstance(manifest.get("version"), str)
-            or not re.fullmatch(
-                r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?", manifest["version"]
-            )
-            or not SHA256.fullmatch(manifest.get("schemaVersion", ""))
-        ):
+        if (manifest.get("formatVersion") != 1 or manifest.get("apiVersion") != 1
+                or not isinstance(manifest.get("version"), str)
+                or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?", manifest["version"])
+                or not SHA256.fullmatch(manifest.get("schemaVersion", ""))):
             raise ValueError("Unsupported release manifest")
         image = manifest["server"]["image"]
         repository = self.config.get("serverRepository", "")
-        if (
-            not repository
-            or not image.startswith(repository + "@sha256:")
-            or not SHA256.fullmatch(image.removeprefix(repository + "@sha256:"))
-            or manifest["server"].get("schemaVersion") != manifest["schemaVersion"]
-        ):
+        if (not repository or not image.startswith(repository + "@sha256:")
+                or not SHA256.fullmatch(image.removeprefix(repository + "@sha256:"))
+                or manifest["server"].get("schemaVersion") != manifest["schemaVersion"]):
             raise ValueError("Release image does not match the configured repository")
         tools = manifest.get("hostTools", {})
         parsed = urllib.parse.urlsplit(tools.get("url", ""))
         origin = urllib.parse.urlsplit(url)
-        expected_url = (
-            url.split("/releases/", 1)[0]
-            + "/releases/download/nahhasio-v"
-            + manifest["version"]
-            + "/nahhasio-install.tar.gz"
-        )
-        if (
-            tools.get("apiVersion") != host_tools.API_VERSION
-            or type(tools.get("size")) is not int
-            or not 32 <= tools["size"] <= host_tools.MAX_ARCHIVE
-            or not SHA256.fullmatch(tools.get("sha256", ""))
-            or parsed.scheme != "https"
-            or parsed.hostname != origin.hostname
-            or parsed.username
-            or parsed.password
-            or parsed.port not in (None, 443)
-            or parsed.query
-            or parsed.fragment
-            or origin.hostname == "github.com"
-            and tools["url"] != expected_url
-        ):
+        expected_url = url.split("/releases/", 1)[0] + "/releases/download/nahhasio-v" + manifest["version"] + "/nahhasio-install.tar.gz"
+        if (tools.get("apiVersion") != host_tools.API_VERSION
+                or type(tools.get("size")) is not int or not 32 <= tools["size"] <= host_tools.MAX_ARCHIVE
+                or not SHA256.fullmatch(tools.get("sha256", ""))
+                or parsed.scheme != "https" or parsed.hostname != origin.hostname
+                or parsed.username or parsed.password or parsed.port not in (None, 443)
+                or parsed.query or parsed.fragment
+                or origin.hostname == "github.com" and tools["url"] != expected_url):
             raise ValueError("Release lacks a compatible, signed host-tool bundle")
         return manifest
 
@@ -1132,11 +739,7 @@ class Maintenance:
         current = self.config.get("version", "0.0.0")
         version = manifest["version"]
         same_image = manifest["server"]["image"] == self.config["serverImage"]
-        if (
-            version_key(version) < version_key(current)
-            or not same_image
-            and version_key(version) == version_key(current)
-        ):
+        if version_key(version) < version_key(current) or not same_image and version_key(version) == version_key(current):
             raise ValueError("Release channel attempted a version downgrade")
         same_tools = self.config.get("hostToolsVersion") == version
         if same_tools:
@@ -1144,78 +747,30 @@ class Maintenance:
         state = "up-to-date" if same_image and same_tools else "available"
         if manifest["schemaVersion"] != self.config.get("schemaVersion"):
             state = "maintenance-required"
-        self.status["update"] = {
-            "state": state,
-            "currentVersion": current,
-            "availableVersion": version,
-            "checkedAt": now(),
-            "message": "Schema maintenance is required"
-            if state == "maintenance-required"
-            else "Release signature verified",
-        }
+        self.status["update"] = {"state": state, "currentVersion": current,
+                                 "availableVersion": version, "checkedAt": now(),
+                                 "message": "Schema maintenance is required" if state == "maintenance-required" else "Release signature verified"}
         self.publish()
         return manifest
 
     def operator(self, image, database, arguments):
         password = (self.config_root / "owner-password").read_text().strip()
-        url = (
-            "postgresql://"
-            + urllib.parse.quote(self.config["databaseOwner"], safe="")
-            + ":"
-            + urllib.parse.quote(password, safe="")
-            + "@nahhasio-postgres/"
-            + database
-        )
+        url = ("postgresql://" + urllib.parse.quote(self.config["databaseOwner"], safe="") + ":"
+               + urllib.parse.quote(password, safe="") + "@nahhasio-postgres/" + database)
         environment = {**os.environ, "DATABASE_URL": url}
-        result = run(
-            [
-                "podman",
-                "run",
-                "--rm",
-                "--network",
-                "nahhasio",
-                "--userns=keep-id",
-                "--user",
-                str(os.getuid()),
-                "--read-only",
-                "--cap-drop=all",
-                "--security-opt=no-new-privileges",
-                "--env",
-                "DATABASE_URL",
-                "--entrypoint",
-                "/usr/local/bin/nahhasio",
-                image,
-                *arguments,
-                "--json",
-            ],
-            environment=environment,
-        )
+        result = run(["podman", "run", "--rm", "--network", "nahhasio", "--userns=keep-id",
+                      "--user", str(os.getuid()), "--read-only", "--cap-drop=all",
+                      "--security-opt=no-new-privileges", "--env", "DATABASE_URL",
+                      "--entrypoint", "/usr/local/bin/nahhasio", image, *arguments, "--json"],
+                     environment=environment)
         return json.loads(result)
 
     def load_dump(self, path, database):
         with path.open("rb") as stream:
-            result = subprocess.run(
-                [
-                    "podman",
-                    "exec",
-                    "-i",
-                    self.container,
-                    "pg_restore",
-                    "--exit-on-error",
-                    "--no-owner",
-                    "--no-acl",
-                    "--role=" + self.config["databaseOwner"],
-                    "-U",
-                    self.config["databaseAdmin"],
-                    "-d",
-                    database,
-                ],
-                stdin=stream,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                timeout=3600,
-                check=False,
-            )
+            result = subprocess.run(["podman", "exec", "-i", self.container, "pg_restore", "--exit-on-error",
+                                     "--no-owner", "--no-acl", "--role=" + self.config["databaseOwner"],
+                                     "-U", self.config["databaseAdmin"], "-d", database], stdin=stream,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=3600, check=False)
             if result.returncode:
                 raise RuntimeError("Restored database validation failed")
 
@@ -1223,21 +778,12 @@ class Maintenance:
         source, backup = self.validate_backup(backup_id)
         stage = journal["stageDatabase"]
         image = manifest["server"]["image"]
-        if self.operator(image, stage, ["migrate", "fingerprint"]) != {
-            "schemaVersion": manifest["schemaVersion"]
-        }:
-            raise ValueError(
-                "Candidate migration history does not match the signed release"
-            )
+        if self.operator(image, stage, ["migrate", "fingerprint"]) != {"schemaVersion": manifest["schemaVersion"]}:
+            raise ValueError("Candidate migration history does not match the signed release")
         size = int(self.sql("SELECT pg_database_size(current_database())"))
-        if shutil.disk_usage(self.data).free < size + 5 * 1024**3:
-            raise ValueError(
-                "Schema rehearsal needs another database copy and a 5 GiB free-space reserve"
-            )
-        self.sql(
-            f"CREATE DATABASE {quote(stage)} OWNER {quote(self.config['databaseOwner'])}",
-            "postgres",
-        )
+        if shutil.disk_usage(self.data).free < size + 5 * 1024 ** 3:
+            raise ValueError("Schema rehearsal needs another database copy and a 5 GiB free-space reserve")
+        self.sql(f"CREATE DATABASE {quote(stage)} OWNER {quote(self.config['databaseOwner'])}", "postgres")
         self.load_dump(source / "database.dump", stage)
         self.operator(image, stage, ["migrate", "apply", "--write"])
         status = self.operator(image, stage, ["migrate", "status"])
@@ -1245,17 +791,10 @@ class Maintenance:
             raise ValueError("Candidate migrations did not finish")
         summary = self.summary(stage)
         counts = summary["counts"]
-        if (
-            summary["serverId"] != backup["catalog"]["serverId"]
-            or not isinstance(counts, dict)
-            or any(
-                counts.get(table) != count
-                for table, count in backup["catalog"]["counts"].items()
-            )
-        ):
-            raise ValueError(
-                "Additive upgrade changed existing catalog identities or row counts"
-            )
+        if (summary["serverId"] != backup["catalog"]["serverId"]
+                or not isinstance(counts, dict)
+                or any(counts.get(table) != count for table, count in backup["catalog"]["counts"].items())):
+            raise ValueError("Additive upgrade changed existing catalog identities or row counts")
         self.verify_artwork(self.artwork, stage)
         self.grants(stage)
         self.sql("ANALYZE", stage)
@@ -1263,25 +802,16 @@ class Maintenance:
     def rollback_schema(self, journal):
         if not journal.get("stageDatabase"):
             return
-        current, previous, stage = (
-            journal[key] for key in ("database", "previousDatabase", "stageDatabase")
-        )
-        if (
-            current != self.config["database"]
-            or any(not DB_NAME.fullmatch(name) for name in (current, previous, stage))
-            or not previous.startswith("nahhasio_previous_")
-            or not stage.startswith("nahhasio_upgrade_")
-        ):
+        current, previous, stage = (journal[key] for key in ("database", "previousDatabase", "stageDatabase"))
+        if (current != self.config["database"] or any(not DB_NAME.fullmatch(name) for name in (current, previous, stage))
+                or not previous.startswith("nahhasio_previous_") or not stage.startswith("nahhasio_upgrade_")):
             raise ValueError("Invalid schema recovery journal")
         names = self.sql("SELECT datname FROM pg_database", "postgres").splitlines()
         if previous in names:
             if current in names:
                 self.terminate(current)
                 self.sql(f"DROP DATABASE {quote(current)}", "postgres")
-            self.sql(
-                f"ALTER DATABASE {quote(previous)} RENAME TO {quote(current)}",
-                "postgres",
-            )
+            self.sql(f"ALTER DATABASE {quote(previous)} RENAME TO {quote(current)}", "postgres")
         elif current not in names:
             raise ValueError("Schema recovery needs the retained previous database")
         self.sql(f"DROP DATABASE IF EXISTS {quote(stage)}", "postgres")
@@ -1290,26 +820,16 @@ class Maintenance:
         manifest = self.check_update()
         schema_upgrade = self.status["update"]["state"] == "maintenance-required"
         if schema_upgrade and confirmation != manifest["version"]:
-            raise ValueError(
-                "Schema maintenance needs confirmation matching the verified release version"
-            )
-        if confirmation is not None and (
-            not schema_upgrade or confirmation != manifest["version"]
-        ):
-            raise ValueError(
-                "The reviewed release changed; check updates and review it again"
-            )
+            raise ValueError("Schema maintenance needs confirmation matching the verified release version")
+        if confirmation is not None and (not schema_upgrade or confirmation != manifest["version"]):
+            raise ValueError("The reviewed release changed; check updates and review it again")
         if self.status["update"]["state"] == "up-to-date":
             return {"version": self.config["version"], "changed": False}
         image = manifest["server"]["image"]
         previous_tools = self.tools.current()
-        self.progress(
-            "update-tools", "Downloading and validating signed host maintenance tools"
-        )
+        self.progress("update-tools", "Downloading and validating signed host maintenance tools")
         bundle = download(manifest["hostTools"]["url"], host_tools.MAX_ARCHIVE)
-        target_tools = self.tools.stage(
-            manifest["version"], host_tools.unpack(bundle, manifest["hostTools"])
-        )
+        target_tools = self.tools.stage(manifest["version"], host_tools.unpack(bundle, manifest["hostTools"]))
         candidate = self.tools.verify(target_tools)
         run([sys.executable, str(candidate / "operations.py"), "--help"], timeout=10)
         self.progress("update-download", "Downloading the verified server image")
@@ -1318,69 +838,39 @@ class Maintenance:
         run(["podman", "image", "inspect", image], timeout=30)
         if not schema_upgrade:
             self.backup("before-update")
-        root = Path(
-            self.config.get(
-                "quadletRoot", str(Path.home() / ".config/containers/systemd")
-            )
-        )
+        root = Path(self.config.get("quadletRoot", str(Path.home() / ".config/containers/systemd")))
         override = root / "nahhasio-server.container.d" / "20-release.conf"
         override.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         previous = override.read_bytes() if override.exists() else None
         journal_path = self.private / "update-journal.json"
         previous_installation = self.config.copy()
-        journal = {
-            "formatVersion": VERSION,
-            "stage": "activating",
-            "previousImage": self.config["serverImage"],
-            "nextImage": image,
-            "nextVersion": manifest["version"],
-            "previousTools": previous_tools,
-            "nextTools": target_tools,
-            "previousOverride": base64.b64encode(previous).decode()
-            if previous is not None
-            else None,
-        }
+        journal = {"formatVersion": VERSION, "stage": "activating", "previousImage": self.config["serverImage"],
+                   "nextImage": image, "nextVersion": manifest["version"],
+                   "previousTools": previous_tools, "nextTools": target_tools,
+                   "previousOverride": base64.b64encode(previous).decode() if previous is not None else None}
         if schema_upgrade:
             suffix = uuid.uuid4().hex[:12]
-            journal.update(
-                database=self.config["database"],
-                stageDatabase="nahhasio_upgrade_" + suffix,
-                previousDatabase="nahhasio_previous_" + suffix,
-                restartUnits=self.running_units(),
-            )
+            journal.update(database=self.config["database"], stageDatabase="nahhasio_upgrade_" + suffix,
+                           previousDatabase="nahhasio_previous_" + suffix, restartUnits=self.running_units())
         atomic_json(journal_path, journal)
         self.progress("update-activate", "Activating the new server version")
         try:
             if schema_upgrade:
                 self.stop()
                 backup = self.backup("before-update", stopped=True)
-                self.progress(
-                    "schema-rehearsal",
-                    "Migrating and validating a separate restored database",
-                )
+                self.progress("schema-rehearsal", "Migrating and validating a separate restored database")
                 self.stage_schema(journal, manifest, backup["backupId"])
                 journal["stage"] = "switching-schema"
                 atomic_json(journal_path, journal)
                 self.terminate(journal["database"])
-                self.sql(
-                    f"ALTER DATABASE {quote(journal['database'])} RENAME TO {quote(journal['previousDatabase'])}",
-                    "postgres",
-                )
-                self.sql(
-                    f"ALTER DATABASE {quote(journal['stageDatabase'])} RENAME TO {quote(journal['database'])}",
-                    "postgres",
-                )
+                self.sql(f"ALTER DATABASE {quote(journal['database'])} RENAME TO {quote(journal['previousDatabase'])}", "postgres")
+                self.sql(f"ALTER DATABASE {quote(journal['stageDatabase'])} RENAME TO {quote(journal['database'])}", "postgres")
             self.write_override(override, image)
             run(["systemctl", "--user", "daemon-reload"], timeout=60)
             self.stop()
             self.start(media_worker=False)
             self.tools.activate(target_tools)
-            self.config.update(
-                serverImage=image,
-                version=manifest["version"],
-                hostToolsVersion=manifest["version"],
-                schemaVersion=manifest["schemaVersion"],
-            )
+            self.config.update(serverImage=image, version=manifest["version"], hostToolsVersion=manifest["version"], schemaVersion=manifest["schemaVersion"])
             atomic_json(self.installation_path, self.config)
         except Exception:  # noqa: BLE001 - Any activation failure must restore the prior installation.
             self.stop()
@@ -1400,24 +890,14 @@ class Maintenance:
                 self.start()
             journal["stage"] = "rolled-back"
             atomic_json(journal_path, journal)
-            raise RuntimeError(
-                "Server update failed; the previous image was restored"
-            ) from None
+            raise RuntimeError("Server update failed; the previous image was restored") from None
         if self.config.get("mediaWorkerUnit"):
             self.resume_units([self.config["mediaWorkerUnit"]])
         journal["stage"] = "complete"
         atomic_json(journal_path, journal)
-        self.status["update"] = {
-            "state": "up-to-date",
-            "currentVersion": manifest["version"],
-            "checkedAt": now(),
-        }
+        self.status["update"] = {"state": "up-to-date", "currentVersion": manifest["version"], "checkedAt": now()}
         self.reload_tools = target_tools != previous_tools
-        return {
-            "version": manifest["version"],
-            "changed": True,
-            "reconnectRequired": True,
-        }
+        return {"version": manifest["version"], "changed": True, "reconnectRequired": True}
 
     def recover_update(self):
         journal_path = self.private / "update-journal.json"
@@ -1426,9 +906,7 @@ class Maintenance:
         journal = read_json(journal_path)
         if journal.get("stage") in ("complete", "rolled-back"):
             return
-        tools_committed = not journal.get("nextTools") or self.config.get(
-            "hostToolsVersion"
-        ) == journal.get("nextVersion")
+        tools_committed = not journal.get("nextTools") or self.config.get("hostToolsVersion") == journal.get("nextVersion")
         if journal.get("nextImage") == self.config["serverImage"] and tools_committed:
             # Metadata commit follows successful readiness. A crash before journal completion
             # can safely finish that final bookkeeping without changing services.
@@ -1436,11 +914,7 @@ class Maintenance:
                 self.tools.activate(journal["nextTools"])
             if self.config.get("mediaWorkerUnit"):
                 self.resume_units([self.config["mediaWorkerUnit"]])
-            self.status["update"] = {
-                "state": "up-to-date",
-                "currentVersion": self.config["version"],
-                "checkedAt": now(),
-            }
+            self.status["update"] = {"state": "up-to-date", "currentVersion": self.config["version"], "checkedAt": now()}
             journal["stage"] = "complete"
         else:
             if journal.get("previousImage") != self.config["serverImage"]:
@@ -1449,11 +923,7 @@ class Maintenance:
             self.rollback_schema(journal)
             if journal.get("previousTools"):
                 self.tools.activate(journal["previousTools"])
-            root = Path(
-                self.config.get(
-                    "quadletRoot", str(Path.home() / ".config/containers/systemd")
-                )
-            )
+            root = Path(self.config.get("quadletRoot", str(Path.home() / ".config/containers/systemd")))
             override = root / "nahhasio-server.container.d" / "20-release.conf"
             previous = journal.get("previousOverride")
             if previous is None:
@@ -1493,22 +963,9 @@ class Maintenance:
     def validate_request(self, request, identifier):
         if str(uuid.UUID(identifier)) != identifier:
             raise ValueError("Invalid job identifier")
-        if (
-            request.get("version") != VERSION
-            or request.get("id") != identifier
-            or request.get("operation") not in OPERATIONS
-            or set(request)
-            - {
-                "version",
-                "id",
-                "operation",
-                "requestedAt",
-                "actorAccountId",
-                "backupId",
-                "confirmation",
-                "backupPolicy",
-            }
-        ):
+        if (request.get("version") != VERSION or request.get("id") != identifier
+                or request.get("operation") not in OPERATIONS
+                or set(request) - {"version", "id", "operation", "requestedAt", "actorAccountId", "backupId", "confirmation", "backupPolicy"}):
             raise ValueError("Invalid maintenance request")
         if str(uuid.UUID(request["actorAccountId"])) != request["actorAccountId"]:
             raise ValueError("Invalid requesting account")
@@ -1527,25 +984,13 @@ class Maintenance:
             raise ValueError("Unexpected backup policy")
 
     def execute(self, request, *, reason="manual"):
-        self.job = {
-            "version": VERSION,
-            "id": request["id"],
-            "operation": request["operation"],
-            "state": "running",
-            "startedAt": now(),
-            "stage": "starting",
-            "message": "Maintenance started",
-        }
+        self.job = {"version": VERSION, "id": request["id"], "operation": request["operation"],
+                    "state": "running", "startedAt": now(), "stage": "starting", "message": "Maintenance started"}
         self.progress("starting", "Maintenance started")
         try:
             journal_path = self.private / "restore-journal.json"
-            if journal_path.exists() and read_json(journal_path).get("stage") not in (
-                "complete",
-                "rolled-back",
-            ):
-                raise ValueError(
-                    "An interrupted restore requires local recovery before maintenance can continue"
-                )
+            if journal_path.exists() and read_json(journal_path).get("stage") not in ("complete", "rolled-back"):
+                raise ValueError("An interrupted restore requires local recovery before maintenance can continue")
             operation = request["operation"]
             if operation == "backup":
                 result = self.backup(reason)
@@ -1560,22 +1005,13 @@ class Maintenance:
                 result = self.configure_backups(request["backupPolicy"])
             else:
                 result = self.update()
-            self.job.update(
-                state="succeeded",
-                stage="complete",
-                message="Maintenance completed",
-                result=result,
-            )
+            self.job.update(state="succeeded", stage="complete", message="Maintenance completed", result=result)
         except Exception as error:  # noqa: BLE001 - Persist a failed receipt even for unexpected errors.
             # Only controlled errors are public; upstream details/paths never enter UI status.
-            public = (
-                str(error)
-                if isinstance(error, (ValueError, RuntimeError))
-                else "Maintenance failed; inspect local service logs"
-            )
+            public = str(error) if isinstance(error, (ValueError, RuntimeError)) else "Maintenance failed; inspect local service logs"
             self.job.update(state="failed", stage="failed", message=public)
         self.job["finishedAt"] = now()
-        atomic_json(self.jobs / f"{self.job['id']}.json", self.job)
+        atomic_json(self.jobs / f'{self.job["id"]}.json', self.job)
         self.status["lastJob"] = self.job.copy()
         self.status["activeJob"] = None
         self.publish()
@@ -1592,21 +1028,11 @@ class Maintenance:
             if backup_journal.exists():
                 interrupted = read_json(backup_journal)
                 restore_journal = self.private / "restore-journal.json"
-                restore_safe = not restore_journal.exists() or read_json(
-                    restore_journal
-                ).get("stage") in ("complete", "rolled-back")
-                restart_units = interrupted.get(
-                    "restartUnits", [self.unit] if interrupted.get("restartApi") else []
-                )
-                if (
-                    interrupted.get("stage") == "capturing"
-                    and restart_units
-                    and restore_safe
-                ):
+                restore_safe = not restore_journal.exists() or read_json(restore_journal).get("stage") in ("complete", "rolled-back")
+                restart_units = interrupted.get("restartUnits", [self.unit] if interrupted.get("restartApi") else [])
+                if interrupted.get("stage") == "capturing" and restart_units and restore_safe:
                     self.resume_units(restart_units)
-                    interrupted.update(
-                        stage="interrupted", restartApi=False, restartUnits=[]
-                    )
+                    interrupted.update(stage="interrupted", restartApi=False, restartUnits=[])
                     atomic_json(backup_journal, interrupted)
             # A host crash must not turn an unknown result into a success or repeat a restore.
             for path in self.claimed.glob("*.json"):
@@ -1617,21 +1043,12 @@ class Maintenance:
                     finished = self.jobs / path.name
                     if finished.exists():
                         prior = read_json(finished)
-                        if prior.get("state") in ("succeeded", "failed") and prior.get(
-                            "finishedAt"
-                        ):
+                        if prior.get("state") in ("succeeded", "failed") and prior.get("finishedAt"):
                             self.status["lastJob"] = prior
                             path.unlink()
                             continue
-                    job = {
-                        "version": VERSION,
-                        "id": identifier,
-                        "operation": "unknown",
-                        "state": "failed",
-                        "stage": "interrupted",
-                        "message": "Maintenance was interrupted; inspect recovery status",
-                        "finishedAt": now(),
-                    }
+                    job = {"version": VERSION, "id": identifier, "operation": "unknown", "state": "failed",
+                           "stage": "interrupted", "message": "Maintenance was interrupted; inspect recovery status", "finishedAt": now()}
                     atomic_json(self.jobs / path.name, job)
                     self.status["lastJob"] = job
                     path.unlink()
@@ -1667,16 +1084,8 @@ class Maintenance:
                     if self.reload_tools:
                         # The completed job/status and cleared claim are durable first. Python
                         # descriptors close on exec, releasing the old worker's maintenance lock.
-                        os.execv(
-                            sys.executable,
-                            [
-                                sys.executable,
-                                str(self.data / "tools/operations.py"),
-                                "--config-root",
-                                str(self.config_root),
-                                "worker",
-                            ],
-                        )
+                        os.execv(sys.executable, [sys.executable, str(self.data / "tools/operations.py"),
+                                                 "--config-root", str(self.config_root), "worker"])
                 if time.monotonic() - heartbeat > 30:
                     self.publish()
                     heartbeat = time.monotonic()
@@ -1688,45 +1097,23 @@ def install_units(config_root):
     config = read_json(config_root / "installation.json")
     tools = private_directory(Path(config["dataRoot"]) / "tools")
     destination = tools / "operations.py"
-    if (
-        subprocess.run(
-            [
-                "systemctl",
-                "--user",
-                "is-active",
-                "--quiet",
-                "nahhasio-maintenance.service",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        ).returncode
-        == 0
-    ):
-        raise ValueError(
-            "Stop nahhasio-maintenance.service before bootstrapping host tools"
-        )
+    if subprocess.run(["systemctl", "--user", "is-active", "--quiet", "nahhasio-maintenance.service"],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode == 0:
+        raise ValueError("Stop nahhasio-maintenance.service before bootstrapping host tools")
     source = Path(__file__).resolve()
     if all((source.parent / name).is_file() for name in host_tools.FILES):
         files = {name: (source.parent / name).read_bytes() for name in host_tools.FILES}
     else:
         packaging = source.parent.parent
-        files = {
-            name: (packaging.parent / member).read_bytes()
-            for name, member in host_tools.FILES.items()
-        }
+        files = {name: (packaging.parent / member).read_bytes() for name, member in host_tools.FILES.items()}
     host_tools.Store(tools).bootstrap(HOST_TOOLS_VERSION, files)
     config["hostToolsVersion"] = HOST_TOOLS_VERSION
     atomic_json(config_root / "installation.json", config)
     units = Path.home() / ".config/systemd/user"
     units.mkdir(mode=0o700, parents=True, exist_ok=True)
     # systemd quoting: do not invoke a shell and reject specifier expansion in supplied roots.
-    if any(
-        "%" in str(path) or "\n" in str(path) for path in (config_root, destination)
-    ):
-        raise ValueError(
-            "Installation paths cannot contain systemd specifiers or newlines"
-        )
+    if any("%" in str(path) or "\n" in str(path) for path in (config_root, destination)):
+        raise ValueError("Installation paths cannot contain systemd specifiers or newlines")
     command = f'/usr/bin/python3 "{destination}" --config-root "{config_root}"'
     services = {
         "nahhasio-maintenance.service": f"[Unit]\nDescription=Nahhasio rootless maintenance worker\nAfter=nahhasio-postgres.service\n\n[Service]\nType=simple\nExecStart={command} worker\nRestart=on-failure\nRestartSec=5\nUMask=0077\n\n[Install]\nWantedBy=default.target\n",
@@ -1737,29 +1124,20 @@ def install_units(config_root):
     }
     for name, content in services.items():
         Maintenance.write_bytes(units / name, content.encode())
-    print(
-        "Maintenance units written. Enable with systemctl --user enable --now nahhasio-maintenance.service nahhasio-backup.timer"
-    )
-    print(
-        "Enable nahhasio-update.timer after installing the trusted release key and publishing the release channel."
-    )
+    print("Maintenance units written. Enable with systemctl --user enable --now nahhasio-maintenance.service nahhasio-backup.timer")
+    print("Enable nahhasio-update.timer after installing the trusted release key and publishing the release channel.")
 
 
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--config-root", type=Path, default=Path.home() / ".config/nahhasio-server"
-    )
+    parser.add_argument("--config-root", type=Path, default=Path.home() / ".config/nahhasio-server")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("worker")
     commands.add_parser("status")
     commands.add_parser("install-units")
     commands.add_parser("recover-interrupted-restore")
-    commands.add_parser(
-        "switch-to-numbered-feed",
-        help="verify and select the numbered feed; does not install an update",
-    )
+    commands.add_parser("switch-to-numbered-feed", help="verify and select the numbered feed; does not install an update")
     enqueue = commands.add_parser("enqueue")
     enqueue.add_argument("operation", choices=sorted(OPERATIONS))
     enqueue.add_argument("--backup-id")
@@ -1791,29 +1169,19 @@ def main():
                 print(json.dumps(maintenance.switch_to_numbered_feed()))
         else:
             identifier = str(uuid.uuid4())
-            request = {
-                "version": VERSION,
-                "id": identifier,
-                "operation": args.operation,
-                "requestedAt": now(),
-                "actorAccountId": "00000000-0000-4000-8000-000000000000",
-            }
+            request = {"version": VERSION, "id": identifier, "operation": args.operation,
+                       "requestedAt": now(), "actorAccountId": "00000000-0000-4000-8000-000000000000"}
             if args.backup_id:
                 request["backupId"] = args.backup_id
             if args.confirm:
                 request["confirmation"] = args.confirm
             if args.daily_enabled is not None or args.retain_daily is not None:
-                request["backupPolicy"] = {
-                    "dailyEnabled": args.daily_enabled == "yes",
-                    "retainDaily": args.retain_daily,
-                }
+                request["backupPolicy"] = {"dailyEnabled": args.daily_enabled == "yes", "retainDaily": args.retain_daily}
             maintenance.validate_request(request, identifier)
             if args.command == "enqueue":
                 # Timer intent is host-owned separately; never accept reason in API request files.
                 if args.reason == "daily":
-                    atomic_json(
-                        maintenance.private / "daily-request.json", {"id": identifier}
-                    )
+                    atomic_json(maintenance.private / "daily-request.json", {"id": identifier})
                 atomic_json(maintenance.inbox / f"{identifier}.json", request)
                 print(json.dumps({"id": identifier, "state": "queued"}))
             else:
@@ -1822,11 +1190,7 @@ def main():
                     print(json.dumps(result, ensure_ascii=False))
                     return 0 if result["state"] == "succeeded" else 1
     except (Exception, KeyboardInterrupt) as error:  # noqa: BLE001 - Keep private details out of CLI errors.
-        public = (
-            str(error)
-            if isinstance(error, (ValueError, RuntimeError))
-            else "Maintenance command failed; inspect local service state"
-        )
+        public = str(error) if isinstance(error, (ValueError, RuntimeError)) else "Maintenance command failed; inspect local service state"
         print(public, file=sys.stderr)
         return 1
     return 0
