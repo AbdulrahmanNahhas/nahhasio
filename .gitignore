@@ -14,8 +14,7 @@ playwright-report/
 __unconfig*
 todos.json
 
-# Crash dumps: the Tauri shell and the API both drop ELF core files next to wherever they
-# were launched, and they are large (hundreds of MB, sparse) — never something to commit.
+# Native processes can leave large ELF core dumps in their working directory.
 core.*
 
 # typescript
@@ -40,8 +39,8 @@ data/recovery/
 data/development-packs/
 data/development-local/
 
-# Generated personalized catalog lists contain family watch history.
-/catalog-lists/
+# Generated personalized catalog lists contain family watch history (directory or local symlink).
+/catalog-lists
 
 # Devenv
 .devenv*

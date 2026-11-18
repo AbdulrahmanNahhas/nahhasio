@@ -3,19 +3,41 @@
 
 import argparse
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+CACHES = (
+    ".tanstack",
+    "apps/linux/ui/.tanstack",
+    "apps/linux/ui/.playwright-build",
+    "node_modules/.cache",
+    "node_modules/.vite",
+    "node_modules/.vite-temp",
+    "apps/linux/ui/node_modules/.cache",
+    "apps/linux/ui/node_modules/.vite",
+    "apps/linux/ui/node_modules/.vite-temp",
+    "tools/architecture/__pycache__",
+    "tools/docs/__pycache__",
+    "packaging/flatpak/__pycache__",
+    "packaging/operations/__pycache__",
+    "packaging/release/__pycache__",
+    "packaging/server/__pycache__",
+)
 OUTPUTS = (
-    "target", "dist", ".flatpak-source", ".flatpak-build", ".flatpak-builder",
-    ".flatpak-user", "data/previews", ".devenv/account-tmp", ".tanstack",
-    "apps/linux/ui/dist", "apps/linux/ui/.playwright-build", "apps/linux/ui/test-results",
-    "apps/linux/ui/playwright-report", "apps/linux/ui/.tanstack",
-    "node_modules/.cache", "node_modules/.vite", "node_modules/.vite-temp",
+    "target",
+    "dist",
+    ".flatpak-source",
+    ".flatpak-build",
+    ".flatpak-builder",
+    ".flatpak-user",
+    "data/previews",
+    ".devenv/account-tmp",
+    "apps/linux/ui/dist",
+    "apps/linux/ui/test-results",
+    "apps/linux/ui/playwright-report",
 )
 
 
@@ -29,14 +51,20 @@ def safe_path(relative):
 
 def shell_caches():
     # Devenv caches a complete shell for each evaluation; thousands can accumulate.
-    files = [p for p in (ROOT / ".devenv").glob("shell-*.sh")
-             if re.fullmatch(r"shell-[0-9a-f]+\.sh", p.name) and not p.is_symlink()]
+    files = [
+        p
+        for p in (ROOT / ".devenv").glob("shell-*.sh")
+        if re.fullmatch(r"shell-[0-9a-f]+\.sh", p.name) and not p.is_symlink()
+    ]
     return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[4:]
 
 
 def remove(path):
     def writable_retry(operation, name, error):
-        if not isinstance(error, PermissionError) or operation not in (os.unlink, os.rmdir):
+        if not isinstance(error, PermissionError) or operation not in (
+            os.unlink,
+            os.rmdir,
+        ):
             raise error
         # Extracted AppImages and vendored sources contain read-only directories.
         parent = Path(name).parent
@@ -54,30 +82,62 @@ def remove(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--apply", action="store_true", help="delete generated output permanently; stop builds first")
-    mode.add_argument("--maintain", action="store_true", help="prune old shell evaluations and warn about large build output")
+    mode.add_argument(
+        "--apply",
+        action="store_true",
+        help="delete generated output permanently; stop builds first",
+    )
+    mode.add_argument(
+        "--maintain",
+        action="store_true",
+        help="prune old shell evaluations and warn about large build output",
+    )
+    parser.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="limit the preview or deletion to caches; keep build artifacts, SDKs and reports",
+    )
     args = parser.parse_args()
-    tracked = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "-z"]).decode().split("\0")
-    paths = [safe_path(p) for p in OUTPUTS if (ROOT / p).exists()]
+    if args.maintain and args.cache_only:
+        parser.error("--cache-only cannot be combined with --maintain")
+
+    tracked = (
+        subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "-z"])
+        .decode()
+        .split("\0")
+    )
     caches = [safe_path(p.relative_to(ROOT)) for p in shell_caches()]
-    candidates = caches if args.maintain else paths + caches
+    outputs = () if args.maintain else CACHES if args.cache_only else OUTPUTS + CACHES
+    paths = [
+        safe_path(p) for p in outputs if (ROOT / p).exists() or (ROOT / p).is_symlink()
+    ]
+    candidates = paths + caches
     for path in candidates:
         relative = path.relative_to(ROOT).as_posix()
         if any(t == relative or t.startswith(relative + "/") for t in tracked if t):
             raise RuntimeError(f"Refusing tracked files: {relative}")
     if args.maintain:
-        for relative, limit in (("target", 6), ("dist", 2), (".flatpak-user", 2), ("data/previews", 1)):
+        for relative, limit in (
+            ("target", 6),
+            ("dist", 2),
+            (".flatpak-user", 2),
+            ("data/previews", 1),
+        ):
             path = safe_path(relative)
             if path.exists():
                 size = int(subprocess.check_output(["du", "-sk", str(path)]).split()[0])
                 if size > limit * 1024 * 1024:
-                    print(f"Storage warning: {relative} exceeds {limit} GiB; stop builds, then run python3 bin/nahhasio-clean --apply")
+                    print(
+                        f"Storage warning: {relative} exceeds {limit} GiB; review python3 bin/nahhasio-clean before deleting outputs"
+                    )
     for path in candidates:
         if args.apply or args.maintain:
             remove(path)
         elif path not in caches:
             print(f"Would remove {path.relative_to(ROOT)}")
-    print(f"{'Removed' if args.apply or args.maintain else 'Would remove'} {len(candidates)} generated paths (including {len(caches)} old shell evaluations).")
+    print(
+        f"{'Removed' if args.apply or args.maintain else 'Would remove'} {len(candidates)} generated paths (including {len(caches)} old shell evaluations)."
+    )
 
 
 if __name__ == "__main__":
