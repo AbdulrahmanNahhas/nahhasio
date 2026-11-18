@@ -109,14 +109,24 @@ Before an actual repository split:
 Do not create an empty mobile package/repository now. Existing application IDs, installed paths and
 server deployment policy are not renamed by this preparatory work.
 
+## Service-layer checkpoint
+
+The Linux service facade in `apps/linux/src/services.rs` routes native bridge calls into
+feature modules for catalog, tracking, profiles, administration and media. `services/session.rs`
+owns credential renewal and remembered-account behavior; `services/transport.rs` owns trusted
+HTTP client setup and bounded decoding. Both still operate on the same native `ServerSession`,
+so splitting the files does not introduce new session state or change account ownership.
+Artwork and media have their own modules. Regular API responses still use a total deadline;
+long media streams still use a read-idle deadline.
+
 ## Next architectural slices
 
 These are identified follow-ups, not claims that the whole client has been extracted:
 
-1. **Session/API transport:** `services.rs` currently combines credential renewal, HTTP behavior,
-   payload validation and a large command dispatcher. Separate these responsibilities while
-   preserving expiry/revocation, timeouts, request bounds and route allowlists. Establish a typed
-   application-service interface before a replacement UI bypasses the JSON bridge.
+1. **Typed client operations:** The Linux session, transport and feature code are now organized by
+   responsibility, but feature operations still receive JSON bridge commands. Expose a narrow typed
+   workflow (for example, browse → work details → playback) independently of the WebKit envelope.
+   Keep route allowlists, response limits and authorization with their current owners.
 2. **Connection/account ownership:** `connections.rs` combines server settings, active sessions,
    revision/cancellation coordination and offline orchestration. Preserve those transitions as one
    explicit owner rather than letting each frontend implement its own account-switch behavior.

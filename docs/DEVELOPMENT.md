@@ -9,6 +9,20 @@ repository Nix/devenv environment on Shadow: Node 24, pnpm 12.9.0, Rust, GTK/lib
 WebKitGTK6, mpv, libtorrent and Chromium. Nix is not required by installed clients or servers.
 Do not inspect `/saved/nixos-config` without Aqua's permission.
 
+## Editor and workspace diagnostics
+
+Open the repository root in Zed. If both Oxlint and TypeScript suddenly report missing packages,
+run `devenv shell -- pnpm install --frozen-lockfile` from the root, then use Zed's
+**editor: restart language server** action or reopen the worktree. Confirm the CLI can start with
+`pnpm exec oxlint --version`. An unresolved `vite/client` can make `import.meta.env` and CSS
+imports appear untyped; restore the dependencies instead of adding ambient shims.
+
+The repository uses Zed's Tailwind-aware CSS server for `@theme`, `@utility`, and related syntax.
+For a complete check, agents should read Zed diagnostics for the files they touch and also run
+`pnpm lint`, `pnpm typecheck`, and (for Rust) `pnpm check:rust` from the root. Run these separately
+when collecting diagnostics: `pnpm check` stops at the first failed step, and editor diagnostics
+alone do not prove that unopened files or other workspace packages are clean.
+
 ## Repository map
 
 | Path                           | Responsibility                                                                                                                        |
@@ -102,8 +116,10 @@ client bundle, not this live-UI mode.
 Use `devenv shell -- nahhasio-storage` for a read-only disk report. Most checkout size is SDKs,
 container/build caches and private backups, not application source. Some rootless-container paths
 may be inaccessible to ordinary `du`. Do not delete retained backups or the development database.
-`python3 bin/nahhasio-clean` previews reproducible outputs; its `--apply` removes all listed build
-outputs, so do not use it during a native run/build or when preserving SDKs for the next release.
+`python3 bin/nahhasio-clean --cache-only` previews disposable development caches while preserving
+Rust/UI builds, release outputs, Flatpak tooling, and test reports. Stop builds and tests, then add
+`--apply` to remove those caches. Without `--cache-only`, the preview also lists build and packaging
+outputs; review it before applying if you need to preserve artifacts or SDKs for the next release.
 
 The same Vite development server also supports a local browser at `http://127.0.0.1:23110/`.
 Use `devenv --profile browser up` for PostgreSQL, the demo API and Vite without launching GTK.

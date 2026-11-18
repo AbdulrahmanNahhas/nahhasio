@@ -74,7 +74,12 @@
     "CSS": {
       "format_on_save": "on",
       "formatter": "language_server",
-      "language_servers": ["...", "oxfmt"]
+      "language_servers": [
+        "tailwindcss-intellisense-css",
+        "!vscode-css-language-server",
+        "oxfmt",
+        "..."
+      ]
     },
     "HTML": {
       "format_on_save": "on",
