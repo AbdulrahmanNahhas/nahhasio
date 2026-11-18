@@ -1,9 +1,13 @@
 # Page feature backlog
 
-Updated 2026-10-25. This is a product backlog, not an installation acceptance report. Checked
-items describe implemented surfaces; installed behavior still requires the checks in
-[DEPLOYMENT](DEPLOYMENT.md). Player/provider testing and stored-media integration are outside
-the current hosting release.
+[Documentation index](README.md) · [Product scope](PROJECT.md) · [Roadmap](ROADMAP.md)
+
+**On this page:** [Viewer](#shared-ui-and-navigation) · [Playback](#player-page) · [Administration](#admin-overview-page) · [Acceptance](#consolidated-acceptance)
+
+This page-level backlog dates to 2026-10-25. Checked items describe implemented surfaces at
+recorded checkpoints, not installed acceptance. Use [Client behavior](CLIENT.md) for reviewed
+flows and [Testing](TESTING.md) for acceptance; see [Operations](OPERATIONS.md) for later delivery
+checkpoints, including the direct-media cutover.
 
 ## Shared UI and Navigation
 

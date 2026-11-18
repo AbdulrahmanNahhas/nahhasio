@@ -1,5 +1,9 @@
 # Nahhasio 0.1.2
 
+[Documentation index](README.md) · [Current operations](OPERATIONS.md) · [Deployment](DEPLOYMENT.md)
+
+Historical release notes; apply version-specific commands only to a matching, authorized upgrade.
+
 - Fix native player startup with the Lua-free Flatpak mpv build. Missing `ytdl` is
   permitted only for that optional downloader setting; mandatory restrictions remain enforced.
 - Make library types primary in Browse and preserve view preferences.

@@ -4,8 +4,8 @@ Private Arabic-first family catalog/database, tracking and media system. **Curre
 The target is a **Fedora Silverblue/Podman home server and Linux Flatpak client**. No website
 ships in the delivered product; Linux is the only client through v1.0.
 
-Start with [the project guide](docs/PROJECT.md) and [the large roadmap](docs/ROADMAP.md).
-The roadmap contains future ideas as well as near-term tasks; all 280 tasks are not Alpha gates.
+Start with the [documentation index](docs/README.md) or the [project guide](docs/PROJECT.md).
+The [roadmap](docs/ROADMAP.md) is a backlog, not an Alpha release checklist.
 
 Approximately 70 Arabic-dubbed works use supplied server files, independently of torrents.
 Other catalog works may have no video or download. English audio/Arabic subtitles are normal
@@ -25,25 +25,16 @@ packaged native and installed acceptance; it is not enabled by upgrading the cli
 The retired web dashboard and Hono API are removed. React/TypeScript remains the desktop UI,
 with Node/pnpm required only for development/build and recovery/reference tooling.
 
-Current delivery: rootless Podman hosting/recovery and signed Flatpak client distribution.
-Version [0.1.1](docs/RELEASE-0.1.1.md) adds coordinated server/host-tool updates and fixes Fedora
-query performance, signed package metadata and the desktop icon.
-Release 0.1.0 is installed on Fedora with restored catalog/artwork, trusted HTTPS and working
-client login/library access. The 0.1.1 source checkpoint still needs its release build/publication
-and installed update/recovery acceptance. See [the deployment guide](docs/DEPLOYMENT.md).
+Delivery uses rootless Podman and signed Flatpak distribution. See [Operations](docs/OPERATIONS.md)
+for the latest recorded checkpoint and the [family-server handoff](docs/FAMILY-SERVER.md) for what
+was verified on the installed machine. Neither is a live status check.
 
 ## Guides
 
-- [PROJECT](docs/PROJECT.md): product, decisions, architecture, current status and unresolved choices.
-- [FEATURES](docs/FEATURES.md): page-by-page feature and UI/UX backlog.
-- [ROADMAP](docs/ROADMAP.md): Alpha shortlist and technical delivery tasks.
-- [DATABASE](docs/DATABASE.md): inspected catalog inventory and storage/source ownership.
-- [Current database baseline](docs/BASELINE.md): verified preservation and future migration procedure.
-- [Client behavior](docs/CLIENT.md): reviewed viewer/admin contracts and current coverage.
-- [DEVELOPMENT](docs/DEVELOPMENT.md): repository map, commands and native/media boundaries.
-- [TESTING](docs/TESTING.md): lean checkpoints and isolated consolidated acceptance.
-- [OPERATIONS](docs/OPERATIONS.md): configuration, storage, planned deployment and recovery.
-- [Design rules](docs/design-rules.md): reviewed desktop composition.
+- [Development](docs/DEVELOPMENT.md) and [verification](docs/TESTING.md) for contributors.
+- [Deployment](docs/DEPLOYMENT.md) and [operations](docs/OPERATIONS.md) for maintainers.
+- [Repository instructions](AGENTS.md) and the [agent playbook](docs/AGENTS-PLAYBOOK.md) for agent-assisted work.
+- [All guides and release notes](docs/README.md).
 
 ## Run locally
 

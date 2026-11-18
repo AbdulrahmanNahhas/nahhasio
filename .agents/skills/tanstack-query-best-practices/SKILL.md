@@ -9,9 +9,10 @@ Comprehensive guidelines for implementing TanStack Query (React Query) patterns 
 
 ## Project context
 
-For apps/linux/ui follow the sibling nahhasio-desktop-ui skill: packaged hash routing, native
-transport, one Query cache and no SSR/Start runtime. Use official docs for current APIs. Adapt
-reference examples to the client; do not install unrelated SSR tooling.
+For `apps/linux/ui`, follow [nahhasio-desktop-ui](../nahhasio-desktop-ui/SKILL.md) and use the native
+bridge with one Query cache. For loader integration, use the [integration skill](../tanstack-integration-best-practices/SKILL.md).
+Start with the closest query factory, cancellation and account-scope behavior. SSR/SSG examples
+below are general references only; this desktop app has no SSR/Start runtime.
 
 ## When to Apply
 

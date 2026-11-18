@@ -5,7 +5,8 @@ description: Build, migrate or review Nahhasio's packaged Linux React UI using V
 
 # Nahhasio desktop UI
 
-Read docs/PROJECT.md, docs/ROADMAP.md and docs/DEVELOPMENT.md for scope. Preserve the reviewed
+Start with [client behavior](../../../docs/CLIENT.md) and [design rules](../../../docs/design-rules.md).
+Use the [docs index](../../../docs/README.md) for scope and verification. Preserve the reviewed
 desktop Maia/Mist theme, Arabic RTL interface, catalog density and keyboard behavior. A refactor
 does not authorize an aesthetic redesign, administration migration or a Rust exercise solution.
 
@@ -25,7 +26,9 @@ Query owns server state/cancellation/logout invalidation. Player status stays ou
 Use the installed official @shadcn Base UI Maia, RTL and Lucide. Inspect CLI context/current docs and generated
 updates. Fix callers rather than editing vendored primitives. Aqua explicitly requested the full
 current official desktop component library; unused installed primitives are permitted here,
-but do not import them all into the entry bundle.
+but do not import them all into the entry bundle. Read [shadcn](../shadcn/SKILL.md) for the
+pnpm workspace CLI. Use [ui-sdk](../ui-sdk/SKILL.md) and its installed docs only when working on
+UI SDK components; it does not replace existing shadcn surfaces or authorize new agent actions.
 
 Keep only imports, fonts, semantic theme tokens and essential global rules in styles/tailwind.css.
 Component layout/state/responsive styling uses literal Tailwind utilities, not selectors, CSS

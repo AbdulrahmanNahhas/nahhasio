@@ -1,5 +1,7 @@
 # Family server: installed layout and agent access
 
+[Documentation index](README.md) · [Deployment](DEPLOYMENT.md) · [Operations](OPERATIONS.md)
+
 Verified live on **2026-10-30**, using HTTPS from Shadow and SSH to the family PC.
 This is the operational handoff for the installed machine, not a deployment proposal.
 Versions, counts, capacity and service state below are dated observations: recheck before work.

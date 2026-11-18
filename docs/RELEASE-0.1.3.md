@@ -1,5 +1,9 @@
 # Nahhasio 0.1.3
 
+[Documentation index](README.md) · [Current operations](OPERATIONS.md) · [Deployment](DEPLOYMENT.md)
+
+Historical release notes; apply version-specific commands only to a matching, authorized upgrade.
+
 This Alpha release updates the Linux client and family server. It does not publish a viewing
 website; the browser remains a development preview. Install the matching server before using
 remembered-account features on updated clients.

@@ -5,8 +5,9 @@ description: Editorial conventions for adding or revising a work in the Nahhasio
 
 # Cataloging a work in Nahhasio
 
-This skill is the editorial half. For the mechanics of actually writing to the database, use the
-**nahhasio-db** skill (`./bin/nahhasio work apply`).
+This skill owns stored editorial fields, not standalone reviews or tracker actions. Use
+the optional personal `media-review` skill for a standalone review; its rubric is not the
+catalog schema. For authorized writes, use [nahhasio-db](../nahhasio-db/SKILL.md).
 
 The public launcher now uses the compiled Rust CLI, including advanced editorial reports and
 explicit `--create-missing` imports. Follow `nahhasio-db` for explicit database selection,
@@ -300,8 +301,8 @@ Calibrate against neighbours before writing:
 - Episode `media.still` must refer to registered server-owned artwork assigned to that episode.
   Ingest with `--role still --episode <UUID>` before referencing its path. TMDB still imports
   preserve source evidence; respect manually chosen images. Video screenshots are still pending.
-- Nahhasio owns metadata, artwork and tracking. Jellyfin supplies media playback/streaming only;
-  do not import its metadata/artwork or synchronize its watched state.
+- Nahhasio owns metadata, artwork, tracking and direct stored-file delivery. Jellyfin is retired;
+  do not treat its legacy tables as an active metadata, artwork or tracking integration.
 - Torrent streaming runs on the client; server downloads require an explicit request. Saved
   work metadata/artwork, server videos and device video downloads are separate things.
 

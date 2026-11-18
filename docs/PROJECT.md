@@ -1,7 +1,9 @@
 # Nahhasio project guide
 
-Updated 2026-11-04. This guide owns product decisions; [ROADMAP](ROADMAP.md) owns the future
-inventory, and [DEPLOYMENT](DEPLOYMENT.md) owns the current hosting release.
+[Documentation index](README.md) · [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md)
+
+This guide owns product decisions. See [Deployment](DEPLOYMENT.md) for delivery procedure and
+[Operations](OPERATIONS.md) for the latest recorded checkpoint, not live status.
 
 ## Product and current release
 
@@ -17,10 +19,10 @@ tools. There is no shipped website. Linux is the only client through v1.0.
 
 The current release covers rootless hosting, coordinated backup/restore, catalog transfer,
 independent laptop development, signed server/Flatpak delivery and app maintenance controls.
-The 0.1.0 server/Flatpak build and signed draft preparation passed. Publication and installed
-Fedora acceptance remain pending.
-The following media checkpoint replaces the former Jellyfin integration plan. It needs its own
-packaged/native and installed acceptance; it is not part of the already installed hosting release.
+The direct-media checkpoint replaces the former Jellyfin integration. Publishing a build or
+updating an installation is not the same as verifying recovery, reboot or playback. See the
+[family-server handoff](FAMILY-SERVER.md) for dated installed evidence and [Testing](TESTING.md)
+for the acceptance procedure.
 
 ## Family use and ownership
 

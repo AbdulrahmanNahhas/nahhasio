@@ -1,10 +1,11 @@
 # Family-PC release and development
 
-Updated 2026-10-25. This is the current four-phase delivery checkpoint. Aqua authorized coding
-all four phases before consolidated installation testing. Player/provider testing, Jellyfin,
-files-only video playback and the remaining catalog administration tools are outside this release.
-The reviewed desktop design stays in place. No family-PC installation, transfer, release publication,
-automatic-update activation or runtime acceptance has happened merely because this code exists.
+[Documentation index](README.md) · [Operations](OPERATIONS.md) · [Installed host handoff](FAMILY-SERVER.md)
+
+Use the four phases below as the delivery sequence. The dated 0.1.0 entries are historical;
+use Operations and the installed host handoff for later evidence. The original hosting checkpoint
+excluded player/provider verification and the later direct-media work. A source change or release
+artifact alone does not establish runtime acceptance or authorize a live change.
 
 ## Release preparation status
 
@@ -51,6 +52,9 @@ atomic selection, rollback and post-job worker reload. The original 0.1.0 worker
 [one-time bootstrap upgrade](RELEASE-0.1.1.md); subsequent compatible updates use the worker.
 
 ## 0.2.0 operations continuation (source; not yet installed)
+
+Historical source checkpoint; see the [later family-PC cutover record](FAMILY-SERVER.md) for
+what was installed and verified on 2026-11-07.
 
 The current source adds an explicitly reviewed schema upgrade using a verified restored database,
 retained previous database/image and interrupted-switch recovery. Compatible updates remain a

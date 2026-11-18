@@ -1,9 +1,12 @@
 # AGENTS.md
 
-## Current work and authorization — 2026-10-25
+Start at the [documentation index](docs/README.md). The [agent playbook](docs/AGENTS-PLAYBOOK.md)
+routes tasks to the relevant skills and source-of-truth guides.
+
+## Authorization and historical checkpoints
 
 Aqua authorized all four code phases in docs/DEPLOYMENT.md before consolidated runtime acceptance.
-Player/provider testing, Jellyfin and files-only playback are outside this release. Preserve the
+Player/provider testing and files-only playback were outside that hosting checkpoint. Preserve the
 reviewed UI. Aqua subsequently required working without sub-agents; continue in the main chat.
 
 Aqua authorized committing the Flatpak checkpoint, revising Markdown and removing obsolete
@@ -12,7 +15,7 @@ publication, family-PC installation or live catalog mutation. Keep development i
 Shadow after transfer. Future remote catalog administration should use a local CLI with server URL
 and API key over HTTPS; defer implementation. SSH is not the routine catalog-editing target.
 
-## Installed family server — verified 2026-10-30
+## Installed family server — dated observations
 
 Read [docs/FAMILY-SERVER.md](docs/FAMILY-SERVER.md) before inspecting or administering the live
 family catalog. It records the Fedora Silverblue/Podman layout, verified HTTPS admin workflow,
@@ -64,9 +67,10 @@ maintenance. PostgreSQL major upgrades are separately owned. Report source/stati
 installed/native acceptance separately.
 
 Provider keys stay server-owned, write-only through authenticated settings and masked on reads.
-Catalog, images and tracking belong to Nahhasio. Stored-media integration is deferred; Jellyfin
-must never replace its metadata/artwork or synchronize tracking. Save work, client playback,
-Download to server and Download to device remain separate. Client torrents run on the client;
+Catalog, images and tracking belong to Nahhasio. Direct stored-media delivery replaces Jellyfin;
+check [Operations](docs/OPERATIONS.md) and [Verification](docs/TESTING.md) for acceptance limits.
+Save work, client playback, Download to server and Download to device remain separate. Client
+torrents run on the client;
 server acquisition needs an explicit request. Files-only policy is whole-work. Offline mutations
 are progress and watched/unwatched only. Keep one planet per work, whole-work dub metadata,
 dubbing contributions, episode-owned stills and YouTube trailers. No edition/version system.
@@ -120,7 +124,8 @@ dependency ordering. Do not inspect `/saved/nixos-config` without Aqua's permiss
 - `pnpm format` / `pnpm format:check`: Oxfmt, the authoritative formatter and import sorter.
 - `pnpm typecheck`: TypeScript workspace checks.
 - `pnpm check:rust`: new Rust workspace formatting and Clippy with warnings rejected.
-- `pnpm check`: all the above. Run before handoff.
+- `pnpm check`: the combined lint, format, type, architecture and Rust checks for code handoffs.
+- `python3 tools/docs/check_docs.py`: offline local link and skill-name checks.
 - `pnpm build`: desktop/shared tooling checks and Rust workspace build.
 - `cargo test --workspace --locked`: Rust unit tests, with no live catalog writes.
 - `pnpm test:e2e`: Linux UI browser fixtures; use Chromium from Nix on this machine.
@@ -156,6 +161,11 @@ only components that have consumers in the dashboard. Aqua explicitly approved t
 component set for the desktop. Read the `nahhasio-desktop-ui` skill there; preserve its palette,
 static utility presentation and typed native boundary. Do not hand-edit vendored primitives to
 fix caller errors.
+
+Before using UI SDK, follow the `ui-sdk` skill if installed and read
+`apps/linux/ui/node_modules/@ui-sdk/react/docs/llms.txt`. To build a new UI SDK component,
+also search `core.md` by heading and read `rendering.md` in that same docs directory.
+UI SDK is a rendering option, not permission to add a provider or bypass the native bridge.
 
 - Use component variants/sizes and semantic theme tokens. Caller classes control layout.
 - Use Field/FieldGroup, full Card composition, and Empty/Alert/Badge for their respective roles.
@@ -210,7 +220,7 @@ CLI is a trusted local PostgreSQL operator and uses database credentials, not th
 Test it with `devenv shell -- bash bin/test-rust-catalog`; this owns a disposable socket-only
 cluster and never uses family data. Its fixtures do not prove live cutover or desktop acceptance.
 Production auth, device and implemented mutation paths revalidate current authorization; future
-writers must follow the same transaction locks. Installed acceptance remains pending.
+writers must follow the same transaction locks. See the dated host handoff for installed evidence.
 Keep user identity, viewing profile, device, and library policy as distinct concepts.
 
 ## Rust and playback
@@ -231,5 +241,5 @@ inspection, JSON/bulk editing, maintenance, revisions, users/devices, and server
 UI routes may be prepared before their services; pending actions must stay visibly disabled.
 Do not claim full database control from UI layouts. Connect authorization and transactional
 mutations before enabling them. The Linux work page, torrent playback
-and device downloads are implemented with documented limits. Jellyfin/home-server jobs and admin
-migration follow their own authorization and review.
+and device downloads are implemented with documented limits. Managed-media and admin workflows
+follow their own authorization and acceptance checkpoints.

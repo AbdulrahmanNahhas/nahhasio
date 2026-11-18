@@ -1,5 +1,9 @@
 # Verification guide
 
+[Documentation index](README.md) · [Development](DEVELOPMENT.md) · [Deployment](DEPLOYMENT.md)
+
+**On this page:** [Browser fixtures](#1-browser-fixtures-and-ordinary-checks) · [Native build](#2-fresh-native-application) · [Native smoke](#3-isolated-native-smoke) · [Acceptance](#4-acceptance-and-reporting)
+
 Read [PROJECT.md](PROJECT.md) and [ROADMAP.md](ROADMAP.md) for scope. Use compile/static checks
 for approved implementation checkpoints; Aqua requested the consolidated full regression after
 implementation rather than repeated full suites for small changes. The commands below are

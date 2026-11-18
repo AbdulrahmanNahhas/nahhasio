@@ -1,5 +1,9 @@
 # Development guide
 
+[Documentation index](README.md) · [Verification](TESTING.md) · [Agent playbook](AGENTS-PLAYBOOK.md)
+
+**On this page:** [Repository map](#repository-map) · [Run/build](#runbuild) · [Operator CLI](#direct-database-operator-cli) · [Native boundary](#native-and-interface-boundary) · [Verification](#build-and-verification)
+
 Read [PROJECT](PROJECT.md) for scope and [DEPLOYMENT](DEPLOYMENT.md) for hosting. Use the
 repository Nix/devenv environment on Shadow: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
 WebKitGTK6, mpv, libtorrent and Chromium. Nix is not required by installed clients or servers.

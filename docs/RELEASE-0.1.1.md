@@ -1,5 +1,9 @@
 # Nahhasio 0.1.1
 
+[Documentation index](README.md) · [Current operations](OPERATIONS.md) · [Deployment](DEPLOYMENT.md)
+
+Historical release notes; apply version-specific commands only to a matching, authorized upgrade.
+
 ## Changes
 
 - Disable PostgreSQL JIT in application pools, incorporating the confirmed Fedora Browse/Home fix.

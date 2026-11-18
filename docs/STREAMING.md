@@ -1,5 +1,9 @@
 # Streaming providers
 
+[Documentation index](README.md) · [Client behavior](CLIENT.md) · [Anime direct playback](ANIME-DIRECT.md) · [Verification](TESTING.md)
+
+**On this page:** [Player controls](#player-controls) · [Provider policy](#provider-policy-and-preferred-results) · [Diagnostics](#selection-and-diagnostics) · [Native verification](#native-runtime-and-verification)
+
 Nahhasio offers provider-hosted embeds, Torrentio and Comet, plus a separate English-dub anime flow
 using anipy-api and the native player. See [the anime checkpoint](ANIME-DIRECT.md) for ownership,
 quality/subtitle limits and checks. ani-cli and Cloudstream are not integrated. Opening a catalog

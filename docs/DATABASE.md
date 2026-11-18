@@ -1,5 +1,7 @@
 # Database, catalog and media ownership
 
+[Documentation index](README.md) · [Development](DEVELOPMENT.md) · [Migration baseline](BASELINE.md)
+
 The database/catalog, images and tracking are Nahhasio's primary product. Playback, source
 selection, server retention, device downloads and saved metadata build on stable catalog IDs.
 Read [PROJECT](PROJECT.md) for intent and [ROADMAP](ROADMAP.md) for current/future tasks.

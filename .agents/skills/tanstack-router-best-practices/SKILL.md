@@ -9,9 +9,10 @@ Comprehensive guidelines for implementing TanStack Router patterns in React appl
 
 ## Project context
 
-For apps/linux/ui follow the sibling nahhasio-desktop-ui skill: packaged hash routing, native
-transport, one Query cache and no SSR/Start runtime. Use official docs for current APIs. Adapt
-reference examples to the client; do not install unrelated SSR tooling.
+For `apps/linux/ui`, follow [nahhasio-desktop-ui](../nahhasio-desktop-ui/SKILL.md). Preserve hash
+links and validate route params/search at entry. Keep route entries thin. Use the
+[integration skill](../tanstack-integration-best-practices/SKILL.md) for Query-backed loaders and
+regenerate the route tree with `pnpm --filter @nahhasio/linux-ui routes:generate` instead of editing it.
 
 ## When to Apply
 

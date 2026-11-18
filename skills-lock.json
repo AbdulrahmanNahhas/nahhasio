@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "frontend-design": {
       "source": "anthropics/skills",
@@ -30,6 +30,13 @@
       "sourceType": "github",
       "skillPath": "skills/tanstack-router/SKILL.md",
       "computedHash": "659549bfcacc5767cd489fcbceb2889247bd38c82f0a37c282da754eb2603f63"
+    },
+    "ui-sdk": {
+      "source": "vercel-labs/ui",
+      "commit": "f736e67f9f99f71cf053e7d7e9db751f27ba2d56",
+      "sourceType": "github",
+      "skillPath": "packages/core/skills/ui-sdk/SKILL.md",
+      "computedHash": "930036de569c0d07313af7a065194fd1fa5f167293a20c6a404cd0a740abf500"
     }
   }
 }

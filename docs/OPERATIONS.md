@@ -1,5 +1,9 @@
 # Operations
 
+[Documentation index](README.md) · [Deployment](DEPLOYMENT.md) · [Installed host handoff](FAMILY-SERVER.md)
+
+**On this page:** [Runtime configuration](#current-runtime-configuration) · [Backup and recovery](#backup-migration-and-recovery) · [Updates](#updates-and-administration) · [Provider settings](#private-provider-configuration)
+
 Current implementation: rootless Podman server/PostgreSQL, signed server releases, Flatpak client,
 coordinated backup/restore and app maintenance controls. The Fedora family server and its desktop
 client were upgraded to `0.2.0-rc.1` on 2026-11-07. HTTPS readiness, the media worker, backup/update

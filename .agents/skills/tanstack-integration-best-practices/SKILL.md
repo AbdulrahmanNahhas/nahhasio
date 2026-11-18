@@ -15,9 +15,10 @@ hydration or direct browser fetch belong in the desktop. The old Start dashboard
 - Prefer intent preloading with defaultPreloadStaleTime: 0 so Query decides freshness.
 - Keep bounded queries, parsed mutations and targeted invalidation. Route guards never grant
   administrative permission; the server enforces it.
-- Preserve hash URLs, native origin/CSP and scroll/focus restoration. Remove the parallel
-  hashchange implementation when Router history owns navigation.
+- Preserve hash URLs, native origin/CSP and scroll/focus restoration. Do not add a parallel
+  hashchange implementation alongside Router history.
 
-Read focused context/loader/cache examples in rules when working on those boundaries.
+Read the focused examples for [client context](rules/setup-query-client-context.md),
+[loaders](rules/flow-loader-query-pattern.md), and [cache ownership](rules/cache-single-source.md).
 Current APIs: https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading
 and https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation.

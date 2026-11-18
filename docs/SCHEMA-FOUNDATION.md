@@ -1,5 +1,7 @@
 # Schema service ownership
 
+[Documentation index](README.md) · [Database ownership](DATABASE.md) · [Migration baseline](BASELINE.md)
+
 The schema/API/CLI transition is implemented in the shared Rust catalog services. Historical
 phase plans and test receipts are retained in Git. The sole active schema history is the
 [current baseline](BASELINE.md) plus future additive migrations; this is not another migration plan.

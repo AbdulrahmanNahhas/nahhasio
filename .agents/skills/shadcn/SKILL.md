@@ -1,23 +1,27 @@
 ---
 name: shadcn
 description: Manages shadcn components and projects — adding, searching, fixing, debugging, styling, and composing UI, including chat interfaces. Provides project context, component docs, and usage examples. Applies when working with shadcn/ui, component registries, presets, --preset codes, or any project with a components.json file. Also triggers for "shadcn init", "create an app with --preset", "switch to --preset", and for building a design system or applying a DESIGN.md or brand spec to shadcn/ui.
-user-invocable: false
-allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *)
+
 ---
 
 # shadcn/ui
 
 A framework for building ui, components and design systems. Components are added as source code to the user's project via the CLI.
 
-> **IMPORTANT:** Run all CLI commands using the project's package runner: `npx shadcn@latest`, `pnpm dlx shadcn@latest`, or `bunx --bun shadcn@latest` — based on the project's `packageManager`. Examples below use `npx shadcn@latest` but substitute the correct runner for the project.
+## Start here in Nahhasio
 
-## Current Project Context
+Run these explicitly from the repo root; don't assume the editor evaluates shell commands in skills:
 
-```json
-!`npx shadcn@latest info --json`
+```bash
+pnpm --dir apps/linux/ui exec shadcn info --json
+pnpm --dir apps/linux/ui exec shadcn docs button dialog select
 ```
 
-The JSON above contains the project config and installed components. Use `npx shadcn@latest docs <component>` to get documentation and example URLs for any component.
+Use the lockfile-installed CLI for desktop work. For the generic examples in this skill and its references, replace `npx shadcn@latest` with `pnpm --dir apps/linux/ui exec shadcn` when running from the repo root. New-project examples are reference only; don't reinitialize this app. The CLI can consult the registry even for `info` or `docs`. If unavailable, read `apps/linux/ui/components.json`, `apps/linux/ui/package.json`, and the relevant source in `apps/linux/ui/src/components/ui`; label upstream details unverified.
+
+This is a Vite SPA with React 19, Tailwind 4, Base UI Maia/Mist, Lucide, `@/` imports and Arabic RTL. Use Base UI `render`, not Radix `asChild`; no `"use client"`. Read `docs/design-rules.md` and the `nahhasio-desktop-ui` skill. Prefer the existing shadcn component for existing features; UI SDK is a separate option, not a drop-in replacement. Follow its skill and installed docs per `AGENTS.md` when a task calls for it.
+
+When answering UI questions, cite the local component or version-matched documentation that supports the answer. Distinguish installed components from registry candidates and component behavior from data transport: chat presentation alone does not add streaming, an AI provider or a message-send action. State what you actually checked and what still needs browser or GTK verification. See the [agent playbook](../../../docs/AGENTS-PLAYBOOK.md) for when to use this skill versus the desktop, UI SDK and design skills.
 
 ## Principles
 
@@ -148,7 +152,7 @@ These are the most common patterns that differentiate correct shadcn/ui code. Fo
 
 ## Key Fields
 
-The injected project context contains these key fields:
+Read these fields from `info --json`, `components.json` and `package.json` as appropriate:
 
 - **`aliases`** → use the actual alias prefix for imports (e.g. `@/`, `~/`), never hardcode.
 - **`isRSC`** → when `true`, components using `useState`, `useEffect`, event handlers, or browser APIs need `"use client"` at the top of the file. Always reference this field when advising on the directive.
@@ -176,7 +180,7 @@ npx shadcn@latest docs button dialog select
 
 ## Workflow
 
-1. **Get project context** — already injected above. Run `npx shadcn@latest info` again if you need to refresh.
+1. **Get project context** — run the lockfile-installed CLI as shown above or inspect the local config and component sources if the registry is unreachable.
 2. **Check installed components first** — before running `add`, always check the `components` list from project context or list the `resolvedPaths.ui` directory. Don't import components that haven't been added, and don't re-add ones already installed.
 3. **Find components** — `npx shadcn@latest search`.
 4. **Get docs and examples** — run `npx shadcn@latest docs <component>` to get URLs, then fetch them. Use `npx shadcn@latest view` to browse registry items you haven't installed. To preview changes to installed components, use `npx shadcn@latest add --diff`.

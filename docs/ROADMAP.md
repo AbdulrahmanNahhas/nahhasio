@@ -1,10 +1,12 @@
 # Nahhasio roadmap and task inventory
 
-Current delivery order (2026-10-25): [the four-phase deployment checkpoint](DEPLOYMENT.md)
-owns the rootless installation, recovery/transfer, signed updates and maintenance checkpoint.
-The code is implemented; complete build and installation acceptance remains pending.
-Direct stored-file playback and the wider admin backlog follow this release. Player/provider
-testing is not a release phase. Historical unchecked entries are not an implementation audit.
+[Documentation index](README.md) · [Feature backlog](FEATURES.md) · [Deployment](DEPLOYMENT.md)
+
+**On this page:** [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
+
+Use this as a planning inventory, not a release gate or implementation audit. For the latest
+recorded rollout and verification limits, use [Operations](OPERATIONS.md) and the
+[family-server handoff](FAMILY-SERVER.md).
 
 Updated 2026-10-25. **Current milestone: 0.1 Alpha, a reliable base.**
 [PROJECT.md](PROJECT.md) owns confirmed scope. This is the long-term inventory, not a promise

@@ -5,6 +5,9 @@ description: Read and edit every part of the Nahhasio PostgreSQL catalog from th
 
 # Nahhasio database CLI
 
+Start with [database ownership](../../../docs/DATABASE.md). For live work, read the dated
+[family-server handoff](../../../docs/FAMILY-SERVER.md) and confirm the target and authorization.
+Use the [cataloging skill](../nahhasio-cataloging/SKILL.md) for stored editorial judgments.
 `./bin/nahhasio` runs the compiled Rust PostgreSQL operator CLI. Build it once with
 `devenv shell -- cargo build --locked -p nahhasio-cli`, then invoke it directly for quiet JSON.
 `DATABASE_URL` must be selected explicitly; the tool never guesses a development/production
@@ -267,7 +270,8 @@ primary flag and position), credit `languages`, and episode `media.still` regist
 There is at most one planet per work. Episode artwork belongs to the episode UUID; title and
 installment artwork must keep their own ownership. Preserve trailer IDs and existing paths.
 For a changed work: export → edit → apply --dry-run → apply → re-export and compare.
-Never interpret successful schema discovery or table reads as working Jellyfin/scanning/jobs.
+Never interpret table discovery as proof that imports, jobs, or playback work. Jellyfin tables
+are historical; direct Nahhasio media owns current stored-file delivery.
 
 ## API and credential boundary
 
@@ -278,9 +282,8 @@ regenerate with `pnpm client:generate` instead of editing generated TypeScript.
 Rust serves authenticated admin reads at `/api/v1/admin/database/schema` and
 `/api/v1/admin/database/{table}` (bounded pages, secret masking); writes belong to dedicated
 transactional editors. Never use raw table responses or SQL output to dump authentication
-secrets, tokens, private Jellyfin credentials or hashes into logs or committed fixtures.
+secrets, tokens, provider credentials or hashes into logs or committed fixtures.
 Startup performs no migration, seeding or cleanup. Use the existing Drizzle history only.
-Provider keys stay on the server and are managed through authenticated desktop administration;
-that settings workflow remains to be implemented. Never infer credential-management support
-from a raw-table view. Jellyfin integration is media-only: no metadata/artwork import or tracking
-synchronization. Video-filename restrictions are not proof of valid video content or safe playback.
+Provider keys stay server-owned; [Operations](../../../docs/OPERATIONS.md) documents the
+supported settings workflow. Never infer credential-management support from a raw-table view.
+Video-filename restrictions are not proof of valid video content or safe playback.

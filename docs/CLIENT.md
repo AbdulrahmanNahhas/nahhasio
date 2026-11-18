@@ -1,5 +1,9 @@
 # Client behavior
 
+[Documentation index](README.md) · [Architecture](ARCHITECTURE.md) · [Design rules](design-rules.md) · [Verification](TESTING.md)
+
+**On this page:** [Sign-in and settings](#linux-settings-sign-in-and-artwork) · [Browse](#browse-and-filters) · [Watch](#watch-page) · [Admin coverage](#administration-coverage)
+
 Current behavior and reviewed UI contracts. This guide does not claim installed Flatpak, physical
 input or provider acceptance. The hosting release excludes player/provider testing. Design rules
 remain in [design-rules.md](design-rules.md).

@@ -1,5 +1,7 @@
 # Desktop design and composition
 
+[Documentation index](README.md) · [Client behavior](CLIENT.md) · [Agent playbook](AGENTS-PLAYBOOK.md)
+
 The current product UI is `apps/linux/ui`: Arabic/RTL React/Vite with TanStack Router/Query,
 Tailwind 4 and official shadcn Base UI. `components.json` uses `base-maia`/Mist; checked-in tokens
 and Aqua's reviewed source/screens are authoritative. Old purple/Nova/website palette plans are

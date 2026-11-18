@@ -54,6 +54,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint and formatting
         run: pnpm lint && pnpm format:check
+      - name: Documentation links and skill metadata
+        run: python3 tools/docs/check_docs.py
       - name: Contract drift and TypeScript
         run: pnpm typecheck
       - name: Bootstrap disposable database fixtures
