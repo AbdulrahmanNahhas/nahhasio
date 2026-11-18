@@ -3,6 +3,21 @@
 Start at the [documentation index](docs/README.md). The [agent playbook](docs/development/agent-playbook.md)
 routes tasks to the relevant skills and source-of-truth guides.
 
+## Keep docs and project skills current
+
+Before handing off a change, check whether it makes any relevant docs or project-local skills
+inaccurate or incomplete. Fix affected guidance in the same change without waiting for a separate
+request. If nothing is stale, leave the docs and skills alone.
+
+- Update the owning guide when behavior, setup commands, architecture, contracts, or release
+  procedures change. Link to that guide from other pages instead of duplicating instructions.
+- Update the relevant project-local skill when its workflow, commands, paths, or project conventions
+  change. Keep repository-wide rules in `AGENTS.md`; preserve upstream provenance and local
+  adaptations. Do not bulk-update upstream skills or edit personal/global skills without approval.
+- Follow the `nahhasio-maintenance` skill for documentation or skill edits. Verify claims against
+  source or recorded evidence, distinguish implemented changes from verified acceptance, and run
+  the docs link and format checks before handoff.
+
 ## Authorization and historical checkpoints
 
 Aqua authorized all four code phases in docs/operations/deployment.md before consolidated runtime acceptance.
