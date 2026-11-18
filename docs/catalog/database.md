@@ -1,17 +1,17 @@
 # Database, catalog and media ownership
 
-[Documentation index](README.md) · [Development](DEVELOPMENT.md) · [Migration baseline](BASELINE.md)
+[Documentation index](../README.md) · [Development](../development/getting-started.md) · [Migration baseline](migration-baseline.md)
 
 The database/catalog, images and tracking are Nahhasio's primary product. Playback, source
 selection, server retention, device downloads and saved metadata build on stable catalog IDs.
-Read [PROJECT](PROJECT.md) for intent and [ROADMAP](ROADMAP.md) for current/future tasks.
+Read [PROJECT](../project/overview.md) for intent and [ROADMAP](../project/roadmap.md) for current/future tasks.
 
 ## Schema and inspection
 
 The active schema is defined in `packages/database` and the sole migration history in
-`packages/database/drizzle`. The [current baseline](BASELINE.md) preserves the catalog and its
+`packages/database/drizzle`. The [current baseline](migration-baseline.md) preserves the catalog and its
 ledger. Historical row counts are in Git; use explicit read-only CLI inspection for current counts.
-[Schema service ownership](SCHEMA-FOUNDATION.md) maps the tables to their consumers. A basic table
+[Schema service ownership](service-ownership.md) maps the tables to their consumers. A basic table
 view does not imply implemented writes, jobs or stored-media delivery.
 
 ## Existing concepts to reuse

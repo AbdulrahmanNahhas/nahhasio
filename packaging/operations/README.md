@@ -227,6 +227,6 @@ journal. Failed activation restores the old selection/image; a successful worker
 after its finished job and claim removal are durable. Configuration, TLS and Quadlets remain intact.
 
 The original 0.1.0 worker needs one verified bootstrap upgrade. Follow
-[RELEASE-0.1.1](../../docs/RELEASE-0.1.1.md); subsequent compatible updates carry their own host tools.
+[RELEASE-0.1.1](../../docs/releases/0.1.1.md); subsequent compatible updates carry their own host tools.
 Client updates remain owned by Flatpak/Software, not this worker. Release-download folders can
 be removed after bootstrap acceptance; installed tool versions and recovery backups are separate.

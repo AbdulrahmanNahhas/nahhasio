@@ -1,19 +1,19 @@
 # Nahhasio roadmap and task inventory
 
-[Documentation index](README.md) · [Feature backlog](FEATURES.md) · [Deployment](DEPLOYMENT.md)
+[Documentation index](../README.md) · [Feature backlog](features.md) · [Deployment](../operations/deployment.md)
 
 **On this page:** [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
 
 Use this as a planning inventory, not a release gate or implementation audit. For the latest
-recorded rollout and verification limits, use [Operations](OPERATIONS.md) and the
-[family-server handoff](FAMILY-SERVER.md).
+recorded rollout and verification limits, use [Operations](../operations/runbook.md) and the
+[family-server handoff](../operations/family-server.md).
 
 Updated 2026-10-25. **Current milestone: 0.1 Alpha, a reliable base.**
-[PROJECT.md](PROJECT.md) owns confirmed scope. This is the long-term inventory, not a promise
+[Project overview](overview.md) owns confirmed scope. This is the long-term inventory, not a promise
 that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;
 other platforms follow later. No website ships in the delivered product.
 
-For the short page-by-page product checklist, see [FEATURES.md](FEATURES.md). This document
+For the short page-by-page product checklist, see [Features](features.md). This document
 retains implementation, storage, deployment and acceptance tasks.
 
 ## Status and use
@@ -22,7 +22,7 @@ retains implementation, storage, deployment and acceptance tasks.
 - An unchecked task may have implementation but still need integration/acceptance; it does not
   necessarily mean code is absent. The existing work editor is committed as `8aa716a`.
 - `DECISION` items require scope/behavior decisions. Some decisions below are now recorded in
-  PROJECT.md; completing their checklist entry means documenting/implementing the chosen result.
+  the [project overview](overview.md); completing their checklist entry means documenting/implementing the chosen result.
 - Not every work has or needs downloaded media. The approximately 70 Arabic-dubbed supplied
   works need an independent existing-file library path.
 - A checkbox does not authorize an unattended implementation, catalog/schema change or commit.
@@ -48,7 +48,7 @@ checkpoints; detailed implementation order stays subject to review.
 
 ## Current hosting priority
 
-Follow [DEPLOYMENT](DEPLOYMENT.md): build and accept signed artifacts, install rootless Fedora
+Follow [DEPLOYMENT](../operations/deployment.md): build and accept signed artifacts, install rootless Fedora
 services, rehearse recovery, transfer the verified catalog, then verify reboot/LAN/updates. Schema
 and Rust-service foundations are implemented; their historical phase plan is in Git. No playback
 or provider test phase is required for this release. Remaining administration work follows hosting.
@@ -190,7 +190,7 @@ Total: **280 tasks across 21 areas**.
 
 Current checkpoint: Linux gallery/table, filters, paging, uploads, assignment/primary/unlink,
 protected record deletion and reviewed canonical filename cleanup are implemented. Old paths
-retain hard links and resolve the original asset identity. FEATURES.md records source completion;
+retain hard links and resolve the original asset identity. [Features](features.md) records source completion;
 isolated mutation/rollback and final desktop acceptance remain pending. No automatic purge runs.
 
 - [ ] **NH-05-01** Keep asset identity and owner assignments as distinct records.
@@ -413,7 +413,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 
 ### 19. Flatpak and signed release pipeline
 
-Flatpak supersedes the initial AppImage prototype. See [the supported packaging guide](../packaging/flatpak/README.md).
+Flatpak supersedes the initial AppImage prototype. See [the supported packaging guide](../../packaging/flatpak/README.md).
 The historical prototype remains recoverable in Git; no installed acceptance is implied by source checks.
 
 - [ ] **NH-19-01** Build the x86_64 Flatpak against the supported GNOME SDK baseline.
@@ -499,7 +499,7 @@ The initial source checkpoint is committed as `1d75527`; follow-up checkpoints i
 media/editor/viewer changes and six additional commits ending at `d47ccfa`. Work remains undeployed,
 in the main chat without subagents. Do not repeat the destructive family-server cleanup. The
 review-skill edit was checkpointed separately under the explicit commit-all instruction. Preserve
-the existing 0.1.3 upgrade notes in FAMILY-SERVER.md. Publication and installation still require
+the existing 0.1.3 upgrade notes in the [family-server handoff](../operations/family-server.md). Publication and installation still require
 their separate release authorization.
 No live catalog writes or additional family-server changes were made in this continuation.
 

@@ -1,6 +1,6 @@
 # Current database baseline
 
-[Documentation index](README.md) · [Database](DATABASE.md) · [Recovery policy](OPERATIONS.md#backup-migration-and-recovery)
+[Documentation index](../README.md) · [Database](database.md) · [Recovery policy](../operations/runbook.md#backup-migration-and-recovery)
 
 Completed locally on 2026-10-20. The existing database stayed in place. All 75 public tables match
 their backup fingerprints; no catalog rows, UUIDs, accounts, sessions,
@@ -86,5 +86,5 @@ edits with that checkpoint as an ordinary rollback.
 ## Deployment boundary
 
 Baseline adoption was a local preservation checkpoint. Hosting, transfer, updates and installed
-acceptance follow [DEPLOYMENT](DEPLOYMENT.md). The retained original dump has an older ledger;
+acceptance follow [DEPLOYMENT](../operations/deployment.md). The retained original dump has an older ledger;
 recovery must keep its matching source history and must never overwrite newer family edits.

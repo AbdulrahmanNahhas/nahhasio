@@ -1,6 +1,6 @@
 # Family-PC release and development
 
-[Documentation index](README.md) · [Operations](OPERATIONS.md) · [Installed host handoff](FAMILY-SERVER.md)
+[Documentation index](../README.md) · [Operations](runbook.md) · [Installed host handoff](family-server.md)
 
 Use the four phases below as the delivery sequence. The dated 0.1.0 entries are historical;
 use Operations and the installed host handoff for later evidence. The original hosting checkpoint
@@ -49,19 +49,19 @@ reboot persistence, LAN firewall access and installed updates still need verific
 installation directories and Shadow's original recovery copy until those checks pass. Host worker
 scripts are outside the OCI image. Version 0.1.1 adds coordinated signed host-tool updates with
 atomic selection, rollback and post-job worker reload. The original 0.1.0 worker needs the
-[one-time bootstrap upgrade](RELEASE-0.1.1.md); subsequent compatible updates use the worker.
+[one-time bootstrap upgrade](../releases/0.1.1.md); subsequent compatible updates use the worker.
 
 ## 0.2.0 operations continuation (source; not yet installed)
 
-Historical source checkpoint; see the [later family-PC cutover record](FAMILY-SERVER.md) for
+Historical source checkpoint; see the [later family-PC cutover record](family-server.md) for
 what was installed and verified on 2026-11-07.
 
 The current source adds an explicitly reviewed schema upgrade using a verified restored database,
 retained previous database/image and interrupted-switch recovery. Compatible updates remain a
 separate action. Backup schedule/retention controls now use host-owned fixed operations rather
 than placeholders. Older installations advertise no such capabilities and need the one-time signed
-host-tool bootstrap plus media-root preparation. See [operations](OPERATIONS.md) for the complete
-weekly USB set and [maintenance](../packaging/operations/README.md) for the worker protocol.
+host-tool bootstrap plus media-root preparation. See [operations](runbook.md) for the complete
+weekly USB set and [maintenance](../../packaging/operations/README.md) for the worker protocol.
 Disposable checks do not establish installed Fedora/Podman, final Flatpak or live upgrade acceptance.
 
 ## Deployment shape
@@ -78,7 +78,7 @@ be developed and delivered after installation through the same release path.
 
 ## 1. Rootless installation
 
-[Server installer](../packaging/server/README.md) documents the exact commands and prerequisites.
+[Server installer](../../packaging/server/README.md) documents the exact commands and prerequisites.
 The installer runs as an unprivileged service account, prepares private persistent directories,
 creates rootless Quadlets and generates trusted LAN HTTPS certificates. Initial account creation,
 lingering and firewall setup are explicit administrator steps. Runtime services remain rootless.
@@ -104,7 +104,7 @@ only the public CA; the signing key stays outside the API's mounted TLS director
 
 ## 2. Backups, transfer and development
 
-[Maintenance](../packaging/operations/README.md) owns the backup format, schedule, retention,
+[Maintenance](../../packaging/operations/README.md) owns the backup format, schedule, retention,
 restore journal and local recovery commands. A completed backup contains a PostgreSQL custom
 dump, artwork, private provider configuration, checksums and version/schema/identity evidence.
 A protected host-recovery archive holds credentials/TLS separately from ordinary app restoration.
@@ -122,7 +122,7 @@ artwork paths and the canonical migration ledger. Do not copy a running PostgreS
 The original private laptop copy remains an independent recovery checkpoint through acceptance.
 
 The exact read-only export and confirmed initial import commands are in the
-[transfer procedure](../packaging/server/README.md#data-transfer-and-explicit-schema-maintenance).
+[transfer procedure](../../packaging/server/README.md#data-transfer-and-explicit-schema-maintenance).
 The exporter verifies the applied migration ledger and every registered artwork size/hash before
 capture. The receiver verifies the completed archive before a staged restore.
 
@@ -138,7 +138,7 @@ does not recover a failed disk; an optional independent copy can be added later.
 
 The server remains a digest-qualified Rust OCI image; the client is now Flatpak. Nix/devenv is
 only for local development. The supported Flatpak build and publication procedure is in
-[packaging/flatpak/README.md](../packaging/flatpak/README.md). It supersedes the AppImage prototype
+[packaging/flatpak/README.md](../../packaging/flatpak/README.md). It supersedes the AppImage prototype
 and custom client downloader. The existing Ed25519 server signing key remains valid.
 
 The release workflow builds the UI conventionally with Node/pnpm, prepares verified offline
@@ -207,4 +207,4 @@ completed job/status and cleared claim are durable. Previous versions remain for
 
 An incompatible host-tool API or schema requires explicit maintenance. Existing custom storage,
 credentials, certificates, timers and Quadlets are not regenerated during ordinary updates. See
-[0.1.1 deployment](RELEASE-0.1.1.md) for bootstrap, client updates and release-cache cleanup.
+[0.1.1 deployment](../releases/0.1.1.md) for bootstrap, client updates and release-cache cleanup.

@@ -26,5 +26,5 @@ credential belongs in the client. The server enforces current account/admin acce
   CLI; no private Node worker is installed.
 
 Detailed current models and endpoints are in OpenAPI/source rather than repeated field tables.
-Read [PROJECT](../../docs/PROJECT.md), [DEVELOPMENT](../../docs/DEVELOPMENT.md) and
-[TESTING](../../docs/TESTING.md) for product scope, transport and acceptance limits.
+Read [PROJECT](../../docs/project/overview.md), [DEVELOPMENT](../../docs/development/getting-started.md) and
+[TESTING](../../docs/development/testing.md) for product scope, transport and acceptance limits.

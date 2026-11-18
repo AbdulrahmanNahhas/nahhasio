@@ -5,7 +5,7 @@ description: Organize Nahhasio documentation, update agent skills, reconcile dat
 
 # Maintain Nahhasio docs and instructions
 
-1. Start at [the docs index](../../../docs/README.md) and [agent playbook](../../../docs/AGENTS-PLAYBOOK.md). Follow [repository rules](../../../AGENTS.md).
+1. Start at [the docs index](../../../docs/README.md) and [agent playbook](../../../docs/development/agent-playbook.md). Follow [repository rules](../../../AGENTS.md).
 2. Inspect the worktree, the owning guide, and relevant source or recorded evidence. Label backlog,
    source implementation, build/fixture results, and dated installed observations separately.
    If evidence conflicts or is missing, cross-link it and say what is unknown; do not infer acceptance.

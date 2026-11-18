@@ -212,5 +212,5 @@ completed videos read-only and incoming uploads read/write. Setup writes a Quadl
 drop-in; operator review/reload and an explicit restart/start are separate actions. It does not
 migrate, seed, scan, enqueue acquisition or change the catalog.
 
-See [operations](../../docs/OPERATIONS.md) for directory aliases, backup boundaries and recovery.
+See [operations](../../docs/operations/runbook.md) for directory aliases, backup boundaries and recovery.
 The current installed 0.1.3 release does not gain these source changes without a new build.

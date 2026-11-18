@@ -5,8 +5,8 @@ description: Read and edit every part of the Nahhasio PostgreSQL catalog from th
 
 # Nahhasio database CLI
 
-Start with [database ownership](../../../docs/DATABASE.md). For live work, read the dated
-[family-server handoff](../../../docs/FAMILY-SERVER.md) and confirm the target and authorization.
+Start with [database ownership](../../../docs/catalog/database.md). For live work, read the dated
+[family-server handoff](../../../docs/operations/family-server.md) and confirm the target and authorization.
 Use the [cataloging skill](../nahhasio-cataloging/SKILL.md) for stored editorial judgments.
 `./bin/nahhasio` runs the compiled Rust PostgreSQL operator CLI. Build it once with
 `devenv shell -- cargo build --locked -p nahhasio-cli`, then invoke it directly for quiet JSON.
@@ -46,7 +46,7 @@ The approved 2026-10-20 current-database baseline is `0000_current_catalog` in t
 `packages/database/drizzle/` tree. Native status reports one applied entry with no pending changes.
 The original 31-file chain is retired to Git/private backup, not another active migration tree.
 Existing public data/UUIDs and all registered artwork were preserved through a restored rehearsal
-and ledger-only adoption. See `docs/BASELINE.md`; use additive migrations from now on.
+and ledger-only adoption. See `docs/catalog/migration-baseline.md`; use additive migrations from now on.
 Never apply the creation baseline to a populated unadopted database, silently replace ledger hashes,
 or rerun initial adoption as a normal update. Keep the matching old/new source archives with recovery
 backups. Independent recovery remains required before deployment.
@@ -284,6 +284,6 @@ Rust serves authenticated admin reads at `/api/v1/admin/database/schema` and
 transactional editors. Never use raw table responses or SQL output to dump authentication
 secrets, tokens, provider credentials or hashes into logs or committed fixtures.
 Startup performs no migration, seeding or cleanup. Use the existing Drizzle history only.
-Provider keys stay server-owned; [Operations](../../../docs/OPERATIONS.md) documents the
+Provider keys stay server-owned; [Operations](../../../docs/operations/runbook.md) documents the
 supported settings workflow. Never infer credential-management support from a raw-table view.
 Video-filename restrictions are not proof of valid video content or safe playback.

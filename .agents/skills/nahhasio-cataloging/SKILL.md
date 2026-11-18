@@ -306,7 +306,7 @@ Calibrate against neighbours before writing:
 - Torrent streaming runs on the client; server downloads require an explicit request. Saved
   work metadata/artwork, server videos and device video downloads are separate things.
 
-Read `docs/SCHEMA-FOUNDATION.md` for implementation status. Historical examples in this skill
+Read `docs/catalog/service-ownership.md` for implementation status. Historical examples in this skill
 are editorial references, not guaranteed current counts. Use current exports/statistics to
 calibrate. Aqua's personal “classic” means a work watched in Arabic, regardless of release age;
 do not assign that label from age or popularity alone.

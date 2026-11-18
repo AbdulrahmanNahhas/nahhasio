@@ -7,7 +7,7 @@ license: Complete terms in LICENSE.txt
 # Frontend Design
 
 For technical changes, use [nahhasio-desktop-ui](../nahhasio-desktop-ui/SKILL.md) and preserve the
-reviewed design. For a new or explicitly approved redesign, read [the design rules](../../../docs/design-rules.md)
+reviewed design. For a new or explicitly approved redesign, read [the design rules](../../../docs/desktop/design-rules.md)
 first and keep the review focused on the requested surfaces.
 
 Approach this as the design lead at a design studio known for giving every client a distinct visual identity that is not mistaken for anyone else's. This client has already rejected proposals that felt cliché or templated, and is paying for a distinctive point of view: make deliberate, opinionated choices about palette, typography, and layout that are specific to this brief, and take aesthetic risk if justified.

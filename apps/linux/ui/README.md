@@ -3,8 +3,8 @@
 React/Vite/TypeScript with TanStack Router/Query, Tailwind 4 and shadcn Base UI. The current
 registry is `base-maia` with Mist tokens and RTL. Preserve Aqua's reviewed source/design.
 
-Read [PROJECT](../../../docs/PROJECT.md), [design rules](../../../docs/design-rules.md),
-[DEVELOPMENT](../../../docs/DEVELOPMENT.md) and [TESTING](../../../docs/TESTING.md).
+Read [PROJECT](../../../docs/project/overview.md), [design rules](../../../docs/desktop/design-rules.md),
+[DEVELOPMENT](../../../docs/development/getting-started.md) and [TESTING](../../../docs/development/testing.md).
 
 Native Rust owns sessions, network, player and storage. UI uses typed `src/lib/bridge.ts` calls
 and generated OpenAPI validation; no tokens, direct browser server fetch or arbitrary native

@@ -1,6 +1,6 @@
 # Client behavior
 
-[Documentation index](README.md) · [Architecture](ARCHITECTURE.md) · [Design rules](design-rules.md) · [Verification](TESTING.md)
+[Documentation index](../README.md) · [Architecture](architecture.md) · [Design rules](design-rules.md) · [Verification](../development/testing.md)
 
 **On this page:** [Sign-in and settings](#linux-settings-sign-in-and-artwork) · [Browse](#browse-and-filters) · [Watch](#watch-page) · [Admin coverage](#administration-coverage)
 
@@ -97,7 +97,7 @@ Home uses a 30-second freshness window instead of always refetching on mount. Im
 a distinct placeholder; Settings provides artwork cache usage and cleanup under Storage.
 
 This source checkpoint does not establish installed Flatpak acceptance, Secret portal availability
-on every desktop, physical input, provider playback or real-catalog performance. See TESTING.md
+on every desktop, physical input, provider playback or real-catalog performance. See [Testing](../development/testing.md)
 for fixture/native acceptance procedures. Schema migration and deployment remain explicit.
 
 ## Awards administration

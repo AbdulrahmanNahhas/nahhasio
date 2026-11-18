@@ -42,6 +42,9 @@ def check_links(path: Path, text: str) -> list[str]:
 def main() -> int:
     docs = set((ROOT / "docs").rglob("*.md"))
     docs.update(ROOT / name for name in ("README.md", "AGENTS.md"))
+    for tree in ("apps", "crates", "packages", "packaging", "tools"):
+        docs.update((ROOT / tree).glob("*/README.md"))
+    docs.add(ROOT / "apps/linux/ui/README.md")
     skills = set((ROOT / ".agents/skills").glob("*/SKILL.md"))
     errors = []
     for path in sorted(docs | skills):

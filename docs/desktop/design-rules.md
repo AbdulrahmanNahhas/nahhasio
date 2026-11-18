@@ -1,6 +1,6 @@
 # Desktop design and composition
 
-[Documentation index](README.md) · [Client behavior](CLIENT.md) · [Agent playbook](AGENTS-PLAYBOOK.md)
+[Documentation index](../README.md) · [Client behavior](behavior.md) · [Agent playbook](../development/agent-playbook.md)
 
 The current product UI is `apps/linux/ui`: Arabic/RTL React/Vite with TanStack Router/Query,
 Tailwind 4 and official shadcn Base UI. `components.json` uses `base-maia`/Mist; checked-in tokens
@@ -31,4 +31,4 @@ Desktop uses Vite/Router/Query, not TanStack Start. The former TanStack Start we
 
 Use the shadcn and desktop skills for implementation. Follow lint/configured composition rules;
 Aqua's explicitly approved design decisions take precedence over a generic redesign suggestion.
-Verification policy is in [TESTING.md](TESTING.md); full suites are not required per tiny edit.
+Verification policy is in [Testing](../development/testing.md); full suites are not required per tiny edit.

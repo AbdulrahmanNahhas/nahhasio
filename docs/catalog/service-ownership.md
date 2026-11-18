@@ -1,11 +1,11 @@
 # Schema service ownership
 
-[Documentation index](README.md) · [Database ownership](DATABASE.md) · [Migration baseline](BASELINE.md)
+[Documentation index](../README.md) · [Database ownership](database.md) · [Migration baseline](migration-baseline.md)
 
 The schema/API/CLI transition is implemented in the shared Rust catalog services. Historical
 phase plans and test receipts are retained in Git. The sole active schema history is the
-[current baseline](BASELINE.md) plus future additive migrations; this is not another migration plan.
-See [DATABASE](DATABASE.md) for data ownership and [DEVELOPMENT](DEVELOPMENT.md) for current tools.
+[current baseline](migration-baseline.md) plus future additive migrations; this is not another migration plan.
+See [DATABASE](database.md) for data ownership and [DEVELOPMENT](../development/getting-started.md) for current tools.
 
 Folder scanning/linking, video-derived stills and stored-media playback remain separate features.
 Their tables do not imply working services. Installed Fedora/Flatpak acceptance is still pending.

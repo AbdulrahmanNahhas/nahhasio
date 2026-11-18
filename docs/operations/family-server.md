@@ -1,12 +1,12 @@
 # Family server: installed layout and agent access
 
-[Documentation index](README.md) · [Deployment](DEPLOYMENT.md) · [Operations](OPERATIONS.md)
+[Documentation index](../README.md) · [Deployment](deployment.md) · [Operations](runbook.md)
 
 Verified live on **2026-10-30**, using HTTPS from Shadow and SSH to the family PC.
 This is the operational handoff for the installed machine, not a deployment proposal.
 Versions, counts, capacity and service state below are dated observations: recheck before work.
-See [DEPLOYMENT](DEPLOYMENT.md) for release ownership, [OPERATIONS](OPERATIONS.md) for policy,
-and the [database skill](../.agents/skills/nahhasio-db/SKILL.md) for catalog conventions.
+See [DEPLOYMENT](deployment.md) for release ownership, [OPERATIONS](runbook.md) for policy,
+and the [database skill](../../.agents/skills/nahhasio-db/SKILL.md) for catalog conventions.
 
 ## Ownership and access
 

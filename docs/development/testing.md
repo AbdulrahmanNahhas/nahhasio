@@ -1,10 +1,10 @@
 # Verification guide
 
-[Documentation index](README.md) · [Development](DEVELOPMENT.md) · [Deployment](DEPLOYMENT.md)
+[Documentation index](../README.md) · [Development](getting-started.md) · [Deployment](../operations/deployment.md)
 
 **On this page:** [Browser fixtures](#1-browser-fixtures-and-ordinary-checks) · [Native build](#2-fresh-native-application) · [Native smoke](#3-isolated-native-smoke) · [Acceptance](#4-acceptance-and-reporting)
 
-Read [PROJECT.md](PROJECT.md) and [ROADMAP.md](ROADMAP.md) for scope. Use compile/static checks
+Read [Project overview](../project/overview.md) and [Roadmap](../project/roadmap.md) for scope. Use compile/static checks
 for approved implementation checkpoints; Aqua requested the consolidated full regression after
 implementation rather than repeated full suites for small changes. The commands below are
 available verification procedures, not a requirement to run every suite on every edit.
@@ -24,7 +24,7 @@ origin restrictions, identifiers, byte ranges and explicit-input storage layout.
 GTK, WebKit, mpv, PostgreSQL, credentials or network. The transitive dependency guard is included in
 `pnpm check` and its fixture tests run without Cargo; a dedicated CI job verifies the core separately.
 Account-scoped persistence and native bridge/player tests remain desktop checks. Extraction is not
-proof of packaged input, playback or cross-platform acceptance. See [architecture](ARCHITECTURE.md).
+proof of packaged input, playback or cross-platform acceptance. See [architecture](../desktop/architecture.md).
 
 ## Rust CLI and migration acceptance
 
@@ -126,7 +126,7 @@ credentials against a mock with synthetic sessions, fixture catalog/artwork and 
 production forwarding**. Remove database credentials from the child environment. The mock
 must reject unexpected routes and mutations except its synthetic login/logout. Real favorite/
 watched mutation behavior belongs in the guarded disposable PostgreSQL suite documented in
-[`apps/server/tests/README.md`](../apps/server/tests/README.md), never the family catalog.
+[`apps/server/tests/README.md`](../../apps/server/tests/README.md), never the family catalog.
 
 A historical private controller may exist in `data/previews/work-review/native-harness.mjs`,
 with preparation details in its `NATIVE-README.md`. These ignored files are **not shipped in
@@ -222,7 +222,7 @@ The active migration history is now `0000_current_catalog`, not the retired 31-f
 Drizzle/Rust continuation directions, plus catalog/editor/media/report preservation. The current
 baseline snapshot also produced no changes through Drizzle generation. The real restored-data
 and artwork rehearsal, 23 constraint assertions and live adoption receipt are documented in
-[BASELINE](BASELINE.md). These results do not establish independent recovery or Fedora deployment.
+[BASELINE](../catalog/migration-baseline.md). These results do not establish independent recovery or Fedora deployment.
 
 ## Server administration services
 
@@ -270,7 +270,7 @@ devenv shell -- python3 -m unittest discover -s packaging/release -p test_releas
 
 These offline tests cover signature integrity, source-private exclusions, archive tampering/path
 containment and retained repository objects. They do not install a client or contact the family PC.
-Release build, publication and installation details are in [DEPLOYMENT](DEPLOYMENT.md).
+Release build, publication and installation details are in [DEPLOYMENT](../operations/deployment.md).
 
 ## Push and pull-request CI
 

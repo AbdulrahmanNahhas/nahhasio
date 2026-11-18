@@ -4,8 +4,8 @@ Rust GTK4/libadwaita/WebKitGTK shell hosting the independent React/Vite UI, with
 native-owned sessions/network/device storage. It supports viewing and administration.
 Linux is the only client through v1.0; the current milestone is 0.1 Alpha.
 
-Read [PROJECT](../../docs/PROJECT.md), [DEVELOPMENT](../../docs/DEVELOPMENT.md) and
-[TESTING](../../docs/TESTING.md). `src/main.rs` owns lifecycle/origin; `bridge.rs` bounded calls;
+Read [PROJECT](../../docs/project/overview.md), [DEVELOPMENT](../../docs/development/getting-started.md) and
+[TESTING](../../docs/development/testing.md). `src/main.rs` owns lifecycle/origin; `bridge.rs` bounded calls;
 `services.rs` authenticated HTTP/session; `assets.rs` contained packaged UI. The separate
 `crates/native-player` and `crates/media-transfer` own player/transfer adapters.
 

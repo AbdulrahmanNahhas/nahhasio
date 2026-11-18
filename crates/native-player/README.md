@@ -2,7 +2,7 @@
 
 The production Linux shell consumes `NativePlayer`. This crate isolates GTK/libmpv lifecycle
 and the private FFI boundary; `ProofPlayer` and the examples are diagnostics, not another app.
-Read [DEVELOPMENT](../../docs/DEVELOPMENT.md) and [TESTING](../../docs/TESTING.md) for application
+Read [DEVELOPMENT](../../docs/development/getting-started.md) and [TESTING](../../docs/development/testing.md) for application
 transport, source restrictions and evidence limits. Historical rendering reports are in Git.
 
 ## Ownership and safety

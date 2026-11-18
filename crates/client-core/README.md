@@ -17,5 +17,5 @@ in the desktop adapters; existing serialized documents and file locations are pr
 The library is statically linked into its consumers. It can be built/tested separately, but updating
 an installed desktop to use a new core still requires rebuilding and delivering that desktop.
 Future independent repositories need versioned packages and contract ownership, not a dynamic ABI.
-See [the architecture guide](../../docs/ARCHITECTURE.md) for boundaries, remaining extraction work,
+See [the architecture guide](../../docs/desktop/architecture.md) for boundaries, remaining extraction work,
 release implications and the prerequisites for a repository split.

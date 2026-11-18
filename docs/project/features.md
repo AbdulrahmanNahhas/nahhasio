@@ -1,12 +1,12 @@
 # Page feature backlog
 
-[Documentation index](README.md) · [Product scope](PROJECT.md) · [Roadmap](ROADMAP.md)
+[Documentation index](../README.md) · [Product scope](overview.md) · [Roadmap](roadmap.md)
 
 **On this page:** [Viewer](#shared-ui-and-navigation) · [Playback](#player-page) · [Administration](#admin-overview-page) · [Acceptance](#consolidated-acceptance)
 
 This page-level backlog dates to 2026-10-25. Checked items describe implemented surfaces at
-recorded checkpoints, not installed acceptance. Use [Client behavior](CLIENT.md) for reviewed
-flows and [Testing](TESTING.md) for acceptance; see [Operations](OPERATIONS.md) for later delivery
+recorded checkpoints, not installed acceptance. Use [Client behavior](../desktop/behavior.md) for reviewed
+flows and [Testing](../development/testing.md) for acceptance; see [Operations](../operations/runbook.md) for later delivery
 checkpoints, including the direct-media cutover.
 
 ## Shared UI and Navigation

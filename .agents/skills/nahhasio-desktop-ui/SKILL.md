@@ -5,7 +5,7 @@ description: Build, migrate or review Nahhasio's packaged Linux React UI using V
 
 # Nahhasio desktop UI
 
-Start with [client behavior](../../../docs/CLIENT.md) and [design rules](../../../docs/design-rules.md).
+Start with [client behavior](../../../docs/desktop/behavior.md) and [design rules](../../../docs/desktop/design-rules.md).
 Use the [docs index](../../../docs/README.md) for scope and verification. Preserve the reviewed
 desktop Maia/Mist theme, Arabic RTL interface, catalog density and keyboard behavior. A refactor
 does not authorize an aesthetic redesign, administration migration or a Rust exercise solution.
@@ -45,7 +45,7 @@ player slider draft/cancel semantics; compose official controls without rewritin
 
 Inventory stylesheet/import/selector/raw-control usage before claiming conversion complete.
 Use devenv and focused compile/static checks at checkpoints. Run meaningful fixture/native
-journeys at acceptance or when unresolved risks require them, following Aqua's lean test policy. Follow docs/TESTING.md
+journeys at acceptance or when unresolved risks require them, following Aqua's lean test policy. Follow docs/development/testing.md
 for isolated packaged GTK checks. No live catalog mutation, public torrent download or relaxed
 CSP/auth/origin guard. Inspect desktop/narrow releases, entities, Watch, login and player captures.
 Browser checks do not prove GTK input/rendering/smoothness; describe the tested artifact and

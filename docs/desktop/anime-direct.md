@@ -1,6 +1,6 @@
 # Anime direct playback
 
-[Documentation index](README.md) · [Streaming](STREAMING.md) · [Verification](TESTING.md)
+[Documentation index](../README.md) · [Streaming](streaming.md) · [Verification](../development/testing.md)
 
 The source picker opens on Torrents for every online work. Anime series/films also offer a
 separate English-dub direct-stream tab; video servers remain a peer option. Whole-work files-only

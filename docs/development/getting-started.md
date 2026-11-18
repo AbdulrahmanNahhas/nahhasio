@@ -1,10 +1,10 @@
 # Development guide
 
-[Documentation index](README.md) · [Verification](TESTING.md) · [Agent playbook](AGENTS-PLAYBOOK.md)
+[Documentation index](../README.md) · [Verification](testing.md) · [Agent playbook](agent-playbook.md)
 
 **On this page:** [Repository map](#repository-map) · [Run/build](#runbuild) · [Operator CLI](#direct-database-operator-cli) · [Native boundary](#native-and-interface-boundary) · [Verification](#build-and-verification)
 
-Read [PROJECT](PROJECT.md) for scope and [DEPLOYMENT](DEPLOYMENT.md) for hosting. Use the
+Read [PROJECT](../project/overview.md) for scope and [DEPLOYMENT](../operations/deployment.md) for hosting. Use the
 repository Nix/devenv environment on Shadow: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
 WebKitGTK6, mpv, libtorrent and Chromium. Nix is not required by installed clients or servers.
 Do not inspect `/saved/nixos-config` without Aqua's permission.
@@ -251,7 +251,7 @@ in Rust. `pnpm typecheck` checks schema drift; regenerate with
 
 ## Native and interface boundary
 
-[Client architecture](ARCHITECTURE.md) records the initial `nahhasio-client-core` extraction,
+[Client architecture](../desktop/architecture.md) records the initial `nahhasio-client-core` extraction,
 dependency guard and future repository/build boundaries. The core builds/tests without GTK,
 WebKit, mpv or PostgreSQL; it does not yet contain the complete client runtime.
 
@@ -295,8 +295,8 @@ Stored state is not a proof that cached artwork or video bytes remain available.
 
 The interface uses TanStack Router/Query and shadcn Base UI Maia/Mist. Preserve the reviewed design,
 RTL, keyboard behavior, reduced motion, semantic tokens and typed boundaries. Follow the applicable
-repository skills for interface work. [CLIENT](CLIENT.md) owns current feature behavior;
-[design-rules](design-rules.md) owns composition rules.
+repository skills for interface work. [CLIENT](../desktop/behavior.md) owns current feature behavior;
+[design-rules](../desktop/design-rules.md) owns composition rules.
 
 ## Catalog and authorization
 
@@ -325,7 +325,7 @@ with `pnpm --filter @arcadia/contracts generate:rust-editor` and, for network co
 only `NAHHASIO_VIDEO_ROOT`, normally `~/Videos/nahhasio`; do not let server artwork variables change
 it. Native durable state belongs to XDG storage. Root mismatches must stay recoverable errors,
 not trigger automatic moves or transfer-state resets. Flatpak maps these locations to its sandbox;
-see [packaging](../packaging/flatpak/README.md) before importing old device state.
+see [packaging](../../packaging/flatpak/README.md) before importing old device state.
 
 Saved Works retains server/account-scoped work snapshots/artwork and durable source identities.
 Metadata readiness, downloaded-video readiness and account saved intent are distinct. Offline
@@ -336,8 +336,8 @@ Profiles and avatars use authorized account services and native artwork transpor
 account/identity links. Member activity projections must omit passwords, sessions, private paths,
 invite secrets and raw settings. Broader account/device management remains a separate feature.
 
-[Operations](OPERATIONS.md) owns private provider settings, LAN trust and preflight.
-[Database](DATABASE.md) and [baseline](BASELINE.md) own preservation and migration rules.
+[Operations](../operations/runbook.md) owns private provider settings, LAN trust and preflight.
+[Database](../catalog/database.md) and [baseline](../catalog/migration-baseline.md) own preservation and migration rules.
 
 ## Media runtime
 
@@ -346,7 +346,7 @@ anime-direct and provider embeds have separate native adapters. The media core i
 Download must not attach mpv as a side effect. Device retained files, engine cache, saved metadata
 and server library storage are distinct. Unknown mappings and failed transfers remain errors.
 
-[Streaming](STREAMING.md) documents provider isolation/diagnostics and [anime direct](ANIME-DIRECT.md)
+[Streaming](../desktop/streaming.md) documents provider isolation/diagnostics and [anime direct](../desktop/anime-direct.md)
 documents the bounded Python helper. These client features do not imply server acquisition or
 installed stored-file delivery. The media source checkpoint adds a separate Rust worker,
 explicit import jobs and native original-file streaming; it needs independent packaged/native
@@ -371,18 +371,18 @@ devenv --offline shell -- nahhasio-test-recovery
 ```
 
 Use focused disposable checks for relevant risks and consolidated installation acceptance after
-implementation. Documentation-only changes need format/link checks. [TESTING](TESTING.md) owns
+implementation. Documentation-only changes need format/link checks. [TESTING](testing.md) owns
 commands and native/browser distinctions. No mutation test may use the family catalog.
 
 The conventional release pipeline builds the client in the pinned GNOME Flatpak SDK and the server
 as a Rust-only OCI image. Use `bin/nahhasio-flatpak` for a local client build; build/sign/publication
-instructions are in [packaging/flatpak](../packaging/flatpak/README.md). The Python utilities in
+instructions are in [packaging/flatpak](../../packaging/flatpak/README.md). The Python utilities in
 `packaging` are active build/install/recovery tools, not a second web runtime.
 
 ## Development after transfer and learning
 
 Keep the checkout and a small independent local database/artwork sample on Shadow.
-[Development packs](../packaging/development/README.md) omit production passwords, sessions,
+[Development packs](../../packaging/development/README.md) omit production passwords, sessions,
 provider keys, devices and personal tracking. They never replace the current laptop catalog
 automatically. Retain the original full private recovery copy through verified cutover.
 
@@ -392,4 +392,4 @@ normal paths or complete exercises without the requested authorization.
 
 The future remote operator CLI will use a server URL and API key over HTTPS from Shadow. It is
 not implemented by the current direct-database CLI or installed host wrapper. See the deferred
-boundary in [PROJECT](PROJECT.md).
+boundary in [PROJECT](../project/overview.md).

@@ -2,7 +2,7 @@
 
 Updated 2026-11-15. This guide records the behavior-preserving client refactor, not approval to
 replace the UI, split repositories, publish packages or add another platform. Product scope stays
-in [PROJECT](PROJECT.md); checks and acceptance stay in [TESTING](TESTING.md).
+in [PROJECT](../project/overview.md); checks and acceptance stay in [TESTING](../development/testing.md).
 
 ## Current boundaries
 

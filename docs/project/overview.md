@@ -1,9 +1,9 @@
 # Nahhasio project guide
 
-[Documentation index](README.md) · [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md)
+[Documentation index](../README.md) · [Architecture](../desktop/architecture.md) · [Roadmap](roadmap.md)
 
-This guide owns product decisions. See [Deployment](DEPLOYMENT.md) for delivery procedure and
-[Operations](OPERATIONS.md) for the latest recorded checkpoint, not live status.
+This guide owns product decisions. See [Deployment](../operations/deployment.md) for delivery procedure and
+[Operations](../operations/runbook.md) for the latest recorded checkpoint, not live status.
 
 ## Product and current release
 
@@ -21,7 +21,7 @@ The current release covers rootless hosting, coordinated backup/restore, catalog
 independent laptop development, signed server/Flatpak delivery and app maintenance controls.
 The direct-media checkpoint replaces the former Jellyfin integration. Publishing a build or
 updating an installation is not the same as verifying recovery, reboot or playback. See the
-[family-server handoff](FAMILY-SERVER.md) for dated installed evidence and [Testing](TESTING.md)
+[family-server handoff](../operations/family-server.md) for dated installed evidence and [Testing](../development/testing.md)
 for the acceptance procedure.
 
 ## Family use and ownership
@@ -80,7 +80,7 @@ stills are registered server artwork attached to episode UUIDs. Do not introduce
 alternate episode listings or extra availability labels.
 
 Keep Save work, favorites, source selection and download state distinct. Existing schema concepts
-must be inspected before adding replacements. See [DATABASE](DATABASE.md) and [BASELINE](BASELINE.md).
+must be inspected before adding replacements. See [DATABASE](../catalog/database.md) and [BASELINE](../catalog/migration-baseline.md).
 
 ## Administration and delivery
 
@@ -101,10 +101,10 @@ explicit host maintenance; SSH is not the desired routine catalog-editing workfl
 
 ## Working guides
 
-- [Development](DEVELOPMENT.md): commands, architecture and storage boundaries.
-- [Client architecture](ARCHITECTURE.md): reusable core, adapters and future repository/build boundaries.
-- [Client behavior](CLIENT.md): reviewed administration/viewer behavior.
-- [Testing](TESTING.md): isolated checks and acceptance limits.
-- [Operations](OPERATIONS.md): runtime configuration, trust and recovery.
-- [Deployment](DEPLOYMENT.md): hosting sequence and remaining acceptance.
-- [Features](FEATURES.md) and [roadmap](ROADMAP.md): proposed backlog, not completion claims.
+- [Development](../development/getting-started.md): commands, architecture and storage boundaries.
+- [Client architecture](../desktop/architecture.md): reusable core, adapters and future repository/build boundaries.
+- [Client behavior](../desktop/behavior.md): reviewed administration/viewer behavior.
+- [Testing](../development/testing.md): isolated checks and acceptance limits.
+- [Operations](../operations/runbook.md): runtime configuration, trust and recovery.
+- [Deployment](../operations/deployment.md): hosting sequence and remaining acceptance.
+- [Features](features.md) and [roadmap](roadmap.md): proposed backlog, not completion claims.

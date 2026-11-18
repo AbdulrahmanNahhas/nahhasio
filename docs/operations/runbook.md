@@ -1,6 +1,6 @@
 # Operations
 
-[Documentation index](README.md) · [Deployment](DEPLOYMENT.md) · [Installed host handoff](FAMILY-SERVER.md)
+[Documentation index](../README.md) · [Deployment](deployment.md) · [Installed host handoff](family-server.md)
 
 **On this page:** [Runtime configuration](#current-runtime-configuration) · [Backup and recovery](#backup-migration-and-recovery) · [Updates](#updates-and-administration) · [Provider settings](#private-provider-configuration)
 
@@ -8,10 +8,10 @@ Current implementation: rootless Podman server/PostgreSQL, signed server release
 coordinated backup/restore and app maintenance controls. The Fedora family server and its desktop
 client were upgraded to `0.2.0-rc.1` on 2026-11-07. HTTPS readiness, the media worker, backup/update
 timers and the verified cutover backup passed. Installed restore, reboot and playback acceptance
-remain separate. [FAMILY-SERVER](FAMILY-SERVER.md) records the actual layout and agent access;
-[DEPLOYMENT](DEPLOYMENT.md) owns the sequence; exact commands belong to the
-[server installer](../packaging/server/README.md), [maintenance tools](../packaging/operations/README.md)
-and [Flatpak guide](../packaging/flatpak/README.md).
+remain separate. [FAMILY-SERVER](family-server.md) records the actual layout and agent access;
+[DEPLOYMENT](deployment.md) owns the sequence; exact commands belong to the
+[server installer](../../packaging/server/README.md), [maintenance tools](../../packaging/operations/README.md)
+and [Flatpak guide](../../packaging/flatpak/README.md).
 
 The family PC inventory verified on 2026-10-30 is Fedora Silverblue 44, Podman 5.8.9, Python 3.14.8,
 x86_64 Dell OptiPlex 3070 with an i5-9500T and approximately 16 GB RAM. About 93 GiB was available
@@ -62,9 +62,9 @@ allows 1–30 daily copies and schedule activation through fixed admin operation
 server needs the one-time signed host-tool/media bootstrap before new operations become available. Restore stages a
 separate database/artwork/config set, backs up the current state, validates, then switches while the
 application is stopped. Host credentials/TLS recovery is separate from normal app restoration.
-See the [maintenance guide](../packaging/operations/README.md) for journal and recovery commands.
+See the [maintenance guide](../../packaging/operations/README.md) for journal and recovery commands.
 
-The [baseline](BASELINE.md) plus future additive migrations is the sole schema history. Startup
+The [baseline](../catalog/migration-baseline.md) plus future additive migrations is the sole schema history. Startup
 never migrates or seeds. An application image rollback cannot undo a schema migration or safely
 restore an old catalog over newer edits. Keep matching source history for old recovery archives.
 Retained TVDB recovery identifiers are not an active provider integration; their original recovery
@@ -174,7 +174,7 @@ activation. Neither setting changes catalog rows or migration history.
 
 ## Installed host-tool upgrades
 
-Follow [RELEASE-0.1.1](RELEASE-0.1.1.md) for the one-time 0.1.0 worker bootstrap. Thereafter the
+Follow [RELEASE-0.1.1](../releases/0.1.1.md) for the one-time 0.1.0 worker bootstrap. Thereafter the
 same verified server update carries host tools; no routine SSH/file copying is needed. The
 `~/Nahhasio/releases` folder is only an installer cache, independent of installed tools/backups.
 
@@ -291,8 +291,8 @@ lingering/firewall preparation, PostgreSQL major upgrades and replacement-machin
 explicit operator work. Ordinary compatible updates, schema upgrades, backup creation, retention
 and same-machine data restoration belong to the app's maintenance workflow.
 
-The candidate is `0.2.0-rc.1`. Its server feed is `nahhasio-rc`, its Flatpak branch is `rc`, and its
-repository is `/flatpak-rc/`. Publishing an RC must not replace the installed Alpha server manifest
+See the [0.2.0-rc.1 notes](../releases/0.2.0-rc.1.md) for the channel and cutover record.
+Publishing an RC must not replace the installed Alpha server manifest
 or `/flatpak/` client repository. Existing installations stay on Alpha unless deliberately enrolled
 in RC testing. Both channels keep signature verification and older repository objects. RC and Alpha
 use the same application identity, so changing an installed client's branch requires preserving its

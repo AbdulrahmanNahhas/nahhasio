@@ -1,11 +1,11 @@
 # AGENTS.md
 
-Start at the [documentation index](docs/README.md). The [agent playbook](docs/AGENTS-PLAYBOOK.md)
+Start at the [documentation index](docs/README.md). The [agent playbook](docs/development/agent-playbook.md)
 routes tasks to the relevant skills and source-of-truth guides.
 
 ## Authorization and historical checkpoints
 
-Aqua authorized all four code phases in docs/DEPLOYMENT.md before consolidated runtime acceptance.
+Aqua authorized all four code phases in docs/operations/deployment.md before consolidated runtime acceptance.
 Player/provider testing and files-only playback were outside that hosting checkpoint. Preserve the
 reviewed UI. Aqua subsequently required working without sub-agents; continue in the main chat.
 
@@ -17,7 +17,7 @@ and API key over HTTPS; defer implementation. SSH is not the routine catalog-edi
 
 ## Installed family server — dated observations
 
-Read [docs/FAMILY-SERVER.md](docs/FAMILY-SERVER.md) before inspecting or administering the live
+Read [docs/operations/family-server.md](docs/operations/family-server.md) before inspecting or administering the live
 family catalog. It records the Fedora Silverblue/Podman layout, verified HTTPS admin workflow,
 SSH operator fallback, backup locking and dated acceptance limits. Production is on the family
 PC at `https://192.168.1.53:8443`, under `/var/home/nahhas-family/Nahhasio`; Shadow remains the
@@ -42,7 +42,7 @@ commit or publish personalized lists without explicit authorization.
 
 ## Project boundaries
 
-Read docs/PROJECT.md, docs/ROADMAP.md and docs/DEVELOPMENT.md. Current milestone is 0.1 Alpha;
+Read docs/project/overview.md, docs/project/roadmap.md and docs/development/getting-started.md. Current milestone is 0.1 Alpha;
 the future roadmap is not a release checklist. Fedora Atomic/rootless Podman is the server target;
 Linux Flatpak is the client through v1.0. Nix/devenv is development-only. No website ships.
 GitHub repository: AbdulrahmanNahhas/nahhasio; historical @arcadia workspace and database names
@@ -54,7 +54,7 @@ installed. PostgreSQL is canonical. Preserve UUIDs, account ownership, notes/sco
 artwork paths and the sole packages/database/drizzle history. Application startup never migrates,
 seeds, imports or cleans. Future migrations are additive and rehearsed on restored disposable data.
 
-Read docs/BASELINE.md before recovery: the approved baseline preserves all existing data and
+Read docs/catalog/migration-baseline.md before recovery: the approved baseline preserves all existing data and
 replaces only the old migration ledger. Its private data/backups/current-baseline-2026-10-20
 checkpoint retains original dump, artwork and exact old/new sources. Never rerun retired creation
 SQL against populated data or rehash a ledger to bypass validation. Keep independent recovery
@@ -68,7 +68,7 @@ installed/native acceptance separately.
 
 Provider keys stay server-owned, write-only through authenticated settings and masked on reads.
 Catalog, images and tracking belong to Nahhasio. Direct stored-media delivery replaces Jellyfin;
-check [Operations](docs/OPERATIONS.md) and [Verification](docs/TESTING.md) for acceptance limits.
+check [Operations](docs/operations/runbook.md) and [Verification](docs/development/testing.md) for acceptance limits.
 Save work, client playback, Download to server and Download to device remain separate. Client
 torrents run on the client;
 server acquisition needs an explicit request. Files-only policy is whole-work. Offline mutations
@@ -101,7 +101,7 @@ acceptance checks and reviews instead of automatically completing Aqua's client 
 
 - `apps/server`: Rust/Axum/Tokio/SQLx server, in the root Cargo workspace.
 - Removed website/deployment references remain recoverable at `d77096f:reference/` in Git.
-- `crates/client-core`: UI-independent client policies/models. Keep toolkit/player/server/database dependencies out; run `pnpm check:architecture`. See docs/ARCHITECTURE.md before extracting more runtime services or splitting repositories.
+- `crates/client-core`: UI-independent client policies/models. Keep toolkit/player/server/database dependencies out; run `pnpm check:architecture`. See docs/desktop/architecture.md before extracting more runtime services or splitting repositories.
 - `crates/native-player`: isolated GTK/libmpv adapter and diagnostic examples.
 - `crates/media-transfer`: UI-independent torrent engine and durable device state.
 - `crates/catalog-core`: shared Rust catalog/database services and Drizzle-compatible explicit migration runner.
@@ -139,7 +139,7 @@ Keep commits focused and conventional. Include actual checks and material limita
 
 ## Desktop client verification
 
-Follow `docs/TESTING.md` for commands, native smoke isolation and reporting.
+Follow `docs/development/testing.md` for commands, native smoke isolation and reporting.
 Browser Playwright checks are not GTK/WebKit verification. At consolidated visible desktop acceptance, test
 both the fixture-backed browser UI and the freshly built packaged native client; inspect
 screenshots and verify RTL arrows, Tab/Enter/Escape, focus restoration and narrow layouts.
@@ -155,7 +155,7 @@ These shadcn/TanStack composition rules apply to `apps/linux/ui`, including admi
 Preserve the reviewed design tokens/components, accessible labels, keyboard focus/navigation,
 RTL, reduced motion and typed native-bridge boundaries. Permissions are enforced by the server.
 
-Follow the `shadcn` skill and `docs/design-rules.md`. Components use the official `@shadcn`
+Follow the `shadcn` skill and `docs/desktop/design-rules.md`. Components use the official `@shadcn`
 registry; retrieve current docs before composing them, inspect generated output, and install
 only components that have consumers in the dashboard. Aqua explicitly approved the full official
 component set for the desktop. Read the `nahhasio-desktop-ui` skill there; preserve its palette,
