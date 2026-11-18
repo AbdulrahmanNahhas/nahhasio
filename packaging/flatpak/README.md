@@ -33,36 +33,55 @@ flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/fl
 ./bin/nahhasio-flatpak
 ```
 
-This produces an unsigned local test repository/bundle. Production signing belongs to the release
-workflow. It does not install the local build or change an existing client.
+This produces an unsigned local test repository/bundle under `dist/`. Production signing belongs
+to the release workflow. The build does not install the local bundle or change an existing app.
+Staged sources, the build directory and Builder's cache live under the ignored `.flatpak/` directory
+as `source/`, `build/` and `builder/`. Release CI uses the same layout.
+
+If upgrading a checkout with legacy `.flatpak-*` directories, stop any Flatpak builds and move the
+existing directories from the repo root instead of downloading the SDK again. These commands skip
+missing directories and leave an old directory in place if the new path already exists. Don't merge
+two SDK installations or Builder caches.
+
+```sh
+mkdir -p .flatpak
+for part in source build builder user; do
+  if [ -d ".flatpak-$part" ]; then
+    mv -nT -- ".flatpak-$part" ".flatpak/$part"
+  fi
+done
+```
 
 On Shadow, keep SDK downloads on the persistent project disk: the ordinary user Flatpak
 directory may be on the small ephemeral root. From the repository root, prepare an isolated
 build installation once:
 
 ```sh
-FLATPAK_USER_DIR="$PWD/.flatpak-user" flatpak remote-add --user --if-not-exists \
+FLATPAK_USER_DIR="$PWD/.flatpak/user" flatpak remote-add --user --if-not-exists \
   flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-FLATPAK_USER_DIR="$PWD/.flatpak-user" flatpak install --user --no-related flathub \
+FLATPAK_USER_DIR="$PWD/.flatpak/user" flatpak install --user --no-related flathub \
   org.gnome.Sdk//50 org.freedesktop.Sdk.Extension.rust-stable//25.08
 ```
 
 Then build using the repository development tools and a temporary Nix-provided Builder:
 
 ```sh
-FLATPAK_USER_DIR="$PWD/.flatpak-user" devenv shell -- \
+FLATPAK_USER_DIR="$PWD/.flatpak/user" devenv shell -- \
   nix shell nixpkgs#flatpak-builder --command bash bin/nahhasio-flatpak
 ```
 
-The first SDK/dependency build can take time. `.flatpak-user` and `.flatpak-builder` are disposable
-ignored caches; retain them only while actively packaging. Run `python3 bin/nahhasio-clean --apply`
-after stopping builds to reclaim SDKs and build output; the next build downloads them again.
-To test the built sandbox without installing the
-unsigned bundle over the signed client, fully quit the installed app, then run:
+`.flatpak/user/` is the optional checkout-local SDK installation; it is not the installed app's
+private state. `python3 bin/nahhasio-clean --cache-only` preserves the Flatpak directories. Review
+`python3 bin/nahhasio-clean` before using `--apply`: the full cleanup includes this SDK and the
+next build will need to download it again.
+
+To test the built sandbox without installing the unsigned bundle over the signed client, fully quit
+the installed app, then run:
 
 ```sh
-FLATPAK_USER_DIR="$PWD/.flatpak-user" nix shell nixpkgs#flatpak-builder --command \
-  flatpak-builder --run .flatpak-build packaging/flatpak/io.nahhasio.Linux.json nahhasio
+FLATPAK_USER_DIR="$PWD/.flatpak/user" nix shell nixpkgs#flatpak-builder --command \
+  flatpak-builder --run --state-dir=.flatpak/builder \
+  .flatpak/build packaging/flatpak/io.nahhasio.Linux.json nahhasio
 ```
 
 This is a development sandbox, not installed-release acceptance. It may use the same

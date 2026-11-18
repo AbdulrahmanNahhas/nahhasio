@@ -29,10 +29,10 @@ CACHES = (
 OUTPUTS = (
     "target",
     "dist",
-    ".flatpak-source",
-    ".flatpak-build",
-    ".flatpak-builder",
-    ".flatpak-user",
+    ".flatpak/source",
+    ".flatpak/build",
+    ".flatpak/builder",
+    ".flatpak/user",
     "data/previews",
     ".devenv/account-tmp",
     "apps/linux/ui/dist",
@@ -120,7 +120,7 @@ def main():
         for relative, limit in (
             ("target", 6),
             ("dist", 2),
-            (".flatpak-user", 2),
+            (".flatpak/user", 2),
             ("data/previews", 1),
         ):
             path = safe_path(relative)

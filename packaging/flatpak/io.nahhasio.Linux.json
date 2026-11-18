@@ -161,7 +161,7 @@
       "sources": [
         {
           "type": "dir",
-          "path": "../../.flatpak-source"
+          "path": "../../.flatpak/source"
         }
       ]
     }

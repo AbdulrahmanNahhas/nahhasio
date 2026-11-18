@@ -123,7 +123,7 @@ jobs:
           pnpm --filter @nahhasio/linux-ui build
           python3 packaging/flatpak/prepare.py
           mkdir -p dist
-          tar -I 'zstd -T0' -cf dist/flatpak-sources.tar.zst .flatpak-source
+          tar -I 'zstd -T0' -cf dist/flatpak-sources.tar.zst .flatpak/source
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nahhasio-flatpak-sources
@@ -147,7 +147,7 @@ jobs:
       - name: Restore Flatpak build stages and compiler cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: .flatpak-builder
+          path: .flatpak/builder
           key: nahhasio-gnome50-x86_64-${{ hashFiles('packaging/flatpak/io.nahhasio.Linux.json', 'packaging/flatpak/python-sources.json', 'Cargo.lock', '.github/workflows/nahhasio-release.yml') }}
           restore-keys: |
             nahhasio-gnome50-x86_64-
@@ -159,6 +159,8 @@ jobs:
           branch: ${{ needs.version.outputs.channel }}
           build-bundle: false
           run-tests: false
+          build-dir: .flatpak/build
+          state-dir: .flatpak/builder
           repo-dir: dist/flatpak-repo
           restore-cache: false
           save-cache: false

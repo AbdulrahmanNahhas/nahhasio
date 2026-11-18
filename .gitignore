@@ -22,6 +22,8 @@ core.*
 
 # Native workspace and build artifacts.
 /target/
+/.flatpak/
+# Legacy Flatpak directories remain ignored until existing checkouts migrate.
 /.flatpak-source/
 /.flatpak-build/
 /.flatpak-builder/

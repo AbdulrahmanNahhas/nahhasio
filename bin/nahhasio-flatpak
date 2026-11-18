@@ -8,7 +8,7 @@ python3 packaging/flatpak/prepare.py
 branch=$(python3 -c 'import json; print(json.load(open("packaging/flatpak/io.nahhasio.Linux.json"))["default-branch"])')
 mkdir -p dist
 flatpak-builder --user --force-clean --disable-rofiles-fuse --install-deps-from=flathub \
-  --repo=dist/flatpak-repo --default-branch="$branch" \
-  .flatpak-build packaging/flatpak/io.nahhasio.Linux.json
+  --repo=dist/flatpak-repo --default-branch="$branch" --state-dir=.flatpak/builder \
+  .flatpak/build packaging/flatpak/io.nahhasio.Linux.json
 flatpak build-bundle dist/flatpak-repo dist/Nahhasio-x86_64.flatpak io.nahhasio.Linux "$branch" \
   --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo

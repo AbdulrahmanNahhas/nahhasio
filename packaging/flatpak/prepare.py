@@ -32,12 +32,12 @@ def copy_sources(output, files):
 
 
 def prepare():
-    output = ROOT / ".flatpak-source"
-    if output.is_symlink():
-        raise ValueError("Refusing a symlink source staging directory")
+    output = ROOT / ".flatpak/source"
+    if output.is_symlink() or output.parent.is_symlink():
+        raise ValueError("Refusing a symlink source staging directory or parent")
     if output.exists():
         shutil.rmtree(output)
-    output.mkdir()
+    output.mkdir(parents=True)
     files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
     copy_sources(output, files)
     ui = ROOT / "apps/linux/ui/dist"

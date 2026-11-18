@@ -46,12 +46,20 @@ alone do not prove that unopened files or other workspace packages are clean.
 | packages/contracts             | Shared work/editor schemas and domain contracts                                                                                       |
 | packages/database              | PostgreSQL schema, sole Drizzle migration ledger, explicit recovery tools                                                             |
 | packages/domain, packages/i18n | Scoring/policy/taxonomy and labels                                                                                                    |
+| packaging/                     | Flatpak, server images, installers and release tooling                                                                                |
+| docs/                          | Development, architecture, operations and release guides                                                                              |
 | tools/catalog-reference        | Development-only TypeScript export/report oracle and acceptance scripts                                                               |
+| tools/typescript/              | Base TypeScript compiler options inherited explicitly by shared and reference packages                                                |
 
 The installed Rust server executes all editor, provider and artwork operations through
 `crates/catalog-core/src/editor`; it does not launch Node or load TypeScript source. The private
 Node worker has been removed. Only isolated export/report comparison helpers remain under `tools/catalog-reference`. Node/pnpm are still development/build dependencies for React.
 Schema ownership does not move from Drizzle to a second SQLx tree.
+
+Cargo, pnpm and devenv entry points and lockfiles stay at the repository root. Generated Flatpak
+inputs, build state and the optional checkout-local SDK share one ignored `.flatpak/` directory;
+see the [Flatpak guide](../../packaging/flatpak/README.md#build-and-runtime) for setup and migration.
+Persistent `.env`, `data/` and devenv state are not part of that layout.
 
 ## Run/build
 
