@@ -13,11 +13,19 @@ pub struct Preferences {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Display {
     pub layout: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    card_views: Option<CardViews>,
     pub size: String,
     pub minimal: bool,
     pub borderless: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_title: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_title: Option<String>,
     pub show_score: bool,
     pub show_status: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_watch_status: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_metadata: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,6 +38,34 @@ pub struct Display {
     pub table_density: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub table_title: Option<String>,
+}
+#[derive(Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CardViews {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    poster: Option<CardView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    banner: Option<CardView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    logo: Option<CardView>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CardView {
+    size: String,
+    minimal: bool,
+    borderless: bool,
+    show_score: bool,
+    show_status: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    show_title: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    card_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    show_watch_status: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    show_metadata: Option<bool>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -67,7 +103,9 @@ fn valid_search(search: &str) -> bool {
                     | "year-asc"
                     | "latest-released-desc"
                     | "score-desc"
+                    | "score-asc"
                     | "title"
+                    | "title-desc"
                     | "updated-desc"
                     | "added-desc"
             ),
@@ -93,11 +131,22 @@ fn valid_search(search: &str) -> bool {
             _ => false,
         })
 }
+fn valid_card_view(size: &str, title: Option<&str>) -> bool {
+    matches!(size, "compact" | "normal" | "comfortable")
+        && title.is_none_or(|value| matches!(value, "arabic" | "english"))
+}
+
 fn valid_display(display: &Display) -> bool {
     matches!(
         display.layout.as_str(),
         "poster" | "banner" | "logo" | "table"
-    ) && matches!(display.size.as_str(), "compact" | "normal" | "comfortable")
+    ) && valid_card_view(&display.size, display.card_title.as_deref())
+        && display.card_views.as_ref().is_none_or(|views| {
+            [&views.poster, &views.banner, &views.logo]
+                .into_iter()
+                .flatten()
+                .all(|view| valid_card_view(&view.size, view.card_title.as_deref()))
+        })
         && display
             .table_density
             .as_deref()
@@ -156,6 +205,24 @@ mod tests {
         let preferences: Preferences = serde_json::from_value(value.clone()).unwrap();
         preferences.validate().unwrap();
         assert_eq!(serde_json::to_value(preferences).unwrap(), value);
+        let mut per_layout = value.clone();
+        per_layout["display"]["cardViews"] = serde_json::json!({
+            "poster": {
+                "size": "comfortable", "minimal": false, "borderless": false,
+                "showTitle": true, "cardTitle": "arabic", "showScore": false, "showStatus": true
+            }
+        });
+        let preferences: Preferences = serde_json::from_value(per_layout.clone()).unwrap();
+        preferences.validate().unwrap();
+        assert_eq!(serde_json::to_value(preferences).unwrap(), per_layout);
+        per_layout["display"]["cardViews"]["poster"]["size"] = serde_json::json!("broken");
+        assert!(
+            serde_json::from_value::<Preferences>(per_layout)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+
         let preset = serde_json::json!({"id":"00112233-4455-6677-8899-aabbccddeeff","name":"قائمتي","search":"group=year","display":value["display"]});
         let mut with_presets = value.clone();
         with_presets["presets"] = serde_json::json!([preset.clone()]);

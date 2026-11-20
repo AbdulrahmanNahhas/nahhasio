@@ -1,7 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Orbit, Search, ShieldCheck, Star, Users, X } from "lucide-react";
+import {
+  CalendarDays,
+  Eye,
+  ListFilter,
+  Orbit,
+  Play,
+  Search,
+  ShieldCheck,
+  Star,
+  Users,
+  X,
+} from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import type { RefObject } from "react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -44,21 +54,24 @@ import { ScoreFilters } from "./score-filters";
 
 const categories = [
   {
+    key: "library",
+    icon: Eye,
+    label: "مكتبتي",
+    facets: ["watchStates", "favoriteStates"],
+  },
+  {
+    key: "playback",
+    icon: Play,
+    label: "الإصدار والتشغيل",
+    description: "يُحدَّد صدور العمل أو الإصدار بشكل مستقل عن وجود ملف فيديو على الخادم.",
+    facets: ["releaseStates", "playableStates", "playbackPolicies"],
+  },
+  {
     key: "basics",
     icon: CalendarDays,
-    label: "الإصدار ومكتبتي",
-    description: "الإصدار والمشاهدة والمفضلة ومصادر التشغيل",
-    facets: [
-      "kinds",
-      "releaseStatuses",
-      "releaseStates",
-      "structureStates",
-      "watchStates",
-      "favoriteStates",
-      "playableStates",
-      "languages",
-      "playbackPolicies",
-    ],
+    label: "تفاصيل الإصدار",
+    description: "النوع وحالة الإصدار واللغة وسنوات الإصدار",
+    facets: ["kinds", "releaseStatuses", "structureStates", "languages"],
   },
   {
     key: "story",
@@ -97,13 +110,14 @@ const categories = [
   },
 ];
 const categoryNames = new Map([
-  ["basics", "الإصدار ومكتبتي"],
+  ["basics", "تفاصيل الإصدار"],
   ["story", "التصنيف"],
   ["family", "المحتوى"],
   ["scores", "التقييم"],
   ["people", "الصنّاع والجوائز"],
 ]);
 const knownFacets = new Set(categories.flatMap((category) => category.facets));
+
 // Mounted on open: the draft has one owner and is discarded on every close.
 export function FilterDrawer({
   value,
@@ -120,14 +134,13 @@ export function FilterDrawer({
   q: string;
   locked?: LockedFacet;
   onApply: (value: BrowseRefinements) => void;
-  returnFocus: RefObject<HTMLButtonElement | null>;
+  returnFocus: () => HTMLElement | boolean;
 }) {
   const isAdmin = useIsAdmin();
   const searchInput = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(value);
   const [fallbackYear] = useState(() => new Date().getFullYear());
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("story");
   const content = useRef<HTMLDivElement>(null);
   const [previewDraft, setPreviewDraft] = useState(draft);
   useEffect(() => {
@@ -150,6 +163,8 @@ export function FilterDrawer({
     enabled: !invalid && previewDraft === draft,
   });
   const pending = previewDraft !== draft || preview.isFetching;
+  const total = pending || preview.error ? undefined : preview.data?.total;
+  const selectionCount = refinementCount(draft, locked);
   const yearMin = Math.min(options.data?.yearMin ?? 1900, Number(draft.from) || Infinity);
   const yearMax = Math.max(
     options.data?.yearMax ?? fallbackYear,
@@ -162,7 +177,9 @@ export function FilterDrawer({
 
   const searchText = normalizeFacetSearch(search);
   const categoryTerms = new Map([
-    ["basics", "release year status privacy kind watch favorite library video"],
+    ["library", "watch status favorite library"],
+    ["playback", "release video file torrent playback توفر إصدارات وجود فيديو مصادر التشغيل"],
+    ["basics", "release year status privacy kind language البنية"],
     ["story", "planet genre country tone tag tags format"],
     ["family", "family audience age risk"],
     ["scores", "rating score criteria"],
@@ -170,13 +187,20 @@ export function FilterDrawer({
   ]);
   const categoryMatches = (item: (typeof categories)[number]) =>
     normalizeFacetSearch(
-      `${item.label} ${item.description} ${categoryTerms.get(item.key) ?? ""}`,
+      `${item.label} ${item.description ?? ""} ${categoryTerms.get(item.key) ?? ""}`,
     ).includes(searchText);
-  const libraryFacets = browseTemplates.find((item) => item.id === library)?.facets ?? [];
+  const template = browseTemplates.find((item) => item.id === library);
+  const libraryFacets = template?.facets ?? [];
   const facetGroups = options.data
     ? completeFacetGroups(options.data.groups, view)
         .filter(
           (facet) => facet.key === "tags" || !libraryFacets.some((base) => base.key === facet.key),
+        )
+        .filter(
+          (facet) =>
+            facet.key !== "dubLanguages" &&
+            facet.key !== "warningStates" &&
+            (facet.key !== "structureStates" || view === "installments"),
         )
         .map((facet) =>
           facet.key === "tags"
@@ -195,11 +219,12 @@ export function FilterDrawer({
         )
     : [];
   const categoryGroups = (item: (typeof categories)[number]) =>
-    facetGroups.filter(
-      (facet) =>
-        facet.key !== "warningStates" &&
-        (item.facets.includes(facet.key) || (item.key === "basics" && !knownFacets.has(facet.key))),
-    ) ?? [];
+    facetGroups
+      .filter(
+        (facet) =>
+          item.facets.includes(facet.key) || (item.key === "basics" && !knownFacets.has(facet.key)),
+      )
+      .toSorted((a, b) => item.facets.indexOf(a.key) - item.facets.indexOf(b.key));
   const visibleCategories = searchText
     ? categories.filter(
         (item) =>
@@ -212,125 +237,128 @@ export function FilterDrawer({
       )
     : categories;
 
-  const displayed = !searchText
-    ? visibleCategories.filter((item) => item.key === category)
-    : visibleCategories;
-
   return (
     <DrawerContent
-      dir="rtl"
-      className="mx-auto h-5/6 w-full max-w-6xl sm:w-11/12"
+      dir="ltr"
+      className="w-auto max-w-xl end-2 sm:end-auto sm:w-xl motion-reduce:transition-none"
       finalFocus={returnFocus}
       initialFocus={searchInput}
     >
-      <DrawerHeader className="gap-2 px-5 py-4 text-start">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <DrawerTitle>مرشحات المكتبة</DrawerTitle>
-            <Badge variant="secondary">{refinementCount(draft, locked)}</Badge>
-          </div>
-          <DrawerClose render={<Button variant="ghost" size="icon" aria-label="إغلاق المرشحات" />}>
-            <X />
-          </DrawerClose>
-        </div>
-        <DrawerDescription className="sr-only">
-          ابحث بالاسم العربي أو الإنجليزي. ضمّن ما تريد واستبعد ما لا تريد، ثم اعرض النتائج.
-        </DrawerDescription>
-      </DrawerHeader>
-      <div className="flex shrink-0 flex-col gap-2 px-5 pb-3">
-        <Field>
-          <FieldLabel htmlFor="facet-search" className="sr-only">
-            ابحث في المرشحات
-          </FieldLabel>
-          <InputGroup className="h-10">
-            <InputGroupInput
-              ref={searchInput}
-              id="facet-search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                content.current?.scrollTo({ top: 0 });
-              }}
-              placeholder="ابحث بالعربية أو الإنجليزية…"
-            />
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            {search && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-sm"
-                  aria-label="مسح بحث المرشحات"
-                  onClick={() => setSearch("")}
-                >
-                  <X />
-                </InputGroupButton>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-        </Field>
-      </div>
-      <div className="overflow-x-auto px-5 flex">
-        <ToggleGroup
-          variant="default"
-          className={"w-full flex items-center"}
-          size="lg"
-          spacing={0}
-          value={searchText ? [] : [category]}
-          aria-label="قسم المرشحات"
-          onValueChange={(values) => {
-            const next = categories.find((item) => item.key === values[0]);
-            if (next) {
-              setCategory(next.key);
-              setSearch("");
-              content.current?.scrollTo({ top: 0 });
-            }
-          }}
-        >
-          {categories.map((item) => (
-            <ToggleGroupItem
-              className={"border flex-1"}
-              key={item.key}
-              value={item.key}
-              aria-label={categoryNames.get(item.key)}
+      <div dir="rtl" className="flex min-h-0 flex-1 flex-col">
+        <DrawerHeader className="gap-2 px-5 py-4 text-start">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <DrawerTitle>تصفية النتائج</DrawerTitle>
+              <Badge variant="secondary">{selectionCount}</Badge>
+            </div>
+            <DrawerClose
+              render={<Button variant="ghost" size="icon" aria-label="إغلاق تصفية النتائج" />}
             >
-              {categoryNames.get(item.key)}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-      <div className="flex min-h-0 flex-1">
-        <div
-          ref={content}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto scroll-fade-y overscroll-contain px-5 py-5"
-        >
-          {options.isLoading && (
-            <p role="status" className="py-5">
-              جارٍ تحميل الخيارات…
-            </p>
+              <X />
+            </DrawerClose>
+          </div>
+          {template ? (
+            <DrawerDescription>
+              {template.title} · {template.description}
+            </DrawerDescription>
+          ) : (
+            <DrawerDescription className="sr-only">
+              ابحث بالاسم العربي أو الإنجليزي. ضمّن ما تريد واستبعد ما لا تريد، ثم اعرض النتائج.
+            </DrawerDescription>
           )}
-          {options.error && <Failure error={options.error} retry={() => void options.refetch()} />}
-          {options.data && !visibleCategories.length && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>لا توجد مرشحات مطابقة</EmptyTitle>
-                <EmptyDescription>جرّب اسمًا آخر أو امسح البحث لعرض الأقسام.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-          <div className="flex flex-col gap-5">
-            {displayed.map((item) => (
-              <section
+        </DrawerHeader>
+        <div className="flex shrink-0 flex-col gap-2 px-5 pb-3">
+          <Field>
+            <FieldLabel htmlFor="facet-search" className="sr-only">
+              ابحث في خيارات التصفية
+            </FieldLabel>
+            <InputGroup className="h-10">
+              <InputGroupInput
+                ref={searchInput}
+                id="facet-search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  content.current?.scrollTo({ top: 0 });
+                }}
+                placeholder="ابحث بالعربية أو الإنجليزية…"
+              />
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              {search && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-sm"
+                    aria-label="مسح البحث في خيارات التصفية"
+                    onClick={() => setSearch("")}
+                  >
+                    <X />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              )}
+            </InputGroup>
+          </Field>
+        </div>
+        {!searchText && (
+          <nav aria-label="أقسام التصفية" className="flex flex-wrap gap-1 px-5 pb-3">
+            {categories.map((item) => (
+              <Button
                 key={item.key}
-                id={`filter-section-${item.key}`}
-                aria-labelledby={`filter-heading-${item.key}`}
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  const heading = content.current?.querySelector<HTMLElement>(
+                    `#filter-heading-${item.key}`,
+                  );
+                  heading?.focus({ preventScroll: true });
+                  heading?.scrollIntoView({ block: "start", inline: "nearest" });
+                }}
               >
-                {searchText && (
+                {categoryNames.get(item.key) ?? item.label}
+              </Button>
+            ))}
+          </nav>
+        )}
+        <Separator />
+        <div className="flex min-h-0 flex-1">
+          <div
+            ref={content}
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto scroll-fade-y overscroll-contain px-5 py-5"
+          >
+            {options.isLoading && (
+              <p role="status" className="py-5">
+                جارٍ تحميل الخيارات…
+              </p>
+            )}
+            {options.error && (
+              <Failure error={options.error} retry={() => void options.refetch()} />
+            )}
+            {options.data && !visibleCategories.length && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>لا توجد خيارات تصفية مطابقة</EmptyTitle>
+                  <EmptyDescription>جرّب اسمًا آخر أو امسح البحث لعرض الأقسام.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+            <div className="flex flex-col gap-5">
+              {visibleCategories.map((item) => (
+                <section
+                  key={item.key}
+                  id={`filter-section-${item.key}`}
+                  aria-labelledby={`filter-heading-${item.key}`}
+                  className="border-b border-border pb-5 last:border-b-0"
+                >
                   <header className="mb-3 flex items-start gap-3">
                     <item.icon className="mt-1 size-5 shrink-0 text-primary" aria-hidden="true" />
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 id={`filter-heading-${item.key}`} className="text-base font-semibold">
+                        <h2
+                          id={`filter-heading-${item.key}`}
+                          tabIndex={-1}
+                          className="scroll-mt-4 rounded-sm text-base font-semibold focus-visible:ring-2 focus-visible:ring-ring"
+                        >
                           {item.label}
                         </h2>
                         {categoryCount(item.key, item.facets, draft, locked) > 0 && (
@@ -339,112 +367,137 @@ export function FilterDrawer({
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                      {item.description && (
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                      )}
                     </div>
                   </header>
-                )}
-                <FieldGroup className="gap-5">
-                  {item.key === "basics" && (
-                    <FieldGroup className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
-                      {isAdmin && (
-                        <FieldSet className="gap-3 md:flex-1">
-                          <FieldLegend variant="label">الخصوصية</FieldLegend>
-                          <ToggleGroup
-                            variant="outline"
-                            spacing={2}
-                            value={[draft.privacy]}
-                            aria-label="الخصوصية"
-                            className="flex-wrap"
-                            onValueChange={(values) => {
-                              const privacy = values[0];
-                              if (
-                                privacy === "public" ||
-                                privacy === "private" ||
-                                privacy === "all"
-                              )
-                                setDraft({ ...draft, privacy });
-                            }}
-                          >
-                            <ToggleGroupItem value="public">العامة فقط</ToggleGroupItem>
-                            <ToggleGroupItem value="all">العامة والخاصة</ToggleGroupItem>
-                            <ToggleGroupItem value="private">الخاصة فقط</ToggleGroupItem>
-                          </ToggleGroup>
+                  <FieldGroup className="gap-5">
+                    {item.key === "basics" && (
+                      <FieldGroup className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
+                        {isAdmin && (
+                          <FieldSet className="gap-3 md:flex-1">
+                            <FieldLegend variant="label">الخصوصية</FieldLegend>
+                            <ToggleGroup
+                              variant="outline"
+                              spacing={2}
+                              value={[draft.privacy]}
+                              aria-label="الخصوصية"
+                              className="flex-wrap"
+                              onValueChange={(values) => {
+                                const privacy = values[0];
+                                if (
+                                  privacy === "public" ||
+                                  privacy === "private" ||
+                                  privacy === "all"
+                                )
+                                  setDraft({ ...draft, privacy });
+                              }}
+                            >
+                              <ToggleGroupItem value="public">العامة فقط</ToggleGroupItem>
+                              <ToggleGroupItem value="all">العامة والخاصة</ToggleGroupItem>
+                              <ToggleGroupItem value="private">الخاصة فقط</ToggleGroupItem>
+                            </ToggleGroup>
+                          </FieldSet>
+                        )}
+                        <FieldSet className="min-w-0 gap-3 md:flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <FieldLegend variant="label">سنوات الإصدار</FieldLegend>
+                            <span className="text-sm text-muted-foreground" dir="ltr">
+                              {years[0]} – {years[1]}
+                            </span>
+                          </div>
+                          <Field>
+                            <Slider
+                              aria-label="سنوات الإصدار"
+                              min={yearMin}
+                              max={yearMax}
+                              step={1}
+                              value={years}
+                              onValueChange={(next) => {
+                                if (!Array.isArray(next)) return;
+                                setDraft({
+                                  ...draft,
+                                  from: next[0] === yearMin ? "" : String(next[0]),
+                                  to: next[1] === yearMax ? "" : String(next[1]),
+                                });
+                              }}
+                            />
+                          </Field>
                         </FieldSet>
-                      )}
-                      <FieldSet className="min-w-0 gap-3 md:flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <FieldLegend variant="label">سنوات الإصدار</FieldLegend>
-                          <span className="text-sm text-muted-foreground" dir="ltr">
-                            {years[0]} – {years[1]}
-                          </span>
-                        </div>
-                        <Field>
-                          <Slider
-                            aria-label="سنوات الإصدار"
-                            min={yearMin}
-                            max={yearMax}
-                            step={1}
-                            value={years}
-                            onValueChange={(next) => {
-                              if (!Array.isArray(next)) return;
-                              setDraft({
-                                ...draft,
-                                from: next[0] === yearMin ? "" : String(next[0]),
-                                to: next[1] === yearMax ? "" : String(next[1]),
-                              });
-                            }}
-                          />
-                        </Field>
-                      </FieldSet>
-                    </FieldGroup>
-                  )}
-                  {item.key === "scores" && (
-                    <ScoreFilters value={draft.filters} onChange={changeFilters} />
-                  )}
-                  {options.data && (
-                    <FilterFacets
-                      groups={categoryGroups(item)}
-                      compact={item.key === "basics"}
-                      family={item.key === "family"}
-                      filters={draft.filters}
-                      onChange={changeFilters}
-                      search={categoryMatches(item) ? "" : search}
-                      locked={locked}
-                    />
-                  )}
-                </FieldGroup>
-              </section>
-            ))}
+                      </FieldGroup>
+                    )}
+                    {item.key === "scores" && (
+                      <ScoreFilters value={draft.filters} onChange={changeFilters} />
+                    )}
+                    {options.data && (
+                      <FilterFacets
+                        groups={categoryGroups(item)}
+                        compact={item.key === "basics"}
+                        family={item.key === "family"}
+                        filters={draft.filters}
+                        onChange={changeFilters}
+                        search={categoryMatches(item) ? "" : search}
+                        locked={locked}
+                      />
+                    )}
+                  </FieldGroup>
+                </section>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-      <Separator />
-      <DrawerFooter className="gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-        {refinementCount(draft, locked) > 0 && (
-          <Collapsible>
-            <div className="flex items-center justify-center gap-3">
-              <CollapsibleTrigger render={<Button variant="secondary" size="sm" />}>
-                مراجعة الاختيارات ({refinementCount(draft, locked)})
-              </CollapsibleTrigger>
-              <div
-                className="flex min-w-0 flex-1 flex-col gap-1 text-start"
-                role="status"
-                aria-live="polite"
+        <Separator />
+        <DrawerFooter className="px-4 py-3 sm:px-5">
+          <Collapsible className="w-full">
+            <p
+              role="status"
+              className={invalid || preview.error ? "pb-2 text-xs text-destructive" : "sr-only"}
+            >
+              {invalid ||
+                (preview.error
+                  ? "تعذّرت معاينة العدد؛ يمكنك تطبيق التصفية."
+                  : total === undefined
+                    ? "جارٍ حساب النتائج…"
+                    : `عدد النتائج المطابقة: ${total}`)}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {selectionCount > 0 && (
+                <CollapsibleTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={`مراجعة الاختيارات (${selectionCount})`}
+                      title="مراجعة الاختيارات"
+                    />
+                  }
+                >
+                  <ListFilter aria-hidden="true" />
+                </CollapsibleTrigger>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setDraft({ ...resetRefinements(locked), sort: draft.sort, group: draft.group })
+                }
               >
-                {invalid ? (
-                  <p id="year-error">{invalid}</p>
-                ) : (
-                  <p>
-                    {pending || preview.isPending
-                      ? "جارٍ حساب النتائج…"
-                      : preview.error
-                        ? "تعذّرت معاينة العدد؛ يمكنك تطبيق المرشحات."
-                        : `${preview.data?.total ?? "…"} نتيجة مطابقة`}
-                  </p>
+                مسح التصفية
+              </Button>
+              <DrawerClose render={<Button variant="outline" size="sm" className="ms-auto" />}>
+                إلغاء
+              </DrawerClose>
+              <Button size="sm" disabled={Boolean(invalid)} onClick={() => onApply(draft)}>
+                تطبيق التصفية
+                {total !== undefined && (
+                  <span className="tabular-nums" aria-hidden="true">
+                    · {total}
+                  </span>
                 )}
-              </div>
+              </Button>
             </div>
-            <CollapsibleContent className="max-h-28 overflow-y-auto pt-3">
+            <CollapsibleContent className="mt-2 max-h-28 overflow-y-auto">
               <AppliedFilters
                 value={draft}
                 options={options.data}
@@ -453,24 +506,8 @@ export function FilterDrawer({
               />
             </CollapsibleContent>
           </Collapsible>
-        )}
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            onClick={() =>
-              setDraft({ ...resetRefinements(locked), sort: draft.sort, group: draft.group })
-            }
-          >
-            مسح كل المرشحات
-          </Button>
-
-          <DrawerClose render={<Button variant="outline" />}>إلغاء</DrawerClose>
-          <Button size="lg" disabled={Boolean(invalid)} onClick={() => onApply(draft)}>
-            تطبيق المرشحات
-            {!pending && !preview.error && preview.data ? ` · ${preview.data.total}` : ""}
-          </Button>
-        </div>
-      </DrawerFooter>
+        </DrawerFooter>
+      </div>
     </DrawerContent>
   );
 }

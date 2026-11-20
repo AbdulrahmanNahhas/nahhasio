@@ -146,16 +146,23 @@ system fields.
 
 ### Current behavior
 
-- A compact RTL toolbar provides Animated/Live Action and viewing-state selections, sorting,
-  a dedicated Search-page button, filters, display preferences and built-in Browse templates.
-  Toolbar selections and drawer selections share the same server filters.
-- The filter drawer uses horizontal sections and compact include → exclude → clear chips.
+- Browse has an inline title search over the full filtered result set. The RTL toolbar offers
+  a library category dropdown, viewing state, sorting, grouping, advanced filters, display preferences
+  and a works/installments toggle. Search and filters use server pagination.
+  The table title, release date and score headers toggle the same server-side sort as the toolbar.
+  The results page shows up to three active filter chips before a disclosure for the rest.
+- The left-side filter drawer uses scrollable sections with jump buttons and compact
+  include → exclude → clear chips. Search and result-count actions stay visible.
   Search matches Arabic/English names, slugs and aliases through an explicit public-field
   allowlist. Fixed choices remain available at zero matches. Large groups reveal more options
-  incrementally; selection order stays stable.
-- Release and library filters share a section. Privacy and a year range slider sit together.
-  Audience/age and colored content-risk groups use their reviewed compact arrangement.
-  The content-warning-presence filter is hidden from the picker.
+  incrementally and preserve their selection order. Available Arabic labels and aliases take
+  precedence in filter options.
+- My Library comes first with watch status and favorites. Release and Playback groups release
+  availability, server video files, and playback policy. Release Details contains privacy and
+  the year range. Release type distinguishes seasons and standalone releases in installments view.
+  The Apply button carries the preview total. Audience/age and colored content-risk groups keep
+  their compact arrangement. Legacy dub languages and content-warning presence are hidden from
+  the picker. Existing legacy selections remain removable from the applied chips.
 - Overall rating uses a two-handle range slider. Six independent criterion sliders retain
   minimum thresholds, individual resets and a shared reset. All thresholds use 0.1 precision.
 - Work status uses completed, ongoing, upcoming and unknown; installment status retains airing.
@@ -165,14 +172,23 @@ system fields.
 - Studio grouping uses one primary animation studio, or a primary production company when
   no primary animation studio is recorded. Supporting studios and distributors do not create
   extra groups; the studio filter still searches all credited organizations.
-- Display has layout tiles, contextual setting rows, immediate switches, a table-column picker,
-  Arabic/English/both title choices, thumbnails and row density. Added preferences are optional
-  in both TypeScript and native Rust so previous documents remain readable. Defaults retain
-  the prior presentation. Preferences remain device-local and scoped by server/account.
+- The display drawer offers poster, banner, logo and table views. Card titles, metadata,
+  ratings and release badges are independent switches. Cards and tables each use one title
+  language, with Arabic selected by default. Banners place enabled text over their artwork
+  and the table has individually selectable columns, thumbnails and density. Older preferences
+  remain readable. Card layouts start with medium posters without overlays, compact banners
+  with all details and Arabic titles, or large frameless logos without overlays. Each layout
+  remembers its settings across switches and reloads. Reset restores the defaults for every layout. The drawer initially focuses the active layout.
+  Use horizontal arrows inside choices, vertical arrows between controls, and Enter to activate.
+  Preferences are device-local and scoped by server/account.
+- Browse has a confirmed manual watched action at work or installment scope that preserves
+  playback progress. The action appears as a text button in the optional table watch-status
+  column and as a toggleable icon on cards. Card focus and hover retain the watch-state colors
+  when the icon is hidden. Season posters show episode count and omit per-episode runtime.
 - Browse templates are fixed product definitions in `browse-templates.ts`, not user-editable
-  saved views. Applying a template replaces search/filter/sort/group/display choices while
-  retaining privacy and the current route's locked facet. Earlier saved-view documents are
-  preserved but no longer exposed as editable shortcuts.
+  saved views. Changing category keeps the search, compatible refinements and presentation.
+  The selected category defines its fixed facets, which the filter drawer describes alongside
+  the available refinements. Earlier saved-view documents remain readable.
 - Draft Apply, Cancel/Escape, focus restoration, a debounced result count and server pagination
   remain in place. Schema and live catalog records are unchanged.
 

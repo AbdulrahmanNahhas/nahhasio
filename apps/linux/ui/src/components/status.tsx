@@ -20,7 +20,7 @@ export function Failure({ error, retry }: { error: Error; retry?: () => void }) 
 
 export function NoResults({
   title = "لا توجد أعمال مطابقة",
-  description = "غيّر البحث أو المرشحات لتوسيع النتائج.",
+  description = "غيّر البحث أو التصفية لتوسيع النتائج.",
 }: {
   title?: string;
   description?: string;

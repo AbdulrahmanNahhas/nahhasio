@@ -20,7 +20,7 @@ export const libraryPages = [
   {
     path: "browse",
     label: "تصفّح المكتبة",
-    description: "الأعمال والمرشحات وعروض التصفح",
+    description: "الأعمال والتصفية وعروض التصفح",
     icon: Compass,
   },
   {

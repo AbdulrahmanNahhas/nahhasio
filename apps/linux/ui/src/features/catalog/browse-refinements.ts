@@ -1,7 +1,7 @@
 import type { BrowseFilters, CatalogEntry, FacetCatalog } from "@nahhasio/api-contract";
 
 import type { CatalogQuery } from "../../lib/bridge";
-import { criteria, emptyFilters, filterCount, optionLabel } from "./filter-model";
+import { criteria, emptyFilters, facetOptionLabel, filterCount, optionLabel } from "./filter-model";
 
 export const sortChoices = [
   {
@@ -12,7 +12,9 @@ export const sortChoices = [
   { value: "year-desc", label: "الأحدث إصدارًا", description: "الإصدارات الأحدث أولًا" },
   { value: "year-asc", label: "الأقدم إصدارًا", description: "من البداية إلى اليوم" },
   { value: "score-desc", label: "الأعلى تقييمًا", description: "حسب تقييم المكتبة المحسوب" },
+  { value: "score-asc", label: "الأقل تقييمًا", description: "من أقل تقييم إلى الأعلى" },
   { value: "title", label: "الاسم", description: "ترتيب أبجدي للعناوين" },
+  { value: "title-desc", label: "الاسم عكسيًا", description: "ترتيب أبجدي عكسي للعناوين" },
   { value: "updated-desc", label: "آخر تحديث", description: "الأعمال التي تغيّرت مؤخرًا" },
   { value: "added-desc", label: "آخر إضافة", description: "الأعمال الأحدث في المكتبة" },
 ] as const;
@@ -142,18 +144,13 @@ export function groupTitle(group: BrowseGroup, key: string, options?: FacetCatal
         country: "دون بلد",
         studio: "دون استوديو",
       }[group];
-    return (
-      options?.groups
-        .find((facet) => facet.key === facets[group])
-        ?.options.find((option) => option.value === key)?.label ?? "جارٍ تحميل اسم المجموعة…"
-    );
+    const option = options?.groups
+      .find((facet) => facet.key === facets[group])
+      ?.options.find((item) => item.value === key);
+    return facetOptionLabel(key, option?.label ?? "") || "مجموعة غير معروفة";
   }
   if (group === "format") return key === "animated" ? "رسوم متحركة" : "تمثيل حي";
   return optionLabel(key, key === "unknown" ? "غير معروف" : key);
-}
-
-export function groupLabel(value: BrowseGroup, item: CatalogEntry) {
-  return groupTitle(value, groupKey(value, item));
 }
 
 export function scoreLabel(key: string) {

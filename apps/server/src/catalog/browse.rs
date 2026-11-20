@@ -107,9 +107,11 @@ impl Input {
         }
         let order = match self.sort.as_deref().unwrap_or("year-desc") {
             "title" => "sort_title,id,unit_id",
+            "title-desc" => "sort_title desc,id,unit_id",
             "year-desc" => "release_sort desc nulls last,sort_title,id,unit_id",
             "year-asc" => "release_sort asc nulls last,sort_title,id,unit_id",
             "score-desc" => "rating desc nulls last,sort_title,id,unit_id",
+            "score-asc" => "rating asc nulls last,sort_title,id,unit_id",
             "updated-desc" => "updated_at desc,id,unit_id",
             "latest-released-desc" => "latest_released_sort desc nulls last,sort_title,id,unit_id",
             "added-desc" => "created_at desc,id,unit_id",
@@ -374,7 +376,39 @@ fn entity_artwork() -> &'static str {
 fn options_sql(is_admin: bool) -> String {
     let base = base(is_admin, Projection::Facets);
     let groups=facets().iter().map(|(key,label,_)|format!("select '{key}' key,'{label}' label,value,count(*)::bigint count from base cross join lateral jsonb_array_elements_text(facts->'{key}') v(value) group by value")).collect::<Vec<_>>().join(" union all ");
-    let labels = r#"case when key in('genres','tones','tags','countries') then coalesce((select coalesce(label_ar,label_en) from (select 'genres' vocab,slug,label_ar,label_en from genres union all select 'tones',slug,label_ar,label_en from tones union all select 'tags',slug,label_ar,label_en from tags union all select 'countries',slug,label_ar,label_en from countries) vocabulary where vocab=key and slug=value limit 1),value) when key in('contributors','studios') then coalesce((select name from entities where id::text=value),value) when key='contributionRoles' then coalesce((select coalesce(nullif(label_ar,''),label_en) from roles where slug=value limit 1),value) when key='planets' then coalesce((select icon||' '||name_ar from planets where slug=value),value) else value end"#;
+    let labels = r#"case
+when key in ('genres','tones','tags','countries') then coalesce((
+  select coalesce(nullif(btrim(label_ar),''),label_en)
+  from (select 'genres' vocab,slug,label_ar,label_en from genres
+        union all select 'tones',slug,label_ar,label_en from tones
+        union all select 'tags',slug,label_ar,label_en from tags
+        union all select 'countries',slug,label_ar,label_en from countries) vocabulary
+  where vocab=key and slug=value limit 1
+),value)
+when key in ('contributors','studios') then coalesce((
+  select case when e.name ~ '[ء-ي]' then e.name else coalesce((
+    select ea.alias from entity_aliases ea
+    where ea.entity_id=e.id and ea.alias ~ '[ء-ي]'
+    order by (coalesce(ea.language,'') = 'ar' or coalesce(ea.language,'') like 'ar-%') desc, ea.alias, ea.id
+    limit 1
+  ),e.name) end from entities e where e.id::text=value
+),value)
+when key='awardPrograms' then coalesce((
+  select nullif(btrim(name_ar),'') from award_organizations where slug=value
+),value)
+when key='awardCategories' then coalesce((
+  select min(nullif(btrim(name_ar),'')) from award_categories
+  where lower(name_en)=lower(value) or name_ar=value or slug=value
+  having count(distinct nullif(btrim(name_ar),''))=1
+),value)
+when key='contributionRoles' then coalesce((
+  select coalesce(nullif(btrim(label_ar),''),label_en) from roles where slug=value limit 1
+),value)
+when key='planets' then coalesce((
+  select concat_ws(' ',nullif(icon,''),coalesce(nullif(btrim(name_ar),''),name_en))
+  from planets where slug=value
+),value)
+else value end"#;
     let search_terms = r#"to_jsonb(array[value,display] || case when key in('genres','tones','tags','countries') then array(select concat_ws(' ',label_en,label_ar,slug) from (select 'genres' vocab,slug,label_ar,label_en from genres union all select 'tones',slug,label_ar,label_en from tones union all select 'tags',slug,label_ar,label_en from tags union all select 'countries',slug,label_ar,label_en from countries) v where v.vocab=key and v.slug=value) when key='planets' then array(select concat_ws(' ',name_ar,name_en,slug) from planets where slug=value) when key in('contributors','studios') then array(select concat_ws(' ',name,sort_name) from entities where id::text=value) || array(select alias from entity_aliases where entity_id::text=value) when key='contributionRoles' then array(select concat_ws(' ',slug,label_ar,label_en) from roles where slug=value) when key='awardPrograms' then array(select concat_ws(' ',slug,name_ar,name_en) from award_organizations where slug=value) when key='awardCategories' then array(select concat_ws(' ',slug,name_ar,name_en) from award_categories where name_ar=value or name_en=value or slug=value) else array[]::text[] end)"#;
     let artwork = entity_artwork();
     format!(

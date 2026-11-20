@@ -6,12 +6,13 @@ import type {
 } from "@nahhasio/api-contract";
 import { cn } from "cn";
 import { CalendarDays, Film, Star, Tv } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
+import { CatalogStateBadge } from "./catalog-state-badge";
 import { Badge } from "./ui/badge";
 
 const hoverTilts = [
@@ -50,10 +51,14 @@ export function MediaCard({
   mediaType,
   minimal = false,
   borderless = false,
+  showTitle = true,
   showScore = true,
   showStatus = true,
+  browsePresentation = false,
   showMetadata = true,
   showOriginalTitle = false,
+  titleLanguage = "arabic",
+  action,
   withinWork = false,
 }: {
   work?: WorkSummary;
@@ -64,10 +69,14 @@ export function MediaCard({
   mediaType?: "movies" | "series";
   minimal?: boolean;
   borderless?: boolean;
+  showTitle?: boolean;
   showScore?: boolean;
   showStatus?: boolean;
+  browsePresentation?: boolean;
   showMetadata?: boolean;
   showOriginalTitle?: boolean;
+  titleLanguage?: "arabic" | "english";
+  action?: ReactNode;
   withinWork?: boolean;
 }) {
   const navigation = useCardNavigation();
@@ -80,11 +89,12 @@ export function MediaCard({
   const title = unit?.title ?? (parent?.titleAr || parent?.canonicalTitle || "");
   const poster = unit?.poster ?? parent?.poster;
   const bareLogo = borderless && layout === "logo";
+  const landscape = browsePresentation && layout === "banner";
   const image =
     layout === "banner"
       ? (parent?.banner ?? poster)
       : layout === "logo"
-        ? bareLogo && minimal
+        ? bareLogo && (minimal || browsePresentation)
           ? parent?.logo
           : (parent?.logo ?? poster)
         : poster;
@@ -94,6 +104,13 @@ export function MediaCard({
   const watched = entry?.watchState === "watched";
   const watching = entry?.watchState === "in-progress";
   const status = entry?.status ?? (installment ? "announced" : null);
+  const visibleStatus =
+    !minimal &&
+    showStatus &&
+    status &&
+    (browsePresentation || ["announced", "airing", "ongoing"].includes(status))
+      ? status
+      : undefined;
   const kind = unit
     ? unit.kind === "season"
       ? "موسم"
@@ -107,24 +124,94 @@ export function MediaCard({
         : parent?.format === "animated"
           ? "رسوم متحركة"
           : "تمثيل حي";
+  const episodeCount =
+    browsePresentation && unit?.kind === "season" && unit.episodeCount > 0
+      ? `${unit.episodeCount} حلقة`
+      : "";
   const detail = unit
-    ? unit.runtimeMinutes
-      ? `${unit.runtimeMinutes} دقيقة`
-      : unit.episodeCount
-        ? `${unit.episodeCount} حلقة`
-        : ""
+    ? episodeCount && layout === "poster"
+      ? ""
+      : unit.runtimeMinutes
+        ? episodeCount
+          ? `${unit.runtimeMinutes} دقيقة للحلقة`
+          : `${unit.runtimeMinutes} دقيقة`
+        : !episodeCount && unit.episodeCount
+          ? `${unit.episodeCount} حلقة`
+          : ""
     : kind;
   const caption =
     unit?.kind === "season" && !withinWork
       ? parent?.titleAr || unit.workTitleAr || parent?.canonicalTitle || unit.workTitle || title
       : title;
-  const installmentLabel = unit && title !== caption ? title : "";
+  const displayCaption =
+    titleLanguage === "english" ? parent?.canonicalTitle || unit?.workTitle || caption : caption;
+  const logoFallbackTitle = browsePresentation ? displayCaption : title;
+  const installmentLabel = unit && title !== caption && titleLanguage === "arabic" ? title : "";
+  const originalCaption =
+    showOriginalTitle && !withinWork && parent?.canonicalTitle !== caption
+      ? parent?.canonicalTitle
+      : undefined;
+  const KindIcon = unit?.kind === "season" || mediaType === "series" ? Tv : Film;
+  const showDetails = !minimal && (showTitle || (showMetadata && (year || episodeCount || detail)));
+  const details = showDetails && (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-1",
+        landscape ? "pointer-events-none absolute inset-x-0 bottom-0 px-3 pb-3 sm:px-4" : "px-0.5",
+        landscape && visibleStatus && "pb-5",
+      )}
+    >
+      {showTitle && (
+        <h3
+          className={cn(
+            "line-clamp-2 text-right text-sm leading-snug font-semibold sm:text-base",
+            landscape && "sm:text-lg",
+          )}
+          dir="auto"
+        >
+          {displayCaption}
+        </h3>
+      )}
+      {showTitle && originalCaption && (
+        <p
+          className="truncate text-right text-xs text-muted-foreground"
+          dir="auto"
+          title={originalCaption}
+        >
+          {originalCaption}
+        </p>
+      )}
+      {showTitle && installmentLabel && (
+        <p className="line-clamp-1 text-sm text-muted-foreground" dir="auto" title={title}>
+          {installmentLabel}
+        </p>
+      )}
+      {showMetadata && (year || episodeCount || detail) && (
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          {year && <span className="shrink-0">{year}</span>}
+          {year && (episodeCount || detail) && <span aria-hidden="true">·</span>}
+          {episodeCount && (
+            <>
+              <KindIcon className="size-3.5 shrink-0" aria-hidden="true" />
+              <span className="shrink-0">{episodeCount}</span>
+              {detail && <span aria-hidden="true">·</span>}
+            </>
+          )}
+          {detail && (
+            <>
+              {!episodeCount && <KindIcon className="size-3.5 shrink-0" aria-hidden="true" />}
+              <span>{detail}</span>
+            </>
+          )}
+        </span>
+      )}
+    </div>
+  );
   function chooseTilt() {
     // Randomize once per interaction, outside React's replayable state updater.
     const alternatives = hoverTilts.filter((tilt) => tilt !== hoverTilt);
     setHoverTilt(alternatives[Math.floor(Math.random() * alternatives.length)]);
   }
-  const KindIcon = unit?.kind === "season" || mediaType === "series" ? Tv : Film;
 
   return (
     <article
@@ -137,7 +224,10 @@ export function MediaCard({
         {...navigation}
         href={workLink(workId, unit?.id)}
         aria-label={`تفاصيل ${caption}${unit && title !== caption ? ` · ${title}` : ""}`}
-        className="group/card flex flex-col gap-3 rounded-2xl text-foreground focus-visible:outline-none"
+        className={cn(
+          "group/card flex flex-col gap-3 rounded-2xl text-foreground focus-visible:outline-none",
+          browsePresentation && visibleStatus && "pb-3",
+        )}
         onPointerEnter={(event) => {
           if (event.pointerType === "mouse" || event.pointerType === "pen") {
             chooseTilt();
@@ -159,124 +249,87 @@ export function MediaCard({
             hoverTilt,
             bareLogo
               ? "rounded-none border-0 bg-transparent"
-              : "border border-border bg-card group-hover/card:border-foreground/60 group-hover/card:shadow-xl",
-            watched === true
-              ? "group-focus-visible/card:ring-success"
-              : "group-focus-visible/card:ring-foreground",
+              : "border border-border bg-card group-hover/card:shadow-xl",
+            watched
+              ? "group-focus-visible/card:ring-success group-hover/card:border-success"
+              : watching
+                ? "group-focus-visible/card:ring-warning group-hover/card:border-warning"
+                : "group-focus-visible/card:ring-foreground group-hover/card:border-foreground/60",
           )}
         >
           <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
-            {bareLogo && minimal && !image ? (
+            {bareLogo && (minimal || browsePresentation) && !image ? (
               <span
                 className="flex size-full items-center justify-center text-center font-display text-lg font-semibold"
                 dir="auto"
               >
-                {title}
+                {logoFallbackTitle}
               </span>
             ) : (
               <Artwork
                 id={image?.id}
                 alt=""
-                transparentFallback={bareLogo && minimal}
+                transparentFallback={bareLogo && (minimal || browsePresentation)}
                 fallback={
-                  bareLogo && minimal ? (
+                  bareLogo && (minimal || browsePresentation) ? (
                     <span className="font-display text-lg font-semibold" dir="auto">
-                      {title}
+                      {logoFallbackTitle}
+                    </span>
+                  ) : browsePresentation && !showTitle ? (
+                    <span className="px-3 text-center font-display font-semibold" dir="auto">
+                      {displayCaption}
+                      {installmentLabel && ` · ${installmentLabel}`}
                     </span>
                   ) : undefined
                 }
                 className={cn(
                   "block size-full object-cover",
+                  landscape && !parent?.banner && "object-contain",
                   layout === "logo" &&
                     parent?.logo &&
-                    (bareLogo && minimal ? "object-contain" : "object-contain p-6"),
+                    (bareLogo && (minimal || browsePresentation)
+                      ? "object-contain"
+                      : "object-contain p-6"),
                 )}
               />
             )}
           </span>
+          {landscape && details && (
+            <>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-[inherit] bg-linear-to-tl from-background via-background/45 to-transparent"
+              />
+              {details}
+            </>
+          )}
           {!minimal && showScore && score?.rating != null && (
-            <span
-              className={cn(
-                "absolute inset-s-0 top-0 flex items-center min-w-12 justify-items-center gap-0.5 rounded-ss-2xl rounded-ee-xl bg-muted px-2.5 py-2 text-primary-foreground shadow-sm",
-                !minimal && watched && "bg-green-700!",
-                !minimal && watching && "bg-blue-500!",
-              )}
-              title={`التقييم المحسوب · ${score.scored} من ${score.total} أجزاء مقيّمة`}
-            >
-              <Star className="size-4 fill-current" aria-hidden="true" />
-              <span className="text-base leading-none font-bold" dir="ltr">
-                {score.rating.toFixed(1)}
-              </span>
+            <span className="absolute inset-s-2 top-2">
+              <ScoreBadge score={score} />
             </span>
           )}
           {!minimal && parent?.isPrivate && (
-            <span className="absolute inset-e-2.5 top-1">
+            <span className={cn("absolute inset-e-2 top-2", action && "top-12")}>
               <Badge variant="secondary">خاص</Badge>
             </span>
           )}
-          {!minimal &&
-            showStatus &&
-            (status === "announced" || status === "airing" || status === "ongoing") && ( // || status !== "completed"??
-              <span className="absolute left-1/2 -translate-x-1/2 -bottom-3">
-                <Badge variant="outline" className="mb-1 rounded-full px-2 bg-accent">
-                  {/*{status === "completed" ? (
-                    <CheckIcon data-icon="inline-start" />
-                  ) : (*/}
+          {visibleStatus &&
+            (browsePresentation ? (
+              <span className="absolute inset-x-1 bottom-0 flex translate-y-1/2 justify-center">
+                <CatalogStateBadge value={visibleStatus} />
+              </span>
+            ) : (
+              <span className="absolute inset-x-2 bottom-2 flex justify-center">
+                <Badge variant="secondary">
                   <CalendarDays data-icon="inline-start" />
-                  {/*// )}*/}
-                  {optionLabel(status, status)}
+                  {optionLabel(visibleStatus, visibleStatus)}
                 </Badge>
               </span>
-            )}
+            ))}
         </span>
-        {!minimal && (
-          <div className="flex min-w-0 flex-col gap-px px-0.5">
-            <h3
-              className="line-clamp-2 text-right text-sm leading-relaxed font-semibold transition-colors group-focus-visible/card:text-primary sm:text-base motion-reduce:transition-none"
-              dir="auto"
-            >
-              {caption}
-            </h3>
-            {showOriginalTitle &&
-              !withinWork &&
-              parent?.canonicalTitle &&
-              parent.canonicalTitle !== caption && (
-                <p
-                  className="truncate text-right text-xs leading-relaxed text-muted-foreground"
-                  dir="auto"
-                  title={parent.canonicalTitle}
-                >
-                  {parent.canonicalTitle}
-                </p>
-              )}
-            {installmentLabel && (
-              <p
-                className="line-clamp-2 text-sm leading-relaxed text-muted-foreground"
-                dir="auto"
-                title={title}
-              >
-                {installmentLabel}
-              </p>
-            )}
-            {showMetadata && (year || detail) && (
-              <span className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                {showMetadata && year && (
-                  <>
-                    <span className="shrink-0">{year}</span>
-                    {detail && <span aria-hidden="true">·</span>}
-                  </>
-                )}
-                {showMetadata && detail && (
-                  <>
-                    <KindIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="shrink-0">{detail}</span>
-                  </>
-                )}
-              </span>
-            )}
-          </div>
-        )}
+        {!landscape && details}
       </a>
+      {action && <div className="absolute inset-e-2 top-2">{action}</div>}
     </article>
   );
 }

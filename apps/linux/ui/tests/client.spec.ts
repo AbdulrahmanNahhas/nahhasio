@@ -749,10 +749,10 @@ async function browse(page: Page) {
   await expect(page.getByRole("heading", { name: "تصفّح المكتبة" })).toBeVisible();
 }
 async function openFilters(page: Page) {
-  await page.getByRole("button", { name: /^المرشحات/ }).click();
-  const sheet = page.getByRole("dialog", { name: "مرشحات المكتبة" });
+  await page.getByRole("button", { name: /^تصفية النتائج/ }).click();
+  const sheet = page.getByRole("dialog", { name: "تصفية النتائج" });
   await expect(sheet).toBeVisible();
-  await sheet.getByRole("button", { name: "الإصدار ومكتبتي", exact: true }).click();
+  await sheet.getByRole("button", { name: "تفاصيل الإصدار", exact: true }).click();
   return sheet;
 }
 function latestRow(page: Page) {
@@ -854,16 +854,16 @@ test("planet navigation, private opt-in and native keyboard links", async ({ pag
   let dialog = await openFilters(page);
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
   await expect(page).not.toHaveURL(/privacy=all/);
-  await expect(dialog.getByText("3 نتيجة مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await expect(dialog.getByRole("button", { name: /^تطبيق التصفية/ })).toContainText("· 3");
+  await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل عمل خاص" })).toBeVisible();
   dialog = await openFilters(page);
-  await dialog.getByRole("button", { name: "مسح كل المرشحات" }).click();
+  await dialog.getByRole("button", { name: "مسح التصفية" }).click();
   await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
   const live = dialog.getByRole("button", { name: /^تمثيل حي،/ });
   await live.click();
-  await expect(dialog.getByText("1 نتيجة مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await expect(dialog.getByRole("button", { name: /^تطبيق التصفية/ })).toContainText("· 1");
+  await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toBeVisible();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" })).toHaveCount(0);
   dialog = await openFilters(page);
@@ -873,7 +873,7 @@ test("planet navigation, private opt-in and native keyboard links", async ({ pag
     "aria-pressed",
     "mixed",
   );
-  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" })).toBeVisible();
   await expect(page.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toHaveCount(0);
 });
@@ -918,7 +918,7 @@ test("filter preview stays bounded and draft privacy reloads vocabulary", async 
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
   await dialog.getByRole("button", { name: "التصنيف", exact: true }).click();
   await expect(dialog.getByRole("button", { name: /^كوكب خاص،/ })).toBeVisible();
-  await expect(dialog.getByText("3 نتيجة مطابقة", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /^تطبيق التصفية/ })).toContainText("· 3");
   expect(requests.length).toBeGreaterThan(0);
   expect(requests.every((request) => request === "preview-fixture:1:1")).toBe(true);
   await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
@@ -933,23 +933,23 @@ test("filter drafts cancel without changing the URL and reset applies atomically
   const initial = page.url();
   let dialog = await openFilters(page);
   await dialog.getByRole("button", { name: /^مكتمل،/ }).click();
-  await expect(dialog.getByText("2 نتيجة مطابقة", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /^تطبيق التصفية/ })).toContainText("· 2");
   expect(page.url()).toBe(initial);
   await dialog.getByRole("button", { name: "إلغاء", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^المرشحات/ })).toBeFocused();
+  await expect(page.getByRole("button", { name: /^تصفية النتائج/ })).toBeFocused();
   dialog = await openFilters(page);
   await expect(dialog.getByRole("button", { name: /^مكتمل،/ })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
   await dialog.getByRole("button", { name: "العامة والخاصة", exact: true }).click();
-  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
   await expect(page).toHaveURL(/privacy=all/);
   await expect(page.getByRole("link", { name: "تفاصيل عمل خاص", exact: true })).toBeVisible();
   dialog = await openFilters(page);
-  await dialog.getByRole("button", { name: "مسح كل المرشحات" }).click();
+  await dialog.getByRole("button", { name: "مسح التصفية" }).click();
   await expect(page).toHaveURL(/privacy=all/);
-  await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+  await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
   await expect(page).not.toHaveURL(/privacy=/);
   await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
 });
@@ -962,12 +962,12 @@ for (const width of [480, 1440]) {
     await login(page);
     await browse(page);
     const dialog = await openFilters(page);
-    await dialog.getByLabel("ابحث في المرشحات").fill("تمثيل حي");
+    await dialog.getByLabel("ابحث في خيارات التصفية").fill("تمثيل حي");
     const live = dialog.getByRole("button", { name: /^تمثيل حي،/ });
     await live.focus();
     await page.keyboard.press("Space");
     await expect(live).toHaveAttribute("aria-pressed", "true");
-    await expect(dialog.getByText("1 نتيجة مطابقة", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /^تطبيق التصفية/ })).toContainText("· 1");
     const bounds = await dialog.boundingBox();
     expect(bounds!.width).toBeLessThanOrEqual(width);
     expect(bounds!.y).toBeGreaterThanOrEqual(0);
@@ -975,15 +975,13 @@ for (const width of [480, 1440]) {
       false,
     );
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: /^المرشحات/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: /^تصفية النتائج/ })).toBeFocused();
     await page.getByRole("combobox", { name: "ترتيب النتائج", exact: true }).click();
     await page.getByRole("option", { name: "الأعلى تقييمًا", exact: true }).click();
     await expect(page).toHaveURL(/sort=score-desc/);
-    await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
     await page.getByRole("combobox", { name: "تجميع النتائج", exact: true }).click();
     await page.getByRole("option", { name: "حالة الإصدار", exact: true }).click();
     await expect(page).toHaveURL(/group=status/);
-    await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "مكتمل", exact: true })).toBeVisible();
     await page.reload();
     await login(page, false);
@@ -1064,7 +1062,7 @@ for (const width of [480, 1440]) {
         "aria-pressed",
         "true",
       );
-      await dialog.getByRole("button", { name: /^تطبيق المرشحات/ }).click();
+      await dialog.getByRole("button", { name: /^تطبيق التصفية/ }).click();
       await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
       expect(cspErrors).toEqual([]);
     },
@@ -1471,7 +1469,9 @@ for (const width of [480, 1440]) {
 }
 
 for (const width of [480, 1440]) {
-  test(`card display settings ${width}: layouts, size, minimal and reset`, async ({ page }) => {
+  test(`card display settings ${width}: layouts, size, artwork-only and reset`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
     await expect(
@@ -1500,18 +1500,27 @@ for (const width of [480, 1440]) {
     const borderless = page.getByRole("switch", { name: "شعارات دون إطار", exact: true });
     await borderless.click();
     await expect(borderless).toBeChecked();
-    await page.getByRole("button", { name: "شعار فقط", exact: true }).click();
+    const titleSwitch = page.getByRole("switch", { name: "العناوين", exact: true });
+    if (await titleSwitch.isChecked()) await titleSwitch.click();
+    const display = page.getByRole("button", { name: "خيارات العرض", exact: true });
+    await page.keyboard.press("Escape");
+    await expect(display).toBeFocused();
     await expect(cards.getByRole("heading")).toHaveCount(0);
     await expect(cards.getByRole("link")).toHaveCount(2);
+    await display.click();
     await page.getByRole("button", { name: "استعادة العرض الافتراضي" }).click();
     await expect(cards.first()).toHaveAttribute("data-layout", "poster");
-    await expect(cards.getByRole("heading")).toHaveCount(2);
+    const titles = page.getByRole("switch", { name: "العناوين", exact: true });
+    await expect(titles).not.toBeChecked();
+    await titles.click();
     await page.keyboard.press("Escape");
+    await expect(cards.getByRole("heading")).toHaveCount(2);
     await cards.first().getByRole("link").focus();
     if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
       await page.screenshot({ path: `test-results/card-refinement-${width}.png` });
     await page.getByRole("button", { name: "خيارات العرض", exact: true }).click();
     await page.getByRole("button", { name: "جدول", exact: true }).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("table")).toBeVisible();
   });
 }

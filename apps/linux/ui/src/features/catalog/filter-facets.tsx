@@ -3,8 +3,10 @@ import { cn } from "cn";
 import {
   Check,
   ChevronDown,
+  Eye,
   LockKeyhole,
   Minus,
+  Play,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -19,7 +21,12 @@ import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 
 import { withPreset } from "./browse-refinements";
-import { facetMatches, normalizeFacetSearch, optionLabel, setFacetSelection } from "./filter-model";
+import {
+  facetMatches,
+  normalizeFacetSearch,
+  facetOptionLabel,
+  setFacetSelection,
+} from "./filter-model";
 
 type Props = {
   groups: FacetCatalog["groups"];
@@ -30,6 +37,12 @@ type Props = {
   family?: boolean;
   locked?: { key: string; value: string };
 };
+const watchAppearances = new Map([
+  ["unwatched", { icon: Eye, color: "text-muted-foreground" }],
+  ["in-progress", { icon: Play, color: "text-warning" }],
+  ["watched", { icon: Check, color: "text-success" }],
+]);
+
 export function FilterFacets({
   groups,
   filters,
@@ -144,8 +157,11 @@ function FacetOptions({
             const fixed = locked?.key === group.key && locked.value === option.value;
             const included = fixed || !!selection?.include.includes(option.value);
             const excluded = !fixed && !!selection?.exclude.includes(option.value);
-            const label = optionLabel(option.value, option.label);
+            const label = facetOptionLabel(option.value, option.label);
             const Icon = fixed ? LockKeyhole : included ? Check : excluded ? Minus : Plus;
+            const watch =
+              group.key === "watchStates" ? watchAppearances.get(option.value) : undefined;
+            const WatchIcon = watch?.icon;
             return (
               <Button
                 key={option.value}
@@ -181,6 +197,12 @@ function FacetOptions({
                     studioLogo={group.key === "studios"}
                     className="size-6 rounded-full object-cover"
                   />
+                ) : WatchIcon ? (
+                  <WatchIcon
+                    data-icon="inline-start"
+                    className={excluded ? undefined : watch?.color}
+                    aria-hidden="true"
+                  />
                 ) : (
                   <Icon data-icon="inline-start" />
                 )}
@@ -204,6 +226,9 @@ function FacetOptions({
                   {label}
                 </span>
                 <span className="text-xs opacity-70">{option.count}</span>
+                {WatchIcon && (fixed || included || excluded) && (
+                  <Icon data-icon="inline-end" aria-hidden="true" />
+                )}
               </Button>
             );
           })}

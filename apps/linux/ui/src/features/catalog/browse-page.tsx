@@ -1,6 +1,6 @@
 import type { CatalogEntry } from "@nahhasio/api-contract";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { SlidersHorizontal, X } from "lucide-react";
+import { hashKey, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useCardNavigation, useLoadMoreNavigation } from "../../components/card-navigation";
@@ -9,8 +9,13 @@ import { Failure, NoResults } from "../../components/status";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Drawer } from "../../components/ui/drawer";
-import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import { Drawer, DrawerTrigger } from "../../components/ui/drawer";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "../../components/ui/input-group";
 import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
@@ -33,10 +38,10 @@ import {
 import type { BrowseRefinements } from "./browse-refinements";
 import { browseGridClass, BrowseResultsSkeleton } from "./browse-results-skeleton";
 import { BrowseTable } from "./browse-table";
-import { BrowseTemplatePicker } from "./browse-template-picker";
-import { browseLibrary, libraryFilters } from "./browse-templates";
+import { browseLibrary, libraryFilters, selectLibrary } from "./browse-templates";
 import { BrowseToolbar } from "./browse-toolbar";
-import { displayDefaults } from "./display-settings";
+import { BrowseWatchButton } from "./browse-watch-button";
+import { displayDefaults, normalizeBrowseDisplay } from "./display-preferences";
 import { FilterDrawer } from "./filter-drawer";
 type BrowseProps = {
   params: URLSearchParams;
@@ -49,7 +54,9 @@ export function BrowsePage(props: BrowseProps) {
   if (preferences.loading)
     return (
       <div className="mx-auto max-w-400 px-10 py-8">
-        <BrowseResultsSkeleton display={preferences.query.data?.display ?? displayDefaults} />
+        <BrowseResultsSkeleton
+          display={normalizeBrowseDisplay(preferences.query.data?.display ?? displayDefaults)}
+        />
       </div>
     );
   const saved = preferences.query.data ?? defaultPreferences;
@@ -103,10 +110,18 @@ function BrowseContent({
         : "public";
   const sort = parseSort(params.get("sort"));
   const q = params.get("q") || "";
+  const searchInput = useRef<HTMLInputElement>(null);
+  const changeSearch = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value);
+    else next.delete("q");
+    replaceParams(path, next);
+  };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersMounted, setFiltersMounted] = useState(false);
   const filterTrigger = useRef<HTMLButtonElement>(null);
-  const display = preferences.display;
+  const filterOpener = useRef<HTMLElement>(null);
+  const display = normalizeBrowseDisplay(preferences.display);
   const setDisplay = (value: typeof display) =>
     onRemember({ ...preferences, search: rememberedSearch(params), display: value });
   const { layout } = display;
@@ -141,9 +156,9 @@ function BrowseContent({
       ["sort", value.sort === "year-desc" ? "" : value.sort],
       ["group", value.group === "none" ? "" : value.group],
     ]);
-  const [debounced, setDebounced] = useState(q);
+  const [debounced, setDebounced] = useState(q.trim());
   useEffect(() => {
-    const timer = setTimeout(() => setDebounced(q), 250);
+    const timer = setTimeout(() => setDebounced(q.trim()), 180);
     return () => clearTimeout(timer);
   }, [q]);
   const query = refinementQuery(
@@ -152,12 +167,18 @@ function BrowseContent({
     debounced,
   );
   const result = useInfiniteQuery({
-    queryKey: ["catalog", "browse", query],
+    queryKey: ["catalog", "browse", query] as const,
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       gateway.browse({ ...query, page: pageParam, pageSize: 30 }, signal),
     getNextPageParam: (page) =>
       page.page * page.pageSize < page.total ? page.page + 1 : undefined,
+    placeholderData: (previousData, previousQuery) =>
+      layout === "table" &&
+      previousQuery &&
+      hashKey([{ ...previousQuery.queryKey[2], sort }]) === hashKey([query])
+        ? previousData
+        : undefined,
   });
   const options = useQuery({
     queryKey: ["catalog", "facets", view, privacy],
@@ -189,10 +210,13 @@ function BrowseContent({
 
   return (
     <Drawer
-      swipeDirection="down"
+      swipeDirection="left"
       open={filtersOpen}
-      onOpenChange={(open) => {
-        if (open) setFiltersMounted(true);
+      onOpenChange={(open, { trigger }) => {
+        if (open) {
+          filterOpener.current = trigger instanceof HTMLElement ? trigger : null;
+          setFiltersMounted(true);
+        }
         setFiltersOpen(open);
       }}
       onOpenChangeComplete={(open) => {
@@ -203,7 +227,7 @@ function BrowseContent({
         className="mx-auto flex w-full max-w-400 flex-col px-4 py-6 sm:px-6 lg:px-10"
         aria-label={title}
       >
-        <header className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl leading-relaxed font-semibold">
               {library.template?.title ?? title}
@@ -217,32 +241,43 @@ function BrowseContent({
                   : "موسم وإصدار"}
             </Badge>
           </div>
-          <ToggleGroup
-            size="sm"
-            variant="outline"
-            spacing={0}
-            value={[view]}
-            onValueChange={(values) => {
-              if (values[0] === "works" || values[0] === "installments")
-                update([["view", values[0]]]);
-            }}
-            aria-label="مستوى عرض الكتالوج"
-          >
-            <ToggleGroupItem value="works">الأعمال</ToggleGroupItem>
-            <ToggleGroupItem value="installments">المواسم والإصدارات</ToggleGroupItem>
-          </ToggleGroup>
+          <InputGroup className="h-11 w-full sm:max-w-md">
+            <InputGroupAddon>
+              <Search aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={searchInput}
+              aria-label="ابحث في النتائج"
+              placeholder="ابحث في النتائج…"
+              value={q}
+              onChange={(event) => changeSearch(event.target.value)}
+            />
+            {q && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  type="button"
+                  size="icon-sm"
+                  aria-label="مسح البحث"
+                  onClick={() => {
+                    changeSearch("");
+                    searchInput.current?.focus();
+                  }}
+                >
+                  <X aria-hidden="true" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
         </header>
-        <div className="mb-4 min-w-0 border-b border-border">
-          <BrowseTemplatePicker
-            search={params.toString()}
-            path={path}
-            onApply={(search) => {
-              onRemember({ ...preferences, search: rememberedSearch(new URLSearchParams(search)) });
-              replaceParams(path, new URLSearchParams(search));
-            }}
-          />
-        </div>
         <BrowseToolbar
+          library={library.template?.id ?? "all"}
+          onLibrary={(value) => {
+            const next = selectLibrary(params, value);
+            onRemember({ ...preferences, search: rememberedSearch(next) });
+            replaceParams(path, next);
+          }}
+          view={view}
+          onView={(value) => update([["view", value]])}
           filters={filters}
           onFacet={(key, value) => {
             const facets = filters.facets.filter((facet) => facet.key !== key);
@@ -268,19 +303,8 @@ function BrowseContent({
             </AlertDescription>
           </Alert>
         )}
-        {q && (
-          <div className="mb-3 flex">
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-label={`مسح البحث: ${q}`}
-              onClick={() => update([["q", ""]])}
-            >
-              <X data-icon="inline-start" /> بحث: {q}
-            </Button>
-          </div>
-        )}
         <AppliedFilters
+          compact
           value={refinements}
           options={options.data}
           locked={preset}
@@ -288,25 +312,30 @@ function BrowseContent({
         />
         {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
         {result.isLoading && <BrowseResultsSkeleton display={display} />}
-        {items.length === 0 && !result.isLoading && !result.error && (
+        {items.length === 0 && q.trim() === debounced && !result.isLoading && !result.error && (
           <div className="flex flex-col items-center gap-4">
-            <NoResults />
+            <NoResults
+              description={
+                debounced
+                  ? "جرّب اسمًا آخر أو أزل نص البحث مع إبقاء التصفية."
+                  : "غيّر فئة المكتبة أو التصفية لتوسيع النتائج."
+              }
+            />
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFiltersMounted(true);
-                  setFiltersOpen(true);
-                }}
-              >
-                <SlidersHorizontal data-icon="inline-start" />
-                تعديل المرشحات
-              </Button>
-              {q && (
-                <Button variant="ghost" onClick={() => update([["q", ""]])}>
-                  مسح البحث
+              {debounced && (
+                <Button
+                  onClick={() => {
+                    changeSearch("");
+                    searchInput.current?.focus();
+                  }}
+                >
+                  إزالة نص البحث
                 </Button>
               )}
+              <DrawerTrigger render={<Button variant="outline" />}>
+                <SlidersHorizontal data-icon="inline-start" />
+                تعديل التصفية
+              </DrawerTrigger>
             </div>
           </div>
         )}
@@ -326,7 +355,13 @@ function BrowseContent({
               </header>
             )}
             {layout === "table" ? (
-              <BrowseTable entries={entries} display={display} />
+              <BrowseTable
+                entries={entries}
+                display={display}
+                sort={sort}
+                sorting={result.isPlaceholderData}
+                onSort={(nextSort) => apply({ ...refinements, sort: nextSort })}
+              />
             ) : (
               <div className={browseGridClass(display)}>
                 {entries.map((item) => (
@@ -334,12 +369,18 @@ function BrowseContent({
                     key={item.installment?.id ?? item.work.id}
                     entry={item}
                     layout={layout}
-                    minimal={display.minimal}
                     borderless={display.borderless}
+                    showTitle={display.showTitle ?? true}
                     showScore={display.showScore}
                     showStatus={display.showStatus}
                     showMetadata={display.showMetadata ?? true}
-                    showOriginalTitle={display.showOriginalTitle ?? false}
+                    titleLanguage={display.cardTitle}
+                    browsePresentation
+                    action={
+                      display.showWatchStatus !== false ? (
+                        <BrowseWatchButton entry={item} />
+                      ) : undefined
+                    }
                   />
                 ))}
               </div>
@@ -347,7 +388,7 @@ function BrowseContent({
           </section>
         ))}
         {result.isFetchingNextPage && <BrowseResultsSkeleton display={display} singleRow />}
-        {result.hasNextPage && (
+        {result.hasNextPage && !result.isPlaceholderData && (
           <Button
             {...navigation}
             className="mx-auto mt-8 flex"
@@ -370,9 +411,12 @@ function BrowseContent({
             value={refinements}
             library={library.template?.id}
             view={view}
-            q={q}
+            q={q.trim()}
             locked={preset}
-            returnFocus={filterTrigger}
+            returnFocus={() =>
+              (filterOpener.current?.isConnected ? filterOpener.current : filterTrigger.current) ??
+              true
+            }
             onApply={(value) => {
               apply(value);
               setFiltersOpen(false);

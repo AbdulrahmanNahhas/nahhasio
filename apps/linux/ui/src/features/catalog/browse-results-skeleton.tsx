@@ -10,20 +10,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import type { DisplayPreferences } from "./display-preferences";
+import { defaultTableColumns, tableColumns, type DisplayPreferences } from "./display-preferences";
 
 /** Results and placeholders share their column rules, including narrow-window breakpoints. */
-export function browseGridClass({ layout, size }: DisplayPreferences) {
+export function browseGridClass({ layout, size, showTitle, showMetadata }: DisplayPreferences) {
   return cn(
     "grid my-7 gap-x-5 gap-y-7 max-[600px]:gap-x-3 max-[600px]:gap-y-5",
+    layout === "poster" &&
+      showTitle === false &&
+      showMetadata === false &&
+      "gap-y-5 max-[600px]:gap-y-3",
     layout === "banner"
       ? cn(
-          "max-[900px]:grid-cols-3 max-[600px]:grid-cols-2 max-[450px]:grid-cols-1",
+          "grid-cols-1 sm:grid-cols-2",
           size === "compact"
-            ? "grid-cols-5"
-            : size === "comfortable"
-              ? "grid-cols-3"
-              : "grid-cols-4",
+            ? "lg:grid-cols-3 2xl:grid-cols-4"
+            : size === "normal"
+              ? "xl:grid-cols-3"
+              : undefined,
         )
       : cn(
           "max-[1100px]:grid-cols-5 max-[800px]:grid-cols-4 max-[600px]:grid-cols-3 max-[450px]:grid-cols-2",
@@ -42,13 +46,16 @@ export function BrowseResultsSkeleton({
   display: DisplayPreferences;
   singleRow?: boolean;
 }) {
+  const visibleColumns = tableColumns.filter(({ key }) =>
+    (display.tableColumns ?? defaultTableColumns).includes(key),
+  );
   const columns =
     display.layout === "banner"
       ? display.size === "compact"
-        ? 5
+        ? 4
         : display.size === "comfortable"
-          ? 3
-          : 4
+          ? 2
+          : 3
       : display.size === "compact"
         ? 7
         : display.size === "comfortable"
@@ -61,16 +68,20 @@ export function BrowseResultsSkeleton({
         <Table>
           <TableHeader>
             <TableRow>
-              {["العمل", "الإصدار", "التقييم", "الجمهور", "المشاهدة"].map((title) => (
-                <TableHead key={title}>{title}</TableHead>
+              <TableHead>العمل</TableHead>
+              {visibleColumns.map(({ key, label }) => (
+                <TableHead key={key}>{label}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {Array.from({ length: singleRow ? 3 : 8 }, (_, row) => (
               <TableRow key={row}>
-                {Array.from({ length: 5 }, (_cell, column) => (
-                  <TableCell key={column}>
+                <TableCell>
+                  <Skeleton className="h-5 w-4/5 motion-reduce:animate-none" />
+                </TableCell>
+                {visibleColumns.map(({ key }) => (
+                  <TableCell key={key}>
                     <Skeleton className="h-5 w-4/5 motion-reduce:animate-none" />
                   </TableCell>
                 ))}
@@ -88,12 +99,17 @@ export function BrowseResultsSkeleton({
                   display.layout === "poster" ? "aspect-2/3" : "aspect-video",
                 )}
               />
-              {!display.minimal && (
-                <div className="flex flex-col gap-2">
-                  <Skeleton className="h-5 w-4/5 motion-reduce:animate-none" />
-                  <Skeleton className="h-3 w-1/2 motion-reduce:animate-none" />
-                </div>
-              )}
+              {display.layout !== "banner" &&
+                (display.showTitle !== false || display.showMetadata !== false) && (
+                  <div className="flex flex-col gap-2">
+                    {display.showTitle !== false && (
+                      <Skeleton className="h-5 w-4/5 motion-reduce:animate-none" />
+                    )}
+                    {display.showMetadata !== false && (
+                      <Skeleton className="h-3 w-1/2 motion-reduce:animate-none" />
+                    )}
+                  </div>
+                )}
             </div>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import type { BrowseFilters } from "@nahhasio/api-contract";
 
-import { emptyFilters, parseFilters } from "./filter-model";
+import { parseFilters } from "./filter-model";
 
 function templateFacet(key: string, include: string[] = [], exclude: string[] = []) {
   return { key, include, exclude };
@@ -118,11 +118,17 @@ export function libraryFilters(filters: BrowseFilters, library?: string): Browse
 
 export function selectLibrary(params: URLSearchParams, library: string) {
   const next = new URLSearchParams(params);
-  next.set("library", browseTemplates.some((item) => item.id === library) ? library : "all");
-  // Extra filters belong to the library being left. Presentation and sort stay shared.
-  next.set("filters", JSON.stringify(emptyFilters()));
-  next.delete("from");
-  next.delete("to");
-  next.delete("q");
+  const template = browseTemplates.find((item) => item.id === library);
+  const { filters } = browseLibrary(params);
+  next.set("library", template?.id ?? "all");
+  next.set(
+    "filters",
+    JSON.stringify({
+      ...filters,
+      facets: filters.facets.filter(
+        (facet) => facet.key === "tags" || !template?.facets.some((base) => base.key === facet.key),
+      ),
+    } satisfies BrowseFilters),
+  );
   return next;
 }

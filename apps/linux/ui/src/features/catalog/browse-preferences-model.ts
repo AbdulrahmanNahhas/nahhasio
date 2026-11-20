@@ -2,14 +2,27 @@ import { z } from "zod";
 
 import { displayDefaults } from "./display-preferences";
 
-export const displaySchema = z.strictObject({
-  layout: z.enum(["poster", "banner", "logo", "table"]),
+const cardViewSchema = z.strictObject({
   size: z.enum(["compact", "normal", "comfortable"]),
   minimal: z.boolean(),
   borderless: z.boolean(),
+  showTitle: z.boolean().optional(),
+  cardTitle: z.enum(["arabic", "english"]).optional(),
   showScore: z.boolean(),
   showStatus: z.boolean(),
+  showWatchStatus: z.boolean().optional(),
   showMetadata: z.boolean().optional(),
+});
+
+export const displaySchema = cardViewSchema.extend({
+  layout: z.enum(["poster", "banner", "logo", "table"]),
+  cardViews: z
+    .strictObject({
+      poster: cardViewSchema.optional(),
+      banner: cardViewSchema.optional(),
+      logo: cardViewSchema.optional(),
+    })
+    .optional(),
   showOriginalTitle: z.boolean().optional(),
   tableColumns: z
     .array(z.enum(["release", "status", "score", "audience", "age", "watchState", "format"]))

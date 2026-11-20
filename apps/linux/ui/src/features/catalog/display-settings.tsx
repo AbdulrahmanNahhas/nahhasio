@@ -8,29 +8,29 @@ import {
   Type,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
-import { Choice } from "@/components/choice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-import { groupChoices, parseGroup, type BrowseGroup } from "./browse-refinements";
 import {
   defaultTableColumns,
   tableColumns,
   displayDefaults,
+  selectBrowseLayout,
   type DisplayPreferences,
 } from "./display-preferences";
 export { displayDefaults, type DisplayPreferences } from "./display-preferences";
@@ -43,30 +43,47 @@ const layouts = [
 ] as const;
 type DisplayProps = { value: DisplayPreferences; onChange: (value: DisplayPreferences) => void };
 
-export function DisplaySettings({
-  value,
-  onChange,
-  group,
-  onGroup,
-}: DisplayProps & {
-  group?: BrowseGroup;
-  onGroup?: (group: BrowseGroup) => void;
-}) {
-  const [open, setOpen] = useState(false);
+function moveDrawerFocus(event: KeyboardEvent<HTMLDivElement>) {
+  if (
+    event.defaultPrevented ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+  )
+    return;
+
+  // Horizontal choices keep Base UI's RTL navigation. Vertical arrows move between tab stops.
+  const controls = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>("button, [role='switch']"),
+  ).filter(
+    (control) => control.tabIndex >= 0 && !control.matches(":disabled, [aria-disabled='true']"),
+  );
+  const focused = controls.findIndex((control) => control === event.target);
+  if (focused === -1) return;
+  event.preventDefault();
+  event.stopPropagation();
+  controls[focused + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
+}
+
+export function DisplaySettings({ value, onChange }: DisplayProps) {
+  const selectedLayout = useRef<HTMLButtonElement>(null);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="outline" aria-label="خيارات العرض" />}>
+    <Drawer swipeDirection="down" showSwipeHandle>
+      <DrawerTrigger render={<Button variant="outline" aria-label="خيارات العرض" />}>
         <Settings2 data-icon="inline-start" /> العرض
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-lg max-w-(--available-width) max-h-(--available-height) gap-4 overflow-y-auto"
+      </DrawerTrigger>
+      <DrawerContent
+        dir="rtl"
+        className="mx-auto max-w-lg motion-reduce:transition-none"
+        initialFocus={selectedLayout}
+        onKeyDownCapture={moveDrawerFocus}
       >
-        <div className="flex items-start justify-between gap-3">
-          <PopoverHeader>
-            <PopoverTitle>العرض</PopoverTitle>
-            <PopoverDescription>اختياراتك تُطبّق وتُحفظ مباشرة.</PopoverDescription>
-          </PopoverHeader>
+        <DrawerHeader className="flex-row items-center justify-between gap-3 px-5 py-3 text-start">
+          <div>
+            <DrawerTitle>العرض</DrawerTitle>
+            <DrawerDescription className="sr-only">تُحفظ خيارات العرض تلقائيًا.</DrawerDescription>
+          </div>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -77,68 +94,54 @@ export function DisplaySettings({
             >
               <RotateCcw />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="إغلاق خيارات العرض"
-              onClick={() => setOpen(false)}
+            <DrawerClose
+              render={<Button variant="ghost" size="icon-sm" aria-label="إغلاق خيارات العرض" />}
             >
               <X />
-            </Button>
+            </DrawerClose>
           </div>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-1 pb-5">
+          <ToggleGroup
+            variant="outline"
+            spacing={2}
+            className="grid w-full grid-cols-4"
+            value={[value.layout]}
+            aria-label="طريقة العرض"
+            onValueChange={(values) => {
+              const layout = layouts.find((item) => item.value === values[0]);
+              if (layout && layout.value !== value.layout)
+                onChange(selectBrowseLayout(value, layout.value));
+            }}
+          >
+            {layouts.map((layout) => (
+              <ToggleGroupItem
+                key={layout.value}
+                value={layout.value}
+                ref={layout.value === value.layout ? selectedLayout : undefined}
+                className="h-auto min-w-0 flex-col gap-1.5 rounded-xl px-1 py-2"
+                aria-label={layout.label}
+              >
+                <layout.icon />
+                <span>{layout.label}</span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <Separator />
+          {value.layout === "table" ? (
+            <TableOptions value={value} onChange={onChange} />
+          ) : (
+            <CardOptions value={value} onChange={onChange} />
+          )}
         </div>
-        <ToggleGroup
-          variant="outline"
-          spacing={2}
-          className="grid w-full grid-cols-4"
-          value={[value.layout]}
-          aria-label="طريقة العرض"
-          onValueChange={(values) => {
-            const layout = layouts.find((item) => item.value === values[0]);
-            if (layout) onChange({ ...value, layout: layout.value });
-          }}
-        >
-          {layouts.map((layout) => (
-            <ToggleGroupItem
-              key={layout.value}
-              value={layout.value}
-              className="h-auto min-w-0 flex-col gap-2 px-2 py-3"
-              aria-label={layout.label}
-            >
-              <layout.icon />
-              <span>{layout.label}</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <Separator />
-        {value.layout === "table" ? (
-          <TableOptions value={value} onChange={onChange} />
-        ) : (
-          <CardOptions value={value} onChange={onChange} />
-        )}
-        {group && onGroup && (
-          <>
-            <Separator />
-            <SettingRow label="تجميع النتائج">
-              <div className="w-56 max-w-full">
-                <Choice
-                  label="تجميع النتائج"
-                  value={group}
-                  options={groupChoices.map((item) => ({ value: item.value, label: item.label }))}
-                  onChange={(next) => onGroup(parseGroup(next))}
-                />
-              </div>
-            </SettingRow>
-          </>
-        )}
-      </PopoverContent>
-    </Popover>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
 function TableOptions({ value, onChange }: DisplayProps) {
   const columns = value.tableColumns ?? defaultTableColumns;
-  const title = value.tableTitle ?? (value.showOriginalTitle === false ? "arabic" : "both");
+  const title = value.tableTitle === "english" ? "english" : "arabic";
   const preset = tableColumns.every((column) => columns.includes(column.key))
     ? "all"
     : columns.length === 3 &&
@@ -155,13 +158,12 @@ function TableOptions({ value, onChange }: DisplayProps) {
           value={[title]}
           aria-label="لغة عنوان الجدول"
           onValueChange={(next) => {
-            if (next[0] === "arabic" || next[0] === "english" || next[0] === "both")
+            if (next[0] === "arabic" || next[0] === "english")
               onChange({ ...value, tableTitle: next[0] });
           }}
         >
           <ToggleGroupItem value="arabic">العربية</ToggleGroupItem>
           <ToggleGroupItem value="english">English</ToggleGroupItem>
-          <ToggleGroupItem value="both">كلاهما</ToggleGroupItem>
         </ToggleGroup>
       </SettingRow>
       <SettingRow label="الصفوف">
@@ -268,23 +270,6 @@ function CardOptions({ value, onChange }: DisplayProps) {
           <ToggleGroupItem value="comfortable">كبير</ToggleGroupItem>
         </ToggleGroup>
       </SettingRow>
-      <SettingRow label="محتوى البطاقة">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          value={[value.minimal ? "image" : "details"]}
-          aria-label="محتوى البطاقة"
-          onValueChange={(next) => {
-            if (next[0]) onChange({ ...value, minimal: next[0] === "image" });
-          }}
-        >
-          <ToggleGroupItem value="details">صورة ومعلومات</ToggleGroupItem>
-          <ToggleGroupItem value="image">
-            {value.layout === "logo" ? "شعار فقط" : "صورة فقط"}
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </SettingRow>
       {value.layout === "logo" && (
         <DisplaySwitch
           id="display-borderless"
@@ -293,35 +278,57 @@ function CardOptions({ value, onChange }: DisplayProps) {
           onChange={(borderless) => onChange({ ...value, borderless })}
         />
       )}
-      {!value.minimal && (
-        <>
-          <Separator />
-          <DisplaySwitch
-            id="display-score"
-            label="التقييم"
-            checked={value.showScore}
-            onChange={(showScore) => onChange({ ...value, showScore })}
-          />
-          <DisplaySwitch
-            id="display-status"
-            label="حالة الإصدار"
-            checked={value.showStatus}
-            onChange={(showStatus) => onChange({ ...value, showStatus })}
-          />
-          <DisplaySwitch
-            id="display-metadata"
-            label="السنة ومعلومات العمل"
-            checked={value.showMetadata ?? true}
-            onChange={(showMetadata) => onChange({ ...value, showMetadata })}
-          />
-          <DisplaySwitch
-            id="display-original"
-            label="العنوان الأصلي"
-            checked={value.showOriginalTitle ?? false}
-            onChange={(showOriginalTitle) => onChange({ ...value, showOriginalTitle })}
-          />
-        </>
-      )}
+      <FieldSet className="gap-3 rounded-xl border border-border px-3 py-2">
+        <FieldLegend>معلومات البطاقة</FieldLegend>
+        <DisplaySwitch
+          id="display-title"
+          label="العناوين"
+          checked={value.showTitle ?? true}
+          onChange={(showTitle) => onChange({ ...value, showTitle })}
+        />
+        {value.showTitle && (
+          <SettingRow label="لغة العنوان">
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              spacing={0}
+              value={[value.cardTitle ?? "arabic"]}
+              aria-label="لغة عنوان البطاقة"
+              onValueChange={([cardTitle]) => {
+                if (cardTitle === "arabic" || cardTitle === "english")
+                  onChange({ ...value, cardTitle });
+              }}
+            >
+              <ToggleGroupItem value="arabic">العربية</ToggleGroupItem>
+              <ToggleGroupItem value="english">English</ToggleGroupItem>
+            </ToggleGroup>
+          </SettingRow>
+        )}
+        <DisplaySwitch
+          id="display-score"
+          label="التقييم"
+          checked={value.showScore}
+          onChange={(showScore) => onChange({ ...value, showScore })}
+        />
+        <DisplaySwitch
+          id="display-status"
+          label="حالة الإصدار"
+          checked={value.showStatus}
+          onChange={(showStatus) => onChange({ ...value, showStatus })}
+        />
+        <DisplaySwitch
+          id="display-watch-status"
+          label="حالة المشاهدة"
+          checked={value.showWatchStatus ?? true}
+          onChange={(showWatchStatus) => onChange({ ...value, showWatchStatus })}
+        />
+        <DisplaySwitch
+          id="display-metadata"
+          label="السنة ومعلومات العمل"
+          checked={value.showMetadata ?? true}
+          onChange={(showMetadata) => onChange({ ...value, showMetadata })}
+        />
+      </FieldSet>
     </FieldGroup>
   );
 }

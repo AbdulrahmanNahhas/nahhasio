@@ -13,12 +13,14 @@ export function Choice({
   options,
   onChange,
   id,
+  animatePopup = false,
 }: {
   label: string;
   value: string;
   options: ReadonlyArray<{ value: string; label: string }>;
   onChange: (value: string) => void;
   id?: string;
+  animatePopup?: boolean;
 }) {
   return (
     <div className="min-w-32.5 flex-1 sm:min-w-37.5">
@@ -32,7 +34,15 @@ export function Choice({
         <SelectTrigger id={id} aria-label={label} className="w-full">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={true} align="start">
+        <SelectContent
+          alignItemWithTrigger={!animatePopup}
+          align="start"
+          className={
+            animatePopup
+              ? "motion-safe:transition motion-safe:duration-150 motion-safe:data-starting-style:-translate-y-1 motion-safe:data-starting-style:opacity-0 motion-safe:data-ending-style:-translate-y-1 motion-safe:data-ending-style:opacity-0"
+              : undefined
+          }
+        >
           <SelectGroup>
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>

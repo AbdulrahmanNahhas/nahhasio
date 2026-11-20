@@ -1,3 +1,4 @@
+import { taxonomy } from "@arcadia/domain";
 import { BrowseFiltersSchema } from "@nahhasio/api-contract";
 import type { BrowseFilters, FacetCatalog } from "@nahhasio/api-contract";
 
@@ -47,8 +48,6 @@ const labels = new Map<string, string>([
   ["ar", "العربية"],
   ["en", "الإنجليزية"],
   ["es", "الإسبانية"],
-  ["files-only", "ملفات فقط"],
-  ["torrents-allowed", "التورنت متاح"],
   ["dubbing_studio", "استوديو الدبلجة"],
   ["animated-series", "مسلسل رسوم متحركة"],
   ["animated-movie", "فيلم رسوم متحركة"],
@@ -76,8 +75,6 @@ const labels = new Map<string, string>([
   ["rated", "مقيّم"],
   ["unrated", "غير مقيّم"],
   ["warnings", "به تنبيهات"],
-  ["available", "فيديو مسجّل"],
-  ["missing", "لا يوجد فيديو مسجّل"],
   ["watched", "تمّت مشاهدته"],
   ["in-progress", "قيد المشاهدة"],
   ["unwatched", "لم يُشاهَد"],
@@ -86,8 +83,26 @@ const labels = new Map<string, string>([
   ["winner", "فائز"],
   ["nominee", "مرشّح"],
 ]);
+const playbackOptionLabels = new Map([
+  ["files-only", "ملفات الخادم فقط"],
+  ["torrents-allowed", "يسمح بالتورنت"],
+  ["available", "يوجد ملف فيديو"],
+  ["missing", "لا يوجد ملف فيديو"],
+]);
+
 export function optionLabel(value: string, fallback: string) {
-  return labels.get(value) ?? fallback;
+  return labels.get(value) ?? playbackOptionLabels.get(value) ?? fallback;
+}
+
+const facetLabels = new Map([
+  ["releaseStates", "هل صدر؟"],
+  ["playableStates", "ملفات الفيديو على الخادم"],
+  ["playbackPolicies", "طريقة التشغيل المسموح بها"],
+  ["structureStates", "نوع الإصدار"],
+]);
+
+export function facetLabel(key: string, fallback: string) {
+  return facetLabels.get(key) ?? fallback;
 }
 
 export function normalizeFacetSearch(value: string) {
@@ -99,13 +114,24 @@ export function normalizeFacetSearch(value: string) {
     .replace(/[\s_-]+/g, " ")
     .trim();
 }
+const taxonomyLabels = new Map<string, string>(
+  [...taxonomy.genres, ...taxonomy.tones, ...taxonomy.tags].map(([key, , arabic]) => [key, arabic]),
+);
+
+export function facetOptionLabel(value: string, label: string) {
+  return (
+    playbackOptionLabels.get(value) ??
+    (/[ء-ي]/u.test(label) ? label : optionLabel(value, taxonomyLabels.get(value) ?? label))
+  );
+}
+
 export function facetMatches(
   option: FacetCatalog["groups"][number]["options"][number],
   query: string,
 ) {
   const terms = normalizeFacetSearch(
     [
-      optionLabel(option.value, option.label),
+      facetOptionLabel(option.value, option.label),
       option.label,
       option.value,
       ...(option.searchTerms ?? []),
@@ -160,11 +186,15 @@ export function completeFacetGroups(
           ? ["completed", "ongoing", "announced", "unknown"]
           : ["announced", "airing", "completed", "unknown"],
     },
-    { key: "releaseStates", label: "توفر إصدارات", values: ["released", "unreleased"] },
+    { key: "releaseStates", label: "هل صدر؟", values: ["released", "unreleased"] },
     { key: "watchStates", label: "حالة المشاهدة", values: ["unwatched", "in-progress", "watched"] },
     { key: "favoriteStates", label: "المفضلة", values: ["favorite", "other"] },
-    { key: "playableStates", label: "وجود فيديو مسجّل", values: ["available", "missing"] },
-    { key: "playbackPolicies", label: "مصادر التشغيل", values: ["files-only", "torrents-allowed"] },
+    { key: "playableStates", label: "ملفات الفيديو على الخادم", values: ["available", "missing"] },
+    {
+      key: "playbackPolicies",
+      label: "طريقة التشغيل المسموح بها",
+      values: ["files-only", "torrents-allowed"],
+    },
     { key: "behavioralRisks", label: "العنف والسلوك", values: ["none", "low", "medium", "high"] },
     { key: "sexualityRisks", label: "المحتوى الجنسي", values: ["none", "low", "medium", "high"] },
     { key: "theologyRisks", label: "الموضوعات العقدية", values: ["none", "low", "medium", "high"] },
@@ -197,5 +227,5 @@ export function completeFacetGroups(
         group.options.push({ value, label: optionLabel(value, value), count: 0 });
     }
   }
-  return completed;
+  return completed.map((group) => ({ ...group, label: facetLabel(group.key, group.label) }));
 }

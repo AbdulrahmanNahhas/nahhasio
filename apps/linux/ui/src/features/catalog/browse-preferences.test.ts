@@ -5,6 +5,7 @@ import {
   preferencesSchema,
   rememberedSearch,
 } from "./browse-preferences-model";
+import { displayDefaults, selectBrowseLayout } from "./display-preferences";
 
 describe("Browse preference boundary", () => {
   it("remembers refinements and display without retaining a transient search or unknown URL fields", () => {
@@ -50,5 +51,30 @@ describe("Browse preference boundary", () => {
         presets: Array.from({ length: 9 }, () => saved.presets[0]),
       }).success,
     ).toBe(false);
+  });
+  it("restores each customized display after switching and reloading", () => {
+    const poster = { ...displayDefaults, size: "comfortable" as const, showTitle: true };
+    const banner = selectBrowseLayout(poster, "banner");
+    expect(banner).toMatchObject({ size: "compact", showTitle: true, showStatus: true });
+    const customBanner = { ...banner, showStatus: false };
+    const table = {
+      ...selectBrowseLayout(customBanner, "table"),
+      tableColumns: ["score" as const],
+    };
+    const saved = { ...defaultPreferences, display: selectBrowseLayout(table, "poster") };
+    const reloaded = preferencesSchema.parse(JSON.parse(JSON.stringify(saved)));
+    expect(reloaded.display).toMatchObject({
+      size: "comfortable",
+      showTitle: true,
+      showStatus: false,
+    });
+    expect(selectBrowseLayout(reloaded.display, "banner")).toMatchObject({
+      size: "compact",
+      showTitle: true,
+      showStatus: false,
+    });
+    expect(selectBrowseLayout(reloaded.display, "table").tableColumns).toEqual(["score"]);
+    expect(displayDefaults.cardViews).toBeUndefined();
+    expect(displayDefaults.size).toBe("normal");
   });
 });
