@@ -10,29 +10,42 @@ remain in [design-rules.md](design-rules.md).
 
 ## Linux settings, sign-in and artwork
 
-Settings has its own route, with account/security, application appearance, playback, subtitles,
-sources, extensions, storage, offline, connection and help categories. Planned controls remain
-disabled alongside implemented actions, with individual source TODOs. Appearance now offers a
-device-local dark/light preview using the existing semantic palette; selection persists in the
-WebKit origin storage and applies immediately. A full light-theme visual pass remains separate.
-Episode keyboard focus scrolls the complete card into view, including its title/actions.
-Password changes open
-on demand; server connections, testing and editing are available inline. Library card/table
+Settings opens Account. Its compact icon-and-label navigation covers appearance, player preferences,
+storage, connection, and support. Extensions appears as a disabled navigation item. Administrators
+can open the existing server settings from the list. Appearance includes device-local dark and
+light modes, a system-following option, and standard and large interface sizes. Both preferences apply
+immediately and persist on the device. Account contains the profile editor for name, biography and
+avatar editing. Profile, Security, and Device are stacked on one page. The avatar opens a larger
+picker with filters and saved-image restore. Save and Undo appear while the profile has edits.
+Security groups email, password changes and sign-out in compact rows. Device lets viewers switch directly to a
+saved account or forget it after confirmation, and links to storage and updates. Server testing and
+editing are available inline under Connection. Episode keyboard focus scrolls the complete card
+into view. In the Episodes catalog and work installments, activating the thumbnail or title opens
+the selected episode in the player page. The separate Info action opens the episode details.
+Thumbnails show the pressed scale during pointer and Enter activation when motion is enabled.
+Library card/table
 presentation remains in Browse, not Settings. Narrow layouts use a five-destination
-Home/Library/Search/Downloads/More dock; desktop retains its navigation rail. Existing profile,
+Home/Library/Search/Downloads/More dock; desktop retains its navigation rail. The desktop account
+menu groups library shortcuts, settings, and connection/account actions. Direct Watch appears as
+a disabled upcoming item in that menu. Existing profile,
 password, download-cache, server-connection and Flatpak-update services remain
-the owners of their controls. Playback Settings now persist preferred audio/subtitle language,
-subtitle enablement, size and position for each account on this device. mpv receives these defaults
+the owners of their controls. Playback Settings focus on subtitle track selection, appearance,
+and synchronization. Existing audio preferences remain in device storage. Unstyled text subtitles support
+white or yellow text, bold, and an optional dark background.
+Restore Defaults prepares a reset for saving. mpv receives these defaults
 before a new local, saved, torrent or compatible direct source loads; manual track/style changes
 remain session-local. Arabic subtitle preference falls back to English. Debrid and addon
 installation remain future integrations.
 
-OpenSubtitles.com setup is in Settings → Subtitles in the Linux client. An API key enables search;
+OpenSubtitles.com setup is in Settings → Playback in the Linux client. Old Subtitles links open
+the provider card directly. An API key enables search;
 username/password login enables subtitle downloads and the account's allowance. The password is
 used only for login; the key and returned token are encrypted through the device Secret portal,
 bound to the selected server/account. Unavailable secure storage disables setup rather than storing
 plaintext. Forgetting an account removes its provider credentials. No provider credentials or video
-are sent through the Nahhasio server. The browser preview does not accept these secrets.
+are sent through the Nahhasio server. The browser preview saves subtitle preferences separately in
+browser storage scoped to the signed-in account and verified server. The OpenSubtitles setup form is
+visible with its credential fields and actions disabled.
 
 Search uses the current catalog work's canonical title, provider identifiers and season/episode;
 year/season/episode overrides remain available on demand. Movie identity never falls back to a
@@ -52,8 +65,9 @@ and Storage views separate full viewing packs from downloaded video and disposab
 The work-page Save action opens Device library once saved; only Saved works offers an explicit
 refresh. Saved cards show any retained videos and their playback/management actions. A viewing
 pack contains work/part/episode details, summary, artwork, source identities and viewing state;
-video is optional, and internet sources still need internet. Settings storage controls use a
-compact wrapping row layout. Admin imports opened within an installment retain that destination;
+video is optional, and internet sources still need internet. Settings links to Device Library
+storage for video usage and temporary torrent cleanup and provides a separate artwork cache action.
+Admin imports opened within an installment retain that destination;
 completed uploads remain staged until reviewed episode matching and import complete.
 Banner mirroring creates new registered artwork, retains original dimensions, and changes only
 the editor draft until review/save; the original artwork remains available.
@@ -142,6 +156,18 @@ ownership, ordering, featured status, notes and sources in its existing reconcil
 Definition changes retain historical recognition display strings. UUIDs and timestamps are readable
 system fields.
 
+## Profiles
+
+- All profiles use `/profiles/:id`. The `/profile` shortcut opens the signed-in member’s profile
+  using its canonical URL. The owner’s Edit Profile link opens `/settings?section=account`.
+- The overview uses the same identity header and navigation for everyone. Owners can edit their
+  profile and see previews of in-progress works, recent completions and favorites. Visitors see
+  family-visible collections, reviews and comments under the existing server access rules.
+- Activity lists retain pagination and spoiler controls. Viewing statistics distinguish completed
+  works, episodes and films. Device, preference and policy records are excluded from profile
+  activity. Account and device controls remain available through the existing settings surfaces.
+- The viewing calendar is labeled as upcoming in owner statistics.
+
 ## Browse and filters
 
 ### Current behavior
@@ -191,6 +217,13 @@ system fields.
   the available refinements. Earlier saved-view documents remain readable.
 - Draft Apply, Cancel/Escape, focus restoration, a debounced result count and server pagination
   remain in place. Schema and live catalog records are unchanged.
+
+## People and studio directories
+
+Both public directories include entries with and without artwork and show the number of public
+works for each entry. Search matches names and aliases, and the list can be ordered by work count
+or name. Results show 24 entries per page. Detail links carry the search, order, and page so the
+directory state can be restored on return.
 
 ## Episode editing
 
@@ -255,13 +288,23 @@ The Linux watch page keeps catalog context, episode navigation and family discus
 independently of source lookup. The existing source selection, file choice, media ownership,
 resume/progress, player controls and dedicated download flows remain in place. A failed source
 search occupies only the video frame. It does not fake playback or replace the watch page.
+The browser development preview opens the same watch page with episode navigation and details.
+The video frame identifies playback as a Linux app feature and makes no native playback calls.
 
 ### Layout and native video
 
-The desktop Arabic layout places the native video and details beside an episode column. Narrow
-windows place a collapsible episode section before discussion. Theater mode hides the episode
-column. Movies use the full width and expose no episode sidebar or episode toggle. Their
-installment selector, status badges and watched control sit below the video, with the selector alone on the left and equally tall status badges opposite it.
+The desktop Arabic layout places the native video beside a transparent episode column. The
+episode list stays sticky while details and discussion scroll. It offers search, sort, and an RTL
+All/Unwatched control with scroll fades. Watching, downloaded, and completed indicators can appear
+together. Wide windows group episode information, navigation, and viewing actions directly
+below the video. Content and theology notes show the stored work risk levels. Narrow windows put the
+work link and viewing actions above the video. The horizontal episode strip opens by default,
+sits before ratings and discussion, and can be collapsed. On phone widths, episode search
+opens from the filter row. Selecting an episode returns the narrow layout to the player. The rating strip uses
+Nahhasio's stored installment and work scores when available and links to the full score
+breakdown. The sidebar toggle sits alongside the viewing actions in wide windows. Movies use the full width and expose
+no episode sidebar or episode toggle. Film collections use a horizontal installment strip in
+narrow windows. The installment selector and playback actions sit ahead of supplementary film information.
 Installment menus open below their triggers. Local files hide episode navigation as well; files without catalog identity retain playback
 without fabricated work discussion. The player has no title/back overlay; fullscreen lives in
 the bottom controls. The page presents the filename once below the video.

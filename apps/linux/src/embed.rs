@@ -393,6 +393,16 @@ fn observe_page(
                         progress.set_visible(false);
                         return;
                     }
+                    if state.borrow().provider == Provider::Vidrift
+                        && view.uri().and_then(|uri| url::Url::parse(uri.as_str()).ok())
+                            .is_some_and(|url| Provider::Vidrift.permits_document(&url))
+                    {
+                        // The dedicated WebView is the top-level window, so parent and self coincide.
+                        view.evaluate_javascript(
+                            "window.postMessage({type:'vidrift:nextup-info',next:null},'https://embed.vidrift.net')",
+                            None, None, None::<&gio::Cancellable>, |_| {},
+                        );
+                    }
                     state.borrow_mut().phase = Phase::Loaded;
                     status.set_visible(false);
                     progress.set_visible(false);

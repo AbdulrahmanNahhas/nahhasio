@@ -1,22 +1,24 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { Login } from "../features/auth/login";
 import { Library } from "../features/library/library";
 import { usePlayerSnapshot } from "../features/player";
+import type { PlayerSnapshot } from "../features/player/bridge";
 import { DownloadDialog } from "../features/player/download-dialog";
 import { OfflineLibrary } from "../features/player/offline-library";
 import { openWatch } from "../features/player/playback";
 import { offlineStatusOptions, syncSavedWorks } from "../features/player/saved-works-data";
+import { playerSnapshotKey } from "../features/player/use-player-snapshot";
 import { WatchPage } from "../features/player/watch-page";
 import {
   WatchTargetSchema,
   watchRequestEvent,
   type WatchTarget,
 } from "../features/player/watch-request";
-import { gateway } from "../lib/bridge";
-import { nativeCall } from "../lib/bridge";
+import { gateway, nativeCall } from "../lib/bridge";
+import { developmentBrowserAvailable } from "../lib/development-platform";
 export function App() {
   const client = useQueryClient();
   const player = usePlayerSnapshot();
@@ -24,8 +26,11 @@ export function App() {
   const requestGeneration = useRef(0);
   const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null);
   const [sourceReady, setSourceReady] = useState(false);
+  const [watchStartupError, setWatchStartupError] = useState<Error | null>(null);
+  const browserPreview = developmentBrowserAvailable();
   const [download, setDownload] = useState<{ target: WatchTarget; sessionId: string } | null>(null);
   const playing = Boolean(player.snapshot?.active);
+  const showWatch = playing || Boolean(watchTarget && (browserPreview || watchStartupError));
   const offline = useQuery(offlineStatusOptions());
   const latest = useRef(player.snapshot);
   const lastRecorded = useRef<string | null>(null);
@@ -125,6 +130,31 @@ export function App() {
     };
   }, [client, offline.data?.active, offline.data?.offline, offline.data?.pending]);
 
+  const openTarget = useCallback(
+    async (target: WatchTarget) => {
+      const generation = ++requestGeneration.current;
+      setWatchTarget(target);
+      setWatchStartupError(null);
+      setSourceReady(false);
+      if (browserPreview) return;
+
+      try {
+        await openWatch(target, { commandAsync: playerCommandAsync }, client);
+      } catch (error) {
+        // Once a native session exists, the source panel owns source errors.
+        if (
+          requestGeneration.current === generation &&
+          !client.getQueryData<PlayerSnapshot>(playerSnapshotKey)?.active
+        ) {
+          setWatchStartupError(error instanceof Error ? error : new Error("تعذّر فتح جلسة المشغّل."));
+        }
+      } finally {
+        if (requestGeneration.current === generation) setSourceReady(true);
+      }
+    },
+    [browserPreview, client, playerCommandAsync],
+  );
+
   useEffect(() => {
     const watch = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
@@ -134,23 +164,19 @@ export function App() {
         setDownload({ target: parsed.data, sessionId: crypto.randomUUID() });
         return;
       }
-      const generation = ++requestGeneration.current;
-      setWatchTarget(parsed.data);
-      setSourceReady(false);
-      void openWatch(parsed.data, { commandAsync: playerCommandAsync }, client)
-        .finally(() => {
-          if (generation === requestGeneration.current) {
-            setWatchTarget(parsed.data);
-            setSourceReady(true);
-          }
-        })
-        .catch(() => {
-          // Source errors live in the source query/native snapshot, not fake playback state.
-        });
+      void openTarget(parsed.data);
     };
     window.addEventListener(watchRequestEvent, watch);
     return () => window.removeEventListener(watchRequestEvent, watch);
-  }, [playerCommandAsync, client]);
+  }, [openTarget]);
+
+  function leaveWatch() {
+    requestGeneration.current++;
+    setWatchTarget(null);
+    setWatchStartupError(null);
+    const sessionId = player.snapshot?.sessionId;
+    if (sessionId) player.command({ command: "player.close", payload: { sessionId } });
+  }
 
   useEffect(() => {
     // Native video is beneath WebKit. Restore the ordinary page surface on exit.
@@ -162,6 +188,7 @@ export function App() {
     const clear = () => {
       requestGeneration.current++;
       setWatchTarget(null);
+      setWatchStartupError(null);
       if (player.snapshot?.sessionId)
         void playerCommandAsync({
           command: "player.close",
@@ -184,6 +211,7 @@ export function App() {
     const changed = () => {
       requestGeneration.current++;
       setWatchTarget(null);
+      setWatchStartupError(null);
       setDownload(null);
     };
     window.addEventListener("nahhasio:server-changed", changed);
@@ -220,9 +248,9 @@ export function App() {
     networkMode: "always",
     queryKey: ["work", playingWorkId],
     queryFn: ({ signal }) => gateway.work(playingWorkId!, signal),
-    enabled: playing && Boolean(playingWorkId),
+    enabled: showWatch && Boolean(playingWorkId),
   });
-  if (playing && (session.data || offline.data?.offline))
+  if (showWatch && (session.data || offline.data?.offline))
     return (
       <WatchPage
         player={player}
@@ -233,19 +261,10 @@ export function App() {
         offline={offline.data?.offline ?? false}
         error={watchWork.error}
         onRetry={() => void watchWork.refetch()}
-        onWatch={(target) => {
-          const generation = ++requestGeneration.current;
-          setWatchTarget(target);
-          setSourceReady(false);
-          void openWatch(target, { commandAsync: playerCommandAsync }, client)
-            .finally(() => {
-              if (generation === requestGeneration.current) {
-                setWatchTarget(target);
-                setSourceReady(true);
-              }
-            })
-            .catch(() => {});
-        }}
+        onWatch={openTarget}
+        onLeave={leaveWatch}
+        browserPreview={browserPreview}
+        startupError={watchStartupError}
       />
     );
 

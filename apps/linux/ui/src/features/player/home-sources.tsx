@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { nativeCall } from "@/lib/bridge";
 
 import { PlayerSnapshotSchema } from "./bridge";
@@ -19,10 +20,14 @@ export function HomeSources({
   target,
   player,
   onPlaybackStarted,
+  onBrowserPlay,
+  inMenu,
 }: {
   target: WatchTarget | null;
   player: PlayerController;
   onPlaybackStarted?: () => void;
+  onBrowserPlay?: (url: string) => void;
+  inMenu?: boolean;
 }) {
   const client = useQueryClient();
   const sessionId = player.snapshot?.sessionId ?? "";
@@ -38,12 +43,19 @@ export function HomeSources({
       (file) =>
         file.installmentId === target?.installmentId &&
         file.episodeId === (target?.episodeId ?? null) &&
-        file.availability === "present",
+        file.availability === "present" &&
+        !file.isTrashed,
     ) ?? [];
   const play = useMutation({
     mutationKey: ["native", "home-play", sessionId],
     mutationFn: async (fileId: string) => {
       if (!target) throw new Error("اختر حلقة أولًا.");
+      if (onBrowserPlay) {
+        const reply = z
+          .object({ url: z.string() })
+          .parse(await nativeCall("browser.homePlay", { id: fileId }));
+        return { url: reply.url };
+      }
       const reply = PlayerSnapshotSchema.parse(
         await nativeCall("media.homePlay", {
           sessionId,
@@ -56,31 +68,43 @@ export function HomeSources({
         }),
       );
       if (reply.sessionId !== sessionId) throw new Error("وصل تحديث قديم للمشغّل.");
-      return reply;
+      return { snapshot: reply };
     },
-    onSuccess: (snapshot) => {
-      client.setQueryData(playerSnapshotKey, snapshot);
-      onPlaybackStarted?.();
+    onSuccess: (result) => {
+      if (result.url) onBrowserPlay?.(result.url);
+      if (result.snapshot) {
+        client.setQueryData(playerSnapshotKey, result.snapshot);
+        onPlaybackStarted?.();
+      }
     },
     networkMode: "always",
     retry: false,
   });
+  if (inMenu)
+    return (
+      <>
+        {matches.map((file) => (
+          <DropdownMenuItem
+            key={file.id}
+            disabled={play.isPending}
+            closeOnClick={false}
+            onClick={() => play.mutate(file.id)}
+          >
+            <Play data-icon="inline-start" />
+            تشغيل من المنزل {file.byteSize !== null && `· ${formatSourceSize(file.byteSize)}`}
+          </DropdownMenuItem>
+        ))}
+        {play.error && <DropdownMenuItem disabled>{play.error.message}</DropdownMenuItem>}
+      </>
+    );
+  if (!matches.length && !play.error) return null;
   return (
     <section className="flex flex-col gap-3" aria-label="مكتبة المنزل">
-      <div className="flex items-center gap-2">
-        <h3>مكتبة المنزل</h3>
-        <Badge variant="outline">ملفات الخادم</Badge>
-      </div>
-      {files.isPending && <p role="status">جارٍ التحقق من ملفات الحلقة…</p>}
-      {files.error && (
-        <p>تعذّر الوصول إلى مكتبة المنزل. تحتاج ملفات الخادم إلى اتصال بالشبكة المنزلية.</p>
-      )}
-      {files.isSuccess && !matches.length && <p>لم يُستورد فيديو لهذه الحلقة إلى مكتبة المنزل.</p>}
       {matches.map((file) => (
         <Button
           key={file.id}
           variant="outline"
-          disabled={play.isPending || player.pending || !sessionId}
+          disabled={play.isPending || (!onBrowserPlay && (player.pending || !sessionId))}
           onClick={() => play.mutate(file.id)}
         >
           <Play data-icon="inline-start" />

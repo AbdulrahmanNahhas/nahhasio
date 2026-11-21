@@ -1,3 +1,4 @@
+import type { TrackingChange } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -42,11 +43,19 @@ export function useWorkTracking(id: string, enabled = true) {
     mutationFn: (selection: WatchedSelection) => gateway.setWatched(id, selection),
     onSuccess: refresh,
   });
+  const progress = useMutation({
+    mutationFn: (change: TrackingChange) => gateway.syncTracking(id, change),
+    onSuccess: refresh,
+    onError: () => {
+      void client.invalidateQueries({ queryKey: workStateKey(id) });
+    },
+  });
   return {
     state,
     ...indexes,
     favorite,
     watched,
+    progress,
     pending: favorite.isPending || watched.isPending,
     error: watched.error ?? favorite.error,
   };

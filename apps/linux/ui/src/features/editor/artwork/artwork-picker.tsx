@@ -230,7 +230,7 @@ function ArtworkResults({
               <EmptyHeader>
                 <EmptyTitle>
                   {search.data?.candidates.length
-                    ? "لا توجد صور تطابق المرشحات"
+                    ? "لا توجد صور تطابق خيارات التصفية"
                     : "لا توجد صور مطابقة"}
                 </EmptyTitle>
                 <EmptyDescription>

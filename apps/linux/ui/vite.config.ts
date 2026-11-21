@@ -7,6 +7,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 import { developmentServer } from "./development-server";
+import { developmentVideo } from "./development-video";
 
 export default defineConfig(({ command }) => {
   const upstream = developmentServer(command === "serve" ? process.env : {});
@@ -24,6 +25,7 @@ export default defineConfig(({ command }) => {
         name: "nahhasio-local-development-api",
         apply: "serve",
         configureServer(server) {
+          server.middlewares.use(developmentVideo());
           server.middlewares.use("/__development_api", (request, response, next) => {
             const origin = request.headers.origin;
             if (

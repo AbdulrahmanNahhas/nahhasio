@@ -147,7 +147,9 @@ export function Login({
             <h1 id="login-heading" className="font-display text-3xl font-semibold sm:text-4xl">
               من يشاهد؟
             </h1>
-            <p className="text-sm text-muted-foreground">اختر حسابك، وأكمل حكايتك.</p>
+            <p className="text-sm text-muted-foreground">
+              {browserDevelopment ? "سجّل الدخول إلى المكتبة." : "اختر حسابك، وأكمل حكايتك."}
+            </p>
           </div>
         </div>
         <Dialog
@@ -162,6 +164,7 @@ export function Login({
         >
           <div
             className="flex w-full max-w-3xl flex-wrap justify-center gap-4 sm:gap-8"
+            hidden={browserDevelopment}
             aria-label="حسابات المكتبة"
             aria-busy={accounts.isFetching || restoring}
           >
@@ -232,7 +235,12 @@ export function Login({
             </Alert>
           )}
           <DialogTrigger
-            render={<Button variant="ghost" size="sm" />}
+            render={
+              <Button
+                variant={browserDevelopment ? "default" : "ghost"}
+                size={browserDevelopment ? "lg" : "sm"}
+              />
+            }
             disabled={busy || !nativeAvailable()}
             onClick={() => {
               clearPassword();
@@ -320,15 +328,19 @@ export function Login({
                   </InputGroup>
                   {capsLock && <FieldDescription>مفتاح الأحرف الكبيرة مفعّل.</FieldDescription>}
                 </Field>
-                <Field orientation="horizontal" data-disabled={busy || browserDevelopment}>
-                  <Checkbox
-                    id="remember-account"
-                    checked={remember}
-                    onCheckedChange={(checked) => setRemember(checked === true)}
-                    disabled={busy || browserDevelopment}
-                  />
-                  <FieldLabel htmlFor="remember-account">تذكّر هذا الحساب على هذا الجهاز</FieldLabel>
-                </Field>
+                {!browserDevelopment && (
+                  <Field orientation="horizontal" data-disabled={busy}>
+                    <Checkbox
+                      id="remember-account"
+                      checked={remember}
+                      onCheckedChange={(checked) => setRemember(checked === true)}
+                      disabled={busy}
+                    />
+                    <FieldLabel htmlFor="remember-account">
+                      تذكّر هذا الحساب على هذا الجهاز
+                    </FieldLabel>
+                  </Field>
+                )}
                 <FieldDescription>
                   {browserDevelopment
                     ? "جلسة معاينة مؤقتة؛ يلزم تسجيل الدخول بعد إعادة تحميل الصفحة."

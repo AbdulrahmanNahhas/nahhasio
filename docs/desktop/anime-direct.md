@@ -2,8 +2,8 @@
 
 [Documentation index](../README.md) · [Streaming](streaming.md) · [Verification](../development/testing.md)
 
-The source picker opens on Torrents for every online work. Anime series/films also offer a
-separate English-dub direct-stream tab; video servers remain a peer option. Whole-work files-only
+The Linux source picker opens on Torrents for online works. Anime series/films also offer a
+direct-stream search within Video Servers alongside the anime embeds. Whole-work files-only
 policy excludes all online modes. The source overflow menu opens a device file; files-only works
 expose that action directly.
 
@@ -13,12 +13,13 @@ Retain the reviewed charcoal palette (#0a0a0a background, #171717 card, #252525 
 text (#fafafa), muted text (#a3a3a3), violet accent (#6149f7), and Noto/Plex Arabic typography.
 Keep RTL alignment and keyboard selection. Use the video space as a practical source desk:
 
-    [Torrents (default)] [Anime streams, when applicable] [Video servers] [⋯]
+    [Torrents (default)] [Video servers] [Open video link] [⋯]
     [search / sort]                                    [result count]
     [Torrentio / Comet] [quality] [language]
     [compact source rows: quality, release, size, peers, languages, Play]
 
-The modes are visible peers, never nested under an anime card or a Want more disclosure.
+Video Servers shows all eligible embedded providers and groups alternative audio variants. The
+native direct anime search is a separate disclosure within that tab.
 The rare device-file action lives in the overflow menu. Every server is a single click-to-play tile.
 Torrent rows expose supplied metadata and separate English hints inferred from Dubbed/Dual Audio
 release tags, with full original text behind a short details disclosure. Unknown values and repeated

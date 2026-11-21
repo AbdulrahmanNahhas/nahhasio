@@ -15,12 +15,13 @@ type Viewport = {
 /** CSS pixels and GTK logical pixels share the unzoomed WebKit viewport. */
 export function useVideoViewport(
   element: RefObject<HTMLDivElement | null>,
-  sessionId: string,
+  sessionId: string | null | undefined,
   fullscreen: boolean,
 ) {
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const sent = useRef("");
   useEffect(() => {
+    if (!sessionId) return;
     let alive = true;
     let frame = 0;
     let busy = false;
@@ -81,7 +82,7 @@ export function useVideoViewport(
       window.removeEventListener("scroll", schedule, true);
     };
   }, [element, sessionId, fullscreen]);
-  return viewport;
+  return sessionId ? viewport : null;
 }
 /** Paint the page around the native video without painting over its transparent aperture. */
 export function VideoBackdrop({ viewport }: { viewport: Viewport | null }) {

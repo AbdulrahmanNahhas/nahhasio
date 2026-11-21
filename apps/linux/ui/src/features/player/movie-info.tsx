@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { entityLink } from "@/features/shell/navigation";
 import { pickArtwork } from "@/features/work/format";
@@ -39,9 +39,9 @@ export function MovieInfo({
   return (
     <aside
       aria-label={installment.kind === "special" ? "معلومات العرض الخاص" : "معلومات الفيلم"}
-      className="min-w-0 xl:sticky xl:top-4 xl:row-span-2 xl:h-[calc(100dvh-6rem)]"
+      className="min-w-0"
     >
-      <Card className="h-full">
+      <Card size="sm" className="xl:max-h-[calc(100dvh-4rem)]">
         <CardHeader>
           {selector}
           <div className="flex items-start gap-4">
@@ -52,7 +52,9 @@ export function MovieInfo({
             />
             <div className="flex min-w-0 flex-col gap-3">
               <CardTitle>
-                <h2 dir="auto">{title}</h2>
+                <h2 dir="auto" className="wrap-anywhere">
+                  {title}
+                </h2>
               </CardTitle>
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="outline">
@@ -98,7 +100,12 @@ export function MovieInfo({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-5 scroll-fade-y overflow-y-auto">
+        {navigation && (
+          <CardContent className="flex flex-col gap-2 md:max-xl:grid md:max-xl:grid-cols-2">
+            {navigation}
+          </CardContent>
+        )}
+        <CardContent className="flex min-h-0 flex-col gap-5 xl:scroll-fade-y xl:overflow-y-auto xl:overscroll-contain">
           {studios.length > 0 && (
             <section className="flex flex-col gap-3" aria-label="الاستوديوهات والجهات">
               <h3 className="text-sm font-semibold">الاستوديوهات والجهات</h3>
@@ -137,9 +144,6 @@ export function MovieInfo({
             showRecommendations={showRecommendations}
           />
         </CardContent>
-        {navigation && (
-          <CardFooter className="flex-col items-stretch gap-3 border-t">{navigation}</CardFooter>
-        )}
       </Card>
     </aside>
   );

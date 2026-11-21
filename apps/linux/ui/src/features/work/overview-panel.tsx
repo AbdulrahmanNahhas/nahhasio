@@ -12,39 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { gateway } from "../../lib/bridge";
 import { workLink } from "../shell/navigation";
 import { Disclosure, Section } from "./field-list";
-import { pickArtwork, riskLabels } from "./format";
+import { pickArtwork } from "./format";
+import { highestRisk, RiskBadge } from "./risk-badge";
 import type { WorkTracking } from "./use-work-tracking";
 
 type Risk = WorkDetail["sexualityRisk"];
-const riskRank = new Map<Risk, number>([
-  ["none", 0],
-  ["low", 1],
-  ["medium", 2],
-  ["high", 3],
-]);
-function highestRisk(risks: Risk[]) {
-  return risks.toSorted((left, right) => (riskRank.get(right) ?? 0) - (riskRank.get(left) ?? 0))[0];
-}
 function riskClasses(risk: Risk) {
   if (risk === "low") return "border-success/70 bg-success/5 ring-0";
   if (risk === "medium") return "border-warning/70 bg-warning/5 ring-0";
   if (risk === "high") return "border-destructive/70 bg-destructive/5 ring-0";
   return "border-border";
-}
-function RiskBadge({ risk }: { risk: Risk }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "h-auto border px-3 py-1 text-sm",
-        risk === "low" && "border-success/60 bg-success/10 text-success",
-        risk === "medium" && "border-warning/60 bg-warning/10 text-warning",
-        risk === "high" && "border-destructive/60 bg-destructive/10 text-destructive",
-      )}
-    >
-      {riskLabels.get(risk)}
-    </Badge>
-  );
 }
 function RiskNote({ title, text, risks }: { title: string; text: string; risks: Risk[] }) {
   const severity = highestRisk(risks);

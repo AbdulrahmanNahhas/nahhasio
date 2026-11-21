@@ -36,10 +36,10 @@ Otherwise, if no `@ui-sdk` package is installed yet, install `@ui-sdk/core` and 
 
 Most interfaces only need path 1. When one part of it needs a component we don't have, follow path 2 for that part.
 
-Every path ends the same way:
-
-3. **Make it agent-ready**: [references/agent-ready.md](references/agent-ready.md).
-4. **Test it**: [references/testing.md](references/testing.md).
+Use [references/testing.md](references/testing.md) for applicable keyboard, focus, ARIA, and
+RTL checks. Follow Nahhasio's verification policy for when to add or run tests. Use
+[references/agent-ready.md](references/agent-ready.md) when the task explicitly includes agent
+interaction.
 
 ## Rules for every path
 
@@ -58,6 +58,6 @@ Every path ends the same way:
 ## When you're done
 
 1. **Typecheck.** If the root `tsconfig.json` has `"files": []` and `references`, `npx tsc --noEmit` checks nothing: run `npx tsc -b` or `npx tsc --noEmit -p <app config>`. For Svelte, run `svelte-check`; for Vue, `vue-tsc`.
-2. **Write and run tests** (see testing.md). Every task gets tests, and every interface gets at least the agent test from agent-ready.md. If a test finds a bug in code you were asked only to test, mark it `test.fails` (or `it.fails`) with a one-line reason, report the bug, and leave the suite green.
+2. **Verify the change** with the checks in the [desktop skill](../nahhasio-desktop-ui/SKILL.md). Use the SDK testing reference when it covers the interaction being changed.
 3. **Read every comment in your diff.** Delete it unless it names a browser quirk, an APG rule or a trade-off, and cut what's left to two lines. Turn JSDoc on app code into a plain comment or delete it. Never tell the reader to replace something.
 4. **Report** each command you ran with its exit code, anything you couldn't check, and anything the docs or types got wrong or left out.

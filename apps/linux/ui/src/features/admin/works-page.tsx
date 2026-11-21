@@ -197,7 +197,7 @@ export function AdminWorksPage({
           <SearchForm key={search.q} value={search.q} onSearch={(q) => onChange({ q })} />
           <Popover>
             <PopoverTrigger render={<Button variant="outline" />}>
-              <SlidersHorizontal data-icon="inline-start" /> المرشحات
+              <SlidersHorizontal data-icon="inline-start" /> تصفية النتائج
               {activeFilters > 0 && (
                 <Badge variant="secondary">{number.format(activeFilters)}</Badge>
               )}
@@ -208,7 +208,7 @@ export function AdminWorksPage({
             >
               <PopoverHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <PopoverTitle>المرشحات</PopoverTitle>
+                  <PopoverTitle>تصفية النتائج</PopoverTitle>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -339,7 +339,7 @@ export function AdminWorksPage({
             <EmptyTitle>
               {page > pages ? "هذه الصفحة لم تعد متاحة" : "لا توجد أعمال مطابقة"}
             </EmptyTitle>
-            <EmptyDescription>غيّر البحث أو المرشحات لعرض أعمال المكتبة.</EmptyDescription>
+            <EmptyDescription>غيّر البحث أو التصفية لعرض أعمال المكتبة.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button

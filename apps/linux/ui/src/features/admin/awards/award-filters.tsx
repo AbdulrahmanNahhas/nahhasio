@@ -34,7 +34,7 @@ export function AwardFilters({
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 flex-1">
       <CollapsibleTrigger render={<Button variant="outline" className="justify-between" />}>
         <SlidersHorizontal data-icon="inline-start" />
-        المرشحات{active ? " · نشطة" : ""}
+        تصفية النتائج{active ? " · نشطة" : ""}
         <ChevronDown data-icon="inline-end" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">

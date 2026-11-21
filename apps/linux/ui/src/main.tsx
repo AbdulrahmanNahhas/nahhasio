@@ -1,6 +1,6 @@
 import { initializeSchemaRuntime } from "./lib/schema-runtime";
-import { initializeTheme } from "./lib/theme";
+import { initializeAppearance } from "./lib/theme";
 
 initializeSchemaRuntime();
-initializeTheme();
+initializeAppearance();
 void import("./bootstrap");

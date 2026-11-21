@@ -177,10 +177,11 @@ component set for the desktop. Read the `nahhasio-desktop-ui` skill there; prese
 static utility presentation and typed native boundary. Do not hand-edit vendored primitives to
 fix caller errors.
 
-Before using UI SDK, follow the `ui-sdk` skill if installed and read
-`apps/linux/ui/node_modules/@ui-sdk/react/docs/llms.txt`. To build a new UI SDK component,
-also search `core.md` by heading and read `rendering.md` in that same docs directory.
-UI SDK is a rendering option, not permission to add a provider or bypass the native bridge.
+For work using UI SDK, follow the [ui-sdk skill](.agents/skills/ui-sdk/SKILL.md) if installed
+and read `apps/linux/ui/node_modules/@ui-sdk/react/docs/llms.txt`. When building a component
+from UI SDK behaviors, search `core.md` by heading and read `rendering.md` in the same docs
+directory. Use the existing typed native bridge for data and native operations. Adding agent
+tools, WebMCP, or model providers requires separate authorization.
 
 - Use component variants/sizes and semantic theme tokens. Caller classes control layout.
 - Use Field/FieldGroup, full Card composition, and Empty/Alert/Badge for their respective roles.

@@ -1,10 +1,19 @@
 import type { User } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
-import { Server, HardDrive, Settings, Users } from "lucide-react";
-import { LogOut, ShieldCheck } from "lucide-react";
+import {
+  Download,
+  HardDrive,
+  LogOut,
+  MonitorPlay,
+  Server,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -96,8 +105,27 @@ export function AccountMenu({
                 <span className="text-xs text-muted-foreground">الملف الشخصي</span>
               </div>
             </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => navigate("/downloads")}>
+              <Download data-icon="inline-start" /> مكتبة الجهاز
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled>
+              <MonitorPlay data-icon="inline-start" />
+              مشاهدة مباشرة
+              <Badge variant="secondary" className="ms-auto">
+                قريبًا
+              </Badge>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings data-icon="inline-start" /> الإعدادات والمساعدة
+            </DropdownMenuItem>
             {user.isAdmin && (
-              <DropdownMenuItem className="min-h-11 gap-3 px-3" onClick={() => navigate("/admin")}>
+              <DropdownMenuItem onClick={() => navigate("/admin")}>
                 <ShieldCheck data-icon="inline-start" />
                 لوحة الإدارة
               </DropdownMenuItem>
@@ -105,18 +133,11 @@ export function AccountMenu({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => navigate("/settings")}>
-              <Settings data-icon="inline-start" /> الإعدادات والمساعدة
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={switching.isPending || logout.isPending}
-              onClick={() => switching.mutate()}
-            >
-              <Users data-icon="inline-start" /> تبديل الحساب
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setConnections(true)}>
               <Server data-icon="inline-start" />
-              {currentServer ? `الخادم: ${currentServer.name}` : "الخادم والاتصال"}
+              <span className="min-w-0 truncate" title={currentServer?.name}>
+                {currentServer ? `الخادم: ${currentServer.name}` : "الخادم والاتصال"}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={local.isPending || logout.isPending}
@@ -124,6 +145,12 @@ export function AccountMenu({
             >
               <HardDrive data-icon="inline-start" />
               المكتبة دون اتصال
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={switching.isPending || logout.isPending}
+              onClick={() => switching.mutate()}
+            >
+              <Users data-icon="inline-start" /> تبديل الحساب
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

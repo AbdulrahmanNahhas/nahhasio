@@ -17,7 +17,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,7 +107,7 @@ export function WatchDiscussion({
   return (
     <section className="flex min-w-0 flex-col gap-5" aria-label="نقاش العائلة">
       <header className="flex items-center gap-2">
-        <MessageCircle className="size-5" />
+        <MessageCircle className="size-5" aria-hidden="true" />
         <h2 className="text-xl font-semibold">نقاش العائلة</h2>
         {feed.data && <Badge variant="secondary">{feed.data.pages[0]?.total}</Badge>}
       </header>
@@ -169,10 +168,12 @@ export function WatchDiscussion({
                 />
                 يحوي حرقًا للأحداث
               </label>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground tabular-nums" aria-live="off">
-                  {body.length}/1200
-                </span>
+              <div className="ms-auto flex items-center gap-3">
+                {body.length > 0 && (
+                  <span className="text-xs text-muted-foreground tabular-nums" aria-live="off">
+                    <bdi>{body.length}/1200</bdi>
+                  </span>
+                )}
                 <Button type="submit" disabled={!body.trim() || change.isPending}>
                   {change.isPending
                     ? "جارٍ الإرسال…"
@@ -191,14 +192,6 @@ export function WatchDiscussion({
             </div>
           )}
           {feed.isError && <Failure error={feed.error} retry={() => void feed.refetch()} />}
-          {feed.isSuccess && !items.length && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>ابدأ نقاش العائلة</EmptyTitle>
-                <EmptyDescription>شارك رأيك، وعلّم أي تعليق يحوي حرقًا للأحداث.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
           {[...threads].map(([rootId, thread]) => (
             <div key={rootId} className="flex flex-col gap-4 border-b border-border pb-5">
               {thread

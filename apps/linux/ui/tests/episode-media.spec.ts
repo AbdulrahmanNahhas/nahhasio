@@ -466,7 +466,7 @@ for (const width of [1440, 520, 360]) {
           await page.getByRole("option", { name: "Fanart", exact: true }).click();
           await page.keyboard.press("Escape");
           await expect(
-            results.getByText("لا توجد صور تطابق المرشحات", { exact: true }),
+            results.getByText("لا توجد صور تطابق خيارات التصفية", { exact: true }),
           ).toBeVisible();
         }
         await results.getByRole("button", { name: "Close", exact: true }).click();

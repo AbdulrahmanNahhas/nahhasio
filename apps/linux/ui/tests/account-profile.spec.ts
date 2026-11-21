@@ -115,6 +115,9 @@ test.beforeEach(async ({ page }) => {
                   servers: [{ url: "http://127.0.0.1:23103/", name: "مكتبة العائلة" }],
                 };
                 break;
+              case "loginAccounts":
+                result = [];
+                break;
               case "offline.status":
                 result = {
                   scope: null,
@@ -146,11 +149,12 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("public profile, separate editor and supplied avatars work without exposing account fields", async ({
+test("profile editing opens Account settings and saves updates without exposing account fields", async ({
   page,
 }) => {
   await page.goto("/#/profile");
   await expect(page.getByRole("heading", { name: "أكوا", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/profiles\/00000000-0000-4000-8000-000000000001$/);
   await expect(page.getByText("private@example.test")).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "الاسم", exact: true })).toHaveCount(0);
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
@@ -163,18 +167,20 @@ test("public profile, separate editor and supplied avatars work without exposing
     await page.screenshot({ path: "../../../data/previews/account-menu.png" });
   await page.getByRole("menuitem", { name: "الملف الشخصي", exact: true }).click();
   await expect(page).toHaveURL(/profiles\/00000000-0000-4000-8000-000000000001/);
-  await expect(page.getByRole("button", { name: "تعديل الملف", exact: true })).toHaveCount(1);
-  await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
-  const editor = page.getByRole("dialog", { name: "إعداداتك", exact: true });
-  await expect(editor).toBeVisible();
+  await expect(page.getByRole("link", { name: "تعديل الملف", exact: true })).toHaveCount(1);
+  await page.getByRole("link", { name: "تعديل الملف", exact: true }).click();
+  await expect(page).toHaveURL(/settings\?section=account$/);
+  await expect(page.getByRole("heading", { name: "الملف والصورة", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "إعداداتك", exact: true })).toHaveCount(0);
   await page.getByRole("textbox", { name: "الاسم", exact: true }).fill("أكوا الجديد");
+  await page.getByRole("button", { name: "تغيير الصورة", exact: true }).click();
   await page.getByRole("searchbox", { name: "اختر صورة حسابك" }).fill("سونيك");
   await page.getByTitle("سونيك 2", { exact: true }).click();
   await expect(page.getByRole("radio", { name: "سونيك 2", exact: true })).toBeChecked();
-  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-    await page.screenshot({ path: "../../../data/previews/account-profile-editor.png" });
+  await page.getByRole("button", { name: "تم الاختيار", exact: true }).click();
   await page.getByRole("button", { name: "حفظ التغييرات", exact: true }).click();
-  await expect(editor).not.toBeVisible();
+  await expect(page.getByText("تم حفظ ملفك الشخصي", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "عرض الملف الشخصي", exact: true }).click();
   await expect(page.getByRole("heading", { name: "أكوا الجديد", exact: true })).toBeVisible();
   expect(
     JSON.parse(await page.evaluate(() => sessionStorage.getItem("fixture-profile-update") ?? "{}")),
@@ -182,7 +188,7 @@ test("public profile, separate editor and supplied avatars work without exposing
   await page.goto("/#/profiles/00000000-0000-4000-8000-000000000002?edit=profile");
   await expect(page.getByRole("heading", { name: "أكوا الجديد", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "إعداداتك", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "تعديل الملف", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "تعديل الملف", exact: true })).toHaveCount(0);
   await expect(page.getByText("private@example.test")).toHaveCount(0);
   await page.setViewportSize({ width: 520, height: 900 });
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
@@ -192,84 +198,23 @@ test("public profile, separate editor and supplied avatars work without exposing
   );
 });
 
-test("discard restores the saved profile and keyboard can open and close settings", async ({
-  page,
-}) => {
+test("the profile edit link and undo work by keyboard on a narrow window", async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 900 });
   await page.goto("/#/profile?edit=profile");
-  const editor = page.getByRole("dialog", { name: "إعداداتك", exact: true });
-  await expect(page.getByRole("radio")).toHaveCount(111);
-  const scroll = page.locator("#profile-editor-form");
-  const save = page.getByRole("button", { name: "حفظ التغييرات", exact: true });
-  const before = await save.boundingBox();
-  await scroll.hover();
-  await page.mouse.wheel(0, 1400);
-  await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect(save).toBeVisible();
-  const after = await save.boundingBox();
-  expect(after?.y).toBeCloseTo(before?.y ?? 0, 0);
-
-  await expect(page.getByRole("radio", { name: "المكتبة", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("radio", { name: "العوالم", exact: true })).toHaveCount(0);
-  await page.getByRole("textbox", { name: "الاسم", exact: true }).fill("غير محفوظ");
-  await page.keyboard.press("Escape");
-  await expect(editor).toBeVisible();
-  await page.getByRole("button", { name: "تجاهل التغييرات" }).click();
-  await expect(editor).not.toBeVisible();
-  await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "الاسم", exact: true })).toHaveValue("أكوا");
-  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-    await page.screenshot({ path: "../../../data/previews/account-profile-editor-520.png" });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  await page.keyboard.press("Escape");
-  await expect(editor).not.toBeVisible();
-});
-
-test("tab switching keeps one panel and Drawer enter/exit transitions run", async ({ page }) => {
-  await page.goto("/#/profile");
-  await expect(page.getByRole("button", { name: "تعديل الملف", exact: true })).toBeVisible();
-  await page.evaluate(() => {
-    document.addEventListener("transitionrun", (event) => {
-      if (
-        !(event.target instanceof HTMLElement) ||
-        event.target.dataset.slot !== "drawer-popup" ||
-        event.propertyName !== "transform"
-      )
-        return;
-      const entries = JSON.parse(sessionStorage.getItem("drawer-transitions") ?? "[]");
-      entries.push(event.target.hasAttribute("data-ending-style") ? "exit" : "enter");
-      sessionStorage.setItem("drawer-transitions", JSON.stringify(entries));
-    });
-  });
-  await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
-  const editor = page.getByRole("dialog", { name: "إعداداتك", exact: true });
-  await expect(editor).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => sessionStorage.getItem("drawer-transitions")))
-    .toContain("enter");
-  for (const name of [
-    "أمان الحساب",
-    "الجهاز",
-    "الملف والصورة",
-    "الجهاز",
-    "أمان الحساب",
-    "الملف والصورة",
-  ]) {
-    await editor.getByRole("tab", { name, exact: true }).click();
-    await expect(editor.getByRole("tab", { name, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await expect(editor.locator('[role="tabpanel"]')).toHaveCount(1);
-    await expect(editor.getByRole("tabpanel", { name, exact: true })).toBeVisible();
-  }
-  await editor.getByRole("button", { name: "إغلاق الإعدادات" }).click();
-  await expect
-    .poll(() => page.evaluate(() => sessionStorage.getItem("drawer-transitions")))
-    .toContain("exit");
-  await expect(editor).not.toBeVisible();
+  await expect(page).toHaveURL(/profiles\/00000000-0000-4000-8000-000000000001$/);
+  const edit = page.getByRole("link", { name: "تعديل الملف", exact: true });
+  await edit.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/settings\?section=account$/);
+  const name = page.getByRole("textbox", { name: "الاسم", exact: true });
+  await name.fill("غير محفوظ");
+  await page.getByRole("button", { name: "تراجع", exact: true }).click();
+  await expect(name).toHaveValue("أكوا");
+  await expect(name).toBeFocused();
+  await expect(page.getByRole("button", { name: "حفظ التغييرات", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "أمان الحساب", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "الجهاز", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(520);
 });
 
 test("profile activity paginates discussion, protects spoilers and shows viewing statistics", async ({
@@ -277,6 +222,16 @@ test("profile activity paginates discussion, protects spoilers and shows viewing
 }) => {
   await page.goto("/#/profile");
   await expect(page.getByRole("tab", { name: "المشاهدة", exact: true })).toBeVisible();
+  const overview = page.getByRole("tab", { name: "نظرة عامة", exact: true });
+  await expect(overview).toHaveAttribute("aria-selected", "true");
+  await overview.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: "المشاهدة", exact: true })).toBeFocused();
+  await overview.click();
+  await page
+    .getByRole("region", { name: "آخر ما شاهدت", exact: true })
+    .getByRole("button", { name: /^عرض الكل/ })
+    .click();
   await expect(page.getByRole("heading", { name: "حكاية 1", exact: true })).toBeVisible();
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/profile-activity-watched.png" });
@@ -305,6 +260,9 @@ test("profile activity paginates discussion, protects spoilers and shows viewing
     true,
   );
   await page.goto("/#/profiles/00000000-0000-4000-8000-000000000002");
+  await expect(overview).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("region", { name: "القوائم", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "قيد المشاهدة", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "الآراء والقوائم", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "المشاهدة", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "الحساب", exact: true })).toHaveCount(0);

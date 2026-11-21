@@ -14,6 +14,7 @@ export function Choice({
   onChange,
   id,
   animatePopup = false,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -21,11 +22,13 @@ export function Choice({
   onChange: (value: string) => void;
   id?: string;
   animatePopup?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="min-w-32.5 flex-1 sm:min-w-37.5">
       <Select
         items={options}
+        disabled={disabled}
         value={value}
         onValueChange={(next) => {
           if (next !== null) onChange(next);

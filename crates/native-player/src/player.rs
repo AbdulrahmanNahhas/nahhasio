@@ -433,7 +433,7 @@ impl NativePlayer {
     }
 
     pub fn delay(&self, kind: TrackKind, seconds: f64) -> Result<(), String> {
-        if !(-600.0..=600.0).contains(&seconds) {
+        if !nahhasio_client_core::playback::valid_track_delay(seconds) {
             return Err("Invalid track delay".into());
         }
         self.set(

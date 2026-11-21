@@ -2,7 +2,7 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { cn } from "cn";
 import { Clock, Play, RotateCcw } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
@@ -47,7 +47,6 @@ export function EpisodeThumbnail({
 }: {
   artworkId?: string | null;
   label: string;
-  onPlay: () => void;
   position?: number;
   duration?: number | null;
   played?: boolean;
@@ -57,22 +56,63 @@ export function EpisodeThumbnail({
   topEnd?: ReactNode;
   bottomStart?: ReactNode;
   bottomEnd?: ReactNode;
+  onPlay: () => void;
 }) {
   const navigation = useCardNavigation();
   const [tilt, setTilt] = useState<string>(tilts[1]);
+  const [enterPressed, setEnterPressed] = useState(false);
+  const Icon = disabled ? Clock : played ? RotateCcw : Play;
+  const primaryProps = {
+    ...navigation,
+    "data-episode-primary": true,
+    "aria-label": label,
+    className:
+      "group/play absolute inset-0 grid size-full cursor-pointer place-items-center rounded-2xl border-0 bg-transparent p-0 outline-none disabled:cursor-default disabled:opacity-50",
+    onFocus: (event: FocusEvent<HTMLElement>) =>
+      event.currentTarget
+        .closest("[data-episode-card]")
+        ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" }),
+    onBlur: () => setEnterPressed(false),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      navigation?.onKeyDown(event);
+      if (
+        event.key !== "Enter" ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.nativeEvent.isComposing
+      )
+        return;
+      // Match pointer press feedback before activating the card on release.
+      event.preventDefault();
+      setEnterPressed(true);
+    },
+    onKeyUp: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key !== "Enter" || !enterPressed) return;
+      setEnterPressed(false);
+      event.currentTarget.click();
+    },
+  };
+  const actionIcon = (
+    <span className="grid size-11 place-items-center rounded-full border border-border bg-background/90 text-foreground opacity-0 shadow-sm group-hover/episode:opacity-100 group-focus-within/episode:opacity-100 pointer-coarse:opacity-100 motion-safe:transition-opacity motion-safe:duration-200 motion-reduce:transition-none">
+      <Icon className="size-5" aria-hidden="true" />
+    </span>
+  );
   const progress =
     !played && duration && duration > 0 && position > 0
       ? Math.min(100, Math.max(0, (position / duration) * 100))
       : null;
   return (
     <div
+      data-enter-pressed={enterPressed || undefined}
       className={cn(
         "relative isolate aspect-video rounded-2xl border border-border bg-card group-focus-within/episode:ring-4 group-focus-within/episode:ring-offset-2 group-focus-within/episode:ring-offset-background motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
         played
           ? "group-focus-within/episode:ring-success group-hover/episode:border-success"
           : "group-focus-within/episode:ring-foreground group-hover/episode:border-foreground/60",
         !disabled &&
-          "group-hover/episode:shadow-xl motion-safe:group-hover/episode:scale-104 motion-safe:group-focus-within/episode:scale-102 motion-safe:group-active/episode:scale-98",
+          "group-hover/episode:shadow-xl motion-safe:not-data-enter-pressed:group-hover/episode:scale-104 motion-safe:not-data-enter-pressed:group-focus-within/episode:scale-102 motion-safe:group-active/episode:scale-98 motion-safe:data-enter-pressed:scale-98",
         !disabled && tilt,
       )}
       onPointerEnter={(event) => {
@@ -100,28 +140,8 @@ export function EpisodeThumbnail({
         />
         <span className="absolute inset-0 bg-linear-to-t from-background/70 via-transparent to-transparent" />
       </div>
-      <ButtonPrimitive
-        {...navigation}
-        data-episode-primary
-        className="group/play absolute inset-0 grid size-full cursor-pointer place-items-center rounded-2xl border-0 bg-transparent p-0 outline-none disabled:cursor-default disabled:opacity-50"
-        disabled={disabled}
-        aria-label={label}
-        onClick={onPlay}
-        onFocus={(event) =>
-          event.currentTarget
-            .closest("[data-episode-card]")
-            ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" })
-        }
-      >
-        <span className="grid size-11 place-items-center rounded-full border border-border bg-background/90 text-foreground opacity-0 shadow-sm group-hover/episode:opacity-100 group-focus-within/episode:opacity-100 pointer-coarse:opacity-100 motion-safe:transition-opacity motion-safe:duration-200 motion-reduce:transition-none">
-          {disabled ? (
-            <Clock className="size-5" />
-          ) : played ? (
-            <RotateCcw className="size-5" />
-          ) : (
-            <Play className="size-5" />
-          )}
-        </span>
+      <ButtonPrimitive {...primaryProps} disabled={disabled} onClick={onPlay}>
+        {actionIcon}
       </ButtonPrimitive>
       <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
         <span>{topStart}</span>

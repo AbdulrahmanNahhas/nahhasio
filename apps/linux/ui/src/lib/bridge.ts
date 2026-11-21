@@ -43,6 +43,7 @@ import {
   WorkDetailSchema,
   WorkPageSchema,
   WorkViewerStateSchema,
+  TrackingChangeSchema,
   WorkActivityPageSchema,
   CommentMutationSchema,
   CommentChangedSchema,
@@ -343,6 +344,10 @@ export const gateway = {
       throw new Error("اختر الجزء الذي تنتمي إليه الحلقة.");
     return WorkViewerStateSchema.parse(await call("setWatched", { workId, ...input }));
   },
+  syncTracking: async (workId: string, change: z.input<typeof TrackingChangeSchema>) =>
+    WorkViewerStateSchema.parse(
+      await call("syncTracking", { workId, ...TrackingChangeSchema.parse(change) }),
+    ),
   workComment: async (id: string, data: z.infer<typeof CommentMutationSchema>) =>
     CommentChangedSchema.parse(
       await call("workComment", { id, data: CommentMutationSchema.parse(data) }),

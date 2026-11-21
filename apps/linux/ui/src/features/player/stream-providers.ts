@@ -11,6 +11,8 @@ const ProviderIdSchema = z.enum([
   "vidfast",
   "vidrock",
   "vidnest",
+  "vidora",
+  "vidrift",
   "vidhawk",
   "cinezo",
   "vidsrcto",

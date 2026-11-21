@@ -63,6 +63,31 @@ test("local browser signs in, edits demo settings, displays artwork and keeps se
   await expect(page.getByRole("heading", { name: "من يشاهد؟", exact: true })).toBeVisible();
 });
 
+test("preview saves subtitle preferences locally while provider credentials stay disabled", async ({
+  page,
+}) => {
+  await page.goto("/#/settings?section=playback");
+  async function signIn() {
+    await page.getByRole("button", { name: "الدخول بالبريد الإلكتروني", exact: true }).click();
+    await page.getByLabel("البريد الإلكتروني", { exact: true }).fill("admin@demo.local");
+    await page.getByLabel("كلمة المرور", { exact: true }).fill("demo12345");
+    await page.getByRole("button", { name: "دخول المكتبة", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "التشغيل", exact: true })).toBeVisible();
+  }
+  await signIn();
+  const size = page.getByLabel("حجم الترجمة", { exact: true });
+  const enabled = page.getByRole("switch", { name: "إظهار الترجمة عند بدء التشغيل", exact: true });
+  await size.fill("72");
+  await enabled.click();
+  await page.getByRole("button", { name: "حفظ الافتراضيات", exact: true }).click();
+  await expect(page.getByText("تم حفظ افتراضيات التشغيل")).toBeVisible();
+  await expect(page.getByLabel("مفتاح OpenSubtitles API", { exact: true })).toBeDisabled();
+  await page.reload();
+  await signIn();
+  await expect(size).toHaveValue("72");
+  await expect(enabled).not.toBeChecked();
+});
+
 test("local proxy preserves authentication, member permissions and origin restrictions", async ({
   request,
 }) => {

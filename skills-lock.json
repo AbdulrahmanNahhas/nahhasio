@@ -33,10 +33,10 @@
     },
     "ui-sdk": {
       "source": "vercel-labs/ui",
-      "commit": "f736e67f9f99f71cf053e7d7e9db751f27ba2d56",
+      "commit": "855bc7fd4df3d61aee33d9d975dc3e4f71debc6c",
       "sourceType": "github",
       "skillPath": "packages/core/skills/ui-sdk/SKILL.md",
-      "computedHash": "930036de569c0d07313af7a065194fd1fa5f167293a20c6a404cd0a740abf500"
+      "computedHash": "9a60caf01da3d47beedf627bf1505d922dccc93b04f294c6aa64edf01c46b3ba"
     }
   }
 }

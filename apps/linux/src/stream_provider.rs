@@ -8,6 +8,8 @@ use serde_json::Value;
 pub enum Provider {
     Vidsrc,
     Vidlink,
+    Vidora,
+    Vidrift,
     Vidfast,
     Vidrock,
     Vidnest,
@@ -73,17 +75,19 @@ pub struct Listing {
     pub anime_query: Option<String>,
     pub providers: Vec<Offer>,
 }
-const PROVIDERS: [Provider; 17] = [
-    Provider::Vidlink,
-    Provider::Vidnest,
+const PROVIDERS: [Provider; 19] = [
+    Provider::Vidora,
+    Provider::Vidrift,
+    Provider::Cinextream,
     Provider::Vidsrc,
+    Provider::Vidnest,
+    Provider::Vidlink,
+    Provider::Vidzee,
     Provider::Vidfast,
     Provider::Vidsrcto,
     Provider::Vidrock,
     Provider::Vixsrc,
     Provider::Vidcore,
-    Provider::Vidzee,
-    Provider::Cinextream,
     Provider::Nontongo,
     Provider::Vidapi,
     Provider::Primesrc,
@@ -179,15 +183,23 @@ impl CatalogTarget {
                         provider,
                         Provider::Vidhawk
                             | Provider::Cinezo
+                            | Provider::Vidora
+                            | Provider::Vidrift
+                            | Provider::Vidlink
                             | Provider::Vidnest
                             | Provider::Vixsrc
                             | Provider::Vidcore
                             | Provider::Cinextream
                             | Provider::Nontongo
                     ) {
-                    if provider == Provider::Nontongo {
+                    if provider == Provider::Nontongo
+                        || (provider == Provider::Vidrift && self.anilist.is_none())
+                    {
                         &[Audio::Original]
-                    } else if matches!(provider, Provider::Vixsrc | Provider::Vidcore) {
+                    } else if matches!(
+                        provider,
+                        Provider::Vixsrc | Provider::Vidcore | Provider::Vidrift
+                    ) {
                         &[Audio::Dub]
                     } else {
                         &[Audio::Dub, Audio::Sub]
@@ -259,6 +271,8 @@ impl Provider {
         match self {
             Self::Vidsrc => "VidSrc",
             Self::Vidlink => "VidLink",
+            Self::Vidora => "Vidora",
+            Self::Vidrift => "VidRift",
             Self::Vidfast => "VidFast",
             Self::Vidrock => "VidRock",
             Self::Vidnest => "VidNest",
@@ -299,6 +313,7 @@ impl Provider {
                 Tier::Tested,
                 vec!["نجح على Toy Story؛ الخيارات تختلف حسب الخادم."],
             ),
+            Self::Vidora | Self::Vidrift => (Tier::Trial, vec![]),
             Self::Vidlink => (Tier::Tested, vec!["نجح على Toy Story؛ للأفلام والمسلسلات."]),
             Self::Vidfast => (
                 Tier::Tested,
@@ -347,6 +362,8 @@ impl Provider {
         match self {
             Self::Vidsrc => "vidsrc.sh",
             Self::Vidlink => "vidlink.pro",
+            Self::Vidora => "vidora.ac",
+            Self::Vidrift => "embed.vidrift.net",
             Self::Vidfast => "vidfast.vc",
             Self::Vidrock => "vidrock.net",
             Self::Vidnest => "vidnest.fun",
@@ -394,14 +411,46 @@ impl Provider {
         let anime_route = target.anime
             && matches!(
                 self,
-                Self::Vidhawk | Self::Cinezo | Self::Vidnest | Self::Cinextream | Self::Nontongo
-            );
+                Self::Vidhawk
+                    | Self::Cinezo
+                    | Self::Vidnest
+                    | Self::Cinextream
+                    | Self::Nontongo
+                    | Self::Vidora
+                    | Self::Vidlink
+            )
+            || (target.anime && self == Self::Vidrift && target.anilist.is_some());
         if anime_route {
             if audio == Audio::Original && self != Self::Nontongo {
                 return Err(mapping_error("اختر الدبلجة أو النسخة المترجمة."));
             }
             let track = if audio == Audio::Dub { "dub" } else { "sub" };
             let path = match self {
+                Self::Vidora | Self::Vidlink => {
+                    let mal = target
+                        .mal
+                        .ok_or_else(|| mapping_error("معرّف MAL غير مسجّل."))?;
+                    let next = if self == Self::Vidora {
+                        "&nextbutton=false"
+                    } else {
+                        ""
+                    };
+                    format!("/anime/{mal}/{episode}/{track}?autoplay=false{next}")
+                }
+                Self::Vidrift => {
+                    let dub = u8::from(audio == Audio::Dub);
+                    let anilist = target
+                        .anilist
+                        .ok_or_else(|| mapping_error("معرّف AniList غير مسجّل."))?;
+                    let suffix = if target.series {
+                        format!("/{episode}")
+                    } else {
+                        String::new()
+                    };
+                    format!(
+                        "/embed/anilist/{anilist}{suffix}?autoplay=0&dub={dub}&hide=next,episodes"
+                    )
+                }
                 Self::Cinextream => {
                     if let Some(id) = target.anilist {
                         format!("/api/embed/anime/{track}/{id}/{episode}?autoplay=false")
@@ -453,7 +502,6 @@ impl Provider {
             return Ok(format!("https://{}{path}", self.host()));
         }
         if self == Self::Vidhawk
-            || (target.anime && self == Self::Vidlink)
             || (audio != Audio::Original
                 && !(audio == Audio::Dub
                     && target.anime
@@ -464,6 +512,8 @@ impl Provider {
         let id = if matches!(
             self,
             Self::Vidlink
+                | Self::Vidora
+                | Self::Vidrift
                 | Self::Vidnest
                 | Self::Cinezo
                 | Self::Mapple
@@ -489,7 +539,11 @@ impl Provider {
             String::new()
         };
         let path = match self {
-            Self::Vidsrc | Self::Vidsrcto | Self::Cinezo | Self::Vidzee | Self::Nontongo => {
+            Self::Vidsrc => format!("/embed/{kind}/{id}{suffix}?ds_lang=ar"),
+            Self::Vidrift => format!("/embed/{kind}/{id}{suffix}?autoplay=0&hide=next,episodes"),
+            Self::Vidora => format!("/{kind}/{id}{suffix}?autoplay=false&nextbutton=false"),
+            Self::Vidlink => format!("/{kind}/{id}{suffix}?autoplay=false"),
+            Self::Vidsrcto | Self::Cinezo | Self::Vidzee | Self::Nontongo => {
                 format!("/embed/{kind}/{id}{suffix}")
             }
             Self::Cinextream => format!("/api/embed/{kind}/{id}{suffix}?autoplay=false"),
@@ -618,11 +672,11 @@ mod tests {
                 .ends_with("?dub=true")
         );
         assert!(
-            !target
+            target
                 .listing()
                 .providers
                 .iter()
-                .any(|offer| offer.provider == Provider::Vidlink)
+                .any(|offer| offer.provider == Provider::Vidlink && offer.audio == Audio::Dub)
         );
         target.anilist = None;
         assert!(Provider::Cinezo.embed_url(&target, Audio::Dub).is_err());

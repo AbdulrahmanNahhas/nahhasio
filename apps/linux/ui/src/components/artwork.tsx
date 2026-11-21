@@ -146,6 +146,7 @@ export function Artwork({
   const color = sampled ? background.color : null;
   const imageClass = cn(
     className,
+    "select-none [-webkit-touch-callout:none]",
     studioLogo &&
       "duration-100 transition-[padding,background-color] motion-reduce:transition-none",
     studioLogo && "bg-(--studio-logo-background) object-contain object-center",
@@ -169,6 +170,7 @@ export function Artwork({
       ref={setElement}
       className={imageClass}
       style={imageStyle}
+      draggable={false}
       src={query.data}
       alt={alt}
       // The visibility observer already defers offscreen artwork before fetching its bytes.

@@ -6,14 +6,11 @@
 
 Nahhasio offers provider-hosted embeds, Torrentio and Comet, plus a separate English-dub anime flow
 using anipy-api and the native player. See [the anime checkpoint](anime-direct.md) for ownership,
-quality/subtitle limits and checks. ani-cli and Cloudstream are not integrated. Opening a catalog
-work does not contact online providers; anime search is explicit, torrent discovery starts
-when the torrent tab is selected (the default on opening the source picker), and an embed starts
-only after clicking a provider. Torrent, anime-direct and server
-modes are visible peer tabs; each server is a single Play action, and opening a device file
-lives in the source overflow menu (directly available for files-only works). Unknown capabilities and
-repeated provider-request notes are omitted from the picker.
-The capability listing reads the authorized catalog only; it does not probe all providers.
+quality/subtitle limits and checks. Opening a catalog work outside Watch does not contact online
+providers. On Linux, torrent discovery starts in the default Torrent tab. Choosing Video Servers
+starts its ranked embed queue and also exposes the separate direct anime search. In the browser,
+Watch opens the ranked embed queue immediately and keeps the source dropdown beneath the player.
+The capability listing reads the authorized catalog without probing the providers.
 Saved device video still takes precedence when available. Download remains a separate torrent
 workflow and never opens an embed or starts playback.
 
@@ -51,6 +48,14 @@ credential storage/redaction and guarded HTTPS playback. Adding credentials to a
 does not enable debrid playback. Never put a configured URL containing tokens into Git or the UI.
 The Comet-enabled native client was rebuilt and fully relaunched after an older process was
 found still running. Live provider/playback acceptance has not been performed for this checkpoint.
+
+## Direct links
+
+The Watch source picker accepts an explicitly pasted HTTPS media URL for an eligible catalog item.
+On Linux, the native gateway validates the destination and redirects, then passes the stream to mpv.
+An `.m3u8` path uses the gateway's HLS handling. The browser preview uses its built-in video
+element and browser-supported formats. See [local browser playback](../development/getting-started.md)
+for preview embed coverage and limits.
 
 ## Player controls
 
@@ -99,7 +104,7 @@ of nested list scrolling.
 | `apps/linux/ui/src/features/player/stream-providers.ts`  | Typed native replies, query keys and provider actions.                                           |
 | `apps/linux/ui/src/features/player/source-selection.tsx` | Source-mode coordination, status, retry and switching.                                           |
 | `apps/linux/src/torrent_sources.rs`                      | Parallel Torrentio/Comet discovery, default Comet preset and independent provider status.        |
-| `apps/linux/ui/src/features/player/provider-browser.tsx` | Searchable provider actions, positive capabilities and direct click-to-play.                     |
+| `apps/linux/ui/src/features/player/provider-browser.tsx` | Compact provider and audio selection menu.                                                       |
 | `apps/linux/ui/src/features/player/source-controls.tsx`  | Torrent candidates, provider/quality/language filters and explicit file selection/downloads.     |
 
 Adding another provider requires a reviewed provider identity/URL mapper and capability entry
@@ -129,9 +134,9 @@ Each provider has an `enabled` flag and a `mediaTypes` allowlist (`anime-series`
 Adding a new provider still requires a reviewed Rust adapter and typed bridge identity; JSON
 cannot add arbitrary remote URLs. Existing type restrictions now live in this one registry.
 
-Anime primary choices request English dub. Secondary/sub/unspecified audio and historically
-problematic providers live behind **“تريد المزيد؟”**. A confirmed result may promote a generic
-provider with selectable English audio into the primary list. Stars sort first and mean actual
+Each eligible provider has one visible choice. Working mappings sort first, followed by the
+preferred result and explicit dub requests for anime. Extra audio variants are under
+**نسخ صوتية إضافية**. A star marks actual
 playback **with English audio and working Arabic subtitles simultaneously**, for the exact
 provider, request mode, media type, public title identity, season and episode. They never follow
 from player documentation, page load or a different episode's success. Latest matching observation
@@ -163,19 +168,22 @@ or tokens. Stars are historical evidence and can become stale; they are not upti
 
 ## Providers and anime audio
 
-The seventeen adapters are VidLink, VidSrc, VidSrc.to, VidFast, VidRock, VidNest, VidHawk,
+The nineteen adapters are Vidora, VidRift, VidLink, VidSrc, VidSrc.to, VidFast, VidRock, VidNest, VidHawk,
 Cinezo, SuperEmbed, Mapple, VixSrc, VidCore.org, VidZee, Cinextream, NontonGo, VidAPI and PrimeSrc. They use documented fixed origins/endpoints; a compatible
 catalog mapping does not establish that a remote title/episode or server is available.
 
-- Movies/TV put VidLink first; VidHawk is anime-only. VidLink is omitted for anime per Aqua's review.
-- Anime puts VidNest first based on Aqua's successful dubbed playback. VidHawk and Cinezo
-  are collapsed with reported problems. VixSrc and VidCore request English with `lang=en`
+- The automatic queue prioritizes Vidora, VidRift, Cinextream, VidSrc, VidNest, VidLink and
+  VidZee. VidHawk is anime-only. VidLink has MAL-based anime routes.
+- VidNest has a historical successful English-dub result. VidHawk and Cinezo have historical
+  issues. VixSrc and VidCore prefer English with `lang=en`
   without claiming a verified English track. Anime films use episode 1 on anime-ID endpoints,
   rather than silently dropping their dub choices; this film mapping remains unverified. No automatic
   sub fallback parameter is enabled. These are **dub requests, not verified English tracks**:
   the remote provider owns the result and may still report unavailable or serve incorrect audio.
-- Explicit sub routes and providers without audio selection are collapsed under the clear
-  secondary audio filter. They open only after explicit selection.
+- Browser Watch opens the first usable provider automatically. Linux starts the ranked queue when
+  Video Servers is selected. When the dub round runs out, the queue tries subtitled routes. The
+  browser advances on recognized terminal errors or if the frame fails to load in time.
+  Both surfaces offer **Next source** beside the source menu for errors shown only inside the player.
 - Anime detection uses recorded MAL/AniList identifiers or curated anime tags/planet slugs,
   never country alone. Anime IDs describe a season: a work-level ID may cover the first season
   or sole film, but is never reused for a later season. Missing identifiers show a disabled
@@ -196,18 +204,17 @@ Adapter documentation checked for this stage:
 [Cinextream](https://cinextream.cc/), [NontonGo](https://www.nontongo.win/),
 [VidAPI](https://vidapi.ru/api) and [PrimeSrc](https://primesrc.me/).
 
-Cinextream has dedicated AniList/MAL dub/sub adapters. NontonGo anime audio is unspecified; it is
-kept under secondary audio choices. VidAPI uses the documented `vaplayer.ru` player; its `lang`
-parameter is a subtitle preference, not an English-audio switch. PrimeSrc is films-only here: its
+Cinextream has dedicated AniList/MAL dub/sub adapters. NontonGo leaves anime audio to its player.
+VidAPI uses the documented `vaplayer.ru` player. Its `ds_lang` parameter requests Arabic subtitles. PrimeSrc is films-only here: its
 series API needs a TVMaze numbering adapter. No identifiers are guessed to fill those gaps.
 
 ### Aqua's manual review, 2026-10-24
 
-Past observations influence initial selection and collapse providers with reported failures.
+Past observations informed the picker at the time of this review.
 Test-status labels are kept out of the product interface. These are dated manual observations,
 not uptime checks or per-title availability guarantees.
 
-| Scope                       | Observation                                                                                                                                | Picker behavior                                                                                     |
+| Scope                       | Observation                                                                                                                                | Behavior at that checkpoint                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Witch Hat Atelier / Frieren | VidNest played English dub, with only English subtitles and no Arabic/external upload in those players.                                    | First anime choice with explicit subtitle limitation.                                               |
 | Witch Hat Atelier / Frieren | VidHawk failed; Cinezo failed or lost controls.                                                                                            | Collapsed manual retry group; no claim of repair.                                                   |
@@ -250,9 +257,10 @@ Native logs identify the actual provider and use bounded `stream: provider=... e
 resolved media URLs, provider tokens and session secrets.
 
 Quality, audio and subtitle controls belong to the selected embed provider. Nahhasio's native mpv controls apply only
-to native sources. Automatic provider progress/watched synchronization, subtitle injection,
-download, dubbed-language guarantees and continuity of playback position when switching source
-types are not implemented. Nahhasio still owns manual catalog watched state.
+to native sources. Linux embed playback reports page state. Browser embed completion supports
+identified Vidora and VidRift episodes through the existing server tracking route. Subtitle
+injection, download, dubbed-language guarantees and continuity of playback position when
+switching source types are not implemented across embeds. Nahhasio still owns manual catalog watched state.
 
 ## Selection and diagnostics
 

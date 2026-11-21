@@ -153,8 +153,30 @@ The preview remains on Shadow; no website is deployed on the selected server. Re
 edits affect that server, as shown in the preview banner. Remove the local overrides and restart
 the browser profile to return to the synthetic catalog. Authorization remains enforced by the Rust API.
 Session tokens stay in memory: reloading requires signing in again, and browser remembering is
-unavailable. Non-secret Browse preferences are scoped to the verified server and account in this browser.
-Player, transfers, offline files, secure storage and native maintenance features require Linux.
+unavailable. Non-secret Browse and subtitle preferences are scoped to the verified server and account in this browser.
+From Episodes, open a released title to use the Watch page and the shared source picker. The
+browser shows Torrent as disabled. It opens the first mapped source in order: Vidora, VidRift,
+Cinextream, VidSrc, VidNest, VidLink and VidZee. For anime, subtitled variants follow the dub
+round. The source menu sits outside the video frame, opposite the episode arrows. It includes
+manual source selection, a subtitled submenu for anime, direct links and available home-library
+files. **المصدر التالي** sits beside the source menu. An initial frame load timeout or a recognized
+terminal provider error advances the queue. A page
+that fails silently inside a loaded frame can be skipped with **المصدر التالي**.
+Only the seven fixed HTTPS provider origins are allowed as unsandboxed embeds. The frames
+explicitly deny camera, microphone, geolocation and payment access. VidRift receives the
+preview origin as a referrer as its documentation requires. Other providers receive no referrer.
+Nahhasio requests control of episode navigation from VidRift and disables Vidora's Next button.
+Vidora can still show its own episode grid. The browser stops a recognized mismatched episode
+and offers to reopen the catalog selection. It records progress at 90% for matching Vidora and
+VidRift episode events and for linked server files. The server applies automatic completion
+while preserving manual watched decisions. Unidentified embed events and pasted links do not
+change the catalog episode's viewing state.
+Use **تشغيل من المنزل** to play a linked server file. The loopback preview uses
+a short-lived, file-scoped HttpOnly cookie and forwards byte ranges to the authenticated media API.
+**فتح رابط فيديو** plays a direct HTTPS media URL. Both paths use browser-supported formats and
+codecs. Files-only works can use their linked files. Torrent discovery and playback, automatic
+direct anime discovery, transfers, offline files, secure storage and native maintenance features
+require the Linux client.
 The adapter/proxy exist only in Vite development mode; production bundles keep the native bridge
 and CSP. This does not add website hosting, assets or deployment services to Fedora.
 Run the opt-in real-demo acceptance with

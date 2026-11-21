@@ -3,12 +3,17 @@ import {
   LoginResponseSchema,
   ServerInfoSchema,
   SessionSchema,
+  TrackingChangeSchema,
 } from "@nahhasio/api-contract";
 import { z } from "zod";
 
 import packageInfo from "../../package.json";
 import { queryClient } from "../app/query-client";
 import { preferencesSchema } from "../features/catalog/browse-preferences-model";
+import {
+  playbackPreferencesDefaults,
+  playbackPreferencesSchema,
+} from "../features/settings/playback-preferences-model";
 import { ArtworkQueue, DevelopmentArtwork } from "./development-artwork";
 import { developmentBrowserAvailable } from "./development-platform";
 
@@ -281,6 +286,17 @@ export async function developmentCall(
     localStorage.setItem(key, JSON.stringify(preferencesSchema.parse(payload)));
     return { ok: true };
   }
+  if (command === "playbackPreferences.load" || command === "playbackPreferences.save") {
+    const key = `nahhasio:development:playback:${expectedServerId}:${session.user.accountId}`;
+    if (command === "playbackPreferences.load") {
+      const stored = localStorage.getItem(key);
+      if (stored === null) return playbackPreferencesDefaults;
+      return playbackPreferencesSchema.parse(JSON.parse(stored));
+    }
+    const preferences = playbackPreferencesSchema.parse(payload);
+    localStorage.setItem(key, JSON.stringify(preferences));
+    return preferences;
+  }
   if (command === "artwork.url") {
     const asset = id.parse(payload.id);
     const width = z
@@ -317,6 +333,39 @@ export async function developmentCall(
       body,
       signal,
     );
+  }
+  if (command === "browser.homeClose") {
+    const url = z
+      .string()
+      .regex(/^\/__development_video\/[a-f0-9-]{36}$/)
+      .parse(payload.url);
+    await fetch(url, {
+      method: "DELETE",
+      credentials: "same-origin",
+      redirect: "error",
+      signal: AbortSignal.timeout(5000),
+    });
+    return null;
+  }
+  if (command === "browser.homePlay") {
+    if (!token) throw new Error("سجّل الدخول إلى مكتبتك أولًا.");
+    const combined = AbortSignal.any([
+      requests.signal,
+      AbortSignal.timeout(10000),
+      ...(signal ? [signal] : []),
+    ]);
+    const response = await fetch(`/__development_video/${id.parse(payload.id)}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: combined,
+      cache: "no-store",
+      credentials: "same-origin",
+      redirect: "error",
+    });
+    if (!response.ok) throw new Error("تعذّر تجهيز فيديو مكتبة المنزل.");
+    return z
+      .object({ url: z.string().regex(/^\/__development_video\/[a-f0-9-]{36}$/) })
+      .parse(await response.json());
   }
   if (command === "homeMedia")
     return request(`/v1/works/${id.parse(payload.id)}/media`, "GET", undefined, signal);
@@ -355,6 +404,15 @@ export async function developmentCall(
       `/v1/profiles/${id.parse(profile)}${suffix}${query(rest)}`,
       "GET",
       undefined,
+      signal,
+    );
+  }
+  if (command === "syncTracking") {
+    const { workId, ...change } = payload;
+    return request(
+      `/v1/works/${id.parse(workId)}/tracking`,
+      "PATCH",
+      TrackingChangeSchema.parse(change),
       signal,
     );
   }

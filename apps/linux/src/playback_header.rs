@@ -46,21 +46,6 @@ pub fn install(
             }
         }
     });
-    let sidebar = button("sidebar-show-symbolic", "إظهار أو إخفاء الحلقات");
-    sidebar.connect_clicked({
-        let catalog = catalog.downgrade();
-        move |_| {
-            if let Some(catalog) = catalog.upgrade() {
-                catalog.evaluate_javascript(
-                    "window.dispatchEvent(new Event('nahhasio:toggle-episodes'));",
-                    None,
-                    None,
-                    None::<&gio::Cancellable>,
-                    |_| {},
-                );
-            }
-        }
-    });
     let reload = button("view-refresh-symbolic", "إعادة تحميل المشغّل");
     reload.connect_clicked({
         let embed = Rc::downgrade(embed);
@@ -83,7 +68,7 @@ pub fn install(
             }
         }
     });
-    for action in [&back, &sidebar, &reload, &expand] {
+    for action in [&back, &reload, &expand] {
         actions.append(action);
     }
     actions.set_visible(false);
@@ -220,7 +205,6 @@ pub fn install(
         home.set_visible(!snapshot.active && admin);
         search.set_visible(!snapshot.active);
         actions.set_visible(snapshot.active);
-        sidebar.set_visible(snapshot.active && !embedded);
         reload.set_visible(embedded);
         open_file.set_visible(!snapshot.active);
         expand.set_icon_name(if window.is_fullscreen() {

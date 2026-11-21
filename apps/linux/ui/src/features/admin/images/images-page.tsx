@@ -250,13 +250,13 @@ export function ImagesPage({
               <Images />
             </EmptyMedia>
             <EmptyTitle>لا توجد صور مطابقة</EmptyTitle>
-            <EmptyDescription>غيّر البحث أو المرشحات، أو ارفع صورة جديدة للمكتبة.</EmptyDescription>
+            <EmptyDescription>غيّر البحث أو التصفية، أو ارفع صورة جديدة للمكتبة.</EmptyDescription>
           </EmptyHeader>
           <Button
             variant="outline"
             onClick={() => onChange({ q: "", role: "all", usage: "all", health: "all" })}
           >
-            مسح المرشحات
+            مسح التصفية
           </Button>
         </Empty>
       ) : search.view === "grid" ? (

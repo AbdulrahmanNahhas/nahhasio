@@ -4,7 +4,6 @@ import {
   Clapperboard,
   Compass,
   Home,
-  MonitorPlay,
   Orbit,
   Search,
   Users,
@@ -40,12 +39,6 @@ export const libraryPages = [
     label: "الحلقات",
     description: "أحدث الحلقات في المكتبة",
     icon: Clapperboard,
-  },
-  {
-    path: "watch",
-    label: "مشاهدة مباشرة",
-    description: "افتح عملًا للمشاهدة أو التنزيل",
-    icon: MonitorPlay,
   },
   {
     path: "trailers",

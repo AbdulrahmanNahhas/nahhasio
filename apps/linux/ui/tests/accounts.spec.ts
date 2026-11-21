@@ -209,30 +209,34 @@ for (const width of [520, 1440]) {
     }
     await openAccountDestination(page, "الملف الشخصي");
     await expect(page.getByRole("article", { name: "الملف الشخصي" })).toBeVisible();
-    await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
+    await page.getByRole("link", { name: "تعديل الملف", exact: true }).click();
     await page.getByLabel("الاسم", { exact: true }).fill("اسم الحساب الجديد");
     await page.getByLabel("نبذة عنك", { exact: true }).fill("مكتبتي الخاصة");
+    await page.getByRole("button", { name: "تغيير الصورة", exact: true }).click();
     await page.getByTitle("رمز ملون 2", { exact: true }).click();
     await expect(page.getByRole("radio", { name: "رمز ملون 2", exact: true })).toBeChecked();
+    await page.getByRole("button", { name: "تم الاختيار", exact: true }).click();
     await page.getByRole("button", { name: "حفظ التغييرات" }).click();
+    await expect(page.getByText("تم حفظ ملفك الشخصي", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "عرض الملف الشخصي", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "اسم الحساب الجديد", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("تم حفظ ملفك الشخصي", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "تعديل الملف", exact: true }).click();
-    await expect(page.getByRole("button", { name: "حفظ التغييرات" })).toBeDisabled();
-    await page.getByRole("tab", { name: "أمان الحساب", exact: true }).click();
+    await page.getByRole("link", { name: "تعديل الملف", exact: true }).click();
+    await expect(page.getByRole("button", { name: "حفظ التغييرات" })).toHaveCount(0);
+    await page.getByRole("button", { name: "تغيير كلمة المرور", exact: true }).click();
+    const password = page.getByRole("dialog", { name: "تغيير كلمة المرور", exact: true });
     await page.getByLabel("كلمة المرور الحالية", { exact: true }).fill("wrong");
     await page.getByLabel("كلمة المرور الجديدة", { exact: true }).fill("new-password");
     await page.getByLabel("تأكيد كلمة المرور", { exact: true }).fill("not-matching");
     await expect(
-      page.getByRole("button", { name: "تغيير كلمة المرور", exact: true }),
+      password.getByRole("button", { name: "تغيير كلمة المرور", exact: true }),
     ).toBeDisabled();
     await page.getByLabel("تأكيد كلمة المرور", { exact: true }).fill("new-password");
-    await page.getByRole("button", { name: "تغيير كلمة المرور", exact: true }).click();
+    await password.getByRole("button", { name: "تغيير كلمة المرور", exact: true }).click();
     await expect(page.getByText("كلمة المرور الحالية غير صحيحة", { exact: true })).toBeVisible();
     await page.getByLabel("كلمة المرور الحالية", { exact: true }).fill("123456");
-    await page.getByRole("button", { name: "تغيير كلمة المرور", exact: true }).click();
+    await password.getByRole("button", { name: "تغيير كلمة المرور", exact: true }).click();
     await expect(
       page.getByText("تغيّرت كلمة المرور وانتهت الجلسات الأخرى.", { exact: true }),
     ).toBeVisible();
@@ -246,7 +250,8 @@ for (const width of [520, 1440]) {
         path: `../../../data/previews/account-profile-${width}.png`,
         fullPage: true,
       });
-    await page.getByRole("button", { name: "إغلاق الإعدادات", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(password).toBeHidden();
     await openAccountDestination(page, "لوحة الإدارة");
     await expect(page.getByRole("region", { name: "لوحة الإدارة" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "نظرة عامة", exact: true })).toBeVisible();

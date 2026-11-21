@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -112,25 +111,6 @@ function PasswordForm({ onBusyChange }: { onBusyChange?: (busy: boolean) => void
         </Button>
       </div>
     </form>
-  );
-}
-
-export function PasswordCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <LockKeyhole aria-hidden="true" />
-          أمان الحساب
-        </CardTitle>
-        <CardDescription>
-          بعد تغيير كلمة المرور، تُنهى جلساتك الأخرى ويبقى هذا التطبيق متصلاً.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <PasswordForm />
-      </CardContent>
-    </Card>
   );
 }
 

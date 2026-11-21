@@ -5,10 +5,12 @@ import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Heart, Star } from
 
 import { Failure } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { workLink } from "@/features/shell/navigation";
 import { episodeNumberLabel } from "@/features/work/format";
+import { highestRisk, RiskBadge } from "@/features/work/risk-badge";
 import type { WorkTracking } from "@/features/work/use-work-tracking";
 import { WatchedControl } from "@/features/work/watched-control";
 
@@ -42,100 +44,180 @@ export function WatchDetails({
   part,
   episode,
   title,
-  tracking,
   onLeave,
-  onPrevious,
-  onNext,
 }: {
   work?: WorkDetail;
   part?: Part;
   episode?: Part["episodes"][number];
   title: string;
-  tracking: WorkTracking;
   onLeave: () => void;
-  onPrevious?: () => void;
-  onNext?: () => void;
 }) {
-  const rating = part ? installmentRating(part.scores ?? {}) : null;
-  const summary = episode?.summary || part?.summary || work?.summary;
   const runtime = episode?.runtimeMinutes ?? part?.runtimeMinutes;
   const year = part?.releaseDate?.slice(0, 4) || work?.releaseYear;
-  const links = work ? catalogLinks(work, part) : [];
+  const partRating = part ? installmentRating(part.scores ?? {}) : null;
+  const workRating = work?.score.rating;
   return (
-    <section className="flex min-w-0 flex-col gap-4" aria-label="تفاصيل المشاهدة">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {episode && (
-            <p className="text-sm text-muted-foreground">
-              {part?.title} · الحلقة {episodeNumberLabel(episode.number)}
-            </p>
-          )}
-          <h1 className="text-xl leading-relaxed font-semibold sm:text-2xl" dir="auto">
-            {title}
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+    <section
+      className="flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-3"
+      aria-label="تفاصيل المشاهدة"
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {episode && (
+          <p className="text-sm text-muted-foreground">
+            {part?.title} · الحلقة {episodeNumberLabel(episode.number)}
+          </p>
+        )}
+        <h1 className="text-2xl leading-snug font-semibold wrap-anywhere sm:text-3xl" dir="auto">
+          {title}
+        </h1>
+        {(year || runtime || work?.age) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {year && <span>{year}</span>}
             {runtime && <span>{runtime} دقيقة</span>}
             {work?.age && <Badge variant="outline">{work.age}</Badge>}
-            {rating !== null && (
-              <span className="flex items-center gap-1" title="تقييم نحّاسيو لهذا الجزء">
-                <Star className="size-4 text-primary" aria-hidden="true" />
-                {rating}/10 <span className="text-xs">تقييم الجزء</span>
-              </span>
-            )}
-          </div>
-        </div>
-        {(onPrevious || onNext) && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={!onPrevious} onClick={onPrevious}>
-              <ChevronRight data-icon="inline-start" />
-              السابقة
-            </Button>
-            <Button variant="outline" size="sm" disabled={!onNext} onClick={onNext}>
-              التالية
-              <ChevronLeft data-icon="inline-end" />
-            </Button>
           </div>
         )}
       </div>
-      {work && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
-          <Button
-            nativeButton={false}
-            variant="link"
-            render={<a href={workLink(work.id)} />}
-            onClick={onLeave}
-          >
-            <ArrowRight data-icon="inline-start" />
-            {work.titleAr || work.canonicalTitle}
-          </Button>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant={tracking.state.data?.isFavorite ? "secondary" : "outline"}
-              aria-label={
-                tracking.state.data?.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"
-              }
-              aria-pressed={tracking.state.data?.isFavorite ?? false}
-              disabled={!tracking.state.data || tracking.favorite.isPending}
-              onClick={() => tracking.favorite.mutate(!tracking.state.data?.isFavorite)}
-            >
-              <Heart data-icon="inline-start" />
-              المفضلة
-            </Button>
-            {part && (
-              <WatchedControl
-                tracking={tracking}
-                installmentId={part.id}
-                episodeId={episode?.id}
-                label={title}
-              />
-            )}
-          </div>
-        </div>
+      {work && (partRating !== null || workRating != null) && (
+        <a
+          href={`${workLink(work.id)}?tab=scores`}
+          onClick={onLeave}
+          aria-label="تفاصيل التقييم"
+          className="flex shrink-0 items-center gap-2 self-center rounded-xl border border-border bg-card px-3 py-2 focus-visible:outline-2 focus-visible:outline-ring sm:gap-3"
+        >
+          <Star className="hidden size-4 text-primary sm:block" aria-hidden="true" />
+          {partRating !== null && (
+            <span className="flex flex-col text-xs text-muted-foreground">
+              {part?.kind === "season" ? "الموسم" : "الإصدار"}
+              <bdi className="text-sm font-semibold text-foreground tabular-nums">{partRating}</bdi>
+            </span>
+          )}
+          {workRating != null && (
+            <span className="flex flex-col text-xs text-muted-foreground">
+              العمل
+              <bdi className="text-sm font-semibold text-foreground tabular-nums">{workRating}</bdi>
+            </span>
+          )}
+        </a>
       )}
+    </section>
+  );
+}
+
+export function WatchEpisodeNavigation({
+  onPrevious,
+  onNext,
+}: {
+  onPrevious?: () => void;
+  onNext?: () => void;
+}) {
+  if (!onPrevious && !onNext) return null;
+  return (
+    <ButtonGroup aria-label="التنقّل بين الحلقات" className="ms-auto shrink-0">
+      <Button
+        variant="outline"
+        size="icon"
+        className="xl:w-auto xl:px-3"
+        aria-label="السابقة"
+        title="الحلقة السابقة"
+        disabled={!onPrevious}
+        onClick={onPrevious}
+      >
+        <ChevronRight data-icon="inline-start" />
+        <span className="hidden xl:inline">السابقة</span>
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        className="xl:w-auto xl:px-3"
+        aria-label="التالية"
+        title="الحلقة التالية"
+        disabled={!onNext}
+        onClick={onNext}
+      >
+        <span className="hidden xl:inline">التالية</span>
+        <ChevronLeft data-icon="inline-end" />
+      </Button>
+    </ButtonGroup>
+  );
+}
+
+export function WatchActions({
+  work,
+  part,
+  episode,
+  title,
+  tracking,
+  onLeave,
+}: {
+  work: WorkDetail;
+  part?: Part;
+  episode?: Part["episodes"][number];
+  title: string;
+  tracking: WorkTracking;
+  onLeave: () => void;
+}) {
+  const favorite = tracking.state.data?.isFavorite ?? false;
+  const workTitle = work.titleAr || work.canonicalTitle;
+  const favoriteLabel = favorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة";
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <Button
+          nativeButton={false}
+          variant="ghost"
+          size="default"
+          className="min-w-0 shrink"
+          title={workTitle}
+          render={<a href={workLink(work.id)} />}
+          onClick={onLeave}
+        >
+          <ArrowRight data-icon="inline-start" />
+          <span className="truncate">{workTitle}</span>
+        </Button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            variant={favorite ? "secondary" : "outline"}
+            size="icon"
+            aria-label={favoriteLabel}
+            title={favoriteLabel}
+            aria-pressed={favorite}
+            disabled={!tracking.state.data || tracking.favorite.isPending}
+            onClick={() => tracking.favorite.mutate(!favorite)}
+          >
+            <Heart data-icon="inline-start" className={favorite ? "fill-current" : undefined} />
+          </Button>
+          {part && (
+            <WatchedControl
+              tracking={tracking}
+              installmentId={part.id}
+              episodeId={episode?.id}
+              label={title}
+              compact
+            />
+          )}
+        </div>
+      </div>
       {tracking.favorite.isError && <Failure error={tracking.favorite.error} />}
-      {(summary || links.length > 0 || work?.contentWarnings || work?.analysisNotes) && (
-        <Card>
+    </div>
+  );
+}
+
+export function WatchAbout({
+  work,
+  part,
+  episode,
+}: {
+  work: WorkDetail;
+  part?: Part;
+  episode?: Part["episodes"][number];
+}) {
+  const summary = episode?.summary || part?.summary || work.summary;
+  const links = catalogLinks(work, part);
+  return (
+    <div className="flex min-w-0 flex-col gap-4 xl:col-start-1">
+      {(summary || work?.contentWarnings || work?.analysisNotes) && (
+        <Card size="sm">
           <CardHeader>
             <CardTitle>
               <h2>
@@ -151,20 +233,27 @@ export function WatchDetails({
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             {summary && (
-              <p dir="auto" className="text-base leading-loose whitespace-pre-line wrap-anywhere">
+              <p
+                dir="auto"
+                className="max-w-prose text-base leading-relaxed whitespace-pre-line wrap-anywhere"
+              >
                 {summary}
               </p>
             )}
             {(work?.contentWarnings || work?.analysisNotes) && (
               <div
                 className={cn(
-                  "grid gap-6 border-t border-border pt-6",
+                  "grid gap-5",
+                  summary && "border-t border-border pt-5",
                   work.contentWarnings && work.analysisNotes && "lg:grid-cols-2",
                 )}
               >
                 {work.contentWarnings && (
                   <section className="flex flex-col gap-3" aria-label="تنبيه المحتوى">
-                    <h3 className="font-semibold">تنبيه المحتوى</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">تنبيه المحتوى</h3>
+                      <RiskBadge risk={highestRisk([work.sexualityRisk, work.behavioralRisk])} />
+                    </div>
                     <p
                       dir="auto"
                       className="text-sm leading-loose whitespace-pre-line text-muted-foreground"
@@ -175,7 +264,10 @@ export function WatchDetails({
                 )}
                 {work.analysisNotes && (
                   <section className="flex flex-col gap-3" aria-label="ملاحظات التحليل">
-                    <h3 className="font-semibold">ملاحظات التحليل</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">ملاحظات التحليل</h3>
+                      <RiskBadge risk={work.theologyRisk} />
+                    </div>
                     <p
                       dir="auto"
                       className="text-sm leading-loose whitespace-pre-line text-muted-foreground"
@@ -187,24 +279,24 @@ export function WatchDetails({
               </div>
             )}
           </CardContent>
-          {links.length > 0 && (
-            <CardFooter className="flex-wrap gap-2">
-              {links.map((link) => (
-                <Button
-                  key={link.label}
-                  nativeButton={false}
-                  size="sm"
-                  variant="outline"
-                  render={<a href={link.href} target="_blank" rel="noopener noreferrer" />}
-                >
-                  {link.label}
-                  <ExternalLink data-icon="inline-end" />
-                </Button>
-              ))}
-            </CardFooter>
-          )}
         </Card>
       )}
-    </section>
+      {links.length > 0 && (
+        <nav className="flex flex-wrap items-center gap-2" aria-label="مراجع العمل">
+          {links.map((link) => (
+            <a
+              key={link.label}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <bdi>{link.label}</bdi>
+              <ExternalLink data-icon="inline-end" aria-hidden="true" />
+            </a>
+          ))}
+        </nav>
+      )}
+    </div>
   );
 }

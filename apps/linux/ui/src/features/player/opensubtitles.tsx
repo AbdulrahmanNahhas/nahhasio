@@ -22,12 +22,12 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { navigate } from "@/features/shell/navigation";
 import { gateway, nativeCall } from "@/lib/bridge";
+import { developmentBrowserAvailable } from "@/lib/development-platform";
 
 import type { PlayerSnapshot } from "./bridge";
 function subtitleCall(command: string, payload: z.input<typeof z.json>, signal?: AbortSignal) {
   return nativeCall(command, payload, signal, 45000);
 }
-import { developmentBrowserAvailable } from "@/lib/development-platform";
 
 const connectionSchema = z.object({ connected: z.boolean(), secureStorage: z.boolean() });
 const quotaSchema = z.object({
@@ -74,15 +74,12 @@ export function OpenSubtitlesSettings() {
       <CardHeader>
         <CardTitle>OpenSubtitles</CardTitle>
         <CardDescription>
-          مفتاحك وحسابك محفوظان مشفّرين على هذا الجهاز، منفصلين لكل حساب ومكتبة. لن تُرسل إلى خادم
-          نحّاسيو.
+          اربط الخدمة للبحث عن الترجمات من المشغّل. تُحفظ بيانات الربط مشفّرة على هذا الجهاز.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {browser ? (
-          <p className="text-sm text-muted-foreground">
-            اربط الخدمة في تطبيق Linux. لا تُدخل بياناتك السرية في معاينة المتصفح.
-          </p>
+          <ConnectionForm connection={{ connected: false, secureStorage: false }} disabled />
         ) : query.error ? (
           <Failure error={query.error} retry={() => void query.refetch()} />
         ) : query.data ? (
@@ -94,7 +91,13 @@ export function OpenSubtitlesSettings() {
     </Card>
   );
 }
-function ConnectionForm({ connection }: { connection: z.infer<typeof connectionSchema> }) {
+function ConnectionForm({
+  connection,
+  disabled = false,
+}: {
+  connection: z.infer<typeof connectionSchema>;
+  disabled?: boolean;
+}) {
   const client = useQueryClient();
   const id = useId();
   const [key, setKey] = useState("");
@@ -130,22 +133,29 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
     },
   });
   const pending = login.isPending || test.isPending || disconnect.isPending;
+  const fieldsDisabled = disabled || pending || !connection.secureStorage;
+  const canConnect =
+    !fieldsDisabled && Boolean(key.trim()) && Boolean(username.trim()) === Boolean(password);
   return (
     <>
       <Badge variant={connection.connected ? "secondary" : "outline"}>
         {connection.connected ? "حساب مربوط على هذا الجهاز" : "غير مربوط"}
       </Badge>
-      {!connection.secureStorage && (
+      {!disabled && !connection.secureStorage && (
         <p className="text-sm text-muted-foreground">
           مخزن الأسرار الآمن غير متاح. لن تُحفظ المفاتيح دون تشفير.
         </p>
       )}
       {connection.connected ? (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={pending} onClick={() => test.mutate()}>
+          <Button variant="outline" disabled={disabled || pending} onClick={() => test.mutate()}>
             اختبار الاتصال والحصة
           </Button>
-          <Button variant="outline" disabled={pending} onClick={() => disconnect.mutate()}>
+          <Button
+            variant="outline"
+            disabled={disabled || pending}
+            onClick={() => disconnect.mutate()}
+          >
             إزالة الاتصال من هذا الجهاز
           </Button>
         </div>
@@ -153,7 +163,7 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            login.mutate();
+            if (canConnect) login.mutate();
           }}
         >
           <FieldGroup>
@@ -166,47 +176,38 @@ function ConnectionForm({ connection }: { connection: z.infer<typeof connectionS
                 maxLength={512}
                 value={key}
                 onChange={(event) => setKey(event.target.value)}
-                disabled={pending || !connection.secureStorage}
+                disabled={fieldsDisabled}
               />
               <FieldDescription>
-                أنشئه في حساب OpenSubtitles.com ضمن API Consumers؛ يختلف عن كلمة مرور الحساب.
+                أنشئ المفتاح من قسم API Consumers في حساب OpenSubtitles.com.
               </FieldDescription>
             </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-user`}>اسم المستخدم (اختياري)</FieldLabel>
-              <Input
-                id={`${id}-user`}
-                autoComplete="off"
-                maxLength={200}
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                disabled={pending || !connection.secureStorage}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`${id}-password`}>كلمة المرور</FieldLabel>
-              <Input
-                id={`${id}-password`}
-                type="password"
-                autoComplete="off"
-                maxLength={1024}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={pending || !connection.secureStorage}
-              />
-              <FieldDescription>
-                تُستخدم للدخول فقط؛ يُحفظ رمز الجلسة والمفتاح مشفّرين، ولا تُحفظ كلمة المرور.
-              </FieldDescription>
-            </Field>
-            <Button
-              type="submit"
-              disabled={
-                pending ||
-                !connection.secureStorage ||
-                !key.trim() ||
-                Boolean(username.trim()) !== Boolean(password)
-              }
-            >
+            <FieldGroup className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor={`${id}-user`}>اسم المستخدم (اختياري)</FieldLabel>
+                <Input
+                  id={`${id}-user`}
+                  autoComplete="off"
+                  maxLength={200}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  disabled={fieldsDisabled}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`${id}-password`}>كلمة المرور</FieldLabel>
+                <Input
+                  id={`${id}-password`}
+                  type="password"
+                  autoComplete="off"
+                  maxLength={1024}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={fieldsDisabled}
+                />
+              </Field>
+            </FieldGroup>
+            <Button type="submit" className="self-start" disabled={!canConnect}>
               {login.isPending
                 ? "جارٍ الربط…"
                 : username.trim()

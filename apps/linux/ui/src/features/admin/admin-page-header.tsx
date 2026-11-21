@@ -60,7 +60,7 @@ export function AdminFilterChips({
 }) {
   if (!filters.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="المرشحات المطبقة">
+    <div className="flex flex-wrap items-center gap-2" aria-label="خيارات التصفية المطبّقة">
       {filters.map((filter) => (
         <Button
           key={filter.key}

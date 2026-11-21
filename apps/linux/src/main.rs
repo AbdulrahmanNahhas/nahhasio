@@ -453,6 +453,7 @@ fn build_window(
         if matches!(
             request.command.as_str(),
             "stream.open"
+                | "stream.direct"
                 | "media.play"
                 | "media.openSaved"
                 | "player.preview"
@@ -903,6 +904,7 @@ fn build_window(
             subtitles_enabled: false,
             subtitle_size: 42.0,
             subtitle_position: 90.0,
+            ..native_player::PlaybackDefaults::default()
         });
     }
     let fullscreen_player = std::rc::Rc::downgrade(&player);

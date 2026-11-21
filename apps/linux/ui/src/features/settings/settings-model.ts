@@ -1,19 +1,14 @@
 import { z } from "zod";
 
 export const sections = [
-  { id: "account", label: "الحساب والأمان", description: "حسابات الجهاز وكلمة المرور" },
-  { id: "appearance", label: "المظهر", description: "واجهة التطبيق ولغتها وحجم النص" },
-  { id: "playback", label: "التشغيل", description: "الصوت والمشغّل وجودة الفيديو" },
-  { id: "subtitles", label: "الترجمة", description: "اللغات والمظهر وOpenSubtitles" },
-  { id: "sources", label: "المصادر والاتصالات", description: "مصادر الفيديو والتكاملات" },
-  { id: "extensions", label: "الإضافات", description: "مصادر Stremio ومراجعة الصلاحيات" },
-  { id: "storage", label: "التنزيلات والتخزين", description: "مكتبة الجهاز والذاكرة المؤقتة" },
-  { id: "offline", label: "دون اتصال والمزامنة", description: "الأعمال المحفوظة وتتبع المشاهدة" },
-  { id: "connection", label: "الخادم والاتصال", description: "الاتصال والثقة بالخادم" },
-  { id: "administration", label: "إدارة الخادم", description: "إعدادات المكتبة المشتركة والوصول" },
-  { id: "help", label: "المساعدة والتشخيص", description: "الإصدارات والتحديثات والتقارير" },
+  { id: "account", label: "الحساب" },
+  { id: "appearance", label: "المظهر" },
+  { id: "playback", label: "التشغيل" },
+  { id: "storage", label: "التنزيلات والتخزين" },
+  { id: "connection", label: "الخادم والاتصال" },
+  { id: "help", label: "المساعدة والتشخيص" },
 ] as const;
-export const sectionSchema = z.enum(sections.map((section) => section.id));
+export const sectionSchema = z.enum([...sections.map((section) => section.id), "subtitles"]);
 export const clientInfoSchema = z.object({
   version: z.string(),
   platform: z.literal("linux"),

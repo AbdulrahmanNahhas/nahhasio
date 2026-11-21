@@ -589,7 +589,7 @@ for (const width of [360, 480, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await login(page);
-    await openPublicPage(page, "مشاهدة مباشرة");
+    await page.goto("/#/watch");
     await expect(page.getByRole("heading", { name: "مشاهدة مباشرة", exact: true })).toBeVisible();
     const id = page.getByLabel("معرّف IMDb أو رابط العنوان");
     await id.fill("https://example.test/title/tt1234567");
@@ -803,11 +803,15 @@ test("real bridge states: reject login, browse details, family guide, search and
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
   await browse(page);
-  await page.getByRole("button", { name: "البحث في المكتبة", exact: true }).click();
-  await page.getByRole("searchbox", { name: "ابحث في المكتبة" }).fill("missing");
-  await expect(page.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "ابحث في النتائج" }).fill("missing");
+  await expect(page.getByText("لا توجد أعمال مطابقة", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/q=missing/);
+  await expect(page.getByRole("link", { name: "مشاهدة مباشرة", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "الملف والحساب" }).click();
+  const watch = page.getByRole("menuitem", { name: /^مشاهدة مباشرة/ });
+  await expect(watch).toBeDisabled();
+  await expect(watch).toContainText("قريبًا");
+  await expect(page.getByRole("menuitem", { name: "مكتبة الجهاز", exact: true })).toBeVisible();
   await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
   await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
 });
@@ -1286,6 +1290,12 @@ for (const width of [480, 1440]) {
                     count: 2,
                     artworkId: "00000000-0000-4000-8000-000000000031",
                   },
+                  ...Array.from({ length: 24 }, (_, index) => ({
+                    value: `person-${index + 2}`,
+                    label: `صانع بلا صورة ${String(index + 1).padStart(2, "0")}`,
+                    count: 1,
+                    artworkId: null,
+                  })),
                 ],
               },
               {
@@ -1298,6 +1308,15 @@ for (const width of [480, 1440]) {
                     count: 2,
                     artworkId: "00000000-0000-4000-8000-000000000032",
                     roles: [{ value: "animation_studio", label: "استوديو الرسوم المتحركة" }],
+                    searchTerms: [],
+                  },
+                  {
+                    value: "studio-2",
+                    label: "استوديو بلا شعار",
+                    artworkId: null,
+                    searchTerms: ["Unpictured Studio"],
+                    count: 1,
+                    roles: [{ value: "distributor", label: "الموزّع" }],
                   },
                 ],
               },
@@ -1369,6 +1388,30 @@ for (const width of [480, 1440]) {
       await expect(page.getByRole("heading", { name: item.name, exact: true })).toBeVisible();
       await page.getByRole("link", { name: item.back, exact: true }).click();
       await expect(page.getByRole("region", { name: item.page })).toBeVisible();
+      if (item.label === "الصنّاع") {
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toBeVisible();
+        await page.getByRole("button", { name: "الصفحة التالية" }).click();
+        await expect(page).toHaveURL(/#\/people\?page=2$/);
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 24/ })).toBeVisible();
+        await expect(page.getByRole("region", { name: "نتائج الصنّاع" })).toBeFocused();
+        await page.getByRole("link", { name: /صانع بلا صورة 24/ }).click();
+        await page.getByRole("link", { name: item.back, exact: true }).click();
+        await expect(page).toHaveURL(/#\/people\?page=2$/);
+        const sort = page.getByRole("radio", { name: "الأكثر أعمالًا", exact: true });
+        await sort.focus();
+        await sort.press("ArrowLeft");
+        await expect(page.getByRole("radio", { name: "أبجديًا" })).toBeChecked();
+        await expect(page).toHaveURL(/#\/people\?sort=name$/);
+      }
+      if (item.label === "الاستوديوهات") {
+        await expect(page.getByRole("link", { name: /استوديو بلا شعار/ })).toBeVisible();
+        await input.fill("Unpictured Studio");
+        await expect(page.getByRole("link", { name: /استوديو بلا شعار/ })).toBeVisible();
+        await expect(page.getByRole("link", { name: /استوديو تجريبي/ })).toHaveCount(0);
+        await page.getByRole("button", { name: "مسح البحث", exact: true }).click();
+        await expect(input).toHaveValue("");
+        await expect(input).toBeFocused();
+      }
       expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(width);
     }
   });

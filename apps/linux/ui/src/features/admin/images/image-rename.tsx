@@ -60,7 +60,7 @@ export function ImageRename({
           ),
         );
         if (assets.total > 5000)
-          throw new Error("أكثر من 5000 صورة مطابقة؛ ضيّق المرشحات قبل تنظيم الأسماء.");
+          throw new Error("أكثر من 5000 صورة مطابقة؛ ضيّق نطاق التصفية قبل تنظيم الأسماء.");
         if (assets.items.length)
           proposals.push(
             ...rpcResults.assetRenamePreview.parse(

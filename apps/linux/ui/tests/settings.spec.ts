@@ -36,7 +36,13 @@ test.beforeEach(async ({ page }) => {
               case "session":
                 result = signedIn ? { user, expiresAt: "2099-01-01T00:00:00Z" } : null;
                 break;
+              case "updateProfile":
+                Object.assign(user, request.payload, { updatedAt: "2026-10-31T00:01:00Z" });
+                sessionStorage.setItem("fixture-profile-update", JSON.stringify(request.payload));
+                result = user;
+                break;
               case "accounts.switch":
+                sessionStorage.setItem("fixture-switch-account", JSON.stringify(request.payload));
                 signedIn = false;
                 result = null;
                 break;
@@ -195,24 +201,86 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("appearance contains application controls without library presentation settings", async ({
+test("Settings sidebar keeps appearance, hides retired panels and disables extensions", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/#/settings?section=appearance");
-  await expect(page.getByRole("button", { name: "خيارات العرض", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "واجهة التطبيق", exact: true })).toBeVisible();
-  await expect(page.getByText("طريقة عرض المكتبة", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("جدول المكتبة", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-    await page.screenshot({ path: "../../../data/previews/settings-appearance-desktop.png" });
+  await page.goto("/#/settings");
+  const navigation = page.getByRole("navigation", { name: "أقسام الإعدادات" });
+  await expect(navigation.getByRole("link", { name: "الحساب", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(navigation.getByRole("link", { name: "نظرة عامة", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "الملف والصورة", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "أمان الحساب", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "الجهاز", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "حفظ التغييرات", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "تغيير الصورة", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "صورة الحساب", exact: true });
+  await expect(
+    picker.getByRole("searchbox", { name: "اختر صورة حسابك", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "الرموز", exact: true }).click();
+  await expect(page.getByRole("radio", { name: "سونيك 2", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "الشخصيات", exact: true }).click();
+  await page.getByTitle("سونيك 2", { exact: true }).click();
+  await page.getByRole("button", { name: "تم الاختيار", exact: true }).click();
+  await expect(page.getByRole("button", { name: "تغيير الصورة", exact: true })).toBeFocused();
+  await page.getByRole("textbox", { name: "الاسم", exact: true }).fill("اسم تجريبي جديد");
+  await page.getByRole("button", { name: "حفظ التغييرات", exact: true }).click();
+  await expect(page.getByText("تم حفظ ملفك الشخصي", { exact: true })).toBeVisible();
+  expect(
+    JSON.parse(await page.evaluate(() => sessionStorage.getItem("fixture-profile-update") ?? "{}")),
+  ).toMatchObject({
+    name: "اسم تجريبي جديد",
+    avatarKey: "sonic-2.png",
+  });
+  await navigation.getByRole("link", { name: "المظهر", exact: true }).click();
+  await expect(navigation.getByRole("link", { name: "المظهر", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(navigation.getByRole("link", { name: "الحساب", exact: true })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /^الإضافات/ })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "الإعدادات", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "فاتح", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "داكن", exact: true })).toBeVisible();
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByRole("button", { name: "حسب النظام", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const root = page.locator("html");
+  await expect(root).toHaveCSS("font-size", "16px");
+  await page.getByRole("button", { name: "كبير", exact: true }).click();
+  await expect(root).toHaveCSS("font-size", "18px");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "كبير", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(root).toHaveCSS("font-size", "18px");
+  await page.setViewportSize({ width: 360, height: 860 });
+  await expect(page.getByRole("button", { name: "حسب النظام", exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(() => document.querySelector("main")!.scrollWidth),
+  ).toBeLessThanOrEqual(await page.locator("main").evaluate((element) => element.clientWidth));
+  await page.getByRole("button", { name: "افتراضي", exact: true }).click();
+  await expect(root).toHaveCSS("font-size", "16px");
+  await expect(page.getByText("واجهة التطبيق", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("الأجهزة وأمان الحساب", { exact: true })).toHaveCount(0);
 });
 
 test("password change is a compact action with clean dismissal and focus restoration", async ({
   page,
 }) => {
   await page.goto("/#/settings?section=account");
+  await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
+  const logout = page.getByRole("alertdialog", { name: "تسجيل الخروج من هذا الجهاز؟" });
+  await expect(logout).toBeVisible();
+  await logout.getByRole("button", { name: "إلغاء", exact: true }).click();
+  await expect(logout).toBeHidden();
   await expect(page.getByLabel("كلمة المرور الحالية", { exact: true })).toHaveCount(0);
   const trigger = page.getByRole("button", { name: "تغيير كلمة المرور", exact: true });
   await trigger.click();
@@ -250,39 +318,16 @@ test("connection management tests and renames the saved server inline", async ({
     await page.screenshot({ path: "../../../data/previews/settings-connection-desktop.png" });
 });
 
-test("all upcoming categories expose disabled controls without invoking integrations", async ({
-  page,
-}) => {
+test("an old extensions link returns to the narrow Settings menu", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 900 });
-  for (const section of [
-    "account",
-    "appearance",
-    "playback",
-    "subtitles",
-    "sources",
-    "extensions",
-    "storage",
-    "offline",
-    "connection",
-    "help",
-  ]) {
-    await page.goto(`/#/settings?section=${section}`);
-    const panels = page.locator('[data-upcoming="true"]');
-    await expect(panels.first()).toBeVisible();
-    const controls = panels.locator("button, input");
-    expect(await controls.count()).toBeGreaterThan(0);
-    for (const control of await controls.all()) await expect(control).toBeDisabled();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
-    await expect(page.getByRole("alert")).toHaveCount(0);
-  }
-  await page.goto("/#/settings?section=administration");
-  await expect(page.getByRole("heading", { name: "الحساب والأمان", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "دعوات الأصدقاء", exact: true })).toHaveCount(0);
-  await page.goto("/#/settings?section=subtitles");
-  if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-    await page.screenshot({ path: "../../../data/previews/settings-subtitles-360.png" });
+  await page.goto("/#/settings?section=extensions");
+  const navigation = page.getByRole("navigation", { name: "أقسام الإعدادات" });
+  await expect(navigation).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /^الإضافات/ })).toBeDisabled();
+  await expect(navigation.getByRole("link", { name: "إعدادات الخادم", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
 test("inline connection status recovers from a failed recheck at narrow width", async ({
@@ -307,12 +352,11 @@ test("inline connection status recovers from a failed recheck at narrow width", 
 test("desktop settings, private diagnostic preview and cache control", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/#/settings?section=help");
-  await expect(page.getByRole("heading", { name: "الإعدادات والمساعدة" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "المساعدة والتشخيص", exact: true })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "أقسام الإعدادات" }).locator('[aria-current="page"]'),
   ).toHaveAttribute("href", "#/settings?section=help");
-  await expect(page.getByRole("link", { name: "إدارة الخادم" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "إعدادات الخادم" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/settings-desktop.png" });
@@ -325,17 +369,12 @@ test("desktop settings, private diagnostic preview and cache control", async ({ 
   await expect(page.getByText(/^[٠0] ميغابايت مستخدمة من (?:٥١٢|512)$/)).toBeVisible();
 });
 
-test("administrators can review future server controls without starting operations", async ({
-  page,
-}) => {
-  await page.goto("/#/settings?section=administration&fixtureAdmin=1");
-  await expect(
-    page.getByRole("link", { name: "فتح إعدادات إدارة الخادم", exact: true }),
-  ).toHaveAttribute("href", "#/admin/settings");
-  const controls = page.locator('[data-upcoming="true"]').locator("button, input");
-  expect(await controls.count()).toBeGreaterThan(10);
-  for (const control of await controls.all()) await expect(control).toBeDisabled();
-  await expect(page.getByRole("button", { name: "دعوات الأصدقاء", exact: true })).toBeDisabled();
+test("administrators can open the existing server settings", async ({ page }) => {
+  await page.goto("/#/settings?section=help&fixtureAdmin=1");
+  await expect(page.getByRole("link", { name: "إعدادات الخادم", exact: true })).toHaveAttribute(
+    "href",
+    "#/admin/settings",
+  );
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
@@ -368,38 +407,84 @@ test("forgetting another account preserves the active account; forgetting the ac
 }) => {
   await page.goto("/#/settings?section=account");
   await page.getByRole("button", { name: "نسيان حساب ثانٍ من الجهاز", exact: true }).click();
+  await expect(page.getByRole("alertdialog", { name: "نسيان حساب ثانٍ؟" })).toBeVisible();
   await page.getByRole("button", { name: "تأكيد نسيان الحساب", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "الإعدادات والمساعدة" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "نسيان حساب ثانٍ من الجهاز", exact: true }),
   ).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "الجهاز", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "نسيان حساب تجريبي من الجهاز", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد نسيان الحساب", exact: true }).click();
   await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
 });
 
+test("switching from a saved account row requests that account", async ({ page }) => {
+  await page.goto("/#/settings?section=account");
+  await page.getByRole("button", { name: "التبديل إلى حساب ثانٍ", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "من يشاهد؟" })).toBeVisible();
+  expect(
+    await page.evaluate(() => JSON.parse(sessionStorage.getItem("fixture-switch-account") ?? "{}")),
+  ).toMatchObject({ accountId: "00000000-0000-4000-8000-000000000002" });
+});
+
 test("player defaults persist and personal subtitle setup stays explicit", async ({ page }) => {
   await page.goto("/#/settings?section=playback");
-  await page.getByRole("combobox", { name: "لغة الصوت المفضلة", exact: true }).click();
-  await page.getByRole("option", { name: "اليابانية", exact: true }).click();
-  await page.getByRole("button", { name: "حفظ الافتراضيات", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "الصوت والتشغيل", exact: true })).toHaveCount(0);
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "fixture-playback",
+      '{"version":1,"startupVolume":35,"startupSpeed":1.25,"audioLanguage":"ja","audioDelay":0.1,"subtitleLanguage":"ar","subtitlesEnabled":true,"subtitleSize":55,"subtitlePosition":100}',
+    ),
+  );
   await page.reload();
-  await expect(
-    page.getByRole("combobox", { name: "لغة الصوت المفضلة", exact: true }),
-  ).toContainText("اليابانية");
-  await page
-    .getByRole("link", { name: /الترجمة/ })
-    .first()
-    .click();
-  await page.getByLabel("حجم الترجمة", { exact: true }).fill("42");
+  const language = page.getByRole("combobox", { name: "لغة الترجمة المفضلة", exact: true });
+  const enabled = page.getByRole("switch", { name: "إظهار الترجمة عند بدء التشغيل", exact: true });
+  await language.click();
+  await page.getByRole("option", { name: "اليابانية", exact: true }).click();
+  await enabled.click();
+  const subtitleSize = page.getByLabel("حجم الترجمة", { exact: true });
+  const subtitleDelay = page.getByLabel("مزامنة الترجمة (ثانية)", { exact: true });
+  const color = page.getByRole("combobox", { name: "لون النص", exact: true });
+  const background = page.getByRole("switch", { name: "خلفية داكنة خلف النص", exact: true });
+  const bold = page.getByRole("switch", { name: "خط عريض", exact: true });
+  await subtitleSize.fill("42");
+  await subtitleDelay.fill("-0.25");
+  await color.click();
+  await page.getByRole("option", { name: "أصفر", exact: true }).click();
+  await background.click();
+  await bold.click();
+  await page.getByRole("button", { name: "حفظ الافتراضيات", exact: true }).click();
+  await expect(page.getByText("تم حفظ افتراضيات التشغيل")).toBeVisible();
+  await page.reload();
+  await expect(subtitleSize).toHaveValue("42");
+  await expect(subtitleDelay).toHaveValue("-0.25");
+  await expect(language).toContainText("اليابانية");
+  await expect(enabled).not.toBeChecked();
+  await expect(color).toContainText("أصفر");
+  await expect(background).toBeChecked();
+  await expect(bold).toBeChecked();
+  await page.getByRole("button", { name: "استعادة الافتراضيات", exact: true }).click();
+  await expect(subtitleSize).toHaveValue("55");
+  await expect(subtitleDelay).toHaveValue("0");
+  await expect(language).toContainText("العربية");
+  await expect(enabled).toBeChecked();
+  await expect(color).toContainText("أبيض");
+  await expect(background).not.toBeChecked();
+  await expect(bold).not.toBeChecked();
   await page.getByRole("button", { name: "حفظ الافتراضيات", exact: true }).click();
   await expect
-    .poll(() =>
-      page.evaluate(
-        () => JSON.parse(sessionStorage.getItem("fixture-playback") ?? "{}").subtitleSize,
-      ),
-    )
-    .toBe(42);
+    .poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("fixture-playback") ?? "{}")))
+    .toMatchObject({
+      subtitleSize: 55,
+      subtitleLanguage: "ar",
+      startupVolume: 35,
+      startupSpeed: 1.25,
+      audioLanguage: "ja",
+      audioDelay: 0.1,
+    });
+  await page.goto("/#/settings?section=subtitles");
+  await expect(page.getByRole("heading", { name: "التشغيل", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "OpenSubtitles", exact: true })).toBeFocused();
   await expect(page.getByText("غير مربوط", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(() =>

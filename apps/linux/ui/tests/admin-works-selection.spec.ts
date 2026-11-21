@@ -237,13 +237,13 @@ test("filters stay compact, update directly and reset without clearing search or
   await page.getByLabel("البحث في الأعمال", { exact: true }).fill("عنوان");
   await page.getByRole("button", { name: "بحث", exact: true }).click();
   await expect(page.getByRole("group", { name: "نوع الإنتاج", exact: true })).not.toBeVisible();
-  await page.getByRole("button", { name: "المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "تصفية النتائج", exact: true }).click();
   await page
     .getByRole("group", { name: "نوع الإنتاج", exact: true })
     .getByRole("button", { name: "رسوم متحركة", exact: true })
     .click();
   await expect(page).toHaveURL(/format=animated/);
-  await expect(page.getByRole("button", { name: /^المرشحات/ })).toContainText("1");
+  await expect(page.getByRole("button", { name: /^تصفية النتائج/ })).toContainText("1");
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/works-filters-compact-520.png" });
   await page.getByRole("button", { name: "مسح", exact: true }).click();
@@ -340,7 +340,7 @@ test("entity filters and selection review work in a narrow window with isolated 
   await page.setViewportSize({ width: 520, height: 800 });
   await page.goto("/#/admin/people");
   await page.getByRole("checkbox", { name: "تحديد شخص 1", exact: true }).click();
-  await page.getByRole("button", { name: "المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "تصفية النتائج", exact: true }).click();
   await page
     .getByRole("group", { name: "الصورة", exact: true })
     .getByRole("button", { name: "بدون صورة", exact: true })

@@ -207,7 +207,7 @@ test("audit timeline opens masked details and the full activity layout fits narr
   await page.getByLabel("البحث في سجل العمليات", { exact: true }).fill("غير موجود");
   await page.getByRole("button", { name: "بحث", exact: true }).click();
   await expect(page.getByText("لا توجد سجلات مطابقة", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "مسح المرشحات", exact: true }).click();
+  await page.getByRole("button", { name: "مسح التصفية", exact: true }).click();
   await expect(page.getByRole("button", { name: /تفاصيل العملية/ })).toHaveCount(2);
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

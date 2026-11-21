@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/drawer";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Item, ItemContent, ItemMedia } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -369,11 +370,9 @@ export function ServerConnections({
       : inline
         ? "مكتباتك"
         : "اختر مكتبتك";
-  const description = inline
-    ? "أضف مكتبة أو عدّل اتصالًا محفوظًا على هذا الجهاز."
-    : form
-      ? "اتصل بالخادم الذي يحتفظ بأعمالك وصورك وسجل مشاهدتك."
-      : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل.";
+  const description = form
+    ? "اتصل بالخادم الذي يحتفظ بأعمالك وصورك وسجل مشاهدتك."
+    : "اتصل بمكتبتك للمتابعة. ملفات هذا الجهاز تبقى محفوظة عند التبديل.";
   const content = (
     <>
       {form?.updatingAddress && form.editing ? (
@@ -393,13 +392,15 @@ export function ServerConnections({
         <>
           <div className="flex flex-col gap-2">
             {connections.data?.servers.map((server) => (
-              <div
+              <Item
                 key={server.url}
-                className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border p-4 data-[selected=true]:border-primary/50 data-[selected=true]:bg-primary/5"
-                data-selected={connections.data.selected === server.url}
+                size="sm"
+                variant={connections.data.selected === server.url ? "muted" : "outline"}
               >
-                <Server className="mx-1 size-6 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0 flex-1 basis-40">
+                <ItemMedia variant="icon">
+                  <Server aria-hidden="true" />
+                </ItemMedia>
+                <ItemContent className="min-w-0 basis-40">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     <span className="min-w-0 break-words">{server.name}</span>
                     {connections.data.selected === server.url && (
@@ -427,7 +428,7 @@ export function ServerConnections({
                   >
                     {server.url}
                   </p>
-                </div>
+                </ItemContent>
                 {inline && connections.data.selected === server.url && (
                   <Button
                     type="button"
@@ -460,38 +461,50 @@ export function ServerConnections({
                 >
                   <Pencil />
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`إزالة ${server.name}`}
-                  title={
-                    connections.data.selected === server.url
-                      ? "اختر خادمًا آخر قبل إزالة الاتصال الحالي"
-                      : "إزالة الاتصال المحفوظ"
-                  }
-                  disabled={
-                    connections.data.selected === server.url || select.isPending || remove.isPending
-                  }
-                  onClick={() => {
-                    setRemoving(server);
-                    remove.reset();
-                  }}
-                >
-                  <Trash2 />
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={
-                    connections.data.selected === server.url || select.isPending || remove.isPending
-                  }
-                  onClick={() => select.mutate(server)}
-                >
-                  {select.isPending && select.variables?.url === server.url ? <Spinner /> : "اتصال"}
-                </Button>
-              </div>
+                {(!inline || connections.data.selected !== server.url) && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`إزالة ${server.name}`}
+                      title={
+                        connections.data.selected === server.url
+                          ? "اختر خادمًا آخر قبل إزالة الاتصال الحالي"
+                          : "إزالة الاتصال المحفوظ"
+                      }
+                      disabled={
+                        connections.data.selected === server.url ||
+                        select.isPending ||
+                        remove.isPending
+                      }
+                      onClick={() => {
+                        setRemoving(server);
+                        remove.reset();
+                      }}
+                    >
+                      <Trash2 />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        connections.data.selected === server.url ||
+                        select.isPending ||
+                        remove.isPending
+                      }
+                      onClick={() => select.mutate(server)}
+                    >
+                      {select.isPending && select.variables?.url === server.url ? (
+                        <Spinner />
+                      ) : (
+                        "اتصال"
+                      )}
+                    </Button>
+                  </>
+                )}
+              </Item>
             ))}
           </div>
           {removing && (
@@ -551,10 +564,12 @@ export function ServerConnections({
     return (
       <Card size="sm" aria-label="إدارة اتصالات المكتبة">
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardTitle>
+            <h2>{title}</h2>
+          </CardTitle>
+          {form && <CardDescription>{description}</CardDescription>}
         </CardHeader>
-        <CardContent className="flex flex-col gap-5">{content}</CardContent>
+        <CardContent className="flex flex-col gap-3">{content}</CardContent>
       </Card>
     );
   if (mobile)

@@ -20,6 +20,7 @@ use std::{
 
 use gtk::prelude::*;
 use libmpv2_sys as mpv;
+use nahhasio_client_core::playback::SubtitleColor;
 
 use crate::{Diagnostics, PlaybackState, Track, TrackKind};
 
@@ -206,6 +207,8 @@ impl Engine {
         if let Some(defaults) = defaults {
             // Queue typed preferences before loadfile so automatic track selection sees them.
             for (key, value) in [
+                ("volume", defaults.startup_volume.to_string()),
+                ("speed", defaults.startup_speed.to_string()),
                 ("alang", defaults.audio_languages.clone()),
                 ("slang", defaults.subtitle_languages.clone()),
                 (
@@ -219,8 +222,25 @@ impl Engine {
                 ),
                 ("sub-font-size", defaults.subtitle_size.to_string()),
                 ("sub-pos", defaults.subtitle_position.to_string()),
+                ("audio-delay", defaults.audio_delay.to_string()),
+                ("sub-delay", defaults.subtitle_delay.to_string()),
             ] {
                 engine.command(&["set", key, &value])?;
+            }
+            if defaults.subtitle_color == SubtitleColor::Yellow {
+                engine.command(&["set", "sub-color", "#FFE680"])?;
+            }
+            if defaults.subtitle_background {
+                for (key, value) in [
+                    ("sub-border-style", "background-box"),
+                    ("sub-back-color", "#CC000000"),
+                    ("sub-shadow-offset", "5"),
+                ] {
+                    engine.command(&["set", key, value])?;
+                }
+            }
+            if defaults.subtitle_bold {
+                engine.command(&["set", "sub-bold", "yes"])?;
             }
         }
         engine.command(&["loadfile", source, "replace"])?;

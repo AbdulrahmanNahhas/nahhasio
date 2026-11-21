@@ -23,6 +23,7 @@ pub fn save(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nahhasio_client_core::playback::SubtitleColor;
     #[test]
     fn preferences_are_validated_persisted_and_account_scoped() {
         let mut nonce = [0; 16];
@@ -30,18 +31,27 @@ mod tests {
         let root = std::env::temp_dir().join(format!("nahhasio-playback-{}", hex::encode(nonce)));
         let mut value = Preferences {
             audio_language: "ja".into(),
+            subtitle_language: "en".into(),
             subtitles_enabled: false,
+            subtitle_size: 42.0,
+            subtitle_position: 90.0,
+            subtitle_delay: -0.25,
+            subtitle_color: SubtitleColor::Yellow,
+            subtitle_background: true,
+            subtitle_bold: true,
             ..Preferences::default()
         };
         save(&root, "account-a", serde_json::to_value(&value).unwrap()).unwrap();
         assert_eq!(load(&root, "account-a").unwrap().audio_language, "ja");
         assert_eq!(load(&root, "account-b").unwrap().audio_language, "auto");
-        assert!(
-            !load(&root, "account-a")
-                .unwrap()
-                .playback_defaults()
-                .subtitles_enabled
-        );
+        let defaults = load(&root, "account-a").unwrap().playback_defaults();
+        assert!(!defaults.subtitles_enabled);
+        assert_eq!(defaults.subtitle_languages, "en,eng");
+        assert_eq!(defaults.subtitle_size, 42.0);
+        assert_eq!(defaults.subtitle_position, 90.0);
+        assert_eq!(defaults.subtitle_delay, -0.25);
+        assert_eq!(defaults.subtitle_color, SubtitleColor::Yellow);
+        assert!(defaults.subtitle_background && defaults.subtitle_bold);
         value.subtitle_size = f64::INFINITY;
         assert!(value.validate().is_err());
         std::fs::remove_dir_all(root).unwrap();

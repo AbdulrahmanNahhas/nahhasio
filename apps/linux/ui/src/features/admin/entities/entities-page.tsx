@@ -337,10 +337,10 @@ export function EntitiesPage({
               <Users />
             </EmptyMedia>
             <EmptyTitle>لا توجد سجلات مطابقة</EmptyTitle>
-            <EmptyDescription>غيّر البحث أو المرشحات.</EmptyDescription>
+            <EmptyDescription>غيّر البحث أو التصفية.</EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" onClick={resetFilters}>
-            مسح المرشحات
+            مسح التصفية
           </Button>
         </Empty>
       ) : search.view === "grid" ? (

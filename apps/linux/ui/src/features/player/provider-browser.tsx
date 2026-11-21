@@ -1,195 +1,115 @@
-import { Captions, Play, Search, Star, Upload } from "lucide-react";
-import { useState } from "react";
+import { Captions, ChevronDown, MonitorPlay } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
-import { Spinner } from "@/components/ui/spinner";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-import {
-  offerKey,
-  type EmbedStatus,
-  type ProviderOffer,
-  type ProviderCapabilities,
-} from "./stream-providers";
+import { offerKey, type ProviderOffer } from "./stream-providers";
 
-function known(value?: ProviderCapabilities["subtitles"]) {
-  return value === "reported" || value === "documented";
-}
-function Features({ offer }: { offer: ProviderOffer }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {offer.preferred && (
-        <Badge variant="secondary">
-          <Star data-icon="inline-start" />
-          DUB + عربي
-        </Badge>
-      )}
-      {!offer.preferred && offer.audio !== "original" && (
-        <Badge variant="outline">{offer.audio === "dub" ? "DUB" : "SUB"}</Badge>
-      )}
-      {known(offer.capabilities?.arabic) ? (
-        <Badge variant="outline">
-          <Captions data-icon="inline-start" />
-          عربي
-        </Badge>
-      ) : (
-        known(offer.capabilities?.subtitles) && (
-          <Badge variant="outline">
-            <Captions data-icon="inline-start" />
-            ترجمة
-          </Badge>
-        )
-      )}
-      {known(offer.capabilities?.upload) && (
-        <Badge variant="outline">
-          <Upload data-icon="inline-start" />
-          إضافة ترجمة
-        </Badge>
-      )}
-    </div>
-  );
+function audioLabel(offer: ProviderOffer) {
+  return offer.audio === "dub" ? "دبلجة" : offer.audio === "sub" ? "ترجمة" : null;
 }
 
-export function ProviderBrowser({
+export function ProviderMenu({
   offers,
+  selected,
+  onSelect,
+  disabled,
+  children,
   anime,
-  busy,
-  status,
-  onOpen,
-  onPresent,
 }: {
   offers: ProviderOffer[];
-  anime: boolean;
-  busy: boolean;
-  status?: EmbedStatus;
-  onOpen: (offer: ProviderOffer) => void;
-  onPresent: () => void;
+  selected?: ProviderOffer;
+  onSelect: (offer: ProviderOffer) => void;
+  disabled?: boolean;
+  children?: ReactNode;
+  anime?: boolean;
 }) {
-  const [search, setSearch] = useState("");
-  const [openingKey, setOpeningKey] = useState("");
-  const [problems, setProblems] = useState(false);
-  const term = search.trim().toLocaleLowerCase();
-  const filtered = offers
-    .filter((offer) => offer.name.toLocaleLowerCase().includes(term))
-    .toSorted((a, b) => Number(b.preferred) - Number(a.preferred));
-  const primary = (offer: ProviderOffer) =>
-    offer.preferred || (offer.tier !== "issues" && (!anime || offer.audio === "dub"));
-  const regular = filtered.filter(primary);
-  const additional = filtered.filter((offer) => !primary(offer));
-  const expanded = problems || Boolean(term);
-  const visible = expanded ? [...regular, ...additional] : regular;
-  function rows(items: ProviderOffer[]) {
-    return items.map((offer) => {
-      const key = offerKey(offer);
-      const active =
-        status?.phase !== "closed" &&
-        status?.provider === offer.provider &&
-        status?.audio === offer.audio;
-      const present = active && status?.phase !== "failed";
-      return (
-        <div key={key} role="listitem" data-provider-choice={key}>
-          <Item
-            variant={present ? "muted" : "outline"}
-            className="h-full text-start"
-            render={
-              <button
-                type="button"
-                disabled={busy || !offer.available}
-                aria-label={
-                  present
-                    ? "إظهار المشغّل"
-                    : `المشاهدة عبر ${offer.name}${offer.audio === "sub" ? " SUB" : ""}`
-                }
-                aria-busy={busy && openingKey === key}
-                title={!offer.available ? (offer.reason ?? "غير متاح") : undefined}
-                onClick={() => {
-                  setOpeningKey(key);
-                  if (present) onPresent();
-                  else onOpen(offer);
-                }}
-              />
-            }
+  const alternatives = anime
+    ? offers.filter((offer) => offer.audio === "sub" || offer.provider === "vidzee")
+    : [];
+  const primary = offers.filter((offer) => !alternatives.includes(offer));
+  function choices(items: ProviderOffer[]) {
+    return (
+      <DropdownMenuRadioGroup
+        value={selected ? offerKey(selected) : ""}
+        onValueChange={(key) => {
+          const offer = items.find((item) => offerKey(item) === key);
+          if (offer?.available) onSelect(offer);
+        }}
+      >
+        {items.map((offer) => (
+          <DropdownMenuRadioItem
+            key={offerKey(offer)}
+            value={offerKey(offer)}
+            disabled={!offer.available}
+            closeOnClick
           >
-            <ItemContent className="min-w-0 gap-2">
-              <ItemTitle>
-                <span dir="ltr">{offer.name}</span>
-              </ItemTitle>
-              <Features offer={offer} />
-              {active && (
-                <span role="status" className="text-xs text-muted-foreground">
-                  {status?.phase === "loading"
-                    ? "جارٍ فتح المشغّل…"
-                    : status?.phase === "failed"
-                      ? "تعذّر فتح المشغّل"
-                      : "المشغّل مفتوح"}
-                </span>
-              )}
-              {!offer.available && offer.reason && (
-                <ItemDescription>{offer.reason}</ItemDescription>
-              )}
-            </ItemContent>
-            <ItemActions>
-              {busy && openingKey === key ? (
-                <Spinner />
-              ) : (
-                <Play className="size-4" aria-hidden="true" />
-              )}
-            </ItemActions>
-          </Item>
-        </div>
-      );
-    });
+            <bdi>{offer.name}</bdi>
+            <span className="ms-auto text-xs text-muted-foreground">
+              {offer.available
+                ? anime && (offer.preferred ? "DUB + عربي" : audioLabel(offer))
+                : offer.reason}
+            </span>
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    );
   }
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <InputGroup className="min-w-0 flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label="البحث عن مزوّد"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="ابحث عن خادم…"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="مصدر الفيديو"
+            disabled={disabled || (!offers.length && !children)}
           />
-        </InputGroup>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {new Set(filtered.map((offer) => offer.provider)).size} خادم
-        </span>
-      </div>
-      <ItemGroup aria-label="مزوّد الفيديو" className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-        {rows(regular)}
-        {expanded && rows(additional)}
-      </ItemGroup>
-      {additional.length > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start"
-          aria-expanded={expanded}
-          onClick={() => setProblems(!problems)}
-        >
-          {problems ? "إخفاء الخيارات الإضافية" : "خيارات إضافية"} ({additional.length})
-        </Button>
-      )}
-      {!visible.length && (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>لا توجد خوادم مطابقة</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      )}
-    </div>
+        }
+      >
+        <MonitorPlay data-icon="inline-start" />
+        {selected ? <bdi>{selected.name}</bdi> : "مصدر الفيديو"}
+        {anime && selected && audioLabel(selected) && (
+          <span className="text-muted-foreground">{audioLabel(selected)}</span>
+        )}
+        <ChevronDown data-icon="inline-end" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" className="min-w-56">
+        {primary.length > 0 && (
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>خوادم الفيديو</DropdownMenuLabel>
+            {choices(primary)}
+          </DropdownMenuGroup>
+        )}
+        {alternatives.length > 0 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Captions data-icon="inline-start" />
+              مصادر مترجمة
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>{choices(alternatives)}</DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {children && (
+          <>
+            {offers.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuGroup>{children}</DropdownMenuGroup>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

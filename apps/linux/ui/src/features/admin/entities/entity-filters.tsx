@@ -68,7 +68,7 @@ export function EntityFilters({
     <Popover>
       <PopoverTrigger render={<Button variant="outline" />}>
         <SlidersHorizontal data-icon="inline-start" />
-        المرشحات
+        تصفية النتائج
         {active > 0 && <Badge variant="secondary">{active}</Badge>}
       </PopoverTrigger>
       <PopoverContent

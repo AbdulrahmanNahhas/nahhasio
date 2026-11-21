@@ -107,9 +107,9 @@ mod tests {
     #[test]
     fn release_policy_is_valid_and_empty_results_have_no_stars() {
         let registry = registry().expect("valid release registry");
-        assert_eq!(registry.providers.len(), 17);
+        assert_eq!(registry.providers.len(), 19);
         assert!(registry.allows(Provider::Vidnest, MediaType::AnimeSeries));
-        assert!(!registry.allows(Provider::Vidlink, MediaType::AnimeSeries));
+        assert!(registry.allows(Provider::Vidlink, MediaType::AnimeSeries));
         assert!(!registry.allows(Provider::Primesrc, MediaType::Series));
         assert!(!registry.preferred(
             Provider::Vidnest,

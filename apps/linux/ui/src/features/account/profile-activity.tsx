@@ -5,7 +5,8 @@ import {
   type ProfileEntry,
 } from "@nahhasio/api-contract";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { LockKeyhole, MessageCircle } from "lucide-react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
+import { CalendarDays, LockKeyhole, MessageCircle } from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
@@ -21,13 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gateway } from "@/lib/bridge";
 
 import { homeDate } from "../home/viewing-card";
 import { workLink } from "../shell/navigation";
 
 const groups = [
+  { key: "overview", label: "نظرة عامة", sections: [] },
   {
     key: "viewing",
     label: "المشاهدة",
@@ -40,9 +41,12 @@ const groups = [
     label: "النشاط",
     sections: ["recommendations", "events", "reactions", "notifications"],
   },
-  { key: "account", label: "الحساب", sections: ["preferences", "devices", "policies"] },
   { key: "statistics", label: "الإحصاءات", sections: [] },
 ] satisfies { key: string; label: string; sections: ProfileSection[] }[];
+const sharedSections: ProfileSection[] = ["collections", "reviews", "comments"];
+const ownerHighlights = ["watching", "watched", "favorites"] satisfies ProfileSection[];
+const accountSections = new Set<ProfileSection>(["preferences", "devices", "policies"]);
+type ActivitySection = ProfileSection | "overview" | "statistics";
 
 export function ProfileActivity({ id }: { id: string }) {
   const result = useQuery({
@@ -56,30 +60,35 @@ export function ProfileActivity({ id }: { id: string }) {
   );
 }
 function ProfileActivityContent({ id, overview }: { id: string; overview: ProfileOverview }) {
-  const [section, setSection] = useState<ProfileSection | "statistics">(
-    overview.owner ? "watched" : "comments",
+  const [section, setSection] = useState<ActivitySection>("overview");
+  const activityStats = overview.stats.filter(
+    (stat) =>
+      !accountSections.has(stat.key) && (overview.owner || sharedSections.includes(stat.key)),
   );
   const available = groups
     .map((group) => ({
       ...group,
-      sections: group.sections.filter((key) => overview.stats.some((stat) => stat.key === key)),
+      sections: group.sections.filter((key) => activityStats.some((stat) => stat.key === key)),
     }))
-    .filter((group) => group.key === "statistics" || group.sections.length > 0);
+    .filter(
+      (group) =>
+        group.key === "overview" || group.key === "statistics" || group.sections.length > 0,
+    );
   const active =
     available.find(
-      (group) =>
-        group.key === section || (section !== "statistics" && group.sections.includes(section)),
+      (group) => group.key === section || group.sections.some((key) => key === section),
     ) ?? available[0];
-  const highlights = overview.stats.filter((stat) =>
-    ["watched", "watching", "favorites", "comments", "reviews", "collections"].includes(stat.key),
-  );
+  const highlights = (overview.owner ? ownerHighlights : sharedSections).flatMap((key) => {
+    const stat = activityStats.find((entry) => entry.key === key);
+    return stat ? [stat] : [];
+  });
   const options = active.sections.map((key) => ({
     value: key,
     label: overview.stats.find((stat) => stat.key === key)?.label ?? key,
   }));
   return (
     <section className="flex min-w-0 flex-col gap-8" aria-label="نشاط الملف الشخصي">
-      <dl className="grid grid-cols-3 gap-x-5 gap-y-6 sm:grid-cols-6">
+      <dl className="grid grid-cols-3 gap-4">
         {highlights.map((stat) => (
           <div key={stat.key} className="flex flex-col gap-2">
             <dd className="text-3xl font-semibold tabular-nums">
@@ -95,122 +104,178 @@ function ProfileActivityContent({ id, overview }: { id: string; overview: Profil
         value={active.key}
         onValueChange={(value) => {
           const group = available.find((item) => item.key === value);
-          if (group) setSection(group.key === "statistics" ? "statistics" : group.sections[0]);
+          if (!group) return;
+          if (group.key === "overview" || group.key === "statistics") setSection(group.key);
+          else setSection(group.sections[0]);
         }}
         className="min-w-0 gap-6"
       >
         <div className="overflow-x-auto">
-          <TabsList variant="line" aria-label="أقسام الملف الشخصي">
+          <TabsList
+            aria-label="أقسام الملف الشخصي"
+            className="flex w-max min-w-full gap-1 border-b border-border"
+          >
             {available.map((group) => (
-              <TabsTrigger key={group.key} value={group.key}>
+              <TabsTab
+                key={group.key}
+                value={group.key}
+                className="shrink-0 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-selected:border-primary data-selected:text-foreground"
+              >
                 {group.label}
-              </TabsTrigger>
+              </TabsTab>
             ))}
           </TabsList>
         </div>
-        <TabsContent key={active.key} value={active.key} className="flex min-w-0 flex-col gap-5">
-          {section === "statistics" ? (
-            <>
-              <p className="text-sm leading-7 text-muted-foreground">
-                الأرقام مستخرجة من السجلات المحفوظة. المشاهدة المكتملة تُحسب لكل فيلم أو حلقة أو موسم
-                مسجّل؛ زيارات الصفحات لا تعني تشغيل الفيديو، والتقدم المسجّل يجمع مواضع التشغيل الحالية
-                ولا يقيس وقت المشاهدة أو الإعادات.
-              </p>
-              {overview.viewing && (
-                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  {[
-                    { label: "أعمال مكتملة", value: overview.viewing.works },
-                    { label: "حلقات مكتملة", value: overview.viewing.episodes },
-                    { label: "أفلام وعروض خاصة مكتملة", value: overview.viewing.movies },
-                    {
-                      label: "دقائق من التقدم المسجّل",
-                      value: Math.floor(overview.viewing.recordedSeconds / 60),
-                    },
-                  ].map((stat) => (
-                    <div key={stat.label} className="flex flex-col gap-2">
-                      <dd className="text-3xl font-semibold tabular-nums">
+        {available.map((group) => (
+          <TabsPanel key={group.key} value={group.key} className="flex min-w-0 flex-col gap-5">
+            {group.key !== active.key ? null : section === "overview" ? (
+              <div className="flex flex-col gap-8">
+                {highlights.map((stat) => (
+                  <section
+                    key={stat.key}
+                    className="flex min-w-0 flex-col gap-3"
+                    aria-labelledby={`profile-preview-${stat.key}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2
+                        id={`profile-preview-${stat.key}`}
+                        className="font-display text-xl font-semibold"
+                      >
+                        {stat.key === "watched" ? "آخر ما شاهدت" : stat.label}
+                      </h2>
+                      {stat.value > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => setSection(stat.key)}>
+                          عرض الكل
+                          <span className="sr-only">: {stat.label}</span>
+                        </Button>
+                      )}
+                    </div>
+                    {stat.value > 0 ? (
+                      <ProfileEntries id={id} section={stat.key} preview />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">لا توجد سجلات في هذا القسم بعد.</p>
+                    )}
+                  </section>
+                ))}
+              </div>
+            ) : section === "statistics" ? (
+              <>
+                <p className="text-sm leading-7 text-muted-foreground">
+                  الأرقام مستخرجة من السجلات المحفوظة. المشاهدة المكتملة تُحسب لكل فيلم أو حلقة أو موسم
+                  مسجّل؛ زيارات الصفحات لا تعني تشغيل الفيديو، والتقدم المسجّل يجمع مواضع التشغيل
+                  الحالية ولا يقيس وقت المشاهدة أو الإعادات.
+                </p>
+                {overview.viewing && (
+                  <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {[
+                      { label: "أعمال مكتملة", value: overview.viewing.works },
+                      { label: "حلقات مكتملة", value: overview.viewing.episodes },
+                      { label: "أفلام وعروض خاصة مكتملة", value: overview.viewing.movies },
+                      {
+                        label: "دقائق من التقدم المسجّل",
+                        value: Math.floor(overview.viewing.recordedSeconds / 60),
+                      },
+                    ].map((stat) => (
+                      <div key={stat.label} className="flex flex-col gap-2">
+                        <dd className="text-3xl font-semibold tabular-nums">
+                          {stat.value.toLocaleString("ar")}
+                        </dd>
+                        <dt className="text-xs text-muted-foreground">{stat.label}</dt>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {activityStats.map((stat) => (
+                    <div
+                      key={stat.key}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"
+                    >
+                      <dt className="text-sm text-muted-foreground">{stat.label}</dt>
+                      <dd className="text-xl font-semibold tabular-nums">
                         {stat.value.toLocaleString("ar")}
                       </dd>
-                      <dt className="text-xs text-muted-foreground">{stat.label}</dt>
                     </div>
                   ))}
                 </dl>
-              )}
-              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {overview.stats.map((stat) => (
-                  <div
-                    key={stat.key}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"
-                  >
-                    <dt className="text-sm text-muted-foreground">{stat.label}</dt>
-                    <dd className="text-xl font-semibold tabular-nums">
-                      {stat.value.toLocaleString("ar")}
-                    </dd>
+                {overview.owner && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarDays className="size-4" aria-hidden="true" />
+                    تقويم المشاهدة
+                    <Badge variant="secondary">قريبًا</Badge>
                   </div>
-                ))}
-              </dl>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Select
-                  value={section}
-                  items={options}
-                  onValueChange={(value) => {
-                    const parsed = ProfileSectionSchema.safeParse(value);
-                    if (parsed.success) setSection(parsed.data);
-                  }}
-                >
-                  <SelectTrigger aria-label="عرض نشاط الملف">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                {overview.owner && !["comments", "reviews", "collections"].includes(section) && (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <LockKeyhole className="size-3" aria-hidden="true" />
-                    تظهر لك وحدك
-                  </span>
                 )}
-              </div>
-              {section === "saved" && (
-                <p className="text-sm text-muted-foreground">
-                  هذه علامات الحفظ المسجلة في الخادم. الملفات المتاحة دون اتصال على جهازك موجودة في
-                  التنزيلات.
-                </p>
-              )}
-              {section === "downloads" && (
-                <p className="text-sm text-muted-foreground">
-                  سجلات التنزيل في حسابك؛ قد تختلف عن ملفات هذا الجهاز الحالية.
-                </p>
-              )}
-              {section === "watching" && (
-                <p className="text-sm text-muted-foreground">
-                  نفس حالة المشاهدة في التصفّح: أعمال بدأت مشاهدتها ولم تُكمل كل وحداتها الصادرة.
-                </p>
-              )}
-              {section === "watched" && (
-                <p className="text-sm text-muted-foreground">
-                  أحدث الأفلام والحلقات المكتملة. اكتمال عمل كامل يظهر منفصلًا في الإحصاءات.
-                </p>
-              )}
-              <ProfileEntries key={`${id}-${section}`} id={id} section={section} />
-            </>
-          )}
-        </TabsContent>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Select
+                    value={section}
+                    items={options}
+                    onValueChange={(value) => {
+                      const parsed = ProfileSectionSchema.safeParse(value);
+                      if (parsed.success) setSection(parsed.data);
+                    }}
+                  >
+                    <SelectTrigger aria-label="عرض نشاط الملف">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {options.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {overview.owner && !["comments", "reviews", "collections"].includes(section) && (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <LockKeyhole className="size-3" aria-hidden="true" />
+                      تظهر لك وحدك
+                    </span>
+                  )}
+                </div>
+                {section === "saved" && (
+                  <p className="text-sm text-muted-foreground">
+                    هذه علامات الحفظ المسجلة في الخادم. الملفات المتاحة دون اتصال على جهازك موجودة في
+                    التنزيلات.
+                  </p>
+                )}
+                {section === "downloads" && (
+                  <p className="text-sm text-muted-foreground">
+                    سجلات التنزيل في حسابك؛ قد تختلف عن ملفات هذا الجهاز الحالية.
+                  </p>
+                )}
+                {section === "watching" && (
+                  <p className="text-sm text-muted-foreground">
+                    نفس حالة المشاهدة في التصفّح: أعمال بدأت مشاهدتها ولم تُكمل كل وحداتها الصادرة.
+                  </p>
+                )}
+                {section === "watched" && (
+                  <p className="text-sm text-muted-foreground">
+                    أحدث الأفلام والحلقات المكتملة. اكتمال عمل كامل يظهر منفصلًا في الإحصاءات.
+                  </p>
+                )}
+                <ProfileEntries key={`${id}-${section}`} id={id} section={section} />
+              </>
+            )}
+          </TabsPanel>
+        ))}
       </Tabs>
     </section>
   );
 }
-function ProfileEntries({ id, section }: { id: string; section: ProfileSection }) {
+function ProfileEntries({
+  id,
+  section,
+  preview = false,
+}: {
+  id: string;
+  section: ProfileSection;
+  preview?: boolean;
+}) {
   const result = useInfiniteQuery({
     queryKey: ["profile-activity", id, section],
     initialPageParam: 1,
@@ -226,7 +291,9 @@ function ProfileEntries({ id, section }: { id: string; section: ProfileSection }
       </div>
     );
   if (result.error) return <Failure error={result.error} retry={() => void result.refetch()} />;
-  const items = result.data.pages.flatMap((page) => page.items);
+  const items = preview
+    ? result.data.pages[0].items.slice(0, 2)
+    : result.data.pages.flatMap((page) => page.items);
   if (items.length === 0)
     return (
       <NoResults
@@ -236,15 +303,17 @@ function ProfileEntries({ id, section }: { id: string; section: ProfileSection }
     );
   return (
     <>
-      <p className="text-xs text-muted-foreground">
-        {result.data.pages[0].total.toLocaleString("ar")} سجل
-      </p>
+      {!preview && (
+        <p className="text-xs text-muted-foreground">
+          {result.data.pages[0].total.toLocaleString("ar")} سجل
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((item) => (
           <ProfileEntryCard key={item.id} item={item} section={section} />
         ))}
       </div>
-      {result.hasNextPage && (
+      {!preview && result.hasNextPage && (
         <Button
           variant="outline"
           className="self-center"

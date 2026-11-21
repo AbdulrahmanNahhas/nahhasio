@@ -2,9 +2,19 @@
   "schemaVersion": 1,
   "providers": [
     {
+      "provider": "vidora",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
+      "provider": "vidrift",
+      "enabled": true,
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
+    },
+    {
       "provider": "vidlink",
       "enabled": true,
-      "mediaTypes": ["series", "film"]
+      "mediaTypes": ["anime-series", "anime-film", "series", "film"]
     },
     {
       "provider": "vidnest",

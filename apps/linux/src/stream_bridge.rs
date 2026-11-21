@@ -1,6 +1,7 @@
-//! Typed embed commands: catalog identities in, bounded provider status out. No caller URLs.
+//! Resolve catalog sources through the isolated embed host or native HTTPS gateway.
 use crate::{
     bridge::{Error, Request},
+    direct_gateway::{DirectGateway, StreamSource},
     embed::Host,
     media::{Media, Target},
     player::Player,
@@ -26,6 +27,12 @@ pub enum Command {
         audio: Audio,
         target: Target,
     },
+    #[serde(rename = "stream.direct")]
+    Direct {
+        session_id: String,
+        target: Target,
+        url: String,
+    },
     #[serde(rename = "stream.providers")]
     Providers { session_id: String, target: Target },
     #[serde(rename = "stream.status")]
@@ -46,6 +53,7 @@ impl Command {
     fn session(&self) -> &str {
         match self {
             Self::Open { session_id, .. }
+            | Self::Direct { session_id, .. }
             | Self::Providers { session_id, .. }
             | Self::Status { session_id }
             | Self::Present { session_id }
@@ -102,6 +110,34 @@ pub async fn execute(
                 &url,
                 &target.title,
             );
+        }
+        Command::Direct { target, url, .. } => {
+            host.close();
+            let generation = host.generation();
+            let (resolved, gateway) = runtime
+                .spawn(async move {
+                    let (resolved, context) = media.embed_context(&target).await?;
+                    if context.files_only {
+                        return Err(Error::new("files_only", "هذا العمل يُشغّل من الملفات فقط."));
+                    }
+                    let hls = url::Url::parse(&url)
+                        .is_ok_and(|url| url.path().to_ascii_lowercase().ends_with(".m3u8"));
+                    let gateway = DirectGateway::start(StreamSource {
+                        url,
+                        referrer: None,
+                        hls,
+                    })
+                    .await
+                    .map_err(|_| Error::new("source_unavailable", "تعذّر تجهيز رابط الفيديو."))?;
+                    Ok::<_, Error>((resolved, gateway))
+                })
+                .await
+                .map_err(|_| Error::new("source_unavailable", "تعذّر تجهيز رابط الفيديو."))??;
+            player.require_session(&session)?;
+            if generation != host.generation() {
+                return Err(Error::new("cancelled", "أُلغي فتح الرابط بعد تغيير المصدر."));
+            }
+            player.play_direct(&session, resolved, gateway, Vec::new())?;
         }
         Command::Present { .. } => host.present(&session)?,
         Command::Close { .. } => host.close(),

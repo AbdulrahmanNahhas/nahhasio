@@ -276,7 +276,7 @@ function ActivityRecords({
                     onChange({ q: "", jobState: "all", page: 1 });
                   }}
                 >
-                  مسح المرشحات
+                  مسح التصفية
                 </Button>
               )}
             </Empty>

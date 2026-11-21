@@ -482,7 +482,7 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
   await expect(page.getByText("سبايدرمان: عبر عالم العنكبوت", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "أفضل فيلم رسوم متحركة", exact: true }).first().click();
   await expect(page).toHaveURL(/category=/);
-  await page.getByRole("button", { name: /^المرشحات/ }).click();
+  await page.getByRole("button", { name: /^تصفية النتائج/ }).click();
   await page.getByRole("switch", { name: "الجوائز البارزة فقط", exact: true }).check();
   await expect(page.getByText("سبايدرمان: عبر عالم العنكبوت", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "جدول الجوائز", exact: true }).click();
@@ -506,8 +506,8 @@ test("left rail, poster browsing, category and year drilldowns and reversible fi
     });
   await page.setViewportSize({ width: 520, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole("button", { name: /^المرشحات/ }).click();
-  await expect(page.getByRole("button", { name: /^المرشحات/ })).toHaveAttribute(
+  await page.getByRole("button", { name: /^تصفية النتائج/ }).click();
+  await expect(page.getByRole("button", { name: /^تصفية النتائج/ })).toHaveAttribute(
     "aria-expanded",
     "false",
   );

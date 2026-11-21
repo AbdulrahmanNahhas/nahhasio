@@ -1,17 +1,17 @@
-import type { PublicProfile, User } from "@nahhasio/api-contract";
+import type { PublicProfile } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
+import { useEffect } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 
-import { useViewerRoute, navigate } from "../shell/navigation";
+import { replaceParams } from "../shell/navigation";
 import { AccountAvatar } from "./account-avatar";
 import { ProfileActivity } from "./profile-activity";
-import { ProfileEditor } from "./profile-editor";
 
 function ProfileLoading() {
   return (
@@ -47,21 +47,24 @@ export function ProfilePage({ id }: { id?: string }) {
     queryFn: ({ signal }) => gateway.profile(signal),
     staleTime: 0,
   });
-  const route = useViewerRoute();
-  const profileId = id ?? account.data?.accountId;
+  const accountId = account.data?.accountId;
+  const profileId = id ?? accountId;
+  useEffect(() => {
+    if (id || !accountId) return;
+    replaceParams(`/profiles/${accountId}`, new URLSearchParams());
+  }, [id, accountId]);
   const result = useQuery({
     queryKey: ["public-profile", profileId],
     queryFn: ({ signal }) => gateway.publicProfile(profileId!, signal),
-    enabled: !!profileId,
+    enabled: Boolean(profileId),
   });
   if (account.error)
     return <ProfileError message={account.error.message} retry={() => void account.refetch()} />;
-  if (account.isPending || result.isPending) return <ProfileLoading />;
-  const error = account.error ?? result.error;
-  if (error)
+  if (!id || account.isPending || result.isPending) return <ProfileLoading />;
+  if (result.error)
     return (
       <ProfileError
-        message={error.message}
+        message={result.error.message}
         retry={() => {
           void account.refetch();
           void result.refetch();
@@ -70,48 +73,26 @@ export function ProfilePage({ id }: { id?: string }) {
     );
   const profile = result.data;
   if (!profile) return <ProfileLoading />;
-  const owner = account.data?.accountId === profile.id ? account.data : undefined;
-  const edit = route.params.get("edit");
-  return (
-    <>
-      <ProfileView
-        profile={profile}
-        owner={owner}
-        onEdit={() => navigate(`${route.path}?edit=profile`)}
-      />
-      {owner && (
-        <ProfileEditor
-          user={owner}
-          section={edit}
-          basePath={route.path}
-          onClose={() => navigate(route.path)}
-        />
-      )}
-    </>
-  );
+  return <ProfileView profile={profile} owner={accountId === profile.id} />;
 }
-function ProfileView({
-  profile,
-  owner,
-  onEdit,
-}: {
-  profile: PublicProfile;
-  owner?: User;
-  onEdit: () => void;
-}) {
+
+function ProfileView({ profile, owner }: { profile: PublicProfile; owner: boolean }) {
   return (
     <article
       className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-8 py-12 max-sm:px-5 max-sm:py-8"
       aria-label="الملف الشخصي"
     >
-      <header className="flex flex-wrap items-center gap-5">
+      <header className="flex flex-wrap items-start gap-4 sm:items-center sm:gap-6">
         <AccountAvatar
           name={profile.name}
           avatarKey={profile.avatarKey}
           className="size-28 shrink-0 max-sm:size-20"
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <h1 className="font-display text-3xl font-semibold break-words max-sm:text-2xl">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+          <h1
+            className="font-display text-3xl font-semibold break-words max-sm:text-2xl"
+            dir="auto"
+          >
             {profile.name}
           </h1>
           {profile.joinedAt && (
@@ -123,18 +104,23 @@ function ProfileView({
               })}
             </p>
           )}
+          {profile.bio && (
+            <p
+              className="max-w-2xl leading-7 whitespace-pre-wrap break-words text-muted-foreground"
+              dir="auto"
+            >
+              {profile.bio}
+            </p>
+          )}
         </div>
         {owner && (
-          <Button variant="outline" onClick={onEdit}>
+          <a className={buttonVariants({ variant: "outline" })} href="#/settings?section=account">
             <Pencil data-icon="inline-start" />
             تعديل الملف
-          </Button>
+          </a>
         )}
       </header>
       <Separator />
-      <p className="max-w-2xl text-base leading-8 whitespace-pre-wrap break-words text-muted-foreground">
-        {profile.bio || "لم تُضف نبذة بعد."}
-      </p>
       <ProfileActivity key={profile.id} id={profile.id} />
     </article>
   );

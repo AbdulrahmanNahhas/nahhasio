@@ -366,6 +366,7 @@ type BridgeRequest = {
     width?: number;
     height?: number;
     fileIds?: string[];
+    target?: { episodeId?: string | null };
   };
 };
 type WorkPageFixture = {
@@ -377,6 +378,7 @@ type WorkPageFixture = {
   failWatched: boolean;
   homeFiles: boolean;
   deviceUnavailable: boolean;
+  savedEpisode: { workId: string; installmentId: string; episodeId: string } | null;
 };
 declare global {
   interface Window {
@@ -401,6 +403,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
         failWatched: false,
         homeFiles: false,
         deviceUnavailable: false,
+        savedEpisode: null,
       };
       window.workPageFixture = fixture;
       const summaryFor = (installmentId?: string): WatchSummary => {
@@ -437,6 +440,8 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   | CommentChanged
                   | z.infer<typeof librarySchema>
                   | { found: false }
+                  | { found: true; snapshot: PlayerSnapshot }
+                  | { target: NonNullable<WorkPageFixture["savedEpisode"]>; available: boolean }[]
                   | []
                   | Session
                   | WorkDetail
@@ -530,6 +535,22 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   success(playback);
                   return;
                 case "media.local":
+                  if (
+                    fixture.savedEpisode &&
+                    request.payload.target?.episodeId === fixture.savedEpisode.episodeId
+                  ) {
+                    playback = {
+                      ...playback,
+                      ...fixture.savedEpisode,
+                      sourceKind: "local",
+                      paused: false,
+                      duration: 1440,
+                      position: 120,
+                      seekable: true,
+                    };
+                    success({ found: true, snapshot: playback });
+                    return;
+                  }
                   success({ found: false });
                   return;
                 case "media.library":
@@ -543,7 +564,9 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   success([]);
                   return;
                 case "media.saved":
-                  success([]);
+                  success(
+                    fixture.savedEpisode ? [{ target: fixture.savedEpisode, available: true }] : [],
+                  );
                   return;
                 case "stream.status":
                   success({
@@ -1313,6 +1336,7 @@ test("episode details remain deep links while artwork starts the selected episod
   await expect(dialog).toHaveCount(0);
   expect(new URL(page.url()).hash).not.toContain("episode=");
   await card.getByRole("button", { name: "تشغيل الحلقة 2", exact: true }).click();
+  await expect(page.getByRole("main", { name: "صفحة المشاهدة", exact: true })).toBeVisible();
   await expect
     .poll(() => requests(page, "player.preview"))
     .toContainEqual({ title: `${workTitle} · الحلقة 2` });
@@ -1690,24 +1714,18 @@ for (const width of [520, 1440]) {
   });
 }
 
-for (const width of [520, 1440]) {
+for (const width of [390, 860, 1440]) {
   test(`watch page ${width}: source failure keeps episodes and discussion usable`, async ({
     page,
   }) => {
-    await page.setViewportSize({ width, height: 1000 });
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 719 });
     await openWork(page);
     await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
     await sources.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
-    await sources
-      .getByRole("button", { name: /^خيارات إضافية/u })
-      .last()
-      .click();
-    await expect(
-      sources.getByRole("button", { name: "المشاهدة عبر VidSrc", exact: true }),
-    ).toBeVisible();
+    await expect(sources.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeVisible();
     await sources.getByRole("tab", { name: "تورنت", exact: true }).click();
     await expect(sources).toContainText("تعذّر الوصول إلى Torrentio");
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
@@ -1730,17 +1748,58 @@ for (const width of [520, 1440]) {
     await expect
       .poll(async () => (await requests(page, "player.viewport")).length)
       .toBeGreaterThan(0);
-    await watch.getByRole("button", { name: "العودة", exact: true }).scrollIntoViewIfNeeded();
+
     if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
       await page.screenshot({ path: `/tmp/nahhasio-watch-${width}.png`, fullPage: true });
     await expect(
       watch.getByLabel("حلقات العمل", { exact: true }).getByRole("button").first(),
     ).toBeVisible();
-    if (width === 520)
-      await watch
-        .getByLabel("حلقات العمل", { exact: true })
-        .getByRole("button", { name: /^إظهار الحلقات/u })
-        .click();
+    if (width < 1280) {
+      await expect(watch.getByRole("button", { name: "إخفاء القائمة الجانبية" })).toBeHidden();
+      await expect(watch.getByRole("button", { name: "العودة", exact: true })).toBeHidden();
+      const favorite = watch.getByRole("button", { name: "إضافة إلى المفضلة" });
+      await expect(favorite).toBeVisible();
+      const actions = await favorite.boundingBox();
+      const video = await watch.getByLabel("منطقة الفيديو").boundingBox();
+      expect(actions!.y + actions!.height).toBeLessThanOrEqual(video!.y);
+      const list = watch.getByRole("list", { name: "قائمة الحلقات" });
+      await expect(list).toBeVisible();
+      if (width < 768) {
+        const search = watch.getByRole("textbox", { name: "بحث في الحلقات" });
+        await expect(search).toBeHidden();
+        await watch.getByRole("button", { name: "إظهار بحث الحلقات" }).click();
+        await expect(search).toBeFocused();
+        await search.fill("رحلة الحلقة 2");
+        await expect(list.getByRole("listitem")).toHaveCount(1);
+        await watch.getByRole("button", { name: "إخفاء بحث الحلقات" }).click();
+        await expect(list.getByRole("listitem")).toHaveCount(9);
+      }
+      await watch.getByRole("button", { name: "إخفاء الحلقات" }).click();
+      await expect(list).toBeHidden();
+      await watch.getByRole("button", { name: "إظهار الحلقات" }).click();
+      await expect
+        .poll(() => list.evaluate((element) => element.scrollWidth - element.clientWidth))
+        .toBeGreaterThan(0);
+      await expect
+        .poll(() =>
+          watch.evaluate((element) => {
+            const content = element.lastElementChild;
+            const bottom =
+              (content?.getBoundingClientRect().bottom ?? 0) -
+              element.getBoundingClientRect().top +
+              element.scrollTop;
+            return element.scrollHeight - bottom;
+          }),
+        )
+        .toBeLessThanOrEqual(1);
+    } else {
+      await expect(watch.getByRole("button", { name: "العودة", exact: true })).toHaveCount(0);
+      const details = watch.getByLabel("تفاصيل المشاهدة", { exact: true });
+      await details.getByRole("button", { name: "إخفاء القائمة الجانبية" }).click();
+      await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
+      await details.getByRole("button", { name: "إظهار القائمة الجانبية" }).click();
+      await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
+    }
     const selector = watch
       .getByLabel("حلقات العمل", { exact: true })
       .getByRole("combobox", { name: "الأجزاء والمواسم", exact: true });
@@ -1758,6 +1817,73 @@ for (const width of [520, 1440]) {
     await expect(watch.getByLabel("بحث في الحلقات", { exact: true })).toHaveCount(0);
   });
 }
+
+test("watch sidebar combines episode states and filters watched episodes in RTL", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openWork(page);
+  await page.evaluate(
+    (target) => {
+      window.workPageFixture.savedEpisode = target;
+    },
+    {
+      workId,
+      installmentId: seasonId,
+      episodeId: id(102),
+    },
+  );
+  await openEpisodes(page);
+  await episodeCard(page, 2).locator("[data-episode-primary]").click();
+  const watch = page.getByRole("main", { name: "صفحة المشاهدة", exact: true });
+  const sidebar = watch.getByRole("complementary", { name: "حلقات العمل", exact: true });
+  const list = sidebar.getByRole("list", { name: "قائمة الحلقات", exact: true });
+  const active = list.getByRole("button", { name: /رحلة الحلقة 2/ });
+  await expect(active).toHaveAttribute("aria-current", "true");
+  await expect(active.getByText("قيد التشغيل", { exact: true })).toHaveCount(1);
+  await expect(active.getByTitle("محمّلة على الجهاز", { exact: true })).toBeVisible();
+  await watch.getByRole("button", { name: "تحديد رحلة الحلقة 2 كمُشاهَد", exact: true }).click();
+  await expect(active.getByTitle("تمّت المشاهدة", { exact: true })).toBeVisible();
+  await expect(active.getByTitle("محمّلة على الجهاز", { exact: true })).toBeVisible();
+  const all = sidebar.getByRole("radio", { name: "الكل", exact: true });
+  await all.focus();
+  await page.keyboard.press("ArrowLeft");
+  const unwatched = sidebar.getByRole("radio", { name: "غير المُشاهَدة", exact: true });
+  await expect(unwatched).toBeChecked();
+  await expect(active).toHaveCount(0);
+  await expect(sidebar.getByRole("status")).toHaveText("8 من 9");
+  await all.click();
+  await expect(active).toBeVisible();
+  await expect(watch.getByRole("region", { name: "تقييم نحّاسيو", exact: true })).toContainText(
+    "تقييم الموسم",
+  );
+  await expect(watch.getByRole("link", { name: "تفاصيل التقييم", exact: true })).toHaveAttribute(
+    "href",
+    `#/titles/${workId}?tab=scores`,
+  );
+  await expect(watch.getByRole("region", { name: "تنبيه المحتوى", exact: true })).toContainText(
+    "متوسط",
+  );
+  await expect(watch.getByRole("region", { name: "ملاحظات التحليل", exact: true })).toContainText(
+    "مرتفع",
+  );
+  await expect(
+    watch
+      .getByRole("navigation", { name: "مراجع العمل", exact: true })
+      .getByRole("link", { name: "IMDb", exact: true }),
+  ).toBeVisible();
+  await watch.getByRole("button", { name: "إضافة إلى المفضلة", exact: true }).click();
+  await expect(
+    watch.getByRole("button", { name: "إزالة من المفضلة", exact: true }).locator("svg"),
+  ).toHaveClass(/fill-current/);
+  await expect(list).toHaveClass(/scroll-fade-y/);
+  await watch.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() => sidebar.evaluate((element) => element.getBoundingClientRect().top))
+    .toBeGreaterThanOrEqual(0);
+});
 
 for (const width of [520, 1440]) {
   test(`watch page movie ${width}: mixed film details and installment navigation`, async ({
@@ -1794,7 +1920,9 @@ for (const width of [520, 1440]) {
       "تعذّر الوصول إلى Torrentio",
     );
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
-    await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toBeVisible();
+    const theater = watch.getByRole("button", { name: "إخفاء القائمة الجانبية", exact: true });
+    if (width === 520) await expect(theater).toBeHidden();
+    else await expect(theater).toBeVisible();
     await expect(watch.getByRole("button", { name: "التالية", exact: true })).toHaveCount(0);
     const info = watch.getByLabel("معلومات الفيلم", { exact: true });
     await info.scrollIntoViewIfNeeded();
@@ -1803,10 +1931,7 @@ for (const width of [520, 1440]) {
     await expect(info.getByRole("link", { name: /استوديو المكتبة/u })).toBeVisible();
     await expect(info.getByLabel("أعمال مقترحة للمشاهدة")).toHaveCount(0);
     await expect(info.getByRole("button", { name: "الجزء السابق", exact: true })).toBeEnabled();
-    await expect(watch.getByLabel("تفاصيل المشاهدة").locator("details")).toHaveCount(0);
-    await expect(
-      watch.getByLabel("تفاصيل المشاهدة").getByRole("heading", { name: "عن الفيلم" }),
-    ).toBeAttached();
+    await expect(watch.getByRole("heading", { name: "عن الفيلم" })).toBeAttached();
     await expectNoOverflow(page);
     if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
       await page.screenshot({ path: `/tmp/nahhasio-watch-movie-${width}.png`, fullPage: true });
@@ -1840,11 +1965,7 @@ test("watch page special: film-style sidebar distinguishes browsing and selected
   await expect(info.getByLabel("أعمال مقترحة للمشاهدة")).toHaveCount(0);
   await info.getByRole("button", { name: "مشاهدة العرض الخاص", exact: true }).click();
   await expect(info.getByText("المحدد للمشاهدة", { exact: true })).toBeVisible();
-  await expect(
-    watch
-      .getByLabel("تفاصيل المشاهدة")
-      .getByRole("heading", { name: "عن العرض الخاص", exact: true }),
-  ).toBeVisible();
+  await expect(watch.getByRole("heading", { name: "عن العرض الخاص", exact: true })).toBeVisible();
   await info.getByRole("button", { name: "الجزء السابق", exact: true }).click();
   await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
   await expectNoOverflow(page);
@@ -1861,7 +1982,9 @@ test("watch page local file: no sidebar, one filename and fullscreen in bottom c
   await expect(watch.getByRole("heading", { name: "Frieren.mkv", exact: true })).toBeVisible();
   await expect(watch.getByText("Frieren.mkv", { exact: true })).toHaveCount(1);
   await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
-  await expect(watch.getByRole("button", { name: "توسيع الفيديو", exact: true })).toHaveCount(0);
+  await expect(
+    watch.getByRole("button", { name: "إخفاء القائمة الجانبية", exact: true }),
+  ).toHaveCount(0);
   const player = watch.getByRole("region", { name: "مشغّل الفيديو", exact: true });
   await expect(player.locator("header")).toHaveCount(0);
   await expect(player.getByRole("button", { name: "الحلقات", exact: true })).toHaveCount(0);

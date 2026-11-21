@@ -33,11 +33,8 @@ export function MovieInstallments({
 }) {
   const installments = work.installments.toSorted((a, b) => a.position - b.position);
   return (
-    <aside
-      aria-label="أفلام وأجزاء العمل"
-      className="min-w-0 xl:sticky xl:top-4 xl:row-span-2 xl:h-[calc(100dvh-6rem)]"
-    >
-      <Card className="h-full">
+    <aside aria-label="أفلام وأجزاء العمل" className="min-w-0">
+      <Card size="sm" className="xl:max-h-[calc(100dvh-4rem)]">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <CardTitle>
@@ -46,8 +43,11 @@ export function MovieInstallments({
             <Badge variant="outline">{installments.length}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-5 scroll-fade-y overflow-y-auto">
-          <ItemGroup aria-label="اختر الفيلم أو الجزء">
+        <CardContent className="flex min-h-0 flex-col gap-5 xl:scroll-fade-y xl:overflow-y-auto xl:overscroll-contain">
+          <ItemGroup
+            aria-label="اختر الفيلم أو الجزء"
+            className="relative max-xl:scroll-fade-x max-xl:snap-x max-xl:snap-proximity max-xl:flex-row max-xl:overflow-x-auto max-xl:overscroll-x-contain max-xl:p-1"
+          >
             {installments.map((installment) => {
               const selected = installment.id === selectedId;
               const upcoming =
@@ -57,11 +57,15 @@ export function MovieInstallments({
               )?.summary.isFullyWatched;
               const year = installment.releaseDate?.slice(0, 4);
               return (
-                <div key={installment.id} role="listitem">
+                <div
+                  key={installment.id}
+                  role="listitem"
+                  className="max-xl:w-52 max-xl:shrink-0 max-xl:snap-start"
+                >
                   <Item
                     size="sm"
                     variant={selected ? "muted" : "default"}
-                    className="flex-nowrap text-start hover:bg-muted disabled:opacity-50"
+                    className="flex-nowrap text-start hover:bg-muted disabled:opacity-50 max-xl:h-full"
                     render={
                       <button
                         type="button"
