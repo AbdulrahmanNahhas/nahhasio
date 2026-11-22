@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  SubtitleProviderStatusSchema,
+  SubtitleSearchResultsSchema,
+  SubtitleSearchSchema,
+  type SubtitleSearch,
+} from "@nahhasio/api-contract";
+import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import { Captions, Search } from "lucide-react";
 import { useId, useState } from "react";
 import { z } from "zod";
@@ -17,217 +23,60 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { navigate } from "@/features/shell/navigation";
 import { gateway, nativeCall } from "@/lib/bridge";
-import { developmentBrowserAvailable } from "@/lib/development-platform";
 
 import type { PlayerSnapshot } from "./bridge";
 function subtitleCall(command: string, payload: z.input<typeof z.json>, signal?: AbortSignal) {
   return nativeCall(command, payload, signal, 45000);
 }
 
-const connectionSchema = z.object({ connected: z.boolean(), secureStorage: z.boolean() });
-const quotaSchema = z.object({
-  username: z.string(),
-  remaining: z.number().nullable(),
-  limit: z.number().nullable(),
+const connectionSchema = SubtitleProviderStatusSchema.extend({
+  source: z.enum(["server", "device", "none"]),
 });
-const resultSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        fileId: z.number().int().positive().safe(),
-        release: z.string(),
-        fileName: z.string(),
-        language: z.string(),
-        downloads: z.number(),
-        hearingImpaired: z.boolean(),
-        machineTranslated: z.boolean(),
-        aiTranslated: z.boolean(),
-      }),
-    )
-    .max(200),
-  page: z.number(),
-  totalPages: z.number(),
-});
-const connectionKey = ["device", "opensubtitles"];
-const languages = [
+const connectionKey = ["viewer", "opensubtitles", "status"];
+const languages: { value: SubtitleSearch["language"]; label: string }[] = [
   { value: "ar", label: "العربية" },
   { value: "en", label: "الإنجليزية" },
   { value: "fr", label: "الفرنسية" },
   { value: "es", label: "الإسبانية" },
 ];
-export function OpenSubtitlesSettings() {
-  const browser = developmentBrowserAvailable();
-  const query = useQuery({
+const subtitleStatus = () =>
+  queryOptions({
     queryKey: connectionKey,
     queryFn: async ({ signal }) =>
       connectionSchema.parse(await subtitleCall("opensubtitles.status", {}, signal)),
-    enabled: !browser,
     retry: false,
   });
+
+export function OpenSubtitlesSettings() {
+  const status = useQuery(subtitleStatus());
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle>OpenSubtitles</CardTitle>
-        <CardDescription>
-          اربط الخدمة للبحث عن الترجمات من المشغّل. تُحفظ بيانات الربط مشفّرة على هذا الجهاز.
-        </CardDescription>
+        <CardDescription>يُدار مفتاح الخدمة وحساب التنزيل من بيئة الخادم.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {browser ? (
-          <ConnectionForm connection={{ connected: false, secureStorage: false }} disabled />
-        ) : query.error ? (
-          <Failure error={query.error} retry={() => void query.refetch()} />
-        ) : query.data ? (
-          <ConnectionForm key={String(query.data.connected)} connection={query.data} />
+      <CardContent>
+        {status.error ? (
+          <Failure error={status.error} retry={() => void status.refetch()} />
+        ) : status.data ? (
+          <Badge variant={status.data.configured ? "secondary" : "outline"}>
+            {status.data.source === "device"
+              ? "اتصال محفوظ على هذا الجهاز"
+              : status.data.downloads
+                ? "البحث والتنزيل مهيّآن على الخادم"
+                : status.data.configured
+                  ? "البحث فقط مهيّأ على الخادم"
+                  : "لم يهيّئ مدير الخادم مصدر الترجمة"}
+          </Badge>
         ) : (
-          <p role="status">جارٍ فحص الاتصال المحلي…</p>
+          <p role="status">جارٍ قراءة إعداد المصدر…</p>
         )}
       </CardContent>
     </Card>
-  );
-}
-function ConnectionForm({
-  connection,
-  disabled = false,
-}: {
-  connection: z.infer<typeof connectionSchema>;
-  disabled?: boolean;
-}) {
-  const client = useQueryClient();
-  const id = useId();
-  const [key, setKey] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const login = useMutation({
-    mutationFn: async () =>
-      connectionSchema.parse(
-        await subtitleCall("opensubtitles.login", {
-          apiKey: key.trim(),
-          username: username.trim(),
-          password,
-        }),
-      ),
-    onSuccess: (value) => {
-      setKey("");
-      setUsername("");
-      setPassword("");
-      client.setQueryData(connectionKey, value);
-    },
-  });
-  const test = useMutation({
-    mutationFn: async () => quotaSchema.parse(await subtitleCall("opensubtitles.test", {})),
-  });
-  const disconnect = useMutation({
-    mutationFn: () => nativeCall("opensubtitles.disconnect", {}),
-    onSuccess: () => {
-      test.reset();
-      client.setQueryData(connectionKey, {
-        connected: false,
-        secureStorage: connection.secureStorage,
-      });
-    },
-  });
-  const pending = login.isPending || test.isPending || disconnect.isPending;
-  const fieldsDisabled = disabled || pending || !connection.secureStorage;
-  const canConnect =
-    !fieldsDisabled && Boolean(key.trim()) && Boolean(username.trim()) === Boolean(password);
-  return (
-    <>
-      <Badge variant={connection.connected ? "secondary" : "outline"}>
-        {connection.connected ? "حساب مربوط على هذا الجهاز" : "غير مربوط"}
-      </Badge>
-      {!disabled && !connection.secureStorage && (
-        <p className="text-sm text-muted-foreground">
-          مخزن الأسرار الآمن غير متاح. لن تُحفظ المفاتيح دون تشفير.
-        </p>
-      )}
-      {connection.connected ? (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={disabled || pending} onClick={() => test.mutate()}>
-            اختبار الاتصال والحصة
-          </Button>
-          <Button
-            variant="outline"
-            disabled={disabled || pending}
-            onClick={() => disconnect.mutate()}
-          >
-            إزالة الاتصال من هذا الجهاز
-          </Button>
-        </div>
-      ) : (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (canConnect) login.mutate();
-          }}
-        >
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor={`${id}-key`}>مفتاح OpenSubtitles API</FieldLabel>
-              <Input
-                id={`${id}-key`}
-                type="password"
-                autoComplete="off"
-                maxLength={512}
-                value={key}
-                onChange={(event) => setKey(event.target.value)}
-                disabled={fieldsDisabled}
-              />
-              <FieldDescription>
-                أنشئ المفتاح من قسم API Consumers في حساب OpenSubtitles.com.
-              </FieldDescription>
-            </Field>
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor={`${id}-user`}>اسم المستخدم (اختياري)</FieldLabel>
-                <Input
-                  id={`${id}-user`}
-                  autoComplete="off"
-                  maxLength={200}
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  disabled={fieldsDisabled}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor={`${id}-password`}>كلمة المرور</FieldLabel>
-                <Input
-                  id={`${id}-password`}
-                  type="password"
-                  autoComplete="off"
-                  maxLength={1024}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={fieldsDisabled}
-                />
-              </Field>
-            </FieldGroup>
-            <Button type="submit" className="self-start" disabled={!canConnect}>
-              {login.isPending
-                ? "جارٍ الربط…"
-                : username.trim()
-                  ? "ربط الحساب"
-                  : "استخدام مفتاح API فقط"}
-            </Button>
-          </FieldGroup>
-        </form>
-      )}
-      {test.data && (
-        <p role="status" className="text-sm">
-          متصل بحساب <bdi>{test.data.username}</bdi> · التنزيلات المتبقية:{" "}
-          {test.data.remaining ?? "لم يحددها المزود"}
-          {test.data.limit !== null ? ` من ${test.data.limit}` : ""}
-        </p>
-      )}
-      {(login.error || test.error || disconnect.error) && (
-        <Failure error={(login.error || test.error || disconnect.error)!} />
-      )}
-    </>
   );
 }
 export function OpenSubtitlesSearch({
@@ -299,11 +148,6 @@ export function OpenSubtitlesSearch({
               key={`${sessionId}:${context.title}`}
               sessionId={sessionId}
               context={context}
-              onApplied={() => setOpen(false)}
-              onSettings={() => {
-                setOpen(false);
-                navigate("/settings?section=subtitles");
-              }}
             />
           ))}
       </DialogContent>
@@ -313,8 +157,6 @@ export function OpenSubtitlesSearch({
 function SubtitleSearchForm({
   sessionId,
   context,
-  onSettings,
-  onApplied,
 }: {
   sessionId: string;
   context: {
@@ -325,26 +167,18 @@ function SubtitleSearchForm({
     imdbId: string | null;
     tmdbId: number | null;
   };
-  onSettings: () => void;
-  onApplied: () => void;
 }) {
   const [query, setQuery] = useState(context.title.slice(0, 200));
-  const [language, setLanguage] = useState("ar");
+  const [language, setLanguage] = useState<SubtitleSearch["language"]>("ar");
   const [year, setYear] = useState(context.year?.toString() ?? "");
   const [season, setSeason] = useState(context.season?.toString() ?? "");
   const [episode, setEpisode] = useState(context.episode?.toString() ?? "");
   const id = useId();
   const search = useMutation({
-    mutationFn: async (input: {
-      query: string;
-      language: string;
-      year: number | null;
-      season: number | null;
-      episode: number | null;
-      page: number;
-      imdbId: string | null;
-      tmdbId: number | null;
-    }) => resultSchema.parse(await subtitleCall("opensubtitles.search", input)),
+    mutationFn: async (input: SubtitleSearch) =>
+      SubtitleSearchResultsSchema.parse(
+        await subtitleCall("opensubtitles.search", SubtitleSearchSchema.parse(input)),
+      ),
   });
   const currentSearch = (page: number) => ({
     query: query.trim(),
@@ -357,7 +191,7 @@ function SubtitleSearchForm({
     tmdbId: query.trim() === context.title ? context.tmdbId : null,
   });
   const apply = useMutation({
-    mutationFn: async (item: z.infer<typeof resultSchema>["items"][number]) =>
+    mutationFn: async (item: z.infer<typeof SubtitleSearchResultsSchema>["items"][number]) =>
       z.object({ ok: z.literal(true), remaining: z.number().nullable() }).parse(
         await subtitleCall("opensubtitles.apply", {
           sessionId,
@@ -366,8 +200,8 @@ function SubtitleSearchForm({
           label: (item.release || item.fileName || "OpenSubtitles").slice(0, 200),
         }),
       ),
-    onSuccess: onApplied,
   });
+  const status = useQuery(subtitleStatus());
   const pending = search.isPending || apply.isPending;
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -401,7 +235,10 @@ function SubtitleSearchForm({
               label="لغة الترجمة"
               value={language}
               options={languages}
-              onChange={setLanguage}
+              onChange={(value) => {
+                const selected = languages.find((item) => item.value === value);
+                if (selected) setLanguage(selected.value);
+              }}
             />
           </Field>
           <details>
@@ -443,15 +280,25 @@ function SubtitleSearchForm({
               ))}
             </FieldGroup>
           </details>
-          <Button type="submit" disabled={pending || !query.trim()}>
+          <Button
+            type="submit"
+            disabled={pending || !query.trim() || status.data?.configured === false}
+          >
             <Search data-icon="inline-start" />
             {search.isPending ? "جارٍ البحث…" : "بحث"}
           </Button>
         </FieldGroup>
       </form>
-      <Button variant="link" onClick={onSettings}>
-        إعداد اتصال OpenSubtitles
-      </Button>
+      {status.data?.configured === false && (
+        <p role="status" className="text-sm text-muted-foreground">
+          لم يهيّئ مدير الخادم مصدر الترجمة.
+        </p>
+      )}
+      {status.data?.configured && !status.data.downloads && (
+        <p role="status" className="text-sm text-muted-foreground">
+          البحث متاح. يتطلب تنزيل الترجمة حسابًا مهيّأ على الخادم.
+        </p>
+      )}
       {(search.error || apply.error) && <Failure error={(search.error || apply.error)!} />}
       {apply.data && (
         <p role="status" className="text-sm">
@@ -491,7 +338,11 @@ function SubtitleSearchForm({
               <Button
                 size="sm"
                 className="self-start"
-                disabled={pending}
+                disabled={
+                  pending ||
+                  status.data?.downloads === false ||
+                  (apply.isSuccess && apply.variables.fileId === item.fileId)
+                }
                 onClick={() => apply.mutate(item)}
               >
                 {apply.isPending && apply.variables?.fileId === item.fileId

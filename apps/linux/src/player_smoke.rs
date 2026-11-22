@@ -186,9 +186,9 @@ async fn run(
                     episode_id: None,
                     title: state.title,
                     work_title: "Synthetic local fixture".into(),
-                    search: crate::torrentio::Search {
+                    search: crate::torrent_addon::Search {
                         imdb_id: "tt0000000".into(),
-                        kind: crate::torrentio::Kind::Movie,
+                        kind: crate::torrent_addon::Kind::Movie,
                         season: None,
                         episode: None,
                     },

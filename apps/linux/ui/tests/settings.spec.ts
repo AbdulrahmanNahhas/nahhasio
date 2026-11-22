@@ -60,21 +60,7 @@ test.beforeEach(async ({ page }) => {
                 result = request.payload;
                 break;
               case "opensubtitles.status":
-                result = {
-                  connected: sessionStorage.getItem("fixture-subtitle-connected") === "1",
-                  secureStorage: true,
-                };
-                break;
-              case "opensubtitles.login":
-                sessionStorage.setItem("fixture-subtitle-connected", "1");
-                result = { connected: true, secureStorage: true };
-                break;
-              case "opensubtitles.disconnect":
-                sessionStorage.removeItem("fixture-subtitle-connected");
-                result = { ok: true };
-                break;
-              case "opensubtitles.test":
-                result = { username: "fixture-subs", remaining: 7, limit: 10 };
+                result = { configured: true, downloads: true, source: "server" };
                 break;
               case "browsePreferences.load":
                 result = JSON.parse(sessionStorage.getItem("fixture-preferences") ?? "null");
@@ -427,7 +413,7 @@ test("switching from a saved account row requests that account", async ({ page }
   ).toMatchObject({ accountId: "00000000-0000-4000-8000-000000000002" });
 });
 
-test("player defaults persist and personal subtitle setup stays explicit", async ({ page }) => {
+test("player defaults persist and subtitle credentials stay out of Settings", async ({ page }) => {
   await page.goto("/#/settings?section=playback");
   await expect(page.getByRole("heading", { name: "الصوت والتشغيل", exact: true })).toHaveCount(0);
   await page.evaluate(() =>
@@ -485,7 +471,7 @@ test("player defaults persist and personal subtitle setup stays explicit", async
   await page.goto("/#/settings?section=subtitles");
   await expect(page.getByRole("heading", { name: "التشغيل", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "OpenSubtitles", exact: true })).toBeFocused();
-  await expect(page.getByText("غير مربوط", { exact: true })).toBeVisible();
+  await expect(page.getByText("البحث والتنزيل مهيّآن على الخادم", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(() =>
       JSON.parse(sessionStorage.getItem("fixture-commands") ?? "[]").some(
@@ -493,15 +479,7 @@ test("player defaults persist and personal subtitle setup stays explicit", async
       ),
     ),
   ).toBe(false);
-  await page.getByLabel("مفتاح OpenSubtitles API", { exact: true }).fill("synthetic-api-key");
-  await page.getByLabel("اسم المستخدم (اختياري)", { exact: true }).fill("fixture-subs");
-  await page.getByLabel("كلمة المرور", { exact: true }).fill("synthetic-password");
-  await page.getByRole("button", { name: "ربط الحساب", exact: true }).click();
-  await expect(page.getByText("حساب مربوط على هذا الجهاز", { exact: true })).toBeVisible();
   await expect(page.getByLabel("مفتاح OpenSubtitles API", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "اختبار الاتصال والحصة", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("7");
-  await page.getByRole("button", { name: "إزالة الاتصال من هذا الجهاز", exact: true }).click();
-  await expect(page.getByText("غير مربوط", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "OpenSubtitles" }).locator("input")).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });

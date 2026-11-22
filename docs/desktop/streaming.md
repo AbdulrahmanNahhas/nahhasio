@@ -4,7 +4,7 @@
 
 **On this page:** [Player controls](#player-controls) · [Provider policy](#provider-policy-and-preferred-results) · [Diagnostics](#selection-and-diagnostics) · [Native verification](#native-runtime-and-verification)
 
-Nahhasio offers provider-hosted embeds, Torrentio and Comet, plus a separate English-dub anime flow
+Nahhasio offers provider-hosted embeds and native torrent addons, plus a separate English-dub anime flow
 using anipy-api and the native player. See [the anime checkpoint](anime-direct.md) for ownership,
 quality/subtitle limits and checks. Opening a catalog work outside Watch does not contact online
 providers. On Linux, torrent discovery starts in the default Torrent tab. Choosing Video Servers
@@ -18,36 +18,27 @@ Torrent language filters include reported languages and a separate English hint 
 Dubbed/Dual Audio release tags. Inferred English uses an approximation mark and a short tooltip;
 it does not modify native track metadata. Explicit foreign-dub and negated-dub tags are excluded
 from that inference. Search, quality and language filters combine; sorting supports provider order,
-peer count and size. Provider, quality and language controls share one wrapping filter row.
+peer count and size. Quality and language controls share one wrapping filter row.
 
-## Torrent discovery and future debrid configuration
+## Torrent addon configuration
 
-The native `torrent_sources.rs` coordinator queries Torrentio and Comet concurrently, with
-independent eight-second timeouts and provider error/status replies. A failure never discards
-the other provider's results. Results retain provider identity, including when the same torrent
-appears in both; source IDs are namespaced by provider. The picker defaults to both and can filter
-each provider. Refresh retries discovery; selecting a torrent remains explicit.
+Set `NAHHASIO_TORRENT_ADDONS` in the native client's private environment. Its value is a JSON
+array with up to two entries. Each entry has a unique display `name`, a Stremio-compatible base
+`url` or manifest URL, and an optional `config` path segment. The name is visible in the interface. Keep URLs
+and configuration values private. Shadow's devenv reads the ignored checkout `.env`. For an
+installed client, see [Flatpak provider configuration](../../packaging/flatpak/README.md#torrent-addon-configuration).
 
-Comet uses Aqua's supplied English/Arabic preset: English required, Arabic/English allowed and
-preferred, trash removal enabled, no debrid credentials, and sub-720p resolutions excluded.
-The preset is encoded in native code, never sent through the JavaScript bridge. Upstream
-[Comet configuration normalization](https://github.com/g0ldyy/comet/blob/main/comet/core/config_validation.py)
-enables torrents without a debrid account even with the supplied `enableTorrent: false` value.
-The shared response parser bounds each provider to 2 MiB and 200 candidates. Provider redirects
-remain disabled, request URLs are not logged, and untrusted direct/debrid URLs stay unplayable.
+```dotenv
+NAHHASIO_TORRENT_ADDONS='[{"name":"My Addon","url":"https://addon.example.org","config":""}]'
+```
 
-Future debrid configuration links (recorded for a later checkpoint):
+The native client queries configured addons concurrently and keeps their results and failures
+independent. With two addons, the source picker shows a provider filter. With no configured
+addons, the picker explains the missing setting and makes no torrent requests. The client
+accepts HTTPS endpoints and loopback HTTP for local development. Requests have an eight-second
+timeout, a 2 MiB response limit, and no redirects. Selecting a torrent remains explicit.
 
-- [Torrentio configuration](https://torrentio.strem.fun/configure)
-- [Comet configuration](https://comet.elfhosted.com/configure)
-- [Jackettio configuration](https://jackettio.elfhosted.com/configure)
-
-All three expose debrid configuration, but this checkpoint only adds Comet torrent discovery;
-Jackettio is not integrated. Later debrid support needs explicit private configuration ownership,
-credential storage/redaction and guarded HTTPS playback. Adding credentials to an addon URL alone
-does not enable debrid playback. Never put a configured URL containing tokens into Git or the UI.
-The Comet-enabled native client was rebuilt and fully relaunched after an older process was
-found still running. Live provider/playback acceptance has not been performed for this checkpoint.
+Debrid playback remains deferred. Direct URLs in addon results are not treated as torrents.
 
 ## Direct links
 
@@ -103,7 +94,7 @@ of nested list scrolling.
 | `apps/linux/src/display.rs`                              | Episode-number display formatting, including retained playback titles.                           |
 | `apps/linux/ui/src/features/player/stream-providers.ts`  | Typed native replies, query keys and provider actions.                                           |
 | `apps/linux/ui/src/features/player/source-selection.tsx` | Source-mode coordination, status, retry and switching.                                           |
-| `apps/linux/src/torrent_sources.rs`                      | Parallel Torrentio/Comet discovery, default Comet preset and independent provider status.        |
+| `apps/linux/src/torrent_sources.rs`                      | Environment-configured native addon discovery and provider status.                               |
 | `apps/linux/ui/src/features/player/provider-browser.tsx` | Compact provider and audio selection menu.                                                       |
 | `apps/linux/ui/src/features/player/source-controls.tsx`  | Torrent candidates, provider/quality/language filters and explicit file selection/downloads.     |
 
@@ -189,7 +180,7 @@ catalog mapping does not establish that a remote title/episode or server is avai
   or sole film, but is never reused for a later season. Missing identifiers show a disabled
   provider with a reason; no guessed title/ID matching or live catalog edits occur.
 - Whole-work files-only policy suppresses all online controls and is rechecked by Rust on
-  every launch. Local/device playback remains separate. Torrentio behavior is unchanged.
+  every launch. Local and device playback remain separate from remote source discovery.
 - The generic TV adapters retain the existing season ordinal/episode mapping; provider-specific
   numbering differences and actual English dub coverage require per-title review.
 

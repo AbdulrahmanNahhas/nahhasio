@@ -25,10 +25,6 @@ pub(super) fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/admin/server/overview", get(overview))
         .route("/api/v1/admin/server/settings", get(settings).patch(rename))
-        .route(
-            "/api/v1/admin/server/providers",
-            axum::routing::put(providers),
-        )
         .route_layer(middleware::from_fn_with_state(
             pool.clone(),
             crate::auth::require_admin,
@@ -42,22 +38,6 @@ pub(super) fn routes(pool: PgPool) -> Router {
         })
         .merge(operations::routes(pool))
 }
-fn configuration_error(error: nahhasio_catalog::Error) -> Error {
-    match error {
-        nahhasio_catalog::Error::Conflict(_) => Error(
-            StatusCode::CONFLICT,
-            "تغيّرت الإعدادات؛ أعد تحميلها قبل الحفظ.",
-        ),
-        nahhasio_catalog::Error::Invalid(_) => Error(
-            StatusCode::BAD_REQUEST,
-            "تحقق من المفتاح وإعداد مجلد الخادم الخاص.",
-        ),
-        _ => Error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "تعذّر الوصول إلى إعدادات الخادم الخاصة.",
-        ),
-    }
-}
 async fn provider_status(root: Option<PathBuf>) -> Result<provider_config::Status, Error> {
     tokio::task::spawn_blocking(move || provider_config::status(root.as_deref()))
         .await
@@ -67,7 +47,12 @@ async fn provider_status(root: Option<PathBuf>) -> Result<provider_config::Statu
                 "تعذّر قراءة إعدادات المصادر.",
             )
         })?
-        .map_err(configuration_error)
+        .map_err(|_| {
+            Error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "تعذّر قراءة إعدادات المصادر.",
+            )
+        })
 }
 async fn identity(pool: &PgPool) -> Result<Value, Error> {
     let row = sqlx::query("select id::text,name,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') revision from server_instance where singleton").fetch_one(pool).await?;
@@ -168,39 +153,4 @@ async fn rename(
     sqlx::query("insert into audit_logs(actor_account_id,action,target_type,summary) values($1::uuid,'server.rename','server','Changed server display name')").bind(actor).execute(&mut *tx).await?;
     tx.commit().await?;
     Ok(Json(identity(&state.pool).await?))
-}
-async fn providers(
-    State(state): State<Services>,
-    headers: HeaderMap,
-    Json(input): Json<provider_config::Update>,
-) -> Result<Json<provider_config::Status>, Error> {
-    let root = state.config.ok_or(Error(
-        StatusCode::CONFLICT,
-        "يجب إعداد NAHHASIO_CONFIG_ROOT الخاص بالخادم أولاً.",
-    ))?;
-    // Own the authorization transaction through the atomic file commit, even if HTTP is cancelled.
-    tokio::spawn(async move {
-        let mut tx = state.pool.begin().await?;
-        sqlx::query("set transaction read write")
-            .execute(&mut *tx)
-            .await?;
-        let actor = crate::auth::lock_admin_session(&mut tx, &headers)
-            .await
-            .map_err(|_| {
-                Error(
-                    StatusCode::FORBIDDEN,
-                    "Administrator session is no longer valid",
-                )
-            })?;
-        let result =
-            tokio::task::spawn_blocking(move || provider_config::update(&root, input, &actor))
-                .await
-                .map_err(|_| Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر حفظ إعدادات المصادر."))?
-                .map_err(configuration_error);
-        // This transaction only holds authorization locks. File replacement owns persistence.
-        let _ = tx.rollback().await;
-        result.map(Json)
-    })
-    .await
-    .map_err(|_| Error(StatusCode::SERVICE_UNAVAILABLE, "تعذّر حفظ إعدادات المصادر."))?
 }

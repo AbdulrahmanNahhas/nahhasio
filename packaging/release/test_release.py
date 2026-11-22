@@ -114,6 +114,16 @@ class ReleaseBoundaries(unittest.TestCase):
             self.assertIn("Requires=nahhasio-postgres.service\n", server)
             self.assertIn("After=nahhasio-postgres.service\n", server)
             self.assertIn(f"EnvironmentFile={config}/server.env\n", server)
+            server_environment = config / "server.env"
+            self.assertEqual(server_environment.stat().st_mode & 0o777, 0o600)
+            for key in (
+                "TMDB_API_READ_ACCESS_KEY",
+                "FANART_API_KEY",
+                "OPENSUBTITLES_API_KEY",
+                "OPENSUBTITLES_USERNAME",
+                "OPENSUBTITLES_PASSWORD",
+            ):
+                self.assertIn(f"# {key}=\n", server_environment.read_text())
 
     def test_media_worker_has_one_media_mount_and_no_private_configuration(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -40,10 +40,10 @@ mod stream_capabilities;
 mod stream_provider;
 mod stream_registry;
 mod subtitle_attachments;
+mod torrent_addon;
 #[cfg(feature = "native-diagnostics")]
 mod torrent_smoke;
 mod torrent_sources;
-mod torrentio;
 mod updater;
 mod uploads;
 
@@ -641,35 +641,6 @@ fn build_window(
                     (_, _, _, Err(_)) => Err(Error::new("busy", "Media requests are busy")),
                     _ => Err(Error::new("transfer", "Media storage is unavailable")),
                 };
-                if let Some(view) = weak.upgrade() {
-                    send_reply(&view, reply(&id, result));
-                }
-            });
-            return;
-        }
-        if request.command == "torrentio.search" {
-            let input = serde_json::from_value::<torrentio::Search>(request.payload)
-                .map_err(|_| Error::new("bad_request", "Invalid Torrentio search"));
-            let permit = services.permits.clone().try_acquire_owned();
-            let weak = view.downgrade();
-            let task = runtime.spawn(async move {
-                let _permit = permit.map_err(|_| Error::new("busy", "Source requests are busy"))?;
-                boundary.catalog_scope().await?;
-                let candidates = torrentio::search(input?).await?;
-                Ok(serde_json::Value::Array(
-                    candidates
-                        .iter()
-                        .map(torrentio::Candidate::public_value)
-                        .collect::<Result<Vec<_>, _>>()?,
-                ))
-            });
-            glib::MainContext::default().spawn_local(async move {
-                let result = task.await.unwrap_or_else(|_| {
-                    Err(Error::new(
-                        "source_unavailable",
-                        "Source request was interrupted",
-                    ))
-                });
                 if let Some(view) = weak.upgrade() {
                     send_reply(&view, reply(&id, result));
                 }

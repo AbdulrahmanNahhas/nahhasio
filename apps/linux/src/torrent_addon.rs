@@ -1,4 +1,4 @@
-//! Native Torrentio discovery. Private provider URLs/configuration never enter JavaScript.
+//! Native torrent addon discovery. Private provider URLs/configuration never enter JavaScript.
 use crate::bridge::Error;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ impl Search {
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
     pub id: String,
-    pub provider: &'static str,
+    pub provider: String,
     pub label: String,
     pub release: String,
     pub resolution: Option<u16>,
@@ -85,25 +85,13 @@ struct Envelope {
     streams: Vec<Value>,
 }
 
-pub async fn search(input: Search) -> Result<Vec<Candidate>, Error> {
-    let base = setting("NAHHASIO_TORRENTIO_URL", "NAHHASIO_STREAM_ADDON_URL")
-        .unwrap_or_else(|| "https://torrentio.strem.fun".into());
-    let config = setting("NAHHASIO_TORRENTIO_CONFIG", "NAHHASIO_STREAM_ADDON_CONFIG");
-    search_addon(input, &base, config.as_deref(), "Torrentio").await
-}
-
-pub async fn search_addon(
-    input: Search,
-    base: &str,
-    config: Option<&str>,
-    provider: &'static str,
-) -> Result<Vec<Candidate>, Error> {
+fn stream_url(input: &Search, base: &str, config: Option<&str>) -> Result<url::Url, Error> {
     let identifier = input.identifier()?;
     let mut url = url::Url::parse(base).map_err(|_| configuration_error())?;
-    if url.scheme() != "https" && !(url.scheme() == "http" && url.host_str() == Some("127.0.0.1")) {
-        return Err(configuration_error());
-    }
-    if !url.username().is_empty()
+    if !url.has_host()
+        || !(url.scheme() == "https"
+            || url.scheme() == "http" && url.host_str() == Some("127.0.0.1"))
+        || !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
@@ -114,14 +102,31 @@ pub async fn search_addon(
         Kind::Movie => "movie",
         Kind::Series => "series",
     };
+    let manifest = url
+        .path_segments()
+        .and_then(|mut segments| segments.rfind(|segment| !segment.is_empty()))
+        == Some("manifest.json");
     {
         let mut segments = url.path_segments_mut().map_err(|_| configuration_error())?;
         segments.pop_if_empty();
-        if let Some(config) = config {
+        if manifest {
+            segments.pop();
+        }
+        if let Some(config) = config.filter(|config| !config.is_empty()) {
             segments.push(config);
         }
         segments.extend(["stream", kind, &format!("{identifier}.json")]);
     }
+    Ok(url)
+}
+
+pub async fn search_addon(
+    input: Search,
+    base: &str,
+    config: Option<&str>,
+    provider: &str,
+) -> Result<Vec<Candidate>, Error> {
+    let url = stream_url(&input, base, config)?;
     // Provider redirects may contain private configuration; don't follow or log them.
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(8))
@@ -136,7 +141,7 @@ pub async fn search_addon(
         .await
         .map_err(|error| {
             if error.is_timeout() {
-                Error::new("source_timeout", "انتهت مهلة الاتصال بـ Torrentio.")
+                Error::new("source_timeout", "انتهت مهلة الاتصال بمصدر التورنت.")
             } else {
                 unavailable()
             }
@@ -157,36 +162,10 @@ pub async fn search_addon(
         }
         bytes.extend_from_slice(&chunk);
     }
-    if provider == "Torrentio" {
-        parse(&bytes)
-    } else {
-        parse_provider(&bytes, provider)
-    }
+    parse_provider(&bytes, provider)
 }
 
-fn setting(primary: &str, legacy: &str) -> Option<String> {
-    [primary, legacy].into_iter().find_map(|name| {
-        let value = std::env::var(name).ok()?;
-        let value = value.trim();
-        let value = value
-            .strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
-            .or_else(|| {
-                value
-                    .strip_prefix('\'')
-                    .and_then(|value| value.strip_suffix('\''))
-            })
-            .unwrap_or(value)
-            .trim();
-        (!value.is_empty()).then(|| value.to_owned())
-    })
-}
-
-pub fn parse(bytes: &[u8]) -> Result<Vec<Candidate>, Error> {
-    parse_provider(bytes, "Torrentio")
-}
-
-fn parse_provider(bytes: &[u8], provider: &'static str) -> Result<Vec<Candidate>, Error> {
+fn parse_provider(bytes: &[u8], provider: &str) -> Result<Vec<Candidate>, Error> {
     if bytes.len() > BODY_LIMIT {
         return Err(malformed());
     }
@@ -280,7 +259,7 @@ fn parse_provider(bytes: &[u8], provider: &'static str) -> Result<Vec<Candidate>
             .or_else(|| size(&release));
         candidates.push(Candidate {
             id,
-            provider,
+            provider: provider.to_owned(),
             label,
             release,
             resolution,
@@ -347,25 +326,29 @@ fn mapping_error() -> Error {
 fn configuration_error() -> Error {
     Error::new(
         "source_config",
-        "إعداد Torrentio غير صالح. تحقق من إعداد العميل الخاص.",
+        "إعداد مصدر التورنت غير صالح. تحقق من إعداد العميل الخاص.",
     )
 }
 fn malformed() -> Error {
     Error::new(
         "source_response",
-        "أرسل Torrentio استجابة غير صالحة أو أكبر من الحد المسموح.",
+        "استجابة مصدر التورنت غير صالحة أو أكبر من الحد المسموح.",
     )
 }
 fn unavailable() -> Error {
     Error::new(
         "source_unavailable",
-        "تعذّر الوصول إلى Torrentio. أعد المحاولة لاحقًا.",
+        "تعذّر الوصول إلى مصدر التورنت. أعد المحاولة لاحقًا.",
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse(bytes: &[u8]) -> Result<Vec<Candidate>, Error> {
+        parse_provider(bytes, "Fixture Addon")
+    }
     #[test]
     fn source_ids_are_strict_and_series_needs_explicit_mapping() {
         let movie = Search {
@@ -404,9 +387,39 @@ mod tests {
         );
     }
     #[test]
+    fn addon_accepts_a_manifest_or_base_url_without_exposing_config_in_errors() {
+        let movie = Search {
+            imdb_id: "tt1234567".into(),
+            kind: Kind::Movie,
+            season: None,
+            episode: None,
+        };
+        assert_eq!(
+            stream_url(
+                &movie,
+                "https://example.org/private/manifest.json",
+                Some("")
+            )
+            .unwrap()
+            .path(),
+            "/private/stream/movie/tt1234567.json"
+        );
+        assert_eq!(
+            stream_url(&movie, "https://example.org", Some("one/two"))
+                .unwrap()
+                .path(),
+            "/one%2Ftwo/stream/movie/tt1234567.json"
+        );
+        let error =
+            stream_url(&movie, "https://example.org?token=fixture-token", None).unwrap_err();
+        assert_eq!(error.code, "source_config");
+        assert!(!error.message.contains("fixture-token"));
+    }
+
+    #[test]
     fn parses_reported_hints_without_leaking_native_engine_data() {
         let input = serde_json::json!({"streams":[{
-            "name":"Torrentio 1080p","title":"Release HEVC 🇸🇦 2.5 GB 👤 42",
+            "name":"Fixture Addon 1080p","title":"Release HEVC 🇸🇦 2.5 GB 👤 42",
             "infoHash":"a".repeat(40),"fileIdx":0,"sources":["tracker:https://tracker.example/announce"]
         }]});
         let candidates = parse(input.to_string().as_bytes()).unwrap();

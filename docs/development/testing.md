@@ -49,9 +49,13 @@ It compares Rust and legacy TypeScript exports of the same persisted fixture and
 compiled CLI's whole-work merge import and rollback. It also compares all ten report presets,
 checks typed aggregation/discovery, explicit missing-reference creation, native media commands
 and guarded purge with retained files. All migrations use the single Drizzle ledger.
-These checks do not call live providers or prove Fedora/container/native UI acceptance. Provider
-credentials, real artwork downloads, broad catalog-shape parity and production transfer require
-separate acceptance. No live catalog mutation is authorized by this script.
+By default this script makes no live provider requests. For an explicit provider smoke check,
+run `devenv shell -- env NAHHASIO_LIVE_PROVIDER_ACCEPTANCE=1 bash bin/test-rust-catalog`
+with the optional credentials described in [Environment configuration](getting-started.md#environment-configuration).
+The probe reports candidate counts and warnings. It fails when a provider enabled through the
+environment returns no candidates. Real artwork downloads, broad catalog-shape parity,
+Fedora/container/native UI and production transfer require separate acceptance. No live catalog
+mutation is authorized by this script.
 
 ## 1. Browser fixtures and ordinary checks
 

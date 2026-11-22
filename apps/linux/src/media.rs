@@ -4,7 +4,7 @@ use crate::{
     media_gateway::Gateway,
     media_storage::Roots,
     services::Services,
-    torrent_sources, torrentio,
+    torrent_addon, torrent_sources,
 };
 use media_transfer::{Engine, File, TorrentId};
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub struct ResolvedTarget {
     #[serde(skip_serializing)]
     pub work_title: String,
     #[serde(skip_serializing)]
-    pub search: torrentio::Search,
+    pub search: torrent_addon::Search,
 }
 #[derive(Deserialize)]
 #[serde(
@@ -165,7 +165,7 @@ struct Source {
     session: String,
     target: Target,
     resolved: ResolvedTarget,
-    candidate: torrentio::Candidate,
+    candidate: torrent_addon::Candidate,
     created: Instant,
 }
 pub struct Media {
@@ -336,11 +336,11 @@ impl Media {
             return Err(Error::new("bad_request", "Invalid source session"));
         }
         let resolved = self.resolve(&target).await?;
-        let discovery = torrent_sources::search(resolved.search.clone()).await;
+        let discovery = torrent_sources::search(resolved.search.clone()).await?;
         let candidates = discovery.candidates;
         let views = candidates
             .iter()
-            .map(torrentio::Candidate::public_value)
+            .map(torrent_addon::Candidate::public_value)
             .collect::<Result<Vec<_>, _>>()?;
         let mut sources = self.sources.lock().await;
         sources.retain(|_, source| {
@@ -871,7 +871,7 @@ impl Media {
         target: &Target,
     ) -> Result<(ResolvedTarget, crate::stream_provider::CatalogTarget), Error> {
         let work = self.source_catalog(target).await?;
-        // Resolve catalog membership/release eligibility without requiring Torrentio's IMDb ID.
+        // Resolve catalog membership/release eligibility without requiring a torrent provider's IMDb ID.
         let resolved = resolve_target_for(&work, target, true)?;
         let context = crate::stream_provider::CatalogTarget::from_catalog(&work, &resolved);
         Ok((resolved, context))
@@ -1118,10 +1118,7 @@ fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<Reso
             .and_then(standard_episode_number)
             .or_else(|| local.then_some(0))
             .ok_or_else(|| {
-                Error::new(
-                    "source_mapping",
-                    "رقم الحلقة لا يدعم معرّف Torrentio القياسي.",
-                )
+                Error::new("source_mapping", "رقم الحلقة لا يدعم معرّف التورنت القياسي.")
             })?;
         // Same rule as the historical Tauri API: ordinal among seasons, excluding films/specials.
         let position = installment["position"]
@@ -1139,13 +1136,13 @@ fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<Reso
             + 1;
         (
             episode["id"].as_str().map(str::to_owned),
-            torrentio::Search {
+            torrent_addon::Search {
                 imdb_id: if local {
                     String::new()
                 } else {
                     imdb(work)?.to_owned()
                 },
-                kind: torrentio::Kind::Series,
+                kind: torrent_addon::Kind::Series,
                 season: Some(season),
                 episode: Some(number),
             },
@@ -1167,9 +1164,9 @@ fn resolve_target_for(work: &Value, target: &Target, local: bool) -> Result<Reso
         };
         (
             None,
-            torrentio::Search {
+            torrent_addon::Search {
                 imdb_id: identifier.to_owned(),
-                kind: torrentio::Kind::Movie,
+                kind: torrent_addon::Kind::Movie,
                 season: None,
                 episode: None,
             },

@@ -19,9 +19,11 @@ const FileSchema = z.object({
   path: z.string().max(4096),
   size: z.number().finite().nonnegative(),
 });
+const TorrentProviderName = z.string().min(1).max(40);
+
 export const CandidateSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),
-  provider: z.enum(["Torrentio", "Comet"]).default("Torrentio"),
+  provider: TorrentProviderName.default("Addon"),
   label: z.string(),
   release: z.string(),
   resolution: z.number().int().nullable(),
@@ -40,7 +42,7 @@ export const SourcesSchema = z.object({
   providers: z
     .array(
       z.object({
-        id: z.enum(["Torrentio", "Comet"]),
+        id: TorrentProviderName,
         count: z.number().int().nonnegative(),
         error: z.object({ code: z.string(), message: z.string() }).nullable(),
       }),
@@ -206,6 +208,4 @@ export async function openWatch(
       }
     }
   }
-  // Discovery is lazy: opening a work must not depend on Torrentio or contact an embed provider.
-  // Each provider starts only after the viewer chooses its source type.
 }

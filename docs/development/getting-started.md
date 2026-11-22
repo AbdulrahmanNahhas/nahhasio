@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md) · [Verification](testing.md) · [Agent playbook](agent-playbook.md)
 
-**On this page:** [Repository map](#repository-map) · [Run/build](#runbuild) · [Operator CLI](#direct-database-operator-cli) · [Native boundary](#native-and-interface-boundary) · [Verification](#build-and-verification)
+**On this page:** [Repository map](#repository-map) · [Run/build](#runbuild) · [Environment configuration](#environment-configuration) · [Operator CLI](#direct-database-operator-cli) · [Native boundary](#native-and-interface-boundary) · [Verification](#build-and-verification)
 
 Read [PROJECT](../project/overview.md) for scope and [DEPLOYMENT](../operations/deployment.md) for hosting. Use the
 repository Nix/devenv environment on Shadow: Node 24, pnpm 12.9.0, Rust, GTK/libadwaita,
@@ -217,6 +217,46 @@ an explicit packaged bundle directory. A production build is not proof that a ru
 instance loaded it: fully quit/relaunch after bridge changes. Restart only the affected server
 with `devenv processes restart server` when an endpoint change needs activation.
 
+## Environment configuration
+
+Devenv reads the ignored root `.env` on Shadow. The synthetic stack runs with an empty file or
+with no file. Use [`.env.example`](../../.env.example) as a commented list of optional overrides.
+The demo launchers select the local database, synthetic server, and artwork and device roots.
+Use the [operator CLI instructions](#direct-database-operator-cli) for explicit database access,
+the [operations runbook](../operations/runbook.md) for installed or debug server configuration, and
+the [migration baseline](../catalog/migration-baseline.md) before selecting recovery inputs.
+Keep credentials out of browser build variables, Git and environment snapshots.
+The demo server launcher drops the private torrent addon list. The demo native launcher drops
+server provider credentials.
+
+| Feature         | Configuration owner                                                                                                                                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TMDB and Fanart | The connected Nahhasio server uses its environment first. One active credential per provider serves that server. Existing private stored keys remain fallbacks.                                                                                                                            |
+| AniList         | The server's public GraphQL lookup uses no API key.                                                                                                                                                                                                                                        |
+| OpenSubtitles   | The server uses `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USERNAME` and `OPENSUBTITLES_PASSWORD`. An API key alone enables searches. Supply both account fields to enable downloads. The native app can still use an existing device connection when the server has no shared configuration. |
+| Torrent addons  | The native client reads `NAHHASIO_TORRENT_ADDONS` from its own environment. With no entries, torrent discovery is unconfigured. See [torrent configuration](../desktop/streaming.md#torrent-addon-configuration).                                                                          |
+
+For TMDB, enter the API Read Access Token as `TMDB_API_READ_ACCESS_KEY`. The server sends it
+as a bearer token for metadata and artwork requests. The older `TMDB_API_KEY` variable has no
+reader in Nahhasio. Links to TMDB in the editor and player work without credentials.
+
+### Codex Cloud
+
+Cloud uses a separate checkout. Shadow's ignored `.env` stays on Shadow. The synthetic stack and
+ordinary browser and database fixtures require no credentials. With no provider keys, TMDB and
+Fanart have no live results. The browser preview uses the Rust API for server-owned providers
+and can display OpenSubtitles configuration status. Applying subtitles needs the native player.
+A browser-only Cloud environment needs no torrent addon settings.
+
+For an explicitly requested live provider check, expose the two optional provider credentials
+under their current names to the Rust process through Cloud settings. TMDB uses a bearer token
+at `api.themoviedb.org`; Fanart sends its key as a query parameter to `webservice.fanart.tv`.
+Cloud HTTP secrets depend on proxy substitution, so verify each live lookup, especially
+Fanart's query parameter. AniList uses `graphql.anilist.co`. Allow the image hosts
+`image.tmdb.org`, `assets.fanart.tv`, and `s4.anilist.co` for the applicable artwork
+preview or import. Native subtitle tests use the shared server connection when it is configured.
+Keep live lookup separate from ordinary fixture checks.
+
 ## Direct-database operator CLI
 
 Build with `devenv shell -- cargo build --locked -p nahhasio-cli`; the executable is
@@ -277,10 +317,10 @@ checks, exclusive files and content hashes; renames retain hard links and old-pa
 Database rollback does not undo file creation: failed imports may leave recoverable orphan files,
 never overwrite or remove catalog artwork.
 
-Rust provider operations retain TMDB, Fanart and AniList behavior. Keys remain server environment
-configuration (`TMDB_API_READ_ACCESS_KEY`, `FANART_API_KEY`); authenticated masked key management
-in the desktop remains a separate task. HTTPS requests have fixed provider endpoints, no redirects,
-time/size limits and a shared connection pool. Uploads need `NAHHASIO_MEDIA_ROOT` and optional
+Rust provider operations use TMDB, Fanart and AniList. The administration UI shows masked TMDB and Fanart status for the connected server. See
+[private provider configuration](../operations/runbook.md#private-provider-configuration) for key
+precedence and storage. Provider HTTPS requests have fixed endpoints, no redirects, time and size
+limits, and a shared connection pool. Uploads need `NAHHASIO_MEDIA_ROOT` and optional
 `NAHHASIO_PUBLIC_MEDIA_ROOT` in deployment; checkout-relative defaults are development convenience.
 Input schemas are checked-in generated data from the existing Zod contracts, with semantic guards
 in Rust. `pnpm typecheck` checks schema drift; regenerate with

@@ -1,7 +1,7 @@
 //! Explicit diagnostic feature: real loopback-only peers and native gateway, no catalog writes.
 use crate::{
     media::ResolvedTarget, media_gateway::Gateway, player::Player, player_protocol::Command,
-    torrentio,
+    torrent_addon,
 };
 use media_transfer::{Engine, File, NetworkPolicy, TorrentId};
 use std::{
@@ -58,9 +58,9 @@ pub async fn install(
                 episode_id: None,
                 work_title: title.clone(),
                 title,
-                search: torrentio::Search {
+                search: torrent_addon::Search {
                     imdb_id: "tt0000000".into(),
-                    kind: torrentio::Kind::Movie,
+                    kind: torrent_addon::Kind::Movie,
                     season: None,
                     episode: None,
                 },

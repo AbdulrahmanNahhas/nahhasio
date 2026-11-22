@@ -37,15 +37,12 @@ before a new local, saved, torrent or compatible direct source loads; manual tra
 remain session-local. Arabic subtitle preference falls back to English. Debrid and addon
 installation remain future integrations.
 
-OpenSubtitles.com setup is in Settings → Playback in the Linux client. Old Subtitles links open
-the provider card directly. An API key enables search;
-username/password login enables subtitle downloads and the account's allowance. The password is
-used only for login; the key and returned token are encrypted through the device Secret portal,
-bound to the selected server/account. Unavailable secure storage disables setup rather than storing
-plaintext. Forgetting an account removes its provider credentials. No provider credentials or video
-are sent through the Nahhasio server. The browser preview saves subtitle preferences separately in
-browser storage scoped to the signed-in account and verified server. The OpenSubtitles setup form is
-visible with its credential fields and actions disabled.
+Settings → Playback shows OpenSubtitles configuration status. The server connection is managed
+in the server environment and is shared by signed-in viewers. An API key enables search and the
+configured account enables downloads. Older personal connections can still be used on the native
+device if its server has no shared configuration or cannot be reached. The app does not offer
+credential entry.
+The browser preview displays server status. The native player owns applying subtitles.
 
 Search uses the current catalog work's canonical title, provider identifiers and season/episode;
 year/season/episode overrides remain available on demand. Movie identity never falls back to a
@@ -72,7 +69,7 @@ completed uploads remain staged until reviewed episode matching and import compl
 Banner mirroring creates new registered artwork, retains original dimensions, and changes only
 the editor draft until review/save; the original artwork remains available.
 
-Real OpenSubtitles acceptance still needs a user's configured key/account; controlled fixtures do
+Real OpenSubtitles acceptance still needs a configured provider account; controlled fixtures do
 not establish provider availability, quota or subtitle synchronization. Diagnostic preview/copy uses an explicit allowlist that excludes accounts,
 credentials, URLs and local file paths; nothing is sent automatically.
 

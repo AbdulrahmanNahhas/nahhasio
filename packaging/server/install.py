@@ -114,7 +114,16 @@ def prepare(args, config):
         write(config / f"{role}-password", passwords[role] + "\n")
     runtime_url = f"postgresql://nahhasio_runtime:{quote(passwords['runtime'], safe='')}@nahhasio-postgres:5432/nahhasio"
     owner_url = f"postgresql://nahhasio_owner:{quote(passwords['owner'], safe='')}@nahhasio-postgres:5432/nahhasio"
-    write(config / "server.env", f"DATABASE_URL={runtime_url}\n")
+    write(
+        config / "server.env",
+        f"DATABASE_URL={runtime_url}\n"
+        "# Optional provider credentials; edit this private file and restart the server.\n"
+        "# TMDB_API_READ_ACCESS_KEY=\n"
+        "# FANART_API_KEY=\n"
+        "# OPENSUBTITLES_API_KEY=\n"
+        "# OPENSUBTITLES_USERNAME=\n"
+        "# OPENSUBTITLES_PASSWORD=\n",
+    )
     write(config / "operator.env", f"DATABASE_URL={owner_url}\n")
     if args.release_key:
         key = Path(args.release_key).read_text()

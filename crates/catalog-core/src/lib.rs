@@ -3,6 +3,7 @@
 pub mod deployment;
 pub mod editor;
 pub mod migrations;
+pub mod opensubtitles;
 pub mod planets;
 pub mod provider_config;
 pub mod records;

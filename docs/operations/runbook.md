@@ -32,8 +32,7 @@ must use the selected `--config-root "$HOME/Nahhasio/config"`, not the generic d
 - Debug-only generic administration: `NAHHASIO_LOCAL_ADMIN=true` and a private token; the
   server requires a debug build bound to loopback. This is not a production client credential.
 
-Session credentials remain native. Provider keys entered in the administration form are transient
-and pass through the native gateway; they are never returned or stored by the UI. Keep secrets out
+Session credentials remain native. Provider credentials are read on the server. Only masked configuration status reaches the UI. Keep secrets out
 of committed files and do not print connection strings, hashes or tokens. Do not reuse demo accounts/passwords as production setup.
 
 ## Storage ownership
@@ -90,24 +89,22 @@ as a substitute for the future API.
 
 ## Private provider configuration
 
-Set `NAHHASIO_CONFIG_ROOT` to a dedicated absolute persistent directory owned by the service user.
-The directory must be private (0700); credential files must be private (0600). Do not mount the
-configuration beneath artwork/public content or put it into an image, repository or Flatpak.
-The server creates a missing final directory on an authorized dashboard write; its parent must
-already exist. Devenv uses the ignored persistent `data/server-config` directory. Restart an existing
-server once after adding/changing this environment path; subsequent key updates need no restart.
+The installed Quadlet reads the private `config/server.env` file. Add server provider credentials
+there and restart the server after editing it. The development server gets the same keys from
+the private checkout `.env`. Keep this file and its host-recovery archive private.
 
-Desktop Settings can replace TMDB/Fanart keys, explicitly disable a provider, or restore the existing
-`TMDB_API_READ_ACCESS_KEY` / `FANART_API_KEY` environment selection. Stored overrides take precedence;
-disabling suppresses environment fallback. No configured key value or fragment is returned. Keys
-are plaintext in the private server file, protected by service-user filesystem permissions; include
-`providers.json` in a separate protected configuration backup. Never include it in public diagnostics.
-A replacement records its revision and changing account UUID atomically with its values. The database
-rename audit does not substitute for backing up this private configuration.
+- `TMDB_API_READ_ACCESS_KEY` and `FANART_API_KEY` enable metadata and artwork lookups.
+- `OPENSUBTITLES_API_KEY` enables subtitle search. Set `OPENSUBTITLES_USERNAME` and
+  `OPENSUBTITLES_PASSWORD` together to enable downloading through the shared account.
+- The torrent addon is configured in the native client's environment. The server container and
+  separate media worker do not read those endpoint settings.
 
-For recovery, stop the server, restore the complete configuration file to the same root with its
-private permissions/ownership, then restart and inspect masked status. Retain the prior file privately
-until provider operations are verified. Restoring this file does not change catalog/account identities.
+Administration shows masked TMDB and Fanart status. Environment credentials take precedence over
+older `providers.json` entries. Where an environment value is absent, a stored key or disabled
+state still applies. Preserve the existing private file during upgrades and keep it in a protected
+configuration backup until its settings have migrated. Provider status confirms configuration.
+Run a real lookup to confirm that the upstream accepts it.
+
 Readiness checks migration history and server identity without applying changes. Persistent artwork
 access, restricted database roles, HTTPS and recovery/update activation still require deployment checks.
 

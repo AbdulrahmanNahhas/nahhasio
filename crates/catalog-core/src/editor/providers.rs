@@ -497,7 +497,7 @@ pub(super) async fn execute(operation: &str, input: &Value) -> Result<Value> {
                 Ok(v) => v,
                 Err(_) => {
                     warnings.push("TMDB: تعذّر جلب الصور.".into());
-                    (vec![], Value::Null)
+                    (vec![], input.get("tmdbId").cloned().unwrap_or(Value::Null))
                 }
             };
             let mut candidates = match anime {

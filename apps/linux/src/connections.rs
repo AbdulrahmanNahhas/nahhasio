@@ -89,6 +89,34 @@ fn verify_identity(expected: &str, info: &ServerInfo) -> Result<(), Error> {
     }
     Ok(())
 }
+
+fn select_subtitle_connection(
+    shared: Result<Option<Value>, Error>,
+    device: impl FnOnce() -> Result<Value, Error>,
+) -> Result<Value, Error> {
+    match shared {
+        Ok(Some(shared)) if shared["downloads"] == true => Ok(shared),
+        Ok(Some(shared)) => {
+            let device = device()?;
+            Ok(if device["configured"] == true {
+                device
+            } else {
+                shared
+            })
+        }
+        Ok(None) => device(),
+        Err(error) if matches!(error.code.as_str(), "network" | "timeout") => {
+            let device = device()?;
+            if device["configured"] == true {
+                Ok(device)
+            } else {
+                Err(error)
+            }
+        }
+        Err(error) => Err(error),
+    }
+}
+
 impl Services {
     pub async fn artwork_bytes(
         &self,
@@ -182,8 +210,24 @@ impl Services {
     pub async fn catalog_scope(&self) -> Result<String, Error> {
         self.offline.scope().await
     }
+    async fn subtitle_connection(
+        &self,
+        session: &ServerSession,
+        scope: &str,
+    ) -> Result<Value, Error> {
+        select_subtitle_connection(session.subtitle_status().await, || {
+            self.subtitles.status(&self.root, scope)
+        })
+    }
+
     pub async fn opensubtitle_file(&self, file_id: u64) -> Result<(PathBuf, Option<u64>), Error> {
         let scope = self.catalog_scope().await?;
+        let session = self.snapshot()?;
+        if self.subtitle_connection(&session, &scope).await?["source"] == "server" {
+            let (bytes, remaining) = session.subtitle_download(file_id).await?;
+            let path = crate::opensubtitles::cache_subtitle(&self.root, &scope, &bytes)?;
+            return Ok((path, remaining));
+        }
         self.subtitles.download(&self.root, &scope, file_id).await
     }
     pub async fn playback_defaults(&self) -> Result<native_player::PlaybackDefaults, Error> {
@@ -451,12 +495,23 @@ impl Services {
                 _ => Err(Error::new("bad_request", "عملية غير صالحة.")),
             };
         }
-        if request.command.starts_with("opensubtitles.") {
+        if matches!(
+            request.command.as_str(),
+            "opensubtitles.status" | "opensubtitles.search"
+        ) {
             let scope = self.catalog_scope().await?;
-            return self
-                .subtitles
-                .execute(&self.root, &scope, &request.command, request.payload)
-                .await;
+            let session = self.snapshot()?;
+            let connection = self.subtitle_connection(&session, &scope).await?;
+            if request.command == "opensubtitles.status" {
+                return Ok(connection);
+            }
+            return if connection["source"] == "server" {
+                session.subtitle_search(request.payload).await
+            } else {
+                self.subtitles
+                    .execute(&self.root, &scope, &request.command, request.payload)
+                    .await
+            };
         }
         if request.command.starts_with("playbackPreferences.") {
             let scope = self.catalog_scope().await?;
@@ -784,6 +839,32 @@ impl Services {
 pub(crate) mod tests {
     use super::*;
     use axum::{Router, http::HeaderMap, routing::get};
+
+    #[test]
+    fn saved_subtitle_connection_survives_network_loss_without_bypassing_authorization() {
+        let connection =
+            select_subtitle_connection(Err(Error::new("network", "unreachable")), || {
+                Ok(json!({"configured": true, "source": "device"}))
+            })
+            .unwrap();
+        assert_eq!(connection["source"], "device");
+
+        let error = select_subtitle_connection(Err(Error::new("timeout", "unreachable")), || {
+            Ok(json!({"configured": false, "source": "none"}))
+        })
+        .unwrap_err();
+        assert_eq!(error.code, "timeout");
+
+        for code in ["unauthorized", "forbidden", "certificate"] {
+            let error =
+                select_subtitle_connection(Err(Error::new(code, "server rejected")), || {
+                    panic!("server rejection must not use a fallback")
+                })
+                .unwrap_err();
+            assert_eq!(error.code, code);
+        }
+    }
+
     const ID: &str = "97900000-0000-4000-8000-000000000001";
     fn fixture(url: &str, identity: Option<&str>) -> Services {
         let mut nonce = [0u8; 16];

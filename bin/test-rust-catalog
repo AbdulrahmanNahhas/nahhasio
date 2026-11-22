@@ -221,10 +221,17 @@ PY
 if [[ "${NAHHASIO_LIVE_PROVIDER_ACCEPTANCE:-0}" == 1 ]]; then
   NAHHASIO_CLI_ACTOR=91000000-0000-4000-8000-000000000001 ./bin/nahhasio editor search --input-json '{"title":"Star Wars","kind":"live-action-movie","role":"poster","tmdbId":11}' --json >"$fixture_root/live-provider.json"
   python3 - "$fixture_root/live-provider.json" <<'PY'
-import json,sys,collections
+import json,sys,collections,os
 result=json.load(open(sys.argv[1]));counts=collections.Counter(row['provider'] for row in result['candidates'])
 print('Live provider candidates:',dict(counts))
 print('Live provider warnings:',result['warnings'])
+expected = {
+    provider for provider, key in [('tmdb', 'TMDB_API_READ_ACCESS_KEY'), ('fanart', 'FANART_API_KEY')]
+    if os.environ.get(key, '').strip()
+}
+assert expected, 'Set at least one provider credential before running live acceptance.'
+missing = expected - counts.keys()
+assert not missing, f'No candidates returned by: {", ".join(sorted(missing))}'
 PY
 fi
 

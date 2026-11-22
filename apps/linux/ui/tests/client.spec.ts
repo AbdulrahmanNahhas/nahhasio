@@ -1541,6 +1541,9 @@ for (const width of [480, 1440]) {
     await page.getByRole("button", { name: "شعارات", exact: true }).click();
     await expect(cards.first()).toHaveAttribute("data-layout", "logo");
     const borderless = page.getByRole("switch", { name: "شعارات دون إطار", exact: true });
+    await expect(borderless).toBeChecked();
+    await borderless.click();
+    await expect(borderless).not.toBeChecked();
     await borderless.click();
     await expect(borderless).toBeChecked();
     const titleSwitch = page.getByRole("switch", { name: "العناوين", exact: true });

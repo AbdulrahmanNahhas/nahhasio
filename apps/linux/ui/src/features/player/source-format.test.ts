@@ -5,8 +5,8 @@ import { formatSource, formatSourceSize, sourceLanguageLabel } from "./source-fo
 
 const candidate: SourceCandidate = {
   id: "a".repeat(64),
-  provider: "Torrentio",
-  label: "Torrentio",
+  provider: "Custom",
+  label: "Custom",
   release: "A release",
   resolution: null,
   codec: null,
@@ -21,10 +21,10 @@ describe("source display hints", () => {
   it("separates a flattened release title, filename, and provider metadata", () => {
     const release =
       "🎬 A Film 2024 📁 A.Film.2024.2160p.HEVC.HDR10+.mkv 👤 42 💾 2.5 GB 🌐 English 🇬🇧";
-    const source = { ...candidate, label: "Torrentio\n4K", release };
+    const source = { ...candidate, label: "Custom\n4K", release };
     const result = formatSource(source);
     expect(result).toMatchObject({
-      providerLabel: "Torrentio 4K",
+      providerLabel: "Custom 4K",
       releaseTitle: "A Film 2024",
       filename: "A.Film.2024.2160p.HEVC.HDR10+.mkv",
       resolution: 2160,

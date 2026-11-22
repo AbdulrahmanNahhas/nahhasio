@@ -535,9 +535,9 @@ impl Downloads {
             episode_id: entry.target.episode_id,
             title: entry.title,
             work_title: entry.work_title,
-            search: crate::torrentio::Search {
+            search: crate::torrent_addon::Search {
                 imdb_id: String::new(),
-                kind: crate::torrentio::Kind::Movie,
+                kind: crate::torrent_addon::Kind::Movie,
                 season: None,
                 episode: None,
             },
@@ -636,9 +636,9 @@ mod tests {
             title: "Fixture".into(),
             work_title: "Fixture work".into(),
             poster_id: None,
-            search: crate::torrentio::Search {
+            search: crate::torrent_addon::Search {
                 imdb_id: String::new(),
-                kind: crate::torrentio::Kind::Movie,
+                kind: crate::torrent_addon::Kind::Movie,
                 season: None,
                 episode: None,
             },

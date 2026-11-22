@@ -189,7 +189,6 @@ impl ServerSession {
             "serverOverview"
             | "serverSettings"
             | "renameServer"
-            | "updateProviders"
             | "serverOperations"
             | "requestServerOperation" => {
                 let (method, path) = match request.command.as_str() {
@@ -198,7 +197,7 @@ impl ServerSession {
                     "renameServer" => (Method::PATCH, "api/v1/admin/server/settings"),
                     "serverOperations" => (Method::GET, "api/v1/admin/server/operations"),
                     "requestServerOperation" => (Method::POST, "api/v1/admin/server/operations"),
-                    _ => (Method::PUT, "api/v1/admin/server/providers"),
+                    _ => return Err(Error::new("bad_request", "Unknown desktop command")),
                 };
                 let write = method != Method::GET;
                 let mut outgoing = self.authorized(method, path).await?;

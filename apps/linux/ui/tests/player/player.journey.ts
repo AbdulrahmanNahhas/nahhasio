@@ -5,6 +5,7 @@ import type { ProviderOffer } from "../../src/features/player/stream-providers";
 import { installArtworkFixture } from "../fixtures/artwork";
 
 type TestRequest =
+  | { command: "opensubtitles.status"; payload: Record<string, never> }
   | PlayerRequest
   | {
       command: "opensubtitles.search";
@@ -120,6 +121,15 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
             const request = JSON.parse(message) as { id: string } & TestRequest;
             requests.push(request);
             switch (request.command) {
+              case "opensubtitles.status":
+                queueMicrotask(() =>
+                  window["__nahhasioReply"]?.({
+                    id: request.id,
+                    ok: true,
+                    result: { configured: true, downloads: true, source: "server" },
+                  }),
+                );
+                return;
               case "opensubtitles.search":
                 queueMicrotask(() =>
                   window["__nahhasioReply"]?.({
@@ -416,7 +426,8 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                     candidates: [
                       {
                         id: "a".repeat(64),
-                        label: "Torrentio 1080p",
+                        provider: "Fixture A",
+                        label: "Fixture A 1080p",
                         release:
                           "Synthetic Season 1 📁 Synthetic.S01E05.1080p.AV1.mkv 👤 146 💾 279.86 MB ⚙ NyaaSi Audio: English",
                         resolution: 1080,
@@ -429,7 +440,8 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                       },
                       {
                         id: "b".repeat(64),
-                        label: "Torrentio 720p",
+                        provider: "Fixture B",
+                        label: "Fixture B 720p",
                         release:
                           "Synthetic alternative 📁 Synthetic.S01E05.720p.mp4 👤 12 💾 150 MB",
                         resolution: 720,
@@ -440,6 +452,10 @@ async function mock(page: Page, snapshot = initial, scenario = "") {
                         reportedLanguages: [],
                         available: true,
                       },
+                    ],
+                    providers: [
+                      { id: "Fixture A", count: 1, error: null },
+                      { id: "Fixture B", count: 1, error: null },
                     ],
                   },
                 });
@@ -699,7 +715,7 @@ test("honest source, episode, subtitle and codec panels", async ({ page }) => {
   await expect(page.getByRole("button", { name: "نافذة عائمة", exact: true })).toBeDisabled();
 });
 
-test("saved video plays locally before any Torrentio lookup", async ({ page }) => {
+test("saved video plays locally before any Custom lookup", async ({ page }) => {
   await mock(page, { ...initial, active: false, sessionId: null }, "saved");
   await page.getByRole("button", { name: "Watch test work" }).click();
   await openPanel(page, "مصدر الفيديو");
@@ -966,6 +982,11 @@ test("Watch opens the right source drawer and never auto-selects a torrent", asy
   const viewport = page.viewportSize()!;
   // The approved floating Drawer has an 8px inset, rather than the old flush Sheet.
   expect(bounds!.x + bounds!.width).toBeCloseTo(viewport.width - 8, 0);
+  const providerFilter = drawer.getByRole("group", { name: "مزوّد التورنت" });
+  await providerFilter.getByRole("button", { name: "Fixture B", exact: true }).click();
+  await expect(drawer.getByRole("heading", { name: "Synthetic alternative" })).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "Synthetic Season 1" })).toHaveCount(0);
+  await providerFilter.getByRole("button", { name: "كل المزوّدين", exact: true }).click();
   await expect(drawer.getByText("AV1", { exact: true })).toBeVisible();
   await drawer
     .getByRole("group", { name: "جودة التورنت", exact: true })
@@ -1269,7 +1290,7 @@ for (const width of [520, 1440]) {
     expect(await calls(page, "opensubtitles.apply")).toEqual([
       expect.objectContaining({
         command: "opensubtitles.apply",
-        payload: { sessionId: "test-1", fileId: 42 },
+        payload: { sessionId: "test-1", fileId: 42, language: "ar", label: "Fixture Arabic 1080p" },
       }),
     ]);
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(

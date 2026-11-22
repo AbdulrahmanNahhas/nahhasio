@@ -81,7 +81,7 @@ test("preview saves subtitle preferences locally while provider credentials stay
   await enabled.click();
   await page.getByRole("button", { name: "حفظ الافتراضيات", exact: true }).click();
   await expect(page.getByText("تم حفظ افتراضيات التشغيل")).toBeVisible();
-  await expect(page.getByLabel("مفتاح OpenSubtitles API", { exact: true })).toBeDisabled();
+  await expect(page.getByLabel("مفتاح OpenSubtitles API", { exact: true })).toHaveCount(0);
   await page.reload();
   await signIn();
   await expect(size).toHaveValue("72");

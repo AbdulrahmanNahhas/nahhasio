@@ -200,6 +200,71 @@ impl ServerSession {
         serde_json::from_slice(&body)
             .map_err(|_| Error::new("response", "The server sent an invalid response"))
     }
+    pub(crate) async fn subtitle_status(&self) -> Result<Option<Value>, Error> {
+        let response = self
+            .authorized(Method::GET, "api/v1/subtitles/status")
+            .await?
+            .send()
+            .await
+            .map_err(network)?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        self.json_limit(response, 4096).await.map(Some)
+    }
+
+    async fn subtitle_post(&self, path: &str, payload: Option<&Value>) -> Result<Response, Error> {
+        let mut request = self
+            .authorized(Method::POST, path)
+            .await?
+            .timeout(Duration::from_secs(35));
+        if let Some(payload) = payload {
+            request = request.json(payload);
+        }
+        let response = request.send().await.map_err(network)?;
+        if response.status().is_success() {
+            return Ok(response);
+        }
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            self.body(response, 4096).await?;
+            return Err(Error::new("unauthorized", "انتهت الجلسة."));
+        }
+        let bytes = bounded_body(response, 4096).await?;
+        let error: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        let code = error["code"]
+            .as_str()
+            .filter(|code| code.len() <= 64)
+            .unwrap_or("subtitle_service");
+        let message = error["message"]
+            .as_str()
+            .filter(|message| message.len() <= 512)
+            .unwrap_or("تعذّر إكمال طلب الترجمة من الخادم.");
+        Err(Error::new(code, message))
+    }
+
+    pub(crate) async fn subtitle_search(&self, payload: Value) -> Result<Value, Error> {
+        let response = self
+            .subtitle_post("api/v1/subtitles/search", Some(&payload))
+            .await?;
+        self.json(response).await
+    }
+
+    pub(crate) async fn subtitle_download(
+        &self,
+        file_id: u64,
+    ) -> Result<(Vec<u8>, Option<u64>), Error> {
+        let response = self
+            .subtitle_post(&format!("api/v1/subtitles/{file_id}/download"), None)
+            .await?;
+        let remaining = response
+            .headers()
+            .get("x-subtitle-remaining")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse().ok());
+        let data = self.body(response, 2 * 1024 * 1024).await?;
+        Ok((data, remaining))
+    }
+
     pub(super) async fn authorized(
         &self,
         method: Method,

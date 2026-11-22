@@ -2467,6 +2467,104 @@
         }
       }
     },
+    "/api/v1/subtitles/status": {
+      "get": {
+        "operationId": "getSubtitleProviderStatus",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe server configuration status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleProviderStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subtitles/search": {
+      "post": {
+        "operationId": "searchSubtitles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubtitleSearch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bounded subtitle results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleSearchResults"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subtitles/{file_id}/download": {
+      "post": {
+        "operationId": "downloadSubtitle",
+        "x-native-only": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validated SRT subtitle",
+            "content": {
+              "application/x-subrip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "x-subtitle-remaining": {
+                "description": "Remaining allowance when reported by the provider",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/server/overview": {
       "get": {
         "operationId": "getServerOverview",
@@ -2520,33 +2618,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ServerRename"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/server/providers": {
-      "put": {
-        "operationId": "updateProviders",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderSettings"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderUpdate"
               }
             }
           }
@@ -13890,6 +13961,137 @@
           }
         }
       },
+      "SubtitleProviderStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["configured", "downloads", "source"],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "downloads": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["server", "none"]
+          }
+        }
+      },
+      "SubtitleSearch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query", "language", "page"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "language": {
+            "type": "string",
+            "enum": ["ar", "en", "fr", "es"]
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1880,
+            "maximum": 2200,
+            "nullable": true
+          },
+          "season": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "nullable": true
+          },
+          "episode": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "imdbId": {
+            "type": "string",
+            "nullable": true
+          },
+          "tmdbId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "nullable": true
+          }
+        }
+      },
+      "SubtitleSearchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fileId",
+          "release",
+          "fileName",
+          "language",
+          "downloads",
+          "hearingImpaired",
+          "machineTranslated",
+          "aiTranslated"
+        ],
+        "properties": {
+          "fileId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "release": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "downloads": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hearingImpaired": {
+            "type": "boolean"
+          },
+          "machineTranslated": {
+            "type": "boolean"
+          },
+          "aiTranslated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SubtitleSearchResults": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "page", "totalPages"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtitleSearchResult"
+            },
+            "maxItems": 200
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "ProviderKeyStatus": {
         "type": "object",
         "additionalProperties": false,
@@ -13949,30 +14151,6 @@
           },
           "expectedRevision": {
             "type": "string"
-          }
-        }
-      },
-      "ProviderUpdate": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["expectedRevision", "provider", "action"],
-        "properties": {
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "provider": {
-            "type": "string",
-            "enum": ["tmdb", "fanart"]
-          },
-          "action": {
-            "type": "string",
-            "enum": ["set", "disable", "environment"]
-          },
-          "key": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 4096
           }
         }
       },

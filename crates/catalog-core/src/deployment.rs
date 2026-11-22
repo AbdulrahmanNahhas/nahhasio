@@ -34,7 +34,7 @@ fn private_config(config: Option<&Path>, roots: &ArtworkRoots) -> bool {
             return false;
         }
     }
-    provider_config::status(Some(&config)).is_ok_and(|s| s.editable)
+    provider_config::status(Some(&config)).is_ok()
 }
 pub async fn inspect(
     connection: &mut PgConnection,

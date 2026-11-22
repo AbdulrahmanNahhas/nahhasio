@@ -322,7 +322,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-13-01** Confirm Arabic-dubbed and non-dubbed audio/subtitle defaults.
 - [ ] **NH-13-02** Discover/select embedded subtitle tracks and local sidecar subtitles.
 - [ ] **NH-13-03** Support authorized stored-file subtitle discovery and delivery if required later.
-- [ ] **NH-13-04** Implement an OpenSubtitles provider behind a replaceable server-owned interface.
+- [x] **NH-13-04** Implement server-owned OpenSubtitles search and downloads. Live provider and installed-client acceptance remain separate.
 - [ ] **NH-13-05** Provide search, result details, manual selection and download errors.
 - [ ] **NH-13-06** Match subtitles using work/episode/release/file evidence rather than title alone.
 - [ ] **NH-13-07** Retain language, format, source and forced/hearing-impaired flags.
@@ -332,7 +332,7 @@ isolated mutation/rollback and final desktop acceptance remain pending. No autom
 - [ ] **NH-13-11** DECISION: add automatic retrieval, retry/backoff and missing-subtitle jobs if required.
 - [ ] **NH-13-12** DECISION: evaluate additional providers/Bazarr only against actual coverage needs.
 - [ ] **NH-13-13** Support manual import when no usable provider match exists.
-- [ ] **NH-13-14** Keep provider quota/authentication handling and credentials on the server.
+- [x] **NH-13-14** Configure the shared account in the server environment and handle its credentials and quota on the server. Existing personal device connections remain a compatibility fallback.
 - [ ] **NH-13-15** Clearly distinguish supplied subtitles from any future generated/transcribed subtitles.
 
 ### 14. Downloads page and offline library

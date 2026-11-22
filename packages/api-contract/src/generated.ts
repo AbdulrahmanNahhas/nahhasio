@@ -3057,6 +3057,44 @@ export const ServerIdentitySchema = z.strictObject({
 });
 export type ServerIdentity = z.infer<typeof ServerIdentitySchema>;
 
+export const SubtitleProviderStatusSchema = z.strictObject({
+  configured: z.boolean(),
+  downloads: z.boolean(),
+  source: z.enum(["server", "none"]),
+});
+export type SubtitleProviderStatus = z.infer<typeof SubtitleProviderStatusSchema>;
+
+export const SubtitleSearchSchema = z.strictObject({
+  query: z.string().min(1).max(200),
+  language: z.enum(["ar", "en", "fr", "es"]),
+  year: z.number().int().min(1880).max(2200).nullable().optional(),
+  season: z.number().int().min(0).max(1000).nullable().optional(),
+  episode: z.number().int().min(0).max(10000).nullable().optional(),
+  page: z.number().int().min(1).max(100),
+  imdbId: z.string().nullable().optional(),
+  tmdbId: z.number().int().min(1).max(2147483647).nullable().optional(),
+});
+export type SubtitleSearch = z.infer<typeof SubtitleSearchSchema>;
+
+export const SubtitleSearchResultSchema = z.strictObject({
+  fileId: z.number().int().min(1).max(9007199254740991),
+  release: z.string(),
+  fileName: z.string(),
+  language: z.string(),
+  downloads: z.number().int().min(0),
+  hearingImpaired: z.boolean(),
+  machineTranslated: z.boolean(),
+  aiTranslated: z.boolean(),
+});
+export type SubtitleSearchResult = z.infer<typeof SubtitleSearchResultSchema>;
+
+export const SubtitleSearchResultsSchema = z.strictObject({
+  items: z.array(SubtitleSearchResultSchema),
+  page: z.number().int().min(0),
+  totalPages: z.number().int().min(0),
+});
+export type SubtitleSearchResults = z.infer<typeof SubtitleSearchResultsSchema>;
+
 export const ProviderKeyStatusSchema = z.strictObject({
   configured: z.boolean(),
   source: z.enum(["server", "environment", "disabled"]),
@@ -3082,14 +3120,6 @@ export const ServerRenameSchema = z.strictObject({
   expectedRevision: z.string(),
 });
 export type ServerRename = z.infer<typeof ServerRenameSchema>;
-
-export const ProviderUpdateSchema = z.strictObject({
-  expectedRevision: z.number().int().min(0),
-  provider: z.enum(["tmdb", "fanart"]),
-  action: z.enum(["set", "disable", "environment"]),
-  key: z.string().min(8).max(4096).optional(),
-});
-export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
 export const ServerOverviewSchema = z.strictObject({
   server: ServerIdentitySchema,
@@ -3595,10 +3625,10 @@ export class ApiClient {
       | MediaJobControl
       | PasswordUpdate
       | ProfileUpdate
-      | ProviderUpdate
       | RenewalRequest
       | ServerOperationRequest
       | ServerRename
+      | SubtitleSearch
       | TrackingChange
       | UploadStart
       | WatchedRequest
@@ -4073,6 +4103,17 @@ export class ApiClient {
     );
     return ProfileEntriesSchema.parse(await response.json());
   }
+  async getSubtitleProviderStatus(signal?: AbortSignal): Promise<SubtitleProviderStatus> {
+    const response = await this.request("/api/v1/subtitles/status", "GET", undefined, signal);
+    return SubtitleProviderStatusSchema.parse(await response.json());
+  }
+  async searchSubtitles(
+    body: SubtitleSearch,
+    signal?: AbortSignal,
+  ): Promise<SubtitleSearchResults> {
+    const response = await this.request("/api/v1/subtitles/search", "POST", body, signal);
+    return SubtitleSearchResultsSchema.parse(await response.json());
+  }
   async getServerOverview(signal?: AbortSignal): Promise<ServerOverview> {
     const response = await this.request("/api/v1/admin/server/overview", "GET", undefined, signal);
     return ServerOverviewSchema.parse(await response.json());
@@ -4084,10 +4125,6 @@ export class ApiClient {
   async renameServer(body: ServerRename, signal?: AbortSignal): Promise<ServerIdentity> {
     const response = await this.request("/api/v1/admin/server/settings", "PATCH", body, signal);
     return ServerIdentitySchema.parse(await response.json());
-  }
-  async updateProviders(body: ProviderUpdate, signal?: AbortSignal): Promise<ProviderSettings> {
-    const response = await this.request("/api/v1/admin/server/providers", "PUT", body, signal);
-    return ProviderSettingsSchema.parse(await response.json());
   }
   async getTrailers(
     query: {

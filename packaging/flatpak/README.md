@@ -104,6 +104,21 @@ An existing development/AppImage state import requires a separate reviewed copy 
 this packaging change never resets or moves it automatically. A family-server catalog transfer
 is independent from the client sandbox and keeps its own identities/backups.
 
+### Torrent addon configuration
+
+The installed app reads `NAHHASIO_TORRENT_ADDONS` from its launch environment. With the value
+already exported by a private shell or credential launcher, pass it to Flatpak by file
+descriptor to keep it out of the command arguments. Fully quit any running Nahhasio window before
+relaunching.
+
+```sh
+bash -c 'printf "%s\0" "NAHHASIO_TORRENT_ADDONS=${NAHHASIO_TORRENT_ADDONS:?Set the addon list first}" |
+  flatpak run --env-fd=0 io.nahhasio.Linux'
+```
+
+See [torrent addon settings](../../docs/desktop/streaming.md#torrent-addon-configuration)
+and the [Flatpak command reference](https://docs.flatpak.org/en/latest/flatpak-command-reference.html#flatpak-run).
+
 ## Signed release repository
 
 Server manifests/installer archives retain the existing Ed25519 signing key. Flatpak commits

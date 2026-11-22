@@ -34,9 +34,9 @@ test.beforeEach(async ({ page }) => {
       name: "مكتبة العائلة",
       revision: "first",
     };
-    let providers = {
+    const providers = {
       revision: 0,
-      editable: true,
+      editable: false,
       tmdb: { configured: false, source: "environment" },
       fanart: { configured: true, source: "environment" },
     };
@@ -338,26 +338,6 @@ test.beforeEach(async ({ page }) => {
                 server = { ...server, name: request.payload.name, revision: "second" };
                 result = server;
                 break;
-              case "updateProviders": {
-                const { provider, action } = request.payload;
-                if (action === "set" && request.payload.key !== "fixture-private-key")
-                  throw new Error("Unexpected synthetic credential");
-                providers = {
-                  ...providers,
-                  revision: providers.revision + 1,
-                  [provider]: {
-                    configured: action === "set",
-                    source:
-                      action === "set"
-                        ? "server"
-                        : action === "disable"
-                          ? "disabled"
-                          : "environment",
-                  },
-                };
-                result = providers;
-                break;
-              }
               case "editorCall": {
                 const { operation, data } = request.payload;
                 calls.push({ operation, data });
@@ -413,7 +393,7 @@ test.beforeEach(async ({ page }) => {
     };
   });
 });
-test("overview uses server status and settings save name and write-only keys", async ({ page }) => {
+test("overview shows provider status and settings save the server name", async ({ page }) => {
   await page.goto("/#/admin");
   await expect(page.getByRole("heading", { name: "نظرة عامة", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "فحوص تجهيز الخادم", exact: true }).click();
@@ -429,22 +409,20 @@ test("overview uses server status and settings save name and write-only keys", a
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(page.getByRole("table")).toHaveCount(0);
   await expect(page.getByLabel("عنوان خادم Jellyfin", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("مفتاح Fanart", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("مفتاح Fanart", { exact: true })).toHaveCount(0);
   await page.getByLabel("اسم الخادم", { exact: true }).fill("مكتبة أكوا");
   await page.getByRole("button", { name: "حفظ الاسم", exact: true }).click();
   await expect(page.getByLabel("اسم الخادم", { exact: true })).toHaveValue("مكتبة أكوا");
-  const tmdb = page.getByLabel("رمز الوصول للقراءة من TMDB", { exact: true });
-  await tmdb.fill("fixture-private-key");
-  const card = page.locator('[data-slot="card"]').filter({ has: tmdb });
-  await card.getByRole("button", { name: "حفظ المفتاح", exact: true }).click();
-  await expect(tmdb).toHaveValue("");
-  await expect(card.getByText("مفتاح مضبوط", { exact: true })).toBeVisible();
-  await expect(card.getByRole("status")).toHaveText("حُفظت إعدادات TMDB.");
-  await expect(page.locator("body")).not.toContainText("fixture-private-key");
-  await card.getByRole("button", { name: "تعطيل المصدر", exact: true }).click();
-  await expect(card.getByText("غير مفعّل", { exact: true })).toBeVisible();
-  await card.getByRole("button", { name: "استخدام إعداد البيئة", exact: true }).click();
-  await expect(card.getByText("يستخدم إعداد بيئة الخادم إن وُجد.", { exact: true })).toBeVisible();
+  const tmdb = page.locator('[data-slot="card"]').filter({
+    has: page.getByRole("heading", { name: "TMDB", exact: true }),
+  });
+  await expect(tmdb.getByText("غير مفعّل", { exact: true })).toBeVisible();
+  await expect(tmdb.locator("input")).toHaveCount(0);
+  const fanart = page.locator('[data-slot="card"]').filter({
+    has: page.getByRole("heading", { name: "Fanart", exact: true }),
+  });
+  await expect(fanart.getByText("مفتاح مضبوط", { exact: true })).toBeVisible();
+  await expect(fanart.locator("input")).toHaveCount(0);
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/admin-server-settings.png" });
   await page.setViewportSize({ width: 520, height: 900 });
@@ -455,9 +433,7 @@ test("overview uses server status and settings save name and write-only keys", a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("failed services show retry and unprepared credential storage disables writes", async ({
-  page,
-}) => {
+test("failed services show retry and unconfigured providers stay visible", async ({ page }) => {
   await page.addInitScript(() => {
     const handler = window.webkit!.messageHandlers!.nahhasio!;
     const original = handler.postMessage.bind(handler);
@@ -493,8 +469,8 @@ test("failed services show retry and unprepared credential storage disables writ
   await page.goto("/#/admin");
   await expect(page.getByRole("button", { name: "إعادة المحاولة", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "الإعدادات والاتصالات", exact: true }).click();
-  await expect(page.getByText("مجلد الإعدادات الخاص غير مجهّز", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("رمز الوصول للقراءة من TMDB", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "مفاتيح المصادر", exact: true })).toBeVisible();
+  await expect(page.getByLabel("رمز الوصول للقراءة من TMDB", { exact: true })).toHaveCount(0);
 });
 
 test("a stale server name can reload the current settings", async ({ page }) => {

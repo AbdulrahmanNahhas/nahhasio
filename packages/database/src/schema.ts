@@ -94,11 +94,9 @@ const timestamps = {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 };
 /**
- * The four external-catalog identifiers Phase 0 of the player/torrent roadmap needs, kept as
- * typed columns (not `external_identities` rows) so they can be looked up and written without a
- * join, and so `tmdb`/`anilist` ingest can update-in-place instead of insert-or-noop. Present on
- * both `titles` and `installments`: a franchise title carries its own `anilist_id`/`mal_id`, while each film installment carries its own `tmdb_id`/`imdb_id` — Torrentio and
- * Jellyfin both key off the installment-level ids for movie playback.
+ * Catalog lookups and imports use typed external IDs on titles and installments.
+ * A film installment keeps its own IMDb and TMDB IDs so source and subtitle searches
+ * can resolve that film independently of its parent work.
  */
 const externalIdColumns = {
   tmdbId: integer("tmdb_id"),

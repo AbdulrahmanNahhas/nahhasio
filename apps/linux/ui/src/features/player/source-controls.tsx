@@ -73,7 +73,7 @@ function SessionSources({
   const [search, setSearch] = useState("");
   const [quality, setQuality] = useState("all");
   const [language, setLanguage] = useState("all");
-  const [provider, setProvider] = useState("all");
+  const [provider, setProvider] = useState("");
   const [sort, setSort] = useState("provider");
   const [limit, setLimit] = useState(20);
   const sources = useQuery({
@@ -128,11 +128,14 @@ function SessionSources({
       (a === "en" ? -1 : a === "ar" ? 0 : 1) - (b === "en" ? -1 : b === "ar" ? 0 : 1) ||
       a.localeCompare(b),
   );
+  const providerFilter = sources.data?.providers.some((item) => item.id === provider)
+    ? provider
+    : "";
   const visible = candidates
     .filter(
       ({ candidate, display }) =>
         (quality === "all" || String(display.resolution) === quality) &&
-        (provider === "all" || candidate.provider === provider) &&
+        (!providerFilter || candidate.provider === providerFilter) &&
         (language === "all" ||
           display.reportedLanguages.includes(language) ||
           (language === "en" && display.englishInferred)) &&
@@ -273,7 +276,7 @@ function SessionSources({
           </CardContent>
         </Card>
       )}
-      {(candidates.length > 0 || Boolean(sources.data?.providers.length)) && (
+      {candidates.length > 0 && (
         <>
           <div className="flex flex-wrap items-end gap-3">
             <FieldGroup className="min-w-48 flex-1">
@@ -319,31 +322,28 @@ function SessionSources({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            {sources.data?.providers.length ? (
+            {sources.data && sources.data.providers.length > 1 && (
               <ToggleGroup
                 variant="outline"
                 spacing={1}
                 aria-label="مزوّد التورنت"
-                className="flex-wrap justify-start"
-                value={[provider]}
-                onValueChange={(values: string[]) => {
-                  if (values[0]) {
-                    setProvider(values[0]);
+                value={[providerFilter ? `addon:${providerFilter}` : "all"]}
+                onValueChange={(values) => {
+                  const selected = values[0];
+                  if (selected) {
+                    setProvider(selected === "all" ? "" : selected.slice(6));
                     setLimit(20);
                   }
                 }}
               >
                 <ToggleGroupItem value="all">كل المزوّدين</ToggleGroupItem>
                 {sources.data.providers.map((item) => (
-                  <ToggleGroupItem key={item.id} value={item.id}>
-                    <span dir="ltr">{item.id}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {item.error ? "!" : item.count}
-                    </span>
+                  <ToggleGroupItem key={item.id} value={`addon:${item.id}`}>
+                    <bdi>{item.id}</bdi>
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-            ) : null}
+            )}
             {qualities.length > 1 && (
               <ToggleGroup
                 variant="outline"

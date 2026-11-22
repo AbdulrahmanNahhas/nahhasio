@@ -3,6 +3,7 @@ mod auth;
 mod catalog;
 mod database;
 mod media;
+mod subtitles;
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 pub use media::run_worker as run_media_worker;
 use serde::Serialize;
@@ -37,6 +38,7 @@ pub fn router_with_admin(pool: PgPool, token: Option<String>) -> Router {
         .merge(auth)
         .merge(admin)
         .merge(media::routes(pool.clone()))
+        .merge(subtitles::routes(pool))
 }
 
 async fn server_info(State(pool): State<PgPool>) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -114,6 +116,29 @@ mod tests {
                     .await
                     .unwrap();
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        }
+    }
+
+    #[tokio::test]
+    async fn subtitle_routes_require_a_viewer_session() {
+        let app = router(unavailable_database());
+        for (method, path) in [
+            ("GET", "/api/v1/subtitles/status"),
+            ("POST", "/api/v1/subtitles/search"),
+            ("POST", "/api/v1/subtitles/42/download"),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
         }
     }
 

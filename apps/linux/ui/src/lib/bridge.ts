@@ -7,8 +7,6 @@ import {
   ServerSettingsSchema,
   ServerIdentitySchema,
   ServerRenameSchema,
-  ProviderSettingsSchema,
-  ProviderUpdateSchema,
   DatabaseSchemaSchema,
   DatabasePageSchema,
   CatalogEditorCallSchema,
@@ -50,13 +48,7 @@ import {
   FavoriteRequestSchema,
   WatchedRequestSchema,
 } from "@nahhasio/api-contract";
-import type {
-  ApiClient,
-  LoginRequest,
-  WatchedRequest,
-  ServerRename,
-  ProviderUpdate,
-} from "@nahhasio/api-contract";
+import type { ApiClient, LoginRequest, WatchedRequest, ServerRename } from "@nahhasio/api-contract";
 export type WatchedSelection = Pick<WatchedRequest, "isPlayed"> & {
   installmentId?: string | null;
   episodeId?: string | null;
@@ -291,8 +283,6 @@ export const gateway = {
     ServerSettingsSchema.parse(await call("serverSettings", {}, signal)),
   renameServer: async (input: ServerRename) =>
     ServerIdentitySchema.parse(await call("renameServer", ServerRenameSchema.parse(input))),
-  updateProviders: async (input: ProviderUpdate) =>
-    ProviderSettingsSchema.parse(await call("updateProviders", ProviderUpdateSchema.parse(input))),
   adminAccess: async (signal?: AbortSignal) =>
     UserSchema.parse(await call("adminAccess", {}, signal)),
   updateProfile: async (input: z.input<typeof ProfileUpdateSchema>) =>

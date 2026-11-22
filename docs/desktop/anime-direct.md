@@ -15,7 +15,7 @@ Keep RTL alignment and keyboard selection. Use the video space as a practical so
 
     [Torrents (default)] [Video servers] [Open video link] [⋯]
     [search / sort]                                    [result count]
-    [Torrentio / Comet] [quality] [language]
+    [provider] [quality] [language]
     [compact source rows: quality, release, size, peers, languages, Play]
 
 Video Servers shows all eligible embedded providers and groups alternative audio variants. The

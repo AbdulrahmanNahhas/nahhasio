@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+unset TMDB_API_READ_ACCESS_KEY FANART_API_KEY OPENSUBTITLES_API_KEY \
+  OPENSUBTITLES_USERNAME OPENSUBTITLES_PASSWORD
 export NAHHASIO_SERVER_URL=http://127.0.0.1:23103/
 device_root="$project_root/data/development-local/demo/device"
 export XDG_STATE_HOME="$device_root/state"

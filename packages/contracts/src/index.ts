@@ -20,7 +20,6 @@ import {
 
 export * from "./admin-catalog";
 export * from "./admin-field-registry";
-export * from "./playback";
 export {
   awardResultSchema,
   installmentKindSchema,

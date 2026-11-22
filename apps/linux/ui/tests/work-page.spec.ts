@@ -604,7 +604,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                     episodeId:
                       request.payload.episodeId ?? fixtureWork.installments[0]?.episodes[0]?.id,
                   };
-                  failure("تعذّر الوصول إلى Torrentio. أعد المحاولة لاحقًا.");
+                  failure("تعذّر الوصول إلى Custom. أعد المحاولة لاحقًا.");
                   return;
                 case "workComment": {
                   const data = request.payload.data;
@@ -1727,7 +1727,7 @@ for (const width of [390, 860, 1440]) {
     await sources.getByRole("tab", { name: "خوادم الفيديو", exact: true }).click();
     await expect(sources.getByRole("button", { name: "مصدر الفيديو", exact: true })).toBeVisible();
     await sources.getByRole("tab", { name: "تورنت", exact: true }).click();
-    await expect(sources).toContainText("تعذّر الوصول إلى Torrentio");
+    await expect(sources).toContainText("تعذّر الوصول إلى Custom");
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
     const composer = watch.getByLabel("اكتب تعليقًا للعائلة", { exact: true });
     await composer.fill("تعليق الاختبار بدون تشغيل");
@@ -1794,10 +1794,20 @@ for (const width of [390, 860, 1440]) {
         .toBeLessThanOrEqual(1);
     } else {
       await expect(watch.getByRole("button", { name: "العودة", exact: true })).toHaveCount(0);
-      const details = watch.getByLabel("تفاصيل المشاهدة", { exact: true });
-      await details.getByRole("button", { name: "إخفاء القائمة الجانبية" }).click();
+      const actions = watch.getByLabel("أدوات العمل", { exact: true });
+      const hideSidebar = actions.getByRole("button", {
+        name: "إخفاء القائمة الجانبية",
+        exact: true,
+      });
+      await expect(hideSidebar).toHaveAttribute("aria-expanded", "true");
+      await hideSidebar.click();
       await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
-      await details.getByRole("button", { name: "إظهار القائمة الجانبية" }).click();
+      const showSidebar = actions.getByRole("button", {
+        name: "إظهار القائمة الجانبية",
+        exact: true,
+      });
+      await expect(showSidebar).toHaveAttribute("aria-expanded", "false");
+      await showSidebar.click();
       await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
     }
     const selector = watch
@@ -1854,13 +1864,11 @@ test("watch sidebar combines episode states and filters watched episodes in RTL"
   await expect(sidebar.getByRole("status")).toHaveText("8 من 9");
   await all.click();
   await expect(active).toBeVisible();
-  await expect(watch.getByRole("region", { name: "تقييم نحّاسيو", exact: true })).toContainText(
-    "تقييم الموسم",
-  );
-  await expect(watch.getByRole("link", { name: "تفاصيل التقييم", exact: true })).toHaveAttribute(
-    "href",
-    `#/titles/${workId}?tab=scores`,
-  );
+  const rating = watch
+    .getByLabel("تفاصيل المشاهدة", { exact: true })
+    .getByRole("link", { name: "تفاصيل التقييم", exact: true });
+  await expect(rating).toHaveText(/^الموسم\s*8\s*العمل\s*8$/);
+  await expect(rating).toHaveAttribute("href", `#/titles/${workId}?tab=scores`);
   await expect(watch.getByRole("region", { name: "تنبيه المحتوى", exact: true })).toContainText(
     "متوسط",
   );
@@ -1917,7 +1925,7 @@ for (const width of [520, 1440]) {
       .getByRole("tab", { name: "تورنت", exact: true })
       .click();
     await expect(watch.getByLabel("مصادر الفيديو", { exact: true })).toContainText(
-      "تعذّر الوصول إلى Torrentio",
+      "تعذّر الوصول إلى Custom",
     );
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toHaveCount(0);
     const theater = watch.getByRole("button", { name: "إخفاء القائمة الجانبية", exact: true });

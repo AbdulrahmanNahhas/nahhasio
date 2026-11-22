@@ -47,6 +47,14 @@ digest; do not invent those values. PostgreSQL major upgrades are separate maint
 Distribute `packaging/server/install.py`, the `packaging/operations` worker and release public key
 with the release. `bin/nahhasio-server-install` is the source-checkout convenience wrapper.
 
+## Provider credentials
+
+Set optional TMDB, Fanart and OpenSubtitles credentials in the installed private
+`config/server.env` file. The server Quadlet already loads it. Restart the server service
+after changing values. See [private provider configuration](../../docs/operations/runbook.md#private-provider-configuration)
+for the variable names and precedence. The native app reads custom torrent endpoint
+settings from its own environment.
+
 ## Prepare an installation
 
 Run these as the service account. Replace the uppercase placeholders with verified release

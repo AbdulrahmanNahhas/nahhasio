@@ -67,7 +67,6 @@ impl ServerSession {
             | "serverOverview"
             | "serverSettings"
             | "renameServer"
-            | "updateProviders"
             | "serverOperations"
             | "requestServerOperation" => self.execute_admin(request).await,
             "homeMedia" | "adminMedia" | "adminMediaCoverage" | "adminMediaUnits"

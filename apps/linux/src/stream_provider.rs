@@ -1,5 +1,5 @@
 //! Fixed embed adapters and catalog-derived capabilities. No caller-supplied URLs.
-use crate::{bridge::Error, media::ResolvedTarget, torrentio::Kind};
+use crate::{bridge::Error, media::ResolvedTarget, torrent_addon::Kind};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

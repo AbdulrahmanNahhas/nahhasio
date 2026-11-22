@@ -1,4 +1,4 @@
-//! Explicit device-side OpenSubtitles REST operations; credentials never reach Nahhasio's server.
+//! Compatibility for existing device connections and the native subtitle cache.
 use crate::{
     bridge::Error,
     credential_store::{Sealed, Vault},
@@ -27,14 +27,8 @@ struct Credentials {
     key: String,
     token: String,
     base: String,
-    username: String,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Login {
-    api_key: String,
-    username: String,
-    password: String,
+    #[serde(rename = "username")]
+    _username: String,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -111,7 +105,7 @@ async fn bounded(mut response: Response) -> Result<Vec<u8>, Error> {
         StatusCode::UNAUTHORIZED => {
             return Err(Error::new(
                 "subtitle_expired",
-                "انتهت جلسة OpenSubtitles أو رُفضت بيانات الدخول. أعد الربط من الإعدادات.",
+                "انتهت جلسة OpenSubtitles المحلية. اطلب من المدير إعداد المصدر على الخادم.",
             ));
         }
         StatusCode::FORBIDDEN => {
@@ -171,7 +165,7 @@ impl Service {
             private_state::read::<Sealed>(root, &credentials_name(scope))?.ok_or_else(|| {
                 Error::new(
                     "subtitle_disconnected",
-                    "اربط حساب OpenSubtitles من إعدادات الترجمة أولًا.",
+                    "لم يهيّئ مدير الخادم اتصال OpenSubtitles.",
                 )
             })?;
         self.vault
@@ -257,6 +251,12 @@ impl Service {
     pub fn forget(root: &Path, scope: &str) -> Result<(), Error> {
         private_state::remove(root, &credentials_name(scope))
     }
+    pub fn status(&self, root: &Path, scope: &str) -> Result<Value, Error> {
+        let configured = private_state::read::<Sealed>(root, &credentials_name(scope))?.is_some();
+        Ok(
+            json!({"configured":configured,"downloads":configured,"source":if configured {"device"} else {"none"}}),
+        )
+    }
     pub async fn execute(
         &self,
         root: &Path,
@@ -265,82 +265,6 @@ impl Service {
         payload: Value,
     ) -> Result<Value, Error> {
         match command {
-            "opensubtitles.status" => {
-                let _: serde_json::Map<String, Value> = parse(payload)?;
-                let configured =
-                    private_state::read::<Sealed>(root, &credentials_name(scope))?.is_some();
-                Ok(json!({"connected":configured,"secureStorage":self.vault.available().await}))
-            }
-            "opensubtitles.disconnect" => {
-                let _: serde_json::Map<String, Value> = parse(payload)?;
-                Self::forget(root, scope)?;
-                Ok(json!({"ok":true}))
-            }
-            "opensubtitles.login" => {
-                let input: Login = parse(payload)?;
-                if input.api_key.trim().is_empty()
-                    || input.api_key.len() > 512
-                    || input.username.len() > 200
-                    || input.username.trim().is_empty() != input.password.is_empty()
-                    || input.password.len() > 1024
-                {
-                    return Err(invalid());
-                }
-                if !self.vault.available().await {
-                    return Err(Error::new(
-                        "secure_storage",
-                        "مخزن الأسرار الآمن غير متاح. لا يمكن حفظ اتصال OpenSubtitles على هذا الجهاز.",
-                    ));
-                }
-                let mut credentials = Credentials {
-                    key: input.api_key.trim().into(),
-                    token: String::new(),
-                    base: API.into(),
-                    username: input.username.trim().into(),
-                };
-                if credentials.username.is_empty() {
-                    self.api(&credentials, Method::GET, "infos/formats", &[], None)
-                        .await?;
-                } else {
-                    let result = self
-                        .api(
-                            &credentials,
-                            Method::POST,
-                            "login",
-                            &[],
-                            Some(
-                                json!({"username":credentials.username,"password":input.password}),
-                            ),
-                        )
-                        .await?;
-                    credentials.token = result["token"]
-                        .as_str()
-                        .filter(|token| !token.is_empty() && token.len() <= 8192)
-                        .ok_or_else(unavailable)?
-                        .into();
-                    credentials.base = api_base(result["base_url"].as_str().unwrap_or(API))?;
-                }
-                let sealed = self
-                    .vault
-                    .seal(&format!("opensubtitles:{scope}"), &credentials)
-                    .await?;
-                private_state::write(root, &credentials_name(scope), &sealed)?;
-                Ok(json!({"connected":true,"secureStorage":true}))
-            }
-            "opensubtitles.test" => {
-                let credentials = self.credentials(root, scope).await?;
-                if credentials.token.is_empty() {
-                    self.api(&credentials, Method::GET, "infos/formats", &[], None)
-                        .await?;
-                    return Ok(json!({"username":"مفتاح API فقط","remaining":null,"limit":null}));
-                }
-                let result = self
-                    .api(&credentials, Method::GET, "infos/user", &[], None)
-                    .await?;
-                Ok(
-                    json!({"username":credentials.username,"remaining":result["data"]["remaining_downloads"].as_u64(),"limit":result["data"]["allowed_downloads"].as_u64()}),
-                )
-            }
             "opensubtitles.search" => {
                 let search: Search = parse(payload)?;
                 if search.query.trim().is_empty()
@@ -457,7 +381,7 @@ impl Service {
         if credentials.token.is_empty() {
             return Err(Error::new(
                 "subtitle_login_required",
-                "البحث متاح بمفتاح API؛ تنزيل الترجمة يتطلب ربط اسم المستخدم وكلمة المرور من الإعدادات.",
+                "يتطلب تنزيل الترجمة حساب OpenSubtitles مهيّأ على الخادم.",
             ));
         }
         let result = self
@@ -471,45 +395,49 @@ impl Service {
             .await?;
         let url = download_url(result["link"].as_str().ok_or_else(unavailable)?)?;
         let bytes = self.download_bytes(url).await?;
-        validate_subtitle(&bytes)?;
-        let cache = root.join("subtitle-cache-v1").join(scope);
-        std::fs::create_dir_all(&cache).map_err(|_| unavailable())?;
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-        std::fs::set_permissions(&cache, std::fs::Permissions::from_mode(0o700))
-            .map_err(|_| unavailable())?;
-        let mut files = Vec::new();
-        for entry in std::fs::read_dir(&cache).map_err(|_| unavailable())? {
-            let entry = entry.map_err(|_| unavailable())?;
-            if entry.file_type().map_err(|_| unavailable())?.is_file()
-                && entry.path().extension().is_some_and(|ext| ext == "srt")
-            {
-                files.push((
-                    entry
-                        .metadata()
-                        .and_then(|m| m.modified())
-                        .map_err(|_| unavailable())?,
-                    entry.path(),
-                ));
-            }
-        }
-        files.sort_by_key(|file| file.0);
-        let remove = files.len().saturating_sub(31);
-        for (_, file) in files.into_iter().take(remove) {
-            std::fs::remove_file(file).map_err(|_| unavailable())?;
-        }
-        let mut nonce = [0; 16];
-        getrandom::fill(&mut nonce).map_err(|_| unavailable())?;
-        let path = cache.join(format!("{}.srt", hex::encode(nonce)));
-        use std::io::Write;
-        std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&path)
-            .and_then(|mut file| file.write_all(&bytes))
-            .map_err(|_| unavailable())?;
+        let path = cache_subtitle(root, scope, &bytes)?;
         Ok((path, result["remaining"].as_u64()))
     }
+}
+pub fn cache_subtitle(root: &Path, scope: &str, bytes: &[u8]) -> Result<PathBuf, Error> {
+    validate_subtitle(bytes)?;
+    let cache = root.join("subtitle-cache-v1").join(scope);
+    std::fs::create_dir_all(&cache).map_err(|_| unavailable())?;
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    std::fs::set_permissions(&cache, std::fs::Permissions::from_mode(0o700))
+        .map_err(|_| unavailable())?;
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(&cache).map_err(|_| unavailable())? {
+        let entry = entry.map_err(|_| unavailable())?;
+        if entry.file_type().map_err(|_| unavailable())?.is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "srt")
+        {
+            files.push((
+                entry
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .map_err(|_| unavailable())?,
+                entry.path(),
+            ));
+        }
+    }
+    files.sort_by_key(|file| file.0);
+    let remove = files.len().saturating_sub(31);
+    for (_, file) in files.into_iter().take(remove) {
+        std::fs::remove_file(file).map_err(|_| unavailable())?;
+    }
+    let mut nonce = [0; 16];
+    getrandom::fill(&mut nonce).map_err(|_| unavailable())?;
+    let path = cache.join(format!("{}.srt", hex::encode(nonce)));
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .and_then(|mut file| file.write_all(bytes))
+        .map_err(|_| unavailable())?;
+    Ok(path)
 }
 fn validate_subtitle(bytes: &[u8]) -> Result<(), Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| {
@@ -598,7 +526,7 @@ mod tests {
         assert!(!value.to_string().contains("hidden"));
     }
     #[tokio::test]
-    async fn explicit_login_search_download_are_encrypted_and_scoped() {
+    async fn existing_encrypted_connection_can_search_and_download() {
         use axum::{
             Json, Router,
             http::HeaderMap,
@@ -610,11 +538,6 @@ mod tests {
         };
         let calls = Arc::new(AtomicUsize::new(0));
         let app=Router::new()
-            .route("/login",post(|headers:HeaderMap,Json(body):Json<Value>|async move {
-                assert_eq!(headers["api-key"],"synthetic-key");
-                assert_eq!(body["username"],"fixture");
-                Json(json!({"token":"synthetic-token","base_url":"vip-api.opensubtitles.com"}))
-            }))
             .route("/subtitles",get({let calls=calls.clone(); move |headers:HeaderMap|{let calls=calls.clone(); async move {
                 assert_eq!(headers["authorization"],"Bearer synthetic-token");calls.fetch_add(1,Ordering::SeqCst);
                 Json(json!({"data":[{"attributes":{"release":"Fixture 1080p","language":"ar","files":[{"file_id":42,"file_name":"fixture.srt"}]}}],"page":1,"total_pages":1}))
@@ -643,12 +566,18 @@ mod tests {
         getrandom::fill(&mut nonce).unwrap();
         let root =
             std::env::temp_dir().join(format!("nahhasio-subtitles-test-{}", hex::encode(nonce)));
-        service.execute(&root,"account-a","opensubtitles.login",json!({"apiKey":"synthetic-key","username":"fixture","password":"synthetic-password"})).await.unwrap();
-        assert_eq!(
-            calls.load(Ordering::SeqCst),
-            0,
-            "login must not search or consume downloads"
-        );
+        let credentials = Credentials {
+            key: "synthetic-key".into(),
+            token: "synthetic-token".into(),
+            base: API.into(),
+            _username: "fixture".into(),
+        };
+        let sealed = service
+            .vault
+            .seal("opensubtitles:account-a", &credentials)
+            .await
+            .unwrap();
+        private_state::write(&root, &credentials_name("account-a"), &sealed).unwrap();
         let stored = std::fs::read_to_string(root.join(credentials_name("account-a"))).unwrap();
         assert!(!stored.contains("synthetic"));
         assert!(service.credentials(&root, "account-b").await.is_err());
