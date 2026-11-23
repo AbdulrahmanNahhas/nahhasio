@@ -6,7 +6,7 @@ import {
   Home,
   Orbit,
   Users,
-  Film,
+  Music2,
 } from "lucide-react";
 import { Download, Settings, ShieldCheck, UserRound } from "lucide-react";
 
@@ -40,9 +40,9 @@ export const libraryPages = [
   },
   {
     path: "trailers",
-    label: "الإعلانات التشويقية",
-    description: "شاهد إعلانات الأعمال على YouTube",
-    icon: Film,
+    label: "الشارات والإعلانات التشويقية",
+    description: "الشارات وإعلانات الأعمال المسجّلة على YouTube",
+    icon: Music2,
   },
   {
     path: "studios",

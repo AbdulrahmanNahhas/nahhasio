@@ -46,13 +46,13 @@ for (const width of [360, 1440]) {
       ["الاستوديوهات", "الاستوديوهات"],
       ["الحلقات", "الحلقات"],
       ["التقويم", "تقويم المكتبة"],
-      ["الإعلانات التشويقية", "الإعلانات التشويقية"],
+      ["الشارات والإعلانات التشويقية", "الشارات والإعلانات التشويقية"],
     ];
     for (const [label, heading] of destinations) {
       const catalogPath =
         label === "الحلقات"
           ? "/__development_api/v1/catalog/episodes"
-          : label === "الإعلانات التشويقية"
+          : label === "الشارات والإعلانات التشويقية"
             ? "/__development_api/v1/catalog/trailers"
             : null;
       const catalogResponse = catalogPath

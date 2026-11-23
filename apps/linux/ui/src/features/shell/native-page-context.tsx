@@ -14,7 +14,7 @@ const pageTitles = {
   planets: "الكواكب",
   episodes: "الحلقات",
   watch: "المشاهدة",
-  trailers: "الإعلانات التشويقية",
+  trailers: "الشارات والإعلانات التشويقية",
   studios: "الاستوديوهات",
   people: "الصنّاع",
   downloads: "مكتبة الجهاز",

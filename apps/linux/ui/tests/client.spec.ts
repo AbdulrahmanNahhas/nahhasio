@@ -190,6 +190,10 @@ test.beforeEach(async ({ page }) => {
                   signedIn = false;
                   result = null;
                   break;
+                case "episodes":
+                case "trailers":
+                  result = { items: [], total: 0, page: 1, pageSize: 24 };
+                  break;
                 case "home":
                   result = {
                     resume: sessionStorage.getItem("fixture-home-resume")
@@ -1524,6 +1528,14 @@ for (const width of [480, 1440]) {
       await expect(page.getByRole("heading", { name: item.name, exact: true })).toBeVisible();
       await page.getByRole("link", { name: item.back, exact: true }).click();
       await expect(page.getByRole("region", { name: item.page })).toBeVisible();
+      if (item.label !== "الكواكب") {
+        const display = page.getByRole("button", { name: `خيارات عرض ${item.label}` });
+        await display.click();
+        await expect(page.getByRole("switch", { name: "صور مربعة" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "بطاقات متوسطة، 4 في الصف" })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(display).toBeFocused();
+      }
       if (item.label === "الصنّاع") {
         await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toBeVisible();
         await page.getByRole("combobox", { name: "توفر صورة الصانع" }).click();
@@ -1548,6 +1560,50 @@ for (const width of [480, 1440]) {
       }
       expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(width);
     }
+  });
+}
+
+for (const width of [480, 1440]) {
+  test(`catalog header alignment ${width}: titles and search share the same bounds`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await login(page);
+    const routes = [
+      ["browse", "تصفّح المكتبة", "ابحث في النتائج"],
+      ["planets", "الكواكب", "ابحث في الكواكب"],
+      ["episodes", "الحلقات", "البحث باسم العمل أو الحلقة أو الفيلم"],
+      ["trailers", "الشارات والإعلانات التشويقية", "البحث عن مقطع أو عمل بالعربية أو الإنجليزية"],
+      ["people", "الصنّاع", "ابحث في الصنّاع"],
+      ["studios", "الاستوديوهات", "ابحث في الاستوديوهات"],
+    ];
+    const bounds = [];
+    for (const [route, title, label] of routes) {
+      await page.evaluate((path) => {
+        window.location.hash = `/${path}`;
+      }, route);
+      const heading = page.getByRole("heading", { name: title, exact: true, level: 1 });
+      const search = page.getByRole("textbox", { name: label, exact: true });
+      await expect(heading).toBeVisible();
+      await expect(search).toBeVisible();
+      const header = await heading.locator("xpath=ancestor::header").boundingBox();
+      const searchGroup = await search
+        .locator("xpath=ancestor::*[@data-slot='input-group']")
+        .boundingBox();
+      expect(header).not.toBeNull();
+      expect(searchGroup).not.toBeNull();
+      if (!header || !searchGroup) throw new Error("Catalog heading or search has no bounding box");
+      bounds.push([
+        Math.round(header.x),
+        Math.round(header.y),
+        Math.round(header.width),
+        Math.round(searchGroup.x),
+        Math.round(searchGroup.y),
+        Math.round(searchGroup.width),
+        Math.round(searchGroup.height),
+      ]);
+    }
+    for (const measurement of bounds) expect(measurement).toEqual(bounds[0]);
   });
 }
 
@@ -1916,7 +1972,7 @@ test("quick search desktop: pages, content, keyboard selection and private opt-i
 });
 
 for (const width of [360, 1440]) {
-  test(`trailers redesign ${width}: featured video, filters, links and empty recovery`, async ({
+  test(`trailers redesign ${width}: themes, grid and table, including older servers`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -1927,6 +1983,17 @@ for (const width of [360, 1440]) {
       handler.postMessage = (message: string) => {
         const request = JSON.parse(message);
         if (request.command === "trailers") {
+          if (request.payload.media && sessionStorage.getItem("fixture-legacy-trailers")) {
+            queueMicrotask(() =>
+              window["__nahhasioReply"]?.({
+                id: request.id,
+                ok: false,
+                error: { code: "bad_request", message: "Unknown trailer media filter" },
+              }),
+            );
+            return;
+          }
+
           const entries = Array.from({ length: 3 }, (_, index) => ({
             work: {
               ...fixture,
@@ -1936,48 +2003,121 @@ for (const width of [360, 1440]) {
             trailer: {
               id: `00000000-0000-4000-8000-${String(index + 90).padStart(12, "0")}`,
               youtubeVideoId: `video${index}`,
-              title: `الإعلان الرسمي ${index + 1}`,
+              title: index === 1 ? "الإعلان الرسمي" : `موسيقى حكاية ${index + 1}`,
               language: "ar",
               isPrimary: index === 0,
               position: index,
             },
           })).filter(
             (entry) =>
+              (!request.payload.media ||
+                (request.payload.media === "music") === entry.trailer.title.startsWith("موسيقى")) &&
               (!request.payload.format || request.payload.format === entry.work.format) &&
               (!request.payload.q || entry.work.titleAr.includes(request.payload.q)),
           );
-          const result = { items: entries, total: entries.length, page: 1, pageSize: 24 };
+          const legacy = Boolean(sessionStorage.getItem("fixture-legacy-trailers"));
+          const pageNumber = request.payload.page ?? 1;
+          const pageSize = legacy ? 1 : 24;
+          const ordered = legacy
+            ? entries.toSorted(
+                (a, b) =>
+                  Number(a.work.format === "animated") - Number(b.work.format === "animated"),
+              )
+            : entries;
+          const result = {
+            items: ordered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+            total: entries.length,
+            page: pageNumber,
+            pageSize,
+          };
           queueMicrotask(() => window["__nahhasioReply"]?.({ id: request.id, ok: true, result }));
         } else original(message);
       };
     }, work);
     await login(page);
-    await openPublicPage(page, "الإعلانات التشويقية");
-    const featured = page.getByRole("region", { name: "الإعلان البارز: حكاية 1" });
-    await expect(featured).toBeVisible();
-    await expect(
-      page.getByRole("list", { name: "قائمة الإعلانات" }).getByRole("listitem"),
-    ).toHaveCount(2);
-    await expect(featured.getByRole("link", { name: "شاهد الإعلان", exact: true })).toHaveAttribute(
+    await openPublicPage(page, "الشارات والإعلانات التشويقية");
+    const categoryLabel = "نوع المقاطع";
+    const choose = async (label: string, name: string) => {
+      if (width === 360) {
+        await page.getByRole("combobox", { name: label }).click();
+        await page.getByRole("option", { name, exact: true }).click();
+      } else {
+        await page
+          .getByRole("group", { name: label })
+          .getByRole("button", { name, exact: true })
+          .click();
+      }
+    };
+    const expectCategory = async (name: string) => {
+      if (width === 360) {
+        await expect(page.getByRole("combobox", { name: categoryLabel })).toContainText(name);
+      } else {
+        const category = page.getByRole("group", { name: categoryLabel });
+        await expect(category.getByRole("button", { name, exact: true })).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+      }
+    };
+    const tracks = page.getByRole("list", { name: "قائمة المقاطع" });
+    await expectCategory("الشارات");
+    await expect(tracks.getByRole("listitem")).toHaveCount(2);
+    expect(
+      await tracks.getByRole("listitem").evaluateAll((cards) => {
+        const [first, second] = cards.map((card) => card.getBoundingClientRect());
+        return first.top === second.top && first.left !== second.left;
+      }),
+    ).toBe(true);
+    const cover = tracks.getByRole("listitem").first().locator("a > span").first();
+    await expect(cover).toHaveCSS("aspect-ratio", "1 / 1");
+    const display = page.getByRole("group", { name: "خيارات عرض المقاطع" });
+    await display.getByRole("button", { name: "جدول", exact: true }).click();
+    await expect(page.getByRole("table", { name: "جدول المقاطع" }).getByRole("row")).toHaveCount(3);
+    const sizes = display.getByRole("group", { name: "حجم المقاطع" });
+    await sizes.getByRole("button", { name: "كبير", exact: true }).click();
+    await expect(page).toHaveURL(/size=large/);
+    await display.getByRole("button", { name: "شبكة", exact: true }).click();
+    await expect(tracks.getByRole("listitem")).toHaveCount(2);
+    await expect(tracks.getByRole("link", { name: /تشغيل موسيقى حكاية 1/ })).toHaveAttribute(
       "href",
       "https://www.youtube.com/watch?v=video0",
     );
-    await expect(featured.getByRole("link", { name: "تفاصيل العمل", exact: true })).toHaveAttribute(
+    await expect(tracks.getByRole("link", { name: "تفاصيل حكاية 1" })).toHaveAttribute(
       "href",
       `#/titles/${work.id}`,
     );
-    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-      await page.screenshot({ path: `../../../data/previews/trailers-redesign-${width}.png` });
-    await page.getByRole("button", { name: "تمثيل حي", exact: true }).click();
-    await expect(featured).toHaveCount(0);
-    await expect(page.getByRole("listitem")).toHaveCount(1);
+    const sorting = page.getByRole("group", { name: "ترتيب المقاطع" });
+    await sorting.getByRole("button", { name: "اسم العمل" }).click();
+    await expect(page).toHaveURL(/sort=title/);
+
+    await choose(categoryLabel, "الإعلانات التشويقية");
+    await expect(page).toHaveURL(/media=trailer/);
+    await expect(tracks.getByRole("listitem")).toHaveCount(1);
+    await choose("نوع الأعمال", "تمثيل حي");
     await expect(page).toHaveURL(/format=live-action/);
+    await expect(tracks.getByRole("link", { name: /تشغيل الإعلان الرسمي/ })).toBeVisible();
     await page
-      .getByRole("textbox", { name: "البحث عن إعلان أو عمل بالعربية أو الإنجليزية" })
+      .getByRole("textbox", { name: "البحث عن مقطع أو عمل بالعربية أو الإنجليزية" })
       .fill("لا يوجد");
-    await expect(page.getByText("لا توجد إعلانات مطابقة", { exact: true })).toBeVisible();
+    await expect(page.getByText("لا توجد مقاطع مطابقة", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "مسح الفلاتر", exact: true }).click();
-    await expect(featured).toBeVisible();
+    await expectCategory("الإعلانات التشويقية");
+    await expect(tracks.getByRole("listitem")).toHaveCount(1);
+    await choose(categoryLabel, "الكل");
+    await expect(tracks.getByRole("listitem")).toHaveCount(3);
+    await page.evaluate(() => sessionStorage.setItem("fixture-legacy-trailers", "1"));
+    await page
+      .getByRole("textbox", { name: "البحث عن مقطع أو عمل بالعربية أو الإنجليزية" })
+      .fill("حكاية");
+    await choose(categoryLabel, "الشارات");
+    await expectCategory("الشارات");
+    await expect(tracks.getByRole("listitem")).toHaveCount(2);
+    await expect(tracks.getByRole("link", { name: /الإعلان الرسمي/ })).toHaveCount(0);
+    await choose(categoryLabel, "الإعلانات التشويقية");
+    await expectCategory("الإعلانات التشويقية");
+    await expect(tracks.getByRole("listitem")).toHaveCount(1);
+    await expect(tracks.getByRole("link", { name: /تشغيل الإعلان الرسمي/ })).toBeVisible();
+
     await expect(page.getByRole("alert")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
