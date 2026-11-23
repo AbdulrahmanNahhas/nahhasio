@@ -47,12 +47,11 @@ export function NativePageContext() {
   }, [title]);
   useEffect(() => {
     const home = () => navigate("/home");
-    const search = () => openSearch(true);
     window.addEventListener("nahhasio:home", home);
-    window.addEventListener("nahhasio:search", search);
+    window.addEventListener("nahhasio:search", openSearch);
     return () => {
       window.removeEventListener("nahhasio:home", home);
-      window.removeEventListener("nahhasio:search", search);
+      window.removeEventListener("nahhasio:search", openSearch);
     };
   }, []);
   return null;

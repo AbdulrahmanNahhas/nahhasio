@@ -17,7 +17,7 @@ import { QuickSearch } from "../search/quick-search";
 import { BottomNavigation } from "./bottom-navigation";
 import { LibraryNavigation } from "./library-navigation";
 import { NativePageContext } from "./native-page-context";
-import { useViewerRoute } from "./navigation";
+import { navigate, replaceParams, useViewerRoute } from "./navigation";
 const scrollPositions = new Map<string, number>();
 export function ViewerShell({ user }: { user: User }) {
   const route = useViewerRoute();
@@ -95,6 +95,7 @@ export function ViewerShell({ user }: { user: User }) {
     navigationOpen.current = false;
   }, [resolvedPath]);
   const parts = route.path.split("/").slice(1);
+  const linkedSearch = route.path === "/search";
   const adminArea = parts[0] === "admin" && user.isAdmin;
   const home = parts[0] === "home" || !parts[0];
   const ContentRegion = adminArea ? "div" : "main";
@@ -113,17 +114,9 @@ export function ViewerShell({ user }: { user: User }) {
           variant="ghost"
           type="button"
           className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-20 focus:rounded-lg focus:bg-primary focus:px-5 focus:py-3 focus:text-primary-foreground"
-          onClick={() =>
-            window.dispatchEvent(
-              new Event(parts[0] === "search" ? "nahhasio:focus-search" : "nahhasio:focus-content"),
-            )
-          }
+          onClick={() => window.dispatchEvent(new Event("nahhasio:focus-content"))}
         >
-          {home
-            ? "الانتقال إلى العرض الرئيسي"
-            : parts[0] === "search"
-              ? "الانتقال إلى البحث"
-              : "الانتقال إلى المحتوى"}
+          {home ? "الانتقال إلى العرض الرئيسي" : "الانتقال إلى المحتوى"}
         </Button>
         <Outlet />
       </ContentRegion>
@@ -140,7 +133,16 @@ export function ViewerShell({ user }: { user: User }) {
   return (
     <TooltipProvider delay={250}>
       <NativePageContext />
-      <QuickSearch open={quickSearch} onOpenChange={setQuickSearch} isAdmin={user.isAdmin} />
+      <QuickSearch
+        open={quickSearch || linkedSearch}
+        linkQuery={linkedSearch ? route.params.toString() : undefined}
+        onOpenChange={(open, destination) => {
+          setQuickSearch(open);
+          if (destination) navigate(destination.slice(1));
+          else if (linkedSearch && !open) replaceParams("/home", new URLSearchParams());
+        }}
+        isAdmin={user.isAdmin}
+      />
       {adminArea ? (
         <SidebarProvider className={"h-dvh min-h-0 overflow-hidden"}>
           <AdminNavigation />

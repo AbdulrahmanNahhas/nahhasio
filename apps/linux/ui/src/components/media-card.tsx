@@ -6,7 +6,7 @@ import type {
 } from "@nahhasio/api-contract";
 import { cn } from "cn";
 import { CalendarDays, Film, Star, Tv } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { optionLabel } from "../features/catalog/filter-model";
 import { workLink } from "../features/shell/navigation";
@@ -14,15 +14,7 @@ import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
 import { CatalogStateBadge } from "./catalog-state-badge";
 import { Badge } from "./ui/badge";
-
-const hoverTilts = [
-  "motion-safe:group-hover/card:-rotate-2 motion-safe:group-focus-visible/card:-rotate-2",
-  "motion-safe:group-hover/card:-rotate-1 motion-safe:group-focus-visible/card:-rotate-1",
-  "motion-safe:group-hover/card:-rotate-0.5 motion-safe:group-focus-visible/card:-rotate-0.5",
-  "motion-safe:group-hover/card:rotate-0.5 motion-safe:group-focus-visible/card:rotate-0.5",
-  "motion-safe:group-hover/card:rotate-1 motion-safe:group-focus-visible/card:rotate-1",
-  "motion-safe:group-hover/card:rotate-2 motion-safe:group-focus-visible/card:rotate-2",
-] as const;
+import { useCardTilt } from "./use-card-tilt";
 
 export function ScoreBadge({ score }: { score: ScoreSummary }) {
   return (
@@ -80,7 +72,7 @@ export function MediaCard({
   withinWork?: boolean;
 }) {
   const navigation = useCardNavigation();
-  const [hoverTilt, setHoverTilt] = useState<string>(hoverTilts[0]);
+  const { hoverTilt, chooseTilt } = useCardTilt();
   const parent = entry?.work ?? work;
   const unit = entry?.installment ?? installment;
   if (!parent && !unit) return null;
@@ -207,12 +199,6 @@ export function MediaCard({
       )}
     </div>
   );
-  function chooseTilt() {
-    // Randomize once per interaction, outside React's replayable state updater.
-    const alternatives = hoverTilts.filter((tilt) => tilt !== hoverTilt);
-    setHoverTilt(alternatives[Math.floor(Math.random() * alternatives.length)]);
-  }
-
   return (
     <article
       className="group/media relative min-w-0 snap-start hover:z-10 focus-within:z-10"

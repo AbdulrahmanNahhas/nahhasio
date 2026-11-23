@@ -5,7 +5,6 @@ import {
   Compass,
   Home,
   Orbit,
-  Search,
   Users,
   Film,
 } from "lucide-react";
@@ -15,7 +14,6 @@ import { adminGroups, isAdminSectionAvailable } from "../admin/navigation";
 
 export const libraryPages = [
   { path: "home", label: "الرئيسية", description: "آخر الإضافات ومختارات المكتبة", icon: Home },
-  { path: "search", label: "البحث", description: "ابحث عن عمل أو اسم في المكتبة", icon: Search },
   {
     path: "browse",
     label: "تصفّح المكتبة",

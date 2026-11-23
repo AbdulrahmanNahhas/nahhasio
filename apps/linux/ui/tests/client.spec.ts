@@ -1,6 +1,6 @@
 import type { WorkDetail, WorkSummary } from "@nahhasio/api-contract";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { installArtworkFixture } from "./fixtures/artwork";
 const work: WorkSummary = {
@@ -361,6 +361,32 @@ test.beforeEach(async ({ page }) => {
                         options: [{ value: "fantasy", label: "الخيال", count: 1 }],
                       },
                       {
+                        key: "contributors",
+                        label: "الصنّاع",
+                        options: [
+                          {
+                            value: "fixture-person",
+                            label: "مخرج الخيال",
+                            count: 1,
+                            roles: [{ value: "director", label: "إخراج" }],
+                          },
+                        ],
+                      },
+                      {
+                        key: "studios",
+                        label: "الاستوديوهات",
+                        options: [
+                          {
+                            value: "fixture-studio",
+                            label: "استوديو الخيال",
+                            count: 1,
+                            artworkId: "00000000-0000-4000-8000-000000000032",
+                            roles: [{ value: "production", label: "إنتاج" }],
+                          },
+                          { value: "studio-no-logo", label: "استوديو آخر", count: 5 },
+                        ],
+                      },
+                      {
                         key: "formats",
                         label: "الصيغة",
                         options: [
@@ -452,6 +478,21 @@ test.beforeEach(async ({ page }) => {
                     items = items.filter((item) =>
                       `${item.titleAr} ${item.canonicalTitle}`.includes(request.payload.q),
                     );
+                  if (filters.requireBannerAndLogo) {
+                    const image = {
+                      id: "00000000-0000-4000-8000-000000000081",
+                      url: "/api/v1/artwork/00000000-0000-4000-8000-000000000081",
+                      mimeType: "image/png",
+                      width: 1280,
+                      height: 720,
+                      byteSize: 100,
+                      sha256: "a".repeat(64),
+                      originalFilename: "fixture-banner.png",
+                      focalX: 50,
+                      focalY: 50,
+                    };
+                    items = items.map((item) => ({ ...item, banner: image, logo: image }));
+                  }
                   result = {
                     items: items
                       .slice(
@@ -640,12 +681,16 @@ async function openPublicPage(page: Page, label: string) {
       .getByRole("link", { name: label, exact: true })
       .click();
 }
-async function openSearchPage(page: Page) {
-  if ((page.viewportSize()?.width ?? 1440) < 768) {
-    await page.getByRole("button", { name: "كل الصفحات", exact: true }).click();
-    await page.getByRole("dialog").getByRole("link", { name: "البحث", exact: true }).click();
-  } else await page.getByRole("link", { name: "البحث", exact: true }).click();
+async function openSearch(page: Page) {
+  const name = (page.viewportSize()?.width ?? 1440) < 768 ? "البحث السريع" : "البحث";
+  await page
+    .getByRole("navigation", { name: "التنقل الرئيسي", exact: true })
+    .getByRole("button", { name, exact: true })
+    .click();
+  return page.getByRole("dialog", { name: "البحث السريع", exact: true });
 }
+const searchInput = (dialog: Locator) =>
+  dialog.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
 async function login(page: Page, expectHome = true) {
   const email = page.getByLabel("البريد الإلكتروني", { exact: true });
   const signIn = page.getByRole("button", { name: "الدخول بالبريد الإلكتروني", exact: true });
@@ -822,7 +867,7 @@ for (const width of [480, 640, 1024, 1440])
     await expect(
       (page.viewportSize()?.width ?? 1440) < 768
         ? page.getByRole("button", { name: "البحث السريع", exact: true })
-        : page.getByRole("link", { name: "البحث", exact: true }),
+        : page.getByRole("button", { name: "البحث", exact: true }),
     ).toBeVisible();
     await browse(page);
     await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).click();
@@ -1014,12 +1059,12 @@ test("hero has real metadata, manual selection, pause and a working details acti
     "aria-pressed",
     "true",
   );
-  await page.getByRole("link", { name: "البحث" }).focus();
+  await page.getByRole("button", { name: "البحث" }).focus();
   await page.mouse.move(0, 0);
   await page.clock.fastForward(18000);
   await expect(hero.getByRole("heading", { name: "رحلة أخرى" })).toBeVisible();
   await hero.getByRole("button", { name: "تشغيل التبديل التلقائي" }).click();
-  await page.getByRole("link", { name: "البحث" }).focus();
+  await page.getByRole("button", { name: "البحث" }).focus();
   await page.mouse.move(0, 0);
   await page.clock.fastForward(15001);
   await expect(hero.getByRole("heading", { name: "رحلة في المكتبة" })).toBeVisible();
@@ -1036,7 +1081,7 @@ test("hero has real metadata, manual selection, pause and a working details acti
 
 for (const width of [480, 1440]) {
   test(
-    "sidebar controls " + width + ": search page and keyboard dropdown under packaged CSP",
+    "sidebar controls " + width + ": search dialog and keyboard dropdown under packaged CSP",
     async ({ page }) => {
       const cspErrors: string[] = [];
       page.on("console", (message) => {
@@ -1045,14 +1090,17 @@ for (const width of [480, 1440]) {
       });
       await page.setViewportSize({ width, height: 900 });
       await login(page);
-      await openSearchPage(page);
-      const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
+      const search = await openSearch(page);
+      const input = searchInput(search);
       await expect(input).toBeFocused();
       await input.fill("missing");
-      await expect(page.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
+      await expect(search.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
       await input.fill("رحلة");
-      await expect(page.getByRole("link", { name: /تفاصيل رحلة في المكتبة/ })).toBeVisible();
-      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        search.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(search).toHaveCount(0);
       await browse(page);
       const sort = page.getByRole("combobox", { name: "ترتيب النتائج", exact: true });
       await sort.focus();
@@ -1183,7 +1231,7 @@ for (const width of [480, 1440]) {
     await expect(
       width < 768
         ? rail.getByRole("button", { name: "البحث السريع", exact: true })
-        : rail.getByRole("link", { name: "البحث", exact: true }),
+        : rail.getByRole("button", { name: "البحث", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: width < 768 ? "كل الصفحات" : "الملف والحساب", exact: true }),
@@ -1204,11 +1252,9 @@ for (const width of [480, 1440]) {
     expect(new Set(metrics.tops).size).toBe(1);
     const hero = await page.getByRole("region", { name: "أحدث الأعمال" }).boundingBox();
     expect(hero?.height).toBeLessThan(width < 600 ? 700 : 900);
-    await openSearchPage(page);
-    await expect(page).toHaveURL(/#\/search$/);
-    await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toBeVisible();
-    await page.keyboard.press("Control+k");
-    await expect(page.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" })).toBeFocused();
+    const search = await openSearch(page);
+    await expect(page).toHaveURL(/#\/home$/);
+    await expect(searchInput(search)).toBeFocused();
     await page.keyboard.press("Escape");
     await rail.getByRole("link", { name: "الرئيسية", exact: true }).click();
     await expect(page).toHaveURL(/#\/home$/);
@@ -1227,7 +1273,7 @@ for (const width of [360, 640, 1024, 1440]) {
     await expect(
       width < 768
         ? rail.getByRole("button", { name: "البحث السريع", exact: true })
-        : rail.getByRole("link", { name: "البحث", exact: true }),
+        : rail.getByRole("button", { name: "البحث", exact: true }),
     ).toBeVisible();
     await expect(rail.getByRole("link", { name: "الرئيسية", exact: true })).toHaveAttribute(
       "aria-current",
@@ -1316,7 +1362,7 @@ for (const width of [480, 1440]) {
                     artworkId: null,
                     searchTerms: ["Unpictured Studio"],
                     count: 1,
-                    roles: [{ value: "distributor", label: "الموزّع" }],
+                    roles: [{ value: "animation_studio", label: "استوديو الرسوم المتحركة" }],
                   },
                 ],
               },
@@ -1390,46 +1436,47 @@ for (const width of [480, 1440]) {
       await expect(page.getByRole("region", { name: item.page })).toBeVisible();
       if (item.label === "الصنّاع") {
         await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toBeVisible();
-        await page.getByRole("button", { name: "الصفحة التالية" }).click();
-        await expect(page).toHaveURL(/#\/people\?page=2$/);
-        await expect(page.getByRole("link", { name: /صانع بلا صورة 24/ })).toBeVisible();
-        await expect(page.getByRole("region", { name: "نتائج الصنّاع" })).toBeFocused();
+        await page.getByRole("combobox", { name: "توفر صورة الصانع" }).click();
+        await page.getByRole("option", { name: "بصورة", exact: true }).click();
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toHaveCount(0);
+        await page.getByRole("button", { name: "مسح التصفية" }).click();
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toBeVisible();
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 24/ })).toHaveCount(0);
+        await page.getByRole("button", { name: "عرض المزيد" }).click();
         await page.getByRole("link", { name: /صانع بلا صورة 24/ }).click();
         await page.getByRole("link", { name: item.back, exact: true }).click();
-        await expect(page).toHaveURL(/#\/people\?page=2$/);
-        const sort = page.getByRole("radio", { name: "الأكثر أعمالًا", exact: true });
-        await sort.focus();
-        await sort.press("ArrowLeft");
-        await expect(page.getByRole("radio", { name: "أبجديًا" })).toBeChecked();
-        await expect(page).toHaveURL(/#\/people\?sort=name$/);
+        await expect(page).toHaveURL(/#\/people$/);
+        await expect(page.getByRole("link", { name: /صانع بلا صورة 01/ })).toBeVisible();
       }
       if (item.label === "الاستوديوهات") {
         await expect(page.getByRole("link", { name: /استوديو بلا شعار/ })).toBeVisible();
         await input.fill("Unpictured Studio");
         await expect(page.getByRole("link", { name: /استوديو بلا شعار/ })).toBeVisible();
         await expect(page.getByRole("link", { name: /استوديو تجريبي/ })).toHaveCount(0);
-        await page.getByRole("button", { name: "مسح البحث", exact: true }).click();
+        await page.getByRole("button", { name: "مسح بحث الأسماء", exact: true }).click();
         await expect(input).toHaveValue("");
-        await expect(input).toBeFocused();
       }
       expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(width);
     }
   });
 }
 
-test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ page }) => {
+test("sidebar search: legacy links, Arabic keyboard shortcut and history", async ({ page }) => {
   await login(page);
-  await openSearchPage(page);
-  const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
+  const query = new URLSearchParams({ q: "رحلة", type: "movies" });
+  await page.evaluate((search) => {
+    window.location.hash = `/search?${search}`;
+  }, query.toString());
+  const dialog = page.getByRole("dialog", { name: "البحث السريع", exact: true });
+  const input = searchInput(dialog);
   await expect(input).toBeFocused();
-  await input.fill("رحلة");
-  const result = page.getByRole("link", { name: /تفاصيل رحلة في المكتبة/ });
-  await expect(result).toBeVisible();
-  await page.keyboard.press("Control+k");
-  const command = page.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
-  await expect(command).toBeFocused();
-  await page.keyboard.press("Escape");
   await expect(input).toHaveValue("رحلة");
+  await expect(dialog.getByRole("tab", { name: "الأفلام", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/#\/home$/);
   await page.evaluate(() =>
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -1441,48 +1488,46 @@ test("sidebar search: full page, Ctrl+K, Arabic layout and history", async ({ pa
       }),
     ),
   );
-  await expect(command).toBeFocused();
-  await page.keyboard.press("Escape");
-  await result.click();
+  await expect(input).toBeFocused();
+  await input.fill("رحلة في المكتبة");
+  await dialog.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ }).click();
   await expect(page).toHaveURL(/#\/titles\//);
   await page.goBack();
-  await expect(input).toHaveValue("رحلة");
+  await expect(page).toHaveURL(/#\/home$/);
+  await expect(dialog).toHaveCount(0);
 });
 
 for (const width of [480, 1440]) {
-  test(`search page ${width}: quick types, private opt-in and entity navigation`, async ({
-    page,
-  }) => {
+  test(`search scopes ${width}: works, private opt-in and entities`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await login(page);
-    await openSearchPage(page);
-    const input = page.getByRole("searchbox", { name: "ابحث في المكتبة" });
+    const dialog = await openSearch(page);
+    const input = searchInput(dialog);
+    const scope = (name: string) => dialog.getByRole("tab", { name, exact: true });
+    const selectType = (name: string) => scope(name).click();
     await input.fill("رحلة");
-    const results = page.getByRole("region", { name: "الأعمال المطابقة" });
-    await expect(results.getByRole("link")).toHaveCount(2);
-    await page.getByRole("button", { name: "الأفلام", exact: true }).click();
-    await expect(results.getByRole("link")).toHaveCount(1);
-    await expect(results.getByRole("link", { name: "تفاصيل رحلة في المكتبة" })).toBeVisible();
-    await page.getByRole("button", { name: "المسلسلات", exact: true }).click();
-    await expect(results.getByRole("link", { name: "تفاصيل رحلة أخرى" })).toBeVisible();
-    await page.getByRole("button", { name: "الأجزاء", exact: true }).click();
-    await expect(results.getByRole("link").first()).toHaveAttribute("href", /installment=/);
-    await page.getByRole("button", { name: "الكل", exact: true }).click();
+    await selectType("الأعمال");
+    await expect(dialog.getByRole("option")).toHaveCount(2);
+    await scope("الأعمال").press("ArrowLeft");
+    await expect(scope("الأفلام")).toBeFocused();
+    await expect(scope("الأفلام")).toHaveAttribute("aria-selected", "true");
+    await expect(dialog.getByRole("option")).toHaveCount(1);
+    await expect(dialog.getByRole("status")).toHaveText("1 نتيجة");
+    await expect(
+      dialog.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ }),
+    ).toBeVisible();
+    await selectType("المسلسلات");
+    await expect(dialog.getByRole("option", { name: /رحلة أخرى/ })).toBeVisible();
+    await expect(scope("الأجزاء")).toHaveCount(0);
+    await selectType("الكل");
+    await expect(dialog.getByRole("option")).toHaveCount(2);
     await input.fill("عمل خاص");
-    await expect(page.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
-    await page.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" }).check();
-    await expect(results.getByRole("link", { name: "تفاصيل عمل خاص" })).toBeVisible();
+    await expect(dialog.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
+    await dialog.getByRole("switch", { name: "تضمين الأعمال الخاصة" }).check();
+    await expect(dialog.getByRole("option", { name: /عمل خاص.*رسوم متحركة/ })).toBeVisible();
     await input.fill("الخيال");
-    await page.getByRole("button", { name: "الكواكب", exact: true }).click();
-    await expect(page.getByRole("link", { name: /الخيال/ })).toBeVisible();
-    const metrics = await page.evaluate(() => {
-      const main = document.getElementById("main-content")!;
-      return { width: main.clientWidth, scroll: main.scrollWidth };
-    });
-    expect(metrics.scroll).toBeLessThanOrEqual(metrics.width);
-    if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
-      await page.screenshot({ path: `test-results/search-${width}.png` });
-    await page.getByRole("link", { name: /الخيال/ }).click();
+    await selectType("الكواكب");
+    await dialog.getByRole("option", { name: /الخيال.*الكواكب/ }).click();
     await expect(page).toHaveURL(/#\/planets\/fantasy/);
   });
 }
@@ -1572,7 +1617,7 @@ for (const width of [480, 1440]) {
 }
 
 for (const width of [360, 520]) {
-  test(`quick search mobile ${width}: floating navigation, menu, query handoff and focus`, async ({
+  test(`quick search mobile ${width}: full-screen layout, menu, result and focus`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 820 });
@@ -1585,10 +1630,13 @@ for (const width of [360, 520]) {
     const dialog = page.getByRole("dialog", { name: "البحث السريع", exact: true });
     const input = dialog.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
     await expect(input).toBeFocused();
-    await expect(dialog.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" })).toHaveCount(0);
-    await expect(dialog.getByText("إلى أين تريد الذهاب؟", { exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("region", { name: "أضيف حديثًا" })).toBeVisible();
+    const bounds = await dialog.boundingBox();
+    expect(bounds).toEqual({ x: 0, y: 0, width, height: 820 });
     await input.fill("رحلة");
-    await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
+    await expect(
+      dialog.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ }),
+    ).toBeVisible();
     if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
       await page.screenshot({ path: `../../../data/previews/mobile-search-${width}.png` });
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
@@ -1597,10 +1645,11 @@ for (const width of [360, 520]) {
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();
     await trigger.click();
-    await input.fill("رحلة");
-    await dialog.getByRole("button", { name: "فتح صفحة البحث", exact: true }).click();
-    await expect(page).toHaveURL(/#\/search\?q=/);
-    await expect(page.getByRole("searchbox", { name: "ابحث في المكتبة" })).toHaveValue("رحلة");
+    await input.fill("رحلة في المكتبة");
+    await expect(dialog.getByText("مطابقة تامة", { exact: true }).first()).toBeVisible();
+    await dialog.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ }).click();
+    await expect(page).toHaveURL(/#\/titles\//);
+    await expect(dialog).toHaveCount(0);
     await nav.getByRole("button", { name: "كل الصفحات", exact: true }).click();
     const menu = page.getByRole("dialog", { name: "كل الصفحات", exact: true });
     await expect(menu.getByRole("link", { name: "الصنّاع", exact: true })).toBeVisible();
@@ -1692,16 +1741,76 @@ test("quick search desktop: pages, content, keyboard selection and private opt-i
   const dialog = page.getByRole("dialog", { name: "البحث السريع", exact: true });
   const input = dialog.getByRole("combobox", { name: "ابحث في المكتبة والصفحات" });
   await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute("dir", "rtl");
+  const clear = dialog.getByRole("button", { name: "مسح البحث", exact: true });
+  await expect(clear).toHaveCount(0);
+  const all = dialog.getByRole("tab", { name: "الكل", exact: true });
+  const recent = dialog.getByRole("region", { name: "أضيف حديثًا" }).getByRole("link");
+  await expect(recent).toHaveCount(2);
+  await input.press("ArrowDown");
+  await expect(all).toBeFocused();
+  await all.press("ArrowDown");
+  await expect(recent.first()).toBeFocused();
+  await recent.first().press("ArrowLeft");
+  await expect(recent.nth(1)).toBeFocused();
+  await recent.nth(1).press("ArrowUp");
+  await expect(all).toBeFocused();
+  await all.press("ArrowUp");
+  await expect(input).toBeFocused();
+  await dialog.getByRole("tab", { name: "الأفلام", exact: true }).click();
+  await expect(
+    dialog.getByRole("region", { name: "أفلام صدرت حديثًا" }).getByRole("link"),
+  ).toHaveCount(1);
+  const studiosTab = dialog.getByRole("tab", { name: "الاستوديوهات", exact: true });
+  await studiosTab.click();
+  const studio = dialog
+    .getByRole("region", { name: "الاستوديوهات" })
+    .getByRole("link", { name: /استوديو الخيال/ });
+  await expect(studio).toBeVisible();
+  await expect(studio.locator('[data-slot="studio-artwork"]').first()).toBeVisible();
+  const studios = dialog.getByRole("region", { name: "الاستوديوهات" });
+  await expect(studios.getByRole("link", { name: /استوديو آخر/ })).toHaveCount(0);
+  await expect(studios.getByRole("link", { name: "صفحة الاستوديوهات" })).toHaveAttribute(
+    "href",
+    "#/studios?shape=banner&size=medium&image=with&role=all",
+  );
+  await studiosTab.press("ArrowDown");
+  await expect(studio).toBeFocused();
+  await dialog.getByRole("tab", { name: "الصنّاع", exact: true }).click();
+  await expect(
+    dialog.getByRole("region", { name: "الصنّاع" }).getByRole("link", { name: /مخرج الخيال/ }),
+  ).toHaveAttribute("href", "#/people/fixture-person");
+  await dialog.getByRole("tab", { name: "الكواكب", exact: true }).click();
+  await expect(
+    dialog.getByRole("region", { name: "الكواكب" }).getByRole("link", { name: /الخيال/ }),
+  ).toBeVisible();
+  await all.click();
   await input.fill("maintenance");
+  await expect(clear).toHaveCount(1);
   await expect(dialog.getByRole("option", { name: /صيانة الخادم/ })).toBeVisible();
   await input.fill("عمل خاص");
   await expect(dialog.getByText("لا توجد نتائج مطابقة", { exact: true })).toBeVisible();
-  await dialog.getByRole("checkbox", { name: "تضمين الأعمال الخاصة" }).check();
-  await expect(dialog.getByRole("option", { name: /عمل خاص/ })).toBeVisible();
+  await input.press("Alt+p");
+  await expect(dialog.getByRole("switch", { name: "تضمين الأعمال الخاصة" })).toBeChecked();
+  await expect(dialog.getByRole("option", { name: /عمل خاص.*رسوم متحركة/ })).toBeVisible();
   await input.fill("الخيال");
   await expect(dialog.getByRole("option", { name: /الخيال.*الكواكب/ })).toBeVisible();
-  await input.fill("رحلة");
-  await expect(dialog.getByRole("option", { name: /رحلة في المكتبة/ })).toBeVisible();
+  const preview = dialog.getByRole("complementary", { name: "معاينة النتيجة" });
+  await expect(preview.getByRole("heading", { name: "الخيال", exact: true })).toBeVisible();
+  await input.press("ArrowDown");
+  await all.press("ArrowDown");
+  const results = dialog.getByRole("listbox", { name: "نتائج البحث السريع" });
+  await expect(results).toBeFocused();
+  await results.press("ArrowDown");
+  await expect(preview.getByRole("heading", { name: "مخرج الخيال" })).toBeVisible();
+  await expect(preview.getByText("إخراج", { exact: true })).toBeVisible();
+  await results.press("ArrowDown");
+  await expect(preview.getByRole("heading", { name: "استوديو الخيال" })).toBeVisible();
+  await expect(preview.getByText("إنتاج", { exact: true })).toBeVisible();
+  await input.fill("رحلة في المكتبة");
+  await expect(dialog.getByRole("option", { name: /رحلة في المكتبة.*رسوم متحركة/ })).toBeVisible();
+  await expect(preview.getByRole("heading", { name: "رحلة في المكتبة" })).toBeVisible();
+  await expect(preview.getByText("مطابقة تامة")).toBeVisible();
   if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
     await page.screenshot({ path: "../../../data/previews/quick-search-desktop.png" });
   await page.keyboard.press("Escape");
@@ -1711,7 +1820,6 @@ test("quick search desktop: pages, content, keyboard selection and private opt-i
   // The registry uses the canonical route name as an English search term.
   await input.fill("releases");
   await expect(dialog.getByRole("option", { name: /التقويم/ })).toBeVisible();
-  await input.press("ArrowDown");
   await input.press("Enter");
   await expect(page).toHaveURL(/#\/releases/);
   await expect(dialog).toHaveCount(0);

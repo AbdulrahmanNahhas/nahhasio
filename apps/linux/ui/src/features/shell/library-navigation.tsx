@@ -1,4 +1,4 @@
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, Search } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { Brand } from "@/components/brand";
@@ -51,14 +51,10 @@ export function LibraryNavigation({
     setOpen(next);
     onDialogChange(next);
   };
-  const clickPage = (event: MouseEvent<HTMLAnchorElement>, page: string) => {
+  const clickPage = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     changeOpen(false);
-    if (page === "search") {
-      event.preventDefault();
-      openSearch(true);
-    }
   };
   return (
     <nav
@@ -94,6 +90,23 @@ export function LibraryNavigation({
         </TooltipTrigger>
         <TooltipContent side="left">نحّاسيو</TooltipContent>
       </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              className={navigationItemClass}
+              aria-label="البحث"
+              aria-haspopup="dialog"
+              aria-keyshortcuts="Control+k Meta+k"
+              onClick={openSearch}
+            />
+          }
+        >
+          <Search className="size-6" aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent side="left">البحث (Ctrl+K)</TooltipContent>
+      </Tooltip>
       <div
         ref={region}
         className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-hidden"
@@ -107,16 +120,12 @@ export function LibraryNavigation({
                   className={navigationItemClass}
                   aria-current={active === page.path ? "page" : undefined}
                   aria-label={page.label}
-                  aria-keyshortcuts={page.path === "search" ? "Control+k Meta+k" : undefined}
-                  onClick={(event) => clickPage(event, page.path)}
                 />
               }
             >
               <page.icon className="size-6" aria-hidden="true" />
             </TooltipTrigger>
-            <TooltipContent side="left">
-              {page.path === "search" ? "البحث (Ctrl+K)" : page.label}
-            </TooltipContent>
+            <TooltipContent side="left">{page.label}</TooltipContent>
           </Tooltip>
         ))}
         <Dialog open={open} onOpenChange={changeOpen}>
@@ -155,7 +164,7 @@ export function LibraryNavigation({
                 <a
                   key={page.path}
                   href={`#/${page.path}`}
-                  onClick={(event) => clickPage(event, page.path)}
+                  onClick={clickPage}
                   aria-current={active === page.path ? "page" : undefined}
                   className="flex items-start gap-3 rounded-xl border border-border p-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-secondary"
                 >

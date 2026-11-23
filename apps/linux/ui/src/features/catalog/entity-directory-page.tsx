@@ -1,35 +1,30 @@
-import { Field, FieldLabel } from "@ui-sdk/react/field";
-import { Input, InputClear, InputGroup } from "@ui-sdk/react/input";
-import { Radio, RadioGroup } from "@ui-sdk/react/radio";
 import { cn } from "cn";
-import { ArrowLeft, Building2, Search, X } from "lucide-react";
-import { useRef } from "react";
+import { Search, X } from "lucide-react";
+import { useState } from "react";
 
-import { Artwork } from "@/components/artwork";
-import { useCardNavigation } from "@/components/card-navigation";
-import { Failure, NoResults } from "@/components/status";
+import { languageName } from "@/lib/languages";
 
+import { Choice } from "../../components/choice";
+import { Failure, NoResults } from "../../components/status";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Field, FieldGroup, FieldLabel, FieldSet, FieldLegend } from "../../components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "../../components/ui/input-group";
+import { Switch } from "../../components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
 import { PublicPage, PublicPageHeader } from "../shell/public-page";
-import { EntityDirectoryPagination } from "./entity-directory-pagination";
+import { EntityCard } from "./entity-card";
 import { facetMatches } from "./filter-model";
-import { useEntityDirectory } from "./use-entity-directory";
+import { compareEntityWorkCount, useEntityDirectory } from "./use-entity-directory";
 
-const pageSize = 24;
-const number = new Intl.NumberFormat("ar");
-const nameOrder = new Intl.Collator("ar");
-const sortOptions = [
-  { value: "count", label: "الأكثر أعمالًا" },
-  { value: "name", label: "أبجديًا" },
-];
-
-function directoryParams(search: string, sort: string, page: number) {
-  const params = new URLSearchParams();
-  if (search) params.set("q", search);
-  if (sort === "name") params.set("sort", sort);
-  if (page > 1) params.set("page", String(page));
-  return params;
-}
+const batchSize = 24;
 
 export function EntityDirectoryPage({
   type,
@@ -41,75 +36,276 @@ export function EntityDirectoryPage({
   const people = type === "contributors";
   const path = people ? "people" : "studios";
   const title = people ? "الصنّاع" : "الاستوديوهات";
-  const result = useEntityDirectory(type);
-  const navigation = useCardNavigation();
-  const results = useRef<HTMLElement>(null);
+  const defaults = {
+    role: people ? "all" : "animation_studio",
+    image: "all",
+    size: "small",
+    cardAspect: people ? "portrait" : "square",
+    privacy: "public",
+    language: "",
+    q: "",
+    sort: "count",
+  };
+  const isAdmin = useIsAdmin();
+  const privacy = isAdmin && params.get("privacy") === "all" ? "all" : "public";
+  const result = useEntityDirectory(type, privacy);
   const search = (params.get("q") ?? "").slice(0, 200);
   const sort = params.get("sort") === "name" ? "name" : "count";
-  const matches = result.entities
-    .filter((entity) => !search.trim() || facetMatches(entity, search))
-    .toSorted(
-      (a, b) => (sort === "count" ? b.count - a.count : 0) || nameOrder.compare(a.label, b.label),
-    );
-  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
-  const requestedPage = Number(params.get("page"));
-  const page = Number.isSafeInteger(requestedPage)
-    ? Math.min(pageCount, Math.max(1, requestedPage))
-    : 1;
-  const offset = (page - 1) * pageSize;
-  const currentParams = directoryParams(search, sort, page);
-  const detailQuery = currentParams.size ? `?${currentParams}` : "";
-
-  const update = (query: string, order: string, nextPage = 1) => {
-    replaceParams(`/${path}`, directoryParams(query, order, nextPage));
+  const [limit, setLimit] = useState(batchSize);
+  const size =
+    params.get("size") === "large" ? "large" : params.get("size") === "medium" ? "medium" : "small";
+  const square = people ? params.get("shape") === "square" : params.get("shape") !== "banner";
+  const language = params.get("language") ?? "";
+  const languages = [
+    ...new Set(result.entities.flatMap((entity) => entity.languages ?? [])),
+  ].toSorted();
+  const role = params.get("role") || defaults.role;
+  const imageParam = params.get("image");
+  const image = imageParam === "with" || imageParam === "without" ? imageParam : defaults.image;
+  const roles = Array.from(
+    new Map(
+      result.entities.flatMap((entity) =>
+        (entity.roles ?? []).map((item) => [item.value, item] as const),
+      ),
+    ).values(),
+  ).toSorted((a, b) => a.label.localeCompare(b.label, "ar"));
+  const changeFilter = (
+    key: "role" | "image" | "size" | "shape" | "privacy" | "language" | "q" | "sort",
+    value: string,
+  ) => {
+    const next = new URLSearchParams(params);
+    const defaultValue = key === "shape" ? defaults.cardAspect : defaults[key];
+    if (value === defaultValue) next.delete(key);
+    else next.set(key, value);
+    setLimit(batchSize);
+    replaceParams(`/${path}`, next);
   };
-
+  const filtered = Boolean(search.trim()) || role !== "all" || image !== "all" || Boolean(language);
+  const clearFilters = () => {
+    setLimit(batchSize);
+    const next = new URLSearchParams(params);
+    next.delete("language");
+    next.delete("q");
+    if (people) next.delete("role");
+    else next.set("role", "all");
+    next.delete("image");
+    replaceParams(`/${path}`, next);
+  };
+  const matches = result.entities
+    .filter(
+      (entity) =>
+        facetMatches(entity, search) &&
+        (role === "all"
+          ? !language || entity.languages?.includes(language)
+          : entity.roles?.some(
+              (item) => item.value === role && (!language || item.languages?.includes(language)),
+            )) &&
+        (image === "all" || (image === "with" ? Boolean(entity.artworkId) : !entity.artworkId)),
+    )
+    .toSorted((a, b) =>
+      sort === "name" ? a.label.localeCompare(b.label, "ar") : compareEntityWorkCount(a, b),
+    );
   return (
     <PublicPage className="flex flex-col gap-6" data-kind={path} aria-label={`صفحة ${title}`}>
       <PublicPageHeader
         title={title}
         description={
-          people ? "تصفّح الصنّاع وأعمالهم في المكتبة." : "تصفّح الاستوديوهات وأعمالها في المكتبة."
+          people
+            ? "اكتشف أعمال الصنّاع وأدوارهم في مكتبتك."
+            : "اكتشف الاستوديوهات وإنتاجاتها ومساهماتها في مكتبتك."
+        }
+        count={
+          result.data && (
+            <Badge variant="secondary">
+              {result.entities.length} {people ? "صانع" : "استوديو"}
+            </Badge>
+          )
         }
       />
-      <div className="flex flex-wrap items-center gap-3 border-b border-border pb-4">
-        <Field className="w-full min-w-0 sm:max-w-sm">
-          <FieldLabel className="sr-only">ابحث في {title}</FieldLabel>
-          <InputGroup className="flex h-11 min-w-0 items-center gap-2 rounded-xl border border-input bg-card px-3 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-            <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <Input
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              maxLength={200}
-              placeholder={people ? "ابحث باسم الصانع…" : "ابحث باسم الاستوديو…"}
-              value={search}
-              onValueChange={(value) => update(value, sort)}
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+        <FieldGroup className="grid grid-cols-2 items-end gap-3 lg:grid-cols-5">
+          <Field className="col-span-2">
+            <FieldLabel htmlFor="entity-search" className="sr-only">
+              ابحث في {title}
+            </FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                id="entity-search"
+                maxLength={200}
+                aria-label={`ابحث في ${title}`}
+                placeholder={people ? "ابحث باسم الصانع…" : "ابحث باسم الاستوديو…"}
+                value={search}
+                onChange={(event) => {
+                  changeFilter("q", event.target.value);
+                }}
+              />
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              {search && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label="مسح بحث الأسماء"
+                    onClick={() => changeFilter("q", "")}
+                  >
+                    <X />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              )}
+            </InputGroup>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="studio-role" className="sr-only">
+              {people ? "دور الصانع" : "دور الاستوديو"}
+            </FieldLabel>
+            <Choice
+              id="studio-role"
+              label={people ? "دور الصانع" : "دور الاستوديو"}
+              value={role}
+              options={[{ value: "all", label: "جميع الأدوار" }, ...roles]}
+              onChange={(value) => changeFilter("role", value)}
             />
-            <InputClear
-              aria-label="مسح البحث"
-              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </InputClear>
-          </InputGroup>
-        </Field>
-        <RadioGroup
-          aria-label={`ترتيب ${title}`}
-          className="inline-flex max-w-full gap-1 rounded-xl border border-border bg-muted p-1 sm:ms-auto"
-          value={sort}
-          onValueChange={(value) => {
-            if (value) update(search, value);
-          }}
-        >
-          {sortOptions.map(({ value, label }) => (
-            <Radio
-              key={value}
-              value={value}
-              className="inline-flex min-h-8 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-checked:bg-card data-checked:text-foreground"
-            >
-              {label}
-            </Radio>
-          ))}
-        </RadioGroup>
+          </Field>
+          {languages.length > 0 && (
+            <Field>
+              <FieldLabel htmlFor="entity-credit-language" className="sr-only">
+                لغة المساهمة
+              </FieldLabel>
+              <Choice
+                id="entity-credit-language"
+                label="لغة المساهمة"
+                value={language}
+                options={[
+                  { value: "", label: "جميع لغات المساهمة" },
+                  ...languages.map((value) => ({ value, label: languageName(value) })),
+                ]}
+                onChange={(value) => changeFilter("language", value)}
+              />
+            </Field>
+          )}
+          <Field>
+            <FieldLabel htmlFor="studio-image" className="sr-only">
+              {people ? "الصورة" : "الشعار"}
+            </FieldLabel>
+            <Choice
+              id="studio-image"
+              label={people ? "توفر صورة الصانع" : "توفر شعار الاستوديو"}
+              value={image}
+              options={[
+                { value: "all", label: people ? "كل الصور" : "كل الشعارات" },
+                { value: "with", label: people ? "بصورة" : "بشعار" },
+                { value: "without", label: people ? "بدون صورة" : "بدون شعار" },
+              ]}
+              onChange={(value) => changeFilter("image", value)}
+            />
+          </Field>
+          <Field className="max-[640px]:col-span-2">
+            <FieldLabel htmlFor="entity-sort" className="sr-only">
+              الترتيب
+            </FieldLabel>
+            <Choice
+              id="entity-sort"
+              label={`ترتيب ${title}`}
+              value={sort}
+              options={[
+                { value: "count", label: "الأكثر أعمالًا" },
+                { value: "name", label: "الاسم أبجديًا" },
+              ]}
+              onChange={(value) => {
+                changeFilter("sort", value);
+              }}
+            />
+          </Field>
+        </FieldGroup>
+        <div className="grid min-w-0 grid-cols-1 items-center gap-x-6 gap-y-3 border-t border-border pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex min-h-8 flex-wrap items-center gap-2">
+            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+              {result.isFetching
+                ? `جارٍ تحميل ${title}…`
+                : `${matches.length} من ${result.entities.length} ${people ? "صانع" : "استوديو"}`}
+            </p>
+            {privacy === "all" && <Badge variant="secondary">تشمل المخفية</Badge>}
+            {filtered && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X data-icon="inline-start" />
+                مسح التصفية
+              </Button>
+            )}
+          </div>
+          <div
+            role="group"
+            aria-label={`خيارات عرض ${title}`}
+            className="flex min-w-0 max-w-full flex-wrap items-center gap-x-5 gap-y-3"
+          >
+            <FieldSet className="min-w-0 shrink-0 flex-row items-center gap-2">
+              <FieldLegend className="sr-only">حجم البطاقات</FieldLegend>
+              <span className="whitespace-nowrap text-xs text-muted-foreground" aria-hidden="true">
+                في الصف
+              </span>
+              <ToggleGroup
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={[size]}
+                aria-label={`حجم بطاقات ${title}`}
+                onValueChange={(values) => {
+                  const next = values[0];
+                  if (next === "large" || next === "medium" || next === "small")
+                    changeFilter("size", next);
+                }}
+              >
+                <ToggleGroupItem
+                  value="large"
+                  aria-label="بطاقات كبيرة، 3 في الصف"
+                  title="كبير: 3 بطاقات في الصف"
+                >
+                  3
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="medium"
+                  aria-label="بطاقات متوسطة، 4 في الصف"
+                  title="متوسط: 4 بطاقات في الصف"
+                >
+                  4
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="small"
+                  aria-label="بطاقات صغيرة، 5 في الصف"
+                  title="صغير: 5 بطاقات في الصف"
+                >
+                  5
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </FieldSet>
+            <Field orientation="horizontal" className="w-auto shrink-0">
+              <Switch
+                id="studio-square"
+                size="sm"
+                checked={square}
+                onCheckedChange={(checked) =>
+                  changeFilter("shape", checked ? "square" : people ? "portrait" : "banner")
+                }
+              />
+              <FieldLabel htmlFor="studio-square" className="whitespace-nowrap">
+                صور مربعة
+              </FieldLabel>
+            </Field>
+            {isAdmin && (
+              <Field orientation="horizontal" className="w-auto shrink-0">
+                <Switch
+                  id="studio-hidden"
+                  size="sm"
+                  checked={privacy === "all"}
+                  onCheckedChange={(checked) => changeFilter("privacy", checked ? "all" : "public")}
+                />
+                <FieldLabel htmlFor="studio-hidden" className="whitespace-nowrap">
+                  الأعمال المخفية
+                </FieldLabel>
+              </Field>
+            )}
+          </div>
+        </div>
       </div>
       {result.error ? (
         <Failure error={result.error} retry={() => void result.refetch()} />
@@ -118,91 +314,41 @@ export function EntityDirectoryPage({
           جارٍ تحميل {title}…
         </p>
       ) : matches.length ? (
-        <section
-          aria-label={`نتائج ${title}`}
-          ref={results}
-          tabIndex={-1}
-          className="flex scroll-mt-4 flex-col gap-4"
-        >
-          <p role="status" className="text-sm text-muted-foreground">
-            عرض {number.format(offset + 1)}–
-            {number.format(Math.min(offset + pageSize, matches.length))} من{" "}
-            {number.format(matches.length)}
-          </p>
-          <ul
+        <>
+          <div
             className={cn(
-              "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4",
-              people && "2xl:grid-cols-6",
+              "entity-directory-grid grid gap-6 max-[1050px]:grid-cols-3 max-[1050px]:gap-4.5 max-[720px]:grid-cols-2",
+              size === "large" && "grid-cols-3",
+              size === "medium" && "grid-cols-4",
+              size === "small" && "grid-cols-5 gap-4",
             )}
           >
-            {matches.slice(offset, offset + pageSize).map((entity) => (
-              <li key={entity.value} className="min-w-0">
-                <a
-                  {...navigation}
-                  href={`#/${path}/${encodeURIComponent(entity.value)}${detailQuery}`}
-                  className="group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card hover:border-ring/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  <div aria-hidden="true">
-                    <Artwork
-                      id={entity.artworkId}
-                      studioLogo={people ? false : "compact"}
-                      alt=""
-                      className={cn(
-                        "block w-full",
-                        people ? "aspect-4/5 object-cover object-top" : "aspect-video",
-                      )}
-                      fallback={
-                        people ? (
-                          <span className="font-display text-5xl font-semibold">
-                            {entity.label.trim().charAt(0)}
-                          </span>
-                        ) : (
-                          <Building2 className="size-8" />
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-1 items-center justify-between gap-2 border-t border-border p-3 sm:p-4">
-                    <div className="min-w-0">
-                      <h2 className="text-sm leading-relaxed font-semibold wrap-anywhere sm:text-base">
-                        <bdi>{entity.label}</bdi>
-                      </h2>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {number.format(entity.count)} عمل في المكتبة
-                      </p>
-                    </div>
-                    <ArrowLeft
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-muted-foreground group-hover:text-primary"
-                    />
-                  </div>
-                </a>
-              </li>
+            {matches.slice(0, limit).map((entity) => (
+              <EntityCard
+                key={entity.value}
+                entity={entity}
+                kind={people ? "person" : "studio"}
+                href={`#/${path}/${encodeURIComponent(entity.value)}${params.size ? `?${params}` : ""}`}
+                artworkLayout={square ? "square" : people ? "portrait" : "banner"}
+                includePrivate={privacy === "all"}
+              />
             ))}
-          </ul>
-          {pageCount > 1 && (
-            <EntityDirectoryPagination
-              page={page}
-              pageCount={pageCount}
-              onPageChange={(nextPage) => {
-                if (nextPage === page) return;
-                update(search, sort, nextPage);
-                results.current?.focus();
-                results.current?.scrollIntoView({ block: "start" });
-              }}
-            />
-          )}
-        </section>
+          </div>
+          <div className="entity-directory-footer flex flex-wrap items-center justify-between gap-4 mt-6 text-muted-foreground text-xs">
+            <p role="status">
+              {Math.min(limit, matches.length)} من {matches.length} {people ? "صانع" : "استوديو"}
+            </p>
+            {limit < matches.length && (
+              <Button variant="outline" onClick={() => setLimit((value) => value + batchSize)}>
+                عرض المزيد
+              </Button>
+            )}
+          </div>
+        </>
       ) : (
         <NoResults
-          title={
-            search.trim() ? "لا توجد أسماء مطابقة" : people ? "لا يوجد صنّاع" : "لا توجد استوديوهات"
-          }
-          description={
-            search.trim()
-              ? "جرّب اسمًا آخر أو امسح البحث لعرض الجميع."
-              : "ستظهر هنا الأسماء المرتبطة بأعمال المكتبة."
-          }
+          title={people ? "لا توجد أسماء مطابقة" : "لا توجد استوديوهات مطابقة"}
+          description="جرّب اسمًا آخر أو امسح التصفية لعرض الجميع."
         />
       )}
     </PublicPage>

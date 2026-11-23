@@ -56,7 +56,7 @@ export function BottomNavigation({
           <Destination key={destination.path} destination={destination} active={active} />
         ))}
         <Button
-          variant={active === "search" ? "secondary" : "ghost"}
+          variant="ghost"
           className="h-14 min-w-0 flex-1 flex-col gap-1 px-1"
           aria-label="البحث السريع"
           aria-haspopup="dialog"

@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md) · [Architecture](architecture.md) · [Design rules](design-rules.md) · [Verification](../development/testing.md)
 
-**On this page:** [Sign-in and settings](#linux-settings-sign-in-and-artwork) · [Browse](#browse-and-filters) · [Watch](#watch-page) · [Admin coverage](#administration-coverage)
+**On this page:** [Sign-in and settings](#linux-settings-sign-in-and-artwork) · [Search](#catalog-search) · [Browse](#browse-and-filters) · [Watch](#watch-page) · [Admin coverage](#administration-coverage)
 
 Current behavior and reviewed UI contracts. This guide does not claim installed Flatpak, physical
 input or provider acceptance. The hosting release excludes player/provider testing. Design rules
@@ -165,6 +165,38 @@ system fields.
   activity. Account and device controls remain available through the existing settings surfaces.
 - The viewing calendar is labeled as upcoming in owner statistics.
 
+## Catalog search
+
+Ctrl+K, the desktop navigation rail, the mobile dock and the native header open the same search
+dialog over the current page. Empty All shows three recently added public works and shortcuts
+to library pages. Works shows up to six recent additions. Films and Series show up to six titles
+ordered by their latest released installment.
+These selections require both a registered banner and a logo. People shows up to eight credited
+entries in a compact version of the directory's portrait cards, ordered by creation date when the
+server supplies it, with a link to the full directory. Empty Studios
+uses the directory's landscape logo cards, with up to eight studios across all roles ordered by
+work count. Its link opens the full directory with the same filters and four-column size. The
+shared entity artwork frame uses the work-card tilt and focus treatment with reduced-motion
+support. Planets uses the directory's planet cards and lists all active planets, including those
+with no public works. Only All displays visible section headings.
+Older `#/search` links open the dialog over Home and seed it with any supplied query, scope and
+authorized privacy choice. A link with an obsolete scope opens All with its query.
+
+All groups matches into works, credited people, studios, planets, and pages. The dedicated scopes
+expand a group, with paginated works and separate filters for films and series.
+Exact names are highlighted where a match is available in the loaded results. On desktop, moving
+through results with the pointer or arrow keys updates the preview alongside the list. Works use
+a full-width banner and logo in the preview; entity previews show their portrait, logo, or planet
+symbol. Group expansion previews show the number of matches and an action to open the scope. The narrow
+dialog fills the viewport and keeps the query and scope controls above the scrolling results.
+Down moves focus from the query to the selected tab, then into the first result or shortcut.
+Up returns from the top of the results or shortcuts to the tab strip and query. Scrollable search
+regions keep space around focused content. The keyboard
+focus ring follows the selected row while the results list has focus. Left and Right switch
+tabs or navigate across shortcut cards. Enter opens the selected result and Escape dismisses
+search. The footer shows the result count and gives administrators a switch to include private
+works for the current search. Reach it with Tab or toggle it with Alt+P while search is open.
+
 ## Browse and filters
 
 ### Current behavior
@@ -217,10 +249,13 @@ system fields.
 
 ## People and studio directories
 
-Both public directories include entries with and without artwork and show the number of public
-works for each entry. Search matches names and aliases, and the list can be ordered by work count
-or name. Results show 24 entries per page. Detail links carry the search, order, and page so the
-directory state can be restored on return.
+People use portrait cards and studios use square logo cards by default. Both directories offer
+card size and shape controls, name and alias search, and sorting by work count or name. Filters
+cover artwork, role, and contribution language when available. Both directories show entries
+with and without artwork by default. Studios opens with the animation studio role selected.
+Administrators can include hidden works.
+The grid starts with up to 24 cards and Show More adds up to 24 at a time. Detail links carry
+the directory's search, filters, sort, and display settings.
 
 ## Episode editing
 

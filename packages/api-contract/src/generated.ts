@@ -688,6 +688,7 @@ export const CatalogPageSchema = z.strictObject({
 export type CatalogPage = z.infer<typeof CatalogPageSchema>;
 
 export const FacetOptionSchema = z.strictObject({
+  entityCreatedAt: z.string().optional(),
   artworkId: z.string().uuid().nullable().optional(),
   value: z.string(),
   label: z.string(),
@@ -729,6 +730,7 @@ export const FacetSelectionSchema = z.strictObject({
 export type FacetSelection = z.infer<typeof FacetSelectionSchema>;
 
 export const BrowseFiltersSchema = z.strictObject({
+  requireBannerAndLogo: z.boolean().optional(),
   facets: z.array(FacetSelectionSchema),
   maximumRating: z.number().min(0).max(10).optional(),
   minimumRating: z.number(),
@@ -3844,7 +3846,11 @@ export class ApiClient {
     return CatalogPageSchema.parse(await response.json());
   }
   async getCatalogFacets(
-    query: { view?: "works" | "installments"; privacy?: "public" | "all" | "private" } = {},
+    query: {
+      sort?: "added-desc";
+      view?: "works" | "installments";
+      privacy?: "public" | "all" | "private";
+    } = {},
     signal?: AbortSignal,
   ): Promise<FacetCatalog> {
     const params = new URLSearchParams();

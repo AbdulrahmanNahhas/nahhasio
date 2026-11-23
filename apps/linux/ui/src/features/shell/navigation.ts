@@ -20,18 +20,8 @@ export function workLink(id: string, installmentId?: string) {
 export function navigate(path: string) {
   void router.navigate({ href: path, resetScroll: false });
 }
-function focusSearch() {
-  window.dispatchEvent(new Event("nahhasio:focus-search"));
-}
-export function openSearch(focusAfterNavigation = false) {
-  if (router.state.location.pathname === "/search") {
-    focusSearch();
-    return;
-  }
-  void router.navigate({ href: "/search", resetScroll: false }).then(() => {
-    if (focusAfterNavigation) requestAnimationFrame(focusSearch);
-    return undefined;
-  });
+export function openSearch() {
+  window.dispatchEvent(new Event("nahhasio:quick-search"));
 }
 export function replaceParams(path: string, params: URLSearchParams) {
   void router.navigate({

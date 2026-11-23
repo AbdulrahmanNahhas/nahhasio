@@ -22,7 +22,7 @@ describe("shared search boundary", () => {
     yearMin: null,
     yearMax: null,
   };
-  it("finds entity aliases in Arabic and English with the same rules in both search views", () => {
+  it("finds entity aliases in Arabic and English in global and scoped search", () => {
     expect(matchingEntities(facets, "اَحمد", "all").map((item) => item.value)).toEqual([
       "director-id",
     ]);
@@ -38,7 +38,7 @@ describe("shared search boundary", () => {
   it("excludes admin destinations for regular users and preserves all supported viewer pages", () => {
     const viewer = pageDirectory(false);
     expect(viewer.some((page) => page.href.startsWith("#/admin"))).toBe(false);
-    for (const path of ["search", "people", "studios", "downloads", "settings", "profile"])
+    for (const path of ["people", "studios", "downloads", "settings", "profile"])
       expect(viewer.some((page) => page.href === `#/${path}`)).toBe(true);
     const admin = pageDirectory(true);
     expect(admin.some((page) => page.href === "#/admin/maintenance")).toBe(true);

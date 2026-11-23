@@ -4,7 +4,7 @@ import { Building2, Orbit, Users } from "lucide-react";
 import { facetMatches } from "../catalog/filter-model";
 import type { SearchType } from "./search-model";
 
-const entityTypes = [
+export const entityTypes = [
   { key: "contributors", type: "people", label: "الصنّاع", icon: Users },
   { key: "studios", type: "studios", label: "الاستوديوهات", icon: Building2 },
   { key: "planets", type: "planets", label: "الكواكب", icon: Orbit },

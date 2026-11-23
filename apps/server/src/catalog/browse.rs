@@ -20,6 +20,8 @@ pub(super) struct Filters {
     #[serde(default)]
     maximum_rating: Option<f64>,
     #[serde(default)]
+    require_banner_and_logo: bool,
+    #[serde(default)]
     minimum_scores: MinimumScores,
 }
 #[derive(Default, Deserialize, Serialize)]
@@ -279,6 +281,7 @@ where ($2='works' or i.id is not null) and ($3='all' or t.is_private=($3='privat
 fn condition() -> String {
     let mut parts=vec!["($5::text is null or strpos(lower(canonical_title||' '||coalesce(title_ar,'')||' '||unit_title),lower($5))>0 or exists(select 1 from title_aliases a where a.title_id=base.id and strpos(lower(a.title),lower($5))>0) or exists(select 1 from contributions c join entities e on e.id=c.entity_id where c.title_id=base.id and strpos(lower(e.name),lower($5))>0))".into(),"($6::integer is null or catalog_year>=$6)".into(),"($7::integer is null or catalog_year<=$7)".into(),"(coalesce(($4->>'minimumRating')::double precision,0)=0 or rating>=($4->>'minimumRating')::double precision)".into()];
     parts.push("(coalesce(($4->>'maximumRating')::double precision,10)=10 or rating<=($4->>'maximumRating')::double precision)".into());
+    parts.push("(not coalesce(($4->>'requireBannerAndLogo')::boolean,false) or (entry#>>'{work,banner,id}' is not null and entry#>>'{work,logo,id}' is not null))".into());
     for (key, _, _) in facets() {
         parts.push(format!("not exists(select 1 from jsonb_array_elements(coalesce($4->'facets','[]')) sel where sel->>'key'='{key}' and ((jsonb_array_length(sel->'include')>0 and not (facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'include')))) or not (facts->'{key}' ?& array(select jsonb_array_elements_text(coalesce(sel->'required','[]'::jsonb)))) or facts->'{key}' ?| array(select jsonb_array_elements_text(sel->'exclude'))))"));
     }
@@ -373,7 +376,7 @@ fn entity_artwork() -> &'static str {
     "case when key in ('contributors','studios') then (select m.asset_id from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.entity_id::text=value and m.role in ('profile','logo') and a.mime_type in ('image/png','image/jpeg','image/webp','image/gif','image/avif') order by case when key='contributors' and m.role='profile' or key='studios' and m.role='logo' then 0 else 1 end,m.is_primary desc,m.id limit 1) else null end"
 }
 
-fn options_sql(is_admin: bool) -> String {
+fn options_sql(is_admin: bool, include_entity_created_at: bool) -> String {
     let base = base(is_admin, Projection::Facets);
     let groups=facets().iter().map(|(key,label,_)|format!("select '{key}' key,'{label}' label,value,count(*)::bigint count from base cross join lateral jsonb_array_elements_text(facts->'{key}') v(value) group by value")).collect::<Vec<_>>().join(" union all ");
     let labels = r#"case
@@ -411,8 +414,13 @@ when key='planets' then coalesce((
 else value end"#;
     let search_terms = r#"to_jsonb(array[value,display] || case when key in('genres','tones','tags','countries') then array(select concat_ws(' ',label_en,label_ar,slug) from (select 'genres' vocab,slug,label_ar,label_en from genres union all select 'tones',slug,label_ar,label_en from tones union all select 'tags',slug,label_ar,label_en from tags union all select 'countries',slug,label_ar,label_en from countries) v where v.vocab=key and v.slug=value) when key='planets' then array(select concat_ws(' ',name_ar,name_en,slug) from planets where slug=value) when key in('contributors','studios') then array(select concat_ws(' ',name,sort_name) from entities where id::text=value) || array(select alias from entity_aliases where entity_id::text=value) when key='contributionRoles' then array(select concat_ws(' ',slug,label_ar,label_en) from roles where slug=value) when key='awardPrograms' then array(select concat_ws(' ',slug,name_ar,name_en) from award_organizations where slug=value) when key='awardCategories' then array(select concat_ws(' ',slug,name_ar,name_en) from award_categories where name_ar=value or name_en=value or slug=value) else array[]::text[] end)"#;
     let artwork = entity_artwork();
+    let entity_metadata = if include_entity_created_at {
+        "(select jsonb_build_object('entityCreatedAt', e.created_at) from entities e where e.id::text=labelled.value)"
+    } else {
+        "'{}'::jsonb"
+    };
     format!(
-        "with base as ({base}), options as ({groups}), labelled as (select *,{labels} display from options), grouped as(select key,label,jsonb_agg(jsonb_build_object('value',value,'label',display,'searchTerms',({search_terms}),'count',count,'artworkId',({artwork})) || case when key in ('studios','contributors') then jsonb_build_object('languages',coalesce((select jsonb_agg(distinct language order by language) from contributions c cross join lateral unnest(c.languages) language where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id)),'[]'::jsonb),'roles',coalesce((select jsonb_agg(jsonb_build_object('value',role_slug,'label',role_label,'languages',languages) order by role_label,role_slug) from (select r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label,coalesce((select jsonb_agg(distinct language order by language) from contributions x cross join lateral unnest(x.languages) language where x.entity_id=c.entity_id and x.role_id=c.role_id and exists(select 1 from base b where b.id=x.title_id)),'[]'::jsonb) languages from contributions c join roles r on r.id=c.role_id where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id) group by r.slug,r.label_ar,r.label_en,c.entity_id,c.role_id) entity_roles),'[]'::jsonb)) else '{{}}'::jsonb end order by count desc,value) options from labelled group by key,label) select jsonb_build_object('groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'label',label,'options',options) order by key) from grouped),'[]'::jsonb),'yearMin',(select min(catalog_year) from base),'yearMax',(select max(catalog_year) from base))",
+        "with base as ({base}), options as ({groups}), labelled as (select *,{labels} display from options), grouped as(select key,label,jsonb_agg(jsonb_build_object('value',value,'label',display,'searchTerms',({search_terms}),'count',count,'artworkId',({artwork})) || case when key in ('studios','contributors') then {entity_metadata} || jsonb_build_object('languages',coalesce((select jsonb_agg(distinct language order by language) from contributions c cross join lateral unnest(c.languages) language where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id)),'[]'::jsonb),'roles',coalesce((select jsonb_agg(jsonb_build_object('value',role_slug,'label',role_label,'languages',languages) order by role_label,role_slug) from (select r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label,coalesce((select jsonb_agg(distinct language order by language) from contributions x cross join lateral unnest(x.languages) language where x.entity_id=c.entity_id and x.role_id=c.role_id and exists(select 1 from base b where b.id=x.title_id)),'[]'::jsonb) languages from contributions c join roles r on r.id=c.role_id where c.entity_id::text=labelled.value and exists(select 1 from base b where b.id=c.title_id) group by r.slug,r.label_ar,r.label_en,c.entity_id,c.role_id) entity_roles),'[]'::jsonb)) else '{{}}'::jsonb end order by count desc,value) options from labelled group by key,label) select jsonb_build_object('groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'label',label,'options',options) order by key) from grouped),'[]'::jsonb),'yearMin',(select min(catalog_year) from base),'yearMax',(select max(catalog_year) from base))",
     )
 }
 
@@ -422,7 +430,7 @@ pub(super) async fn options(
     Query(input): Query<Input>,
 ) -> ApiResult<Json<Value>> {
     let (_, _, view, privacy, _, _) = input.validated()?;
-    let query = options_sql(user.is_admin);
+    let query = options_sql(user.is_admin, input.sort.as_deref() == Some("added-desc"));
     let value = sqlx::query_scalar::<_, SqlJson<Value>>(AssertSqlSafe(query))
         .bind(user.id)
         .bind(view)
@@ -447,7 +455,7 @@ mod tests {
 
     #[test]
     fn facets_do_not_materialize_page_payloads() {
-        let sql = options_sql(false);
+        let sql = options_sql(false, false);
         assert!(!sql.contains("'episodeCount'"));
         assert!(!sql.contains("'watchProgress'"));
         assert!(!sql.contains("main_studio"));
