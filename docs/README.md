@@ -18,6 +18,7 @@ checkpoint is evidence for that run, not proof of today's source, installed vers
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Run locally, generate contracts, or find a package    | [Development](development/getting-started.md)                                        |
 | Change desktop UI or design tokens                    | [Client behavior](desktop/behavior.md) · [Design rules](desktop/design-rules.md)     |
+| Collect interface inspiration and design ideas        | [Design references](desktop/design-references.md)                                    |
 | Work on source discovery or the player                | [Streaming](desktop/streaming.md) · [Anime direct playback](desktop/anime-direct.md) |
 | Choose fixture, native, packaged, or installed checks | [Verification](development/testing.md)                                               |
 | Use or maintain the agent instructions                | [Agent playbook](development/agent-playbook.md) · [Repository rules](../AGENTS.md)   |
