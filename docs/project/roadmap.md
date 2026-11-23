@@ -2,13 +2,13 @@
 
 [Documentation index](../README.md) · [Feature backlog](features.md) · [Deployment](../operations/deployment.md)
 
-**On this page:** [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
+**On this page:** [0.2.0 plan](#020-release-plan) · [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
 
 Use this as a planning inventory, not a release gate or implementation audit. For the latest
 recorded rollout and verification limits, use [Operations](../operations/runbook.md) and the
 [family-server handoff](../operations/family-server.md).
 
-Updated 2026-10-25. **Current milestone: 0.1 Alpha, a reliable base.**
+**Next numbered release: 0.2.0.** The 0.1 Alpha foundation and long-term inventory follow below.
 [Project overview](overview.md) owns confirmed scope. This is the long-term inventory, not a promise
 that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;
 other platforms follow later. No website ships in the delivered product.
@@ -26,6 +26,26 @@ retains implementation, storage, deployment and acceptance tasks.
 - Not every work has or needs downloaded media. The approximately 70 Arabic-dubbed supplied
   works need an independent existing-file library path.
 - A checkbox does not authorize an unattended implementation, catalog/schema change or commit.
+
+## 0.2.0 release plan
+
+These five items define the product scope for [Nahhasio 0.2.0](../releases/0.2.0.md).
+The completed Home redesign provides the design reference for planet tiles and entry points
+into discovery. The existing packaged release checks and publication review still apply.
+
+1. **Airing and releases.** Make dated episodes and movies automatically eligible for viewing on
+   release according to the catalog. Keep release state distinct from whether a playable source
+   is available. Improve the experience before and after release, including upcoming and
+   undated entries. Confirm the additional movie-specific change during this review.
+2. **Awards page.** Design a public destination for exploring award organizations, winners, nominees,
+   and their works. Connect the Home awards shelf to the public experience.
+3. **Planets page — implemented in source.** The directory shares Home's landscape cards,
+   with catalog colors, emblems, recent-installment banners, and work counts.
+4. **Work page.** Refine the viewing page section by section, prioritizing clear Watch actions,
+   installment and episode navigation, and visible release and availability states.
+5. **Music-first redesign of الإعلانات التشويقية — implemented in source.** The sidebar uses a
+   music icon. The page opens on Music and offers separately browsable Trailers and All views,
+   with compact track-style cards.
 
 ## 0.1 Alpha foundation shortlist — catalog first
 

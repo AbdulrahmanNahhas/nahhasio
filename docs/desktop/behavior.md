@@ -124,11 +124,28 @@ banner when available, with the parent work's banner as a fallback. The awards s
 award organizations to recognized works. Studio logos and contributor portraits use the directory
 cards and link directly to the associated works.
 
+The Planets directory shares Home's landscape tiles. It adds work counts and keeps name search
+and the direct links into each planet. Planet detail headers use a square version of the artwork
+tile. Banners load near the viewport or when a tile receives focus. The Work page places its
+planet tile below the parental guide, using the current work's banner.
+
 Arrow keys reach the hero controls, move horizontally within a shelf in physical RTL direction,
 and move between rows and section links. Tabs retain their own horizontal keyboard behavior.
 Tab and Enter retain normal link and button behavior. Scrollable shelves keep their edge fade
 and leave room around the focused cards. Work-card ratings use a top-right circle out of 100,
 with blue for 90–100, green for 75–89, amber for 60–74, and coral below 60.
+
+## Themes and trailers
+
+**الشارات** opens first at `#/trailers`, with separate Trailers and All views. A responsive artwork
+grid shows the clip and work names, language when available, and a play link to YouTube. The left
+side of the filter toolbar offers Grid, Table, and three sizes. Layout and size stay in the URL
+along with the active category and filters.
+
+The server classifies registered YouTube references using explicit theme and music cues in the
+clip title. When an older server rejects category filtering, the client applies the same rule to
+bounded pages of results and keeps the selected category. If more pages remain, the user can
+continue searching from the current position.
 
 ## Awards administration
 
@@ -196,7 +213,7 @@ server supplies it, with a link to the full directory. Empty Studios
 uses the directory's landscape logo cards, with up to eight studios across all roles ordered by
 work count. Its link opens the full directory with the same filters and four-column size. The
 shared entity artwork frame uses the work-card tilt and focus treatment with reduced-motion
-support. Planets uses the directory's planet cards and lists all active planets, including those
+support. Planets uses compact cards and lists all active planets, including those
 with no public works. Only All displays visible section headings.
 Older `#/search` links open the dialog over Home and seed it with any supplied query, scope and
 authorized privacy choice. A link with an obsolete scope opens All with its query.
@@ -269,8 +286,8 @@ works for the current search. Reach it with Tab or toggle it with Alt+P while se
 ## People and studio directories
 
 People use portrait cards and studios use square logo cards by default. Both directories offer
-card size and shape controls, name and alias search, and sorting by work count or name. Filters
-cover artwork, role, and contribution language when available. Both directories show entries
+card size and shape controls under **العرض**, name and alias search, and sorting by work count or
+name. Filters cover artwork, role, and contribution language when available. Both directories show entries
 with and without artwork by default. Studios opens with the animation studio role selected.
 Administrators can include hidden works.
 The grid starts with up to 24 cards and Show More adds up to 24 at a time. Detail links carry
