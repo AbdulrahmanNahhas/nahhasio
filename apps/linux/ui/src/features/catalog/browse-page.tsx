@@ -1,6 +1,6 @@
 import type { CatalogEntry } from "@nahhasio/api-contract";
 import { hashKey, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useCardNavigation, useLoadMoreNavigation } from "../../components/card-navigation";
@@ -10,15 +10,10 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Drawer, DrawerTrigger } from "../../components/ui/drawer";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "../../components/ui/input-group";
 import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
+import { CatalogPage, PublicPageHeader, PublicPageSearch } from "../shell/public-page";
 import { AppliedFilters } from "./applied-filters";
 import {
   useBrowsePreferences,
@@ -223,76 +218,59 @@ function BrowseContent({
         if (!open) setFiltersMounted(false);
       }}
     >
-      <section
-        className="mx-auto flex w-full max-w-400 flex-col px-4 py-6 sm:px-6 lg:px-10"
+      <CatalogPage
         aria-label={title}
+        heading={
+          <PublicPageHeader
+            title={library.template?.title ?? title}
+            count={
+              <Badge variant="secondary" aria-live="polite">
+                {result.data?.pages[0]?.total ?? "…"}{" "}
+                {["planet", "genre", "country", "studio"].includes(group)
+                  ? "نتيجة في المجموعات"
+                  : view === "works"
+                    ? "عمل"
+                    : "موسم وإصدار"}
+              </Badge>
+            }
+            actions={
+              <PublicPageSearch
+                inputRef={searchInput}
+                label="ابحث في النتائج"
+                placeholder="ابحث في النتائج…"
+                value={q}
+                onChange={changeSearch}
+              />
+            }
+          />
+        }
+        toolbar={
+          <BrowseToolbar
+            library={library.template?.id ?? "all"}
+            onLibrary={(value) => {
+              const next = selectLibrary(params, value);
+              onRemember({ ...preferences, search: rememberedSearch(next) });
+              replaceParams(path, next);
+            }}
+            view={view}
+            onView={(value) => update([["view", value]])}
+            filters={filters}
+            onFacet={(key, value) => {
+              const facets = filters.facets.filter((facet) => facet.key !== key);
+              if (value !== "all") facets.push({ key, include: [value], exclude: [] });
+              apply({ ...refinements, filters: { ...filters, facets } });
+            }}
+            sort={sort}
+            onSort={(nextSort) => apply({ ...refinements, sort: nextSort })}
+            display={display}
+            onDisplay={setDisplay}
+            group={group}
+            onGroup={(nextGroup) => apply({ ...refinements, group: nextGroup })}
+            filterCount={refinementCount(refinements, preset)}
+            filterTrigger={filterTrigger}
+          />
+        }
       >
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl leading-relaxed font-semibold">
-              {library.template?.title ?? title}
-            </h1>
-            <Badge variant="secondary" aria-live="polite">
-              {result.data?.pages[0]?.total ?? "…"}{" "}
-              {["planet", "genre", "country", "studio"].includes(group)
-                ? "نتيجة في المجموعات"
-                : view === "works"
-                  ? "عمل"
-                  : "موسم وإصدار"}
-            </Badge>
-          </div>
-          <InputGroup className="h-11 w-full sm:max-w-md">
-            <InputGroupAddon>
-              <Search aria-hidden="true" />
-            </InputGroupAddon>
-            <InputGroupInput
-              ref={searchInput}
-              aria-label="ابحث في النتائج"
-              placeholder="ابحث في النتائج…"
-              value={q}
-              onChange={(event) => changeSearch(event.target.value)}
-            />
-            {q && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  type="button"
-                  size="icon-sm"
-                  aria-label="مسح البحث"
-                  onClick={() => {
-                    changeSearch("");
-                    searchInput.current?.focus();
-                  }}
-                >
-                  <X aria-hidden="true" />
-                </InputGroupButton>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-        </header>
-        <BrowseToolbar
-          library={library.template?.id ?? "all"}
-          onLibrary={(value) => {
-            const next = selectLibrary(params, value);
-            onRemember({ ...preferences, search: rememberedSearch(next) });
-            replaceParams(path, next);
-          }}
-          view={view}
-          onView={(value) => update([["view", value]])}
-          filters={filters}
-          onFacet={(key, value) => {
-            const facets = filters.facets.filter((facet) => facet.key !== key);
-            if (value !== "all") facets.push({ key, include: [value], exclude: [] });
-            apply({ ...refinements, filters: { ...filters, facets } });
-          }}
-          sort={sort}
-          onSort={(nextSort) => apply({ ...refinements, sort: nextSort })}
-          display={display}
-          onDisplay={setDisplay}
-          group={group}
-          onGroup={(nextGroup) => apply({ ...refinements, group: nextGroup })}
-          filterCount={refinementCount(refinements, preset)}
-          filterTrigger={filterTrigger}
-        />
         {preferenceError && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>
@@ -423,7 +401,7 @@ function BrowseContent({
             }}
           />
         )}
-      </section>
+      </CatalogPage>
     </Drawer>
   );
 }

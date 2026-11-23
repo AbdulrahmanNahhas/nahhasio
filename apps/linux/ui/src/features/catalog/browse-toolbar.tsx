@@ -60,7 +60,7 @@ export function BrowseToolbar({
 }) {
   return (
     <div
-      className="mb-4 flex min-w-0 flex-wrap items-center gap-2"
+      className="flex min-w-0 flex-wrap items-center gap-2"
       role="region"
       aria-label="أدوات التصفح"
     >

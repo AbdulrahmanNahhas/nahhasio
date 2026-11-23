@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { Search, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 
 import { languageName } from "@/lib/languages";
@@ -9,17 +9,12 @@ import { Failure, NoResults } from "../../components/status";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Field, FieldGroup, FieldLabel, FieldSet, FieldLegend } from "../../components/ui/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "../../components/ui/input-group";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../components/ui/popover";
 import { Switch } from "../../components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";
-import { PublicPage, PublicPageHeader } from "../shell/public-page";
+import { CatalogPage, PublicPageHeader, PublicPageSearch } from "../shell/public-page";
 import { EntityCard } from "./entity-card";
 import { facetMatches } from "./filter-model";
 import { compareEntityWorkCount, useEntityDirectory } from "./use-entity-directory";
@@ -106,207 +101,200 @@ export function EntityDirectoryPage({
       sort === "name" ? a.label.localeCompare(b.label, "ar") : compareEntityWorkCount(a, b),
     );
   return (
-    <PublicPage className="flex flex-col gap-6" data-kind={path} aria-label={`صفحة ${title}`}>
-      <PublicPageHeader
-        title={title}
-        description={
-          people
-            ? "اكتشف أعمال الصنّاع وأدوارهم في مكتبتك."
-            : "اكتشف الاستوديوهات وإنتاجاتها ومساهماتها في مكتبتك."
-        }
-        count={
-          result.data && (
-            <Badge variant="secondary">
-              {result.entities.length} {people ? "صانع" : "استوديو"}
-            </Badge>
-          )
-        }
-      />
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-        <FieldGroup className="grid grid-cols-2 items-end gap-3 lg:grid-cols-5">
-          <Field className="col-span-2">
-            <FieldLabel htmlFor="entity-search" className="sr-only">
-              ابحث في {title}
-            </FieldLabel>
-            <InputGroup>
-              <InputGroupInput
-                id="entity-search"
-                maxLength={200}
-                aria-label={`ابحث في ${title}`}
-                placeholder={people ? "ابحث باسم الصانع…" : "ابحث باسم الاستوديو…"}
-                value={search}
-                onChange={(event) => {
-                  changeFilter("q", event.target.value);
-                }}
-              />
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              {search && (
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    aria-label="مسح بحث الأسماء"
-                    onClick={() => changeFilter("q", "")}
-                  >
-                    <X />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              )}
-            </InputGroup>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="studio-role" className="sr-only">
-              {people ? "دور الصانع" : "دور الاستوديو"}
-            </FieldLabel>
-            <Choice
-              id="studio-role"
-              label={people ? "دور الصانع" : "دور الاستوديو"}
-              value={role}
-              options={[{ value: "all", label: "جميع الأدوار" }, ...roles]}
-              onChange={(value) => changeFilter("role", value)}
+    <CatalogPage
+      data-kind={path}
+      aria-label={`صفحة ${title}`}
+      heading={
+        <PublicPageHeader
+          title={title}
+          count={
+            result.data && (
+              <Badge variant="secondary">
+                {result.entities.length} {people ? "صانع" : "استوديو"}
+              </Badge>
+            )
+          }
+          actions={
+            <PublicPageSearch
+              label={`ابحث في ${title}`}
+              placeholder={people ? "ابحث باسم الصانع…" : "ابحث باسم الاستوديو…"}
+              value={search}
+              maxLength={200}
+              onChange={(value) => changeFilter("q", value)}
+              clearLabel="مسح بحث الأسماء"
             />
-          </Field>
-          {languages.length > 0 && (
-            <Field>
-              <FieldLabel htmlFor="entity-credit-language" className="sr-only">
-                لغة المساهمة
+          }
+        />
+      }
+      toolbar={
+        <div className="flex flex-col gap-2" role="region" aria-label={`تصفية ${title}`}>
+          <FieldGroup className="flex flex-row flex-wrap items-center gap-2">
+            <Field className="min-w-32.5 flex-1 basis-32.5 lg:w-44 lg:flex-none">
+              <FieldLabel htmlFor="studio-role" className="sr-only">
+                {people ? "دور الصانع" : "دور الاستوديو"}
               </FieldLabel>
               <Choice
-                id="entity-credit-language"
-                label="لغة المساهمة"
-                value={language}
-                options={[
-                  { value: "", label: "جميع لغات المساهمة" },
-                  ...languages.map((value) => ({ value, label: languageName(value) })),
-                ]}
-                onChange={(value) => changeFilter("language", value)}
+                id="studio-role"
+                label={people ? "دور الصانع" : "دور الاستوديو"}
+                value={role}
+                options={[{ value: "all", label: "جميع الأدوار" }, ...roles]}
+                onChange={(value) => changeFilter("role", value)}
               />
             </Field>
-          )}
-          <Field>
-            <FieldLabel htmlFor="studio-image" className="sr-only">
-              {people ? "الصورة" : "الشعار"}
-            </FieldLabel>
-            <Choice
-              id="studio-image"
-              label={people ? "توفر صورة الصانع" : "توفر شعار الاستوديو"}
-              value={image}
-              options={[
-                { value: "all", label: people ? "كل الصور" : "كل الشعارات" },
-                { value: "with", label: people ? "بصورة" : "بشعار" },
-                { value: "without", label: people ? "بدون صورة" : "بدون شعار" },
-              ]}
-              onChange={(value) => changeFilter("image", value)}
-            />
-          </Field>
-          <Field className="max-[640px]:col-span-2">
-            <FieldLabel htmlFor="entity-sort" className="sr-only">
-              الترتيب
-            </FieldLabel>
-            <Choice
-              id="entity-sort"
-              label={`ترتيب ${title}`}
-              value={sort}
-              options={[
-                { value: "count", label: "الأكثر أعمالًا" },
-                { value: "name", label: "الاسم أبجديًا" },
-              ]}
-              onChange={(value) => {
-                changeFilter("sort", value);
-              }}
-            />
-          </Field>
-        </FieldGroup>
-        <div className="grid min-w-0 grid-cols-1 items-center gap-x-6 gap-y-3 border-t border-border pt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="flex min-h-8 flex-wrap items-center gap-2">
-            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-              {result.isFetching
-                ? `جارٍ تحميل ${title}…`
-                : `${matches.length} من ${result.entities.length} ${people ? "صانع" : "استوديو"}`}
-            </p>
-            {privacy === "all" && <Badge variant="secondary">تشمل المخفية</Badge>}
-            {filtered && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X data-icon="inline-start" />
-                مسح التصفية
-              </Button>
-            )}
-          </div>
-          <div
-            role="group"
-            aria-label={`خيارات عرض ${title}`}
-            className="flex min-w-0 max-w-full flex-wrap items-center gap-x-5 gap-y-3"
-          >
-            <FieldSet className="min-w-0 shrink-0 flex-row items-center gap-2">
-              <FieldLegend className="sr-only">حجم البطاقات</FieldLegend>
-              <span className="whitespace-nowrap text-xs text-muted-foreground" aria-hidden="true">
-                في الصف
-              </span>
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                spacing={0}
-                value={[size]}
-                aria-label={`حجم بطاقات ${title}`}
-                onValueChange={(values) => {
-                  const next = values[0];
-                  if (next === "large" || next === "medium" || next === "small")
-                    changeFilter("size", next);
-                }}
-              >
-                <ToggleGroupItem
-                  value="large"
-                  aria-label="بطاقات كبيرة، 3 في الصف"
-                  title="كبير: 3 بطاقات في الصف"
-                >
-                  3
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="medium"
-                  aria-label="بطاقات متوسطة، 4 في الصف"
-                  title="متوسط: 4 بطاقات في الصف"
-                >
-                  4
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="small"
-                  aria-label="بطاقات صغيرة، 5 في الصف"
-                  title="صغير: 5 بطاقات في الصف"
-                >
-                  5
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </FieldSet>
-            <Field orientation="horizontal" className="w-auto shrink-0">
-              <Switch
-                id="studio-square"
-                size="sm"
-                checked={square}
-                onCheckedChange={(checked) =>
-                  changeFilter("shape", checked ? "square" : people ? "portrait" : "banner")
-                }
-              />
-              <FieldLabel htmlFor="studio-square" className="whitespace-nowrap">
-                صور مربعة
-              </FieldLabel>
-            </Field>
-            {isAdmin && (
-              <Field orientation="horizontal" className="w-auto shrink-0">
-                <Switch
-                  id="studio-hidden"
-                  size="sm"
-                  checked={privacy === "all"}
-                  onCheckedChange={(checked) => changeFilter("privacy", checked ? "all" : "public")}
-                />
-                <FieldLabel htmlFor="studio-hidden" className="whitespace-nowrap">
-                  الأعمال المخفية
+            {languages.length > 0 && (
+              <Field className="min-w-32.5 flex-1 basis-32.5 lg:w-44 lg:flex-none">
+                <FieldLabel htmlFor="entity-credit-language" className="sr-only">
+                  لغة المساهمة
                 </FieldLabel>
+                <Choice
+                  id="entity-credit-language"
+                  label="لغة المساهمة"
+                  value={language}
+                  options={[
+                    { value: "", label: "جميع لغات المساهمة" },
+                    ...languages.map((value) => ({ value, label: languageName(value) })),
+                  ]}
+                  onChange={(value) => changeFilter("language", value)}
+                />
               </Field>
             )}
-          </div>
+            <Field className="min-w-32.5 flex-1 basis-32.5 lg:w-44 lg:flex-none">
+              <FieldLabel htmlFor="studio-image" className="sr-only">
+                {people ? "الصورة" : "الشعار"}
+              </FieldLabel>
+              <Choice
+                id="studio-image"
+                label={people ? "توفر صورة الصانع" : "توفر شعار الاستوديو"}
+                value={image}
+                options={[
+                  { value: "all", label: people ? "كل الصور" : "كل الشعارات" },
+                  { value: "with", label: people ? "بصورة" : "بشعار" },
+                  { value: "without", label: people ? "بدون صورة" : "بدون شعار" },
+                ]}
+                onChange={(value) => changeFilter("image", value)}
+              />
+            </Field>
+            <Field className="min-w-32.5 flex-1 basis-32.5 lg:w-44 lg:flex-none">
+              <FieldLabel htmlFor="entity-sort" className="sr-only">
+                الترتيب
+              </FieldLabel>
+              <Choice
+                id="entity-sort"
+                label={`ترتيب ${title}`}
+                value={sort}
+                options={[
+                  { value: "count", label: "الأكثر أعمالًا" },
+                  { value: "name", label: "الاسم أبجديًا" },
+                ]}
+                onChange={(value) => {
+                  changeFilter("sort", value);
+                }}
+              />
+            </Field>
+            <div className="flex w-full flex-wrap items-center gap-2 lg:ms-auto lg:w-auto">
+              <Popover>
+                <PopoverTrigger
+                  render={<Button variant="outline" aria-label={`خيارات عرض ${title}`} />}
+                >
+                  <SlidersHorizontal data-icon="inline-start" />
+                  العرض
+                </PopoverTrigger>
+                <PopoverContent align="end">
+                  <PopoverTitle>عرض البطاقات</PopoverTitle>
+                  <FieldSet className="min-w-0 shrink-0 flex-row items-center gap-2">
+                    <FieldLegend className="sr-only">حجم البطاقات</FieldLegend>
+                    <span
+                      className="whitespace-nowrap text-xs text-muted-foreground"
+                      aria-hidden="true"
+                    >
+                      في الصف
+                    </span>
+                    <ToggleGroup
+                      variant="outline"
+                      size="sm"
+                      spacing={0}
+                      value={[size]}
+                      aria-label={`حجم بطاقات ${title}`}
+                      onValueChange={(values) => {
+                        const next = values[0];
+                        if (next === "large" || next === "medium" || next === "small")
+                          changeFilter("size", next);
+                      }}
+                    >
+                      <ToggleGroupItem
+                        value="large"
+                        aria-label="بطاقات كبيرة، 3 في الصف"
+                        title="كبير: 3 بطاقات في الصف"
+                      >
+                        3
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="medium"
+                        aria-label="بطاقات متوسطة، 4 في الصف"
+                        title="متوسط: 4 بطاقات في الصف"
+                      >
+                        4
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="small"
+                        aria-label="بطاقات صغيرة، 5 في الصف"
+                        title="صغير: 5 بطاقات في الصف"
+                      >
+                        5
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </FieldSet>
+                  <Field orientation="horizontal" className="w-auto shrink-0">
+                    <Switch
+                      id="studio-square"
+                      size="sm"
+                      checked={square}
+                      onCheckedChange={(checked) =>
+                        changeFilter("shape", checked ? "square" : people ? "portrait" : "banner")
+                      }
+                    />
+                    <FieldLabel htmlFor="studio-square" className="whitespace-nowrap">
+                      صور مربعة
+                    </FieldLabel>
+                  </Field>
+                </PopoverContent>
+              </Popover>
+              {isAdmin && (
+                <Field orientation="horizontal" className="w-auto shrink-0">
+                  <Switch
+                    id="studio-hidden"
+                    size="sm"
+                    checked={privacy === "all"}
+                    onCheckedChange={(checked) =>
+                      changeFilter("privacy", checked ? "all" : "public")
+                    }
+                  />
+                  <FieldLabel htmlFor="studio-hidden" className="whitespace-nowrap">
+                    الأعمال المخفية
+                  </FieldLabel>
+                </Field>
+              )}
+            </div>
+          </FieldGroup>
+          {(result.isFetching || filtered || privacy === "all") && (
+            <div className="flex min-h-8 flex-wrap items-center gap-2">
+              <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                {result.isFetching
+                  ? `جارٍ تحميل ${title}…`
+                  : `${matches.length} من ${result.entities.length} ${people ? "صانع" : "استوديو"}`}
+              </p>
+              {privacy === "all" && <Badge variant="secondary">تشمل المخفية</Badge>}
+              {filtered && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X data-icon="inline-start" />
+                  مسح التصفية
+                </Button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      }
+    >
       {result.error ? (
         <Failure error={result.error} retry={() => void result.refetch()} />
       ) : result.isLoading ? (
@@ -351,6 +339,6 @@ export function EntityDirectoryPage({
           description="جرّب اسمًا آخر أو امسح التصفية لعرض الجميع."
         />
       )}
-    </PublicPage>
+    </CatalogPage>
   );
 }

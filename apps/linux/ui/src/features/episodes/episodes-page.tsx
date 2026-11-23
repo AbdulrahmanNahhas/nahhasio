@@ -1,17 +1,6 @@
 import { Radio } from "@base-ui/react/radio";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  Eye,
-  EyeOff,
-  Film,
-  Layers,
-  LoaderCircle,
-  ScanEye,
-  Search,
-  Tv,
-  X,
-} from "lucide-react";
+import { CalendarDays, Eye, EyeOff, Film, Layers, LoaderCircle, ScanEye, Tv } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useDeferredValue } from "react";
 
@@ -20,12 +9,6 @@ import { Failure, NoResults } from "../../components/status";
 import { Badge } from "../../components/ui/badge";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { ButtonGroup } from "../../components/ui/button-group";
-import {
-  InputGroup,
-  InputGroupInput,
-  InputGroupAddon,
-  InputGroupButton,
-} from "../../components/ui/input-group";
 import { RadioGroup } from "../../components/ui/radio-group";
 import { Skeleton } from "../../components/ui/skeleton";
 import type { EpisodesQuery } from "../../lib/bridge";
@@ -33,7 +16,7 @@ import { gateway } from "../../lib/bridge";
 import { useIsAdmin } from "../account/use-is-admin";
 import { ViewingCard } from "../home/viewing-card";
 import { replaceParams } from "../shell/navigation";
-import { PublicPage } from "../shell/public-page";
+import { CatalogPage, PublicPageHeader, PublicPageSearch } from "../shell/public-page";
 
 export function EpisodesPage({ params }: { params: URLSearchParams }) {
   const admin = useIsAdmin();
@@ -97,144 +80,133 @@ export function EpisodesPage({ params }: { params: URLSearchParams }) {
   };
 
   return (
-    <PublicPage as="div" className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-2xl font-semibold sm:text-3xl">الحلقات</h1>
-            {total !== undefined && (
+    <CatalogPage
+      as="div"
+      heading={
+        <PublicPageHeader
+          title="الحلقات"
+          count={
+            total !== undefined && (
               <Badge variant="secondary">
                 {total} {kind === "episodes" ? "حلقة" : kind === "movies" ? "فيلم" : "إصدار"}
               </Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {kind === "all"
-              ? "أحدث الحلقات والأفلام الصادرة في مكتبتك"
-              : kind === "movies"
-                ? "أحدث الأفلام الصادرة في مكتبتك"
-                : "أحدث الحلقات الصادرة في مكتبتك"}
-          </p>
-        </div>
-        <a className={buttonVariants({ variant: "outline", size: "sm" })} href="#/releases">
-          <CalendarDays data-icon="inline-start" />
-          تقويم الإصدارات
-        </a>
-      </header>
-      <div className="flex flex-wrap items-center gap-3" aria-label="تصفية الحلقات والأفلام">
-        <div className="min-w-48 flex-1">
-          <InputGroup>
-            <InputGroupAddon>
-              <Search aria-hidden="true" />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label="البحث باسم العمل أو الحلقة أو الفيلم"
+            )
+          }
+          actions={
+            <PublicPageSearch
+              label="البحث باسم العمل أو الحلقة أو الفيلم"
               placeholder="اسم العمل أو الحلقة أو الفيلم…"
               value={search}
               maxLength={200}
-              onChange={(event) => update("q", event.target.value)}
+              onChange={(value) => update("q", value)}
             />
-            {search && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label="مسح البحث"
-                  onClick={() => update("q", "")}
-                >
-                  <X />
-                </InputGroupButton>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-        </div>
-        <EpisodeFilterGroup
-          label="حالة مشاهدة الحلقات والأفلام"
-          value={watchState}
-          onChange={(value) => update("watchState", value)}
-          options={[
-            { value: "all", label: "الكل" },
-            { value: "unwatched", label: "غير مُشاهد" },
-            { value: "watched", label: "مُشاهد" },
-          ]}
-        />
-        <EpisodeFilterGroup
-          label="نوع الإصدار"
-          value={kind}
-          onChange={(value) => update("kind", value)}
-          options={[
-            { value: "episodes", label: "الحلقات", icon: Tv },
-            { value: "movies", label: "الأفلام", icon: Film },
-            { value: "all", label: "الحلقات والأفلام", icon: Layers },
-          ]}
-        />
-        {admin && (
-          <EpisodeFilterGroup
-            label="ظهور الأعمال"
-            value={visibility}
-            onChange={(value) => update("visibility", value)}
-            options={[
-              { value: "public", label: "الظاهرة", icon: Eye },
-              { value: "private", label: "المخفية", icon: EyeOff },
-              { value: "all", label: "الظاهرة والمخفية", icon: ScanEye },
-            ]}
-          />
-        )}
-      </div>
-      {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
-      <div
-        className="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-        aria-label="الحلقات والأفلام"
-      >
-        {items.map((item) => (
-          <ViewingCard
-            key={item.episodeId ?? item.installmentId}
-            item={item}
-            poster={!item.episodeId}
-          />
-        ))}
-        {(result.isLoading || result.isFetchingNextPage) &&
-          Array.from({ length: result.isLoading ? 8 : 4 }, (_, index) => (
-            <div key={index} className="space-y-3" role="status" aria-label="جارٍ تحميل الإصدارات">
-              <Skeleton className="aspect-video rounded-2xl" />
-              <Skeleton className="h-5 w-4/5" />
-              <Skeleton className="h-4 w-2/3" />
-            </div>
-          ))}
-      </div>
-      {total === 0 && (
-        <NoResults
-          title={hasFilters ? "لا توجد إصدارات مطابقة" : "لا توجد حلقات أو أفلام صادرة بعد"}
-          description={
-            hasFilters
-              ? "غيّر البحث أو حالة المشاهدة لتوسيع النتائج."
-              : "تظهر هنا الحلقات والأفلام التي لها تاريخ إصدار مسجّل حتى اليوم."
           }
         />
-      )}
-      {result.hasNextPage && (
-        <div className="flex flex-col items-center gap-3">
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {items.length} من {total} إصدار
-          </p>
-          <Button
-            variant="outline"
-            disabled={result.isFetchingNextPage}
-            onClick={(event) => {
-              if (loadMore) void loadMore(event.currentTarget, fetchMore);
-              else void fetchMore();
-            }}
-          >
-            {result.isFetchingNextPage && (
-              <LoaderCircle
-                data-icon="inline-start"
-                className="animate-spin motion-reduce:animate-none"
-              />
-            )}
-            {result.isFetchingNextPage ? "جارٍ تحميل الإصدارات…" : "عرض المزيد"}
-          </Button>
+      }
+      toolbar={
+        <div
+          className="flex min-w-0 flex-wrap items-center gap-2"
+          role="region"
+          aria-label="تصفية الحلقات والأفلام"
+        >
+          <EpisodeFilterGroup
+            label="حالة مشاهدة الحلقات والأفلام"
+            value={watchState}
+            onChange={(value) => update("watchState", value)}
+            options={[
+              { value: "all", label: "الكل" },
+              { value: "unwatched", label: "غير مُشاهد" },
+              { value: "watched", label: "مُشاهد" },
+            ]}
+          />
+          <EpisodeFilterGroup
+            label="نوع الإصدار"
+            value={kind}
+            onChange={(value) => update("kind", value)}
+            options={[
+              { value: "episodes", label: "الحلقات", icon: Tv },
+              { value: "movies", label: "الأفلام", icon: Film },
+              { value: "all", label: "الحلقات والأفلام", icon: Layers },
+            ]}
+          />
+          {admin && (
+            <EpisodeFilterGroup
+              label="ظهور الأعمال"
+              value={visibility}
+              onChange={(value) => update("visibility", value)}
+              options={[
+                { value: "public", label: "الظاهرة", icon: Eye },
+                { value: "private", label: "المخفية", icon: EyeOff },
+                { value: "all", label: "الظاهرة والمخفية", icon: ScanEye },
+              ]}
+            />
+          )}
+          <div className="ms-auto">
+            <a className={buttonVariants({ variant: "outline" })} href="#/releases">
+              <CalendarDays data-icon="inline-start" />
+              تقويم الإصدارات
+            </a>
+          </div>
         </div>
-      )}
-    </PublicPage>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
+        <div
+          className="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          aria-label="الحلقات والأفلام"
+        >
+          {items.map((item) => (
+            <ViewingCard
+              key={item.episodeId ?? item.installmentId}
+              item={item}
+              poster={!item.episodeId}
+            />
+          ))}
+          {(result.isLoading || result.isFetchingNextPage) &&
+            Array.from({ length: result.isLoading ? 8 : 4 }, (_, index) => (
+              <div key={index} className="space-y-3" role="status" aria-label="جارٍ تحميل الإصدارات">
+                <Skeleton className="aspect-video rounded-2xl" />
+                <Skeleton className="h-5 w-4/5" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ))}
+        </div>
+        {total === 0 && (
+          <NoResults
+            title={hasFilters ? "لا توجد إصدارات مطابقة" : "لا توجد حلقات أو أفلام صادرة بعد"}
+            description={
+              hasFilters
+                ? "غيّر البحث أو حالة المشاهدة لتوسيع النتائج."
+                : "تظهر هنا الحلقات والأفلام التي لها تاريخ إصدار مسجّل حتى اليوم."
+            }
+          />
+        )}
+        {result.hasNextPage && (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {items.length} من {total} إصدار
+            </p>
+            <Button
+              variant="outline"
+              disabled={result.isFetchingNextPage}
+              onClick={(event) => {
+                if (loadMore) void loadMore(event.currentTarget, fetchMore);
+                else void fetchMore();
+              }}
+            >
+              {result.isFetchingNextPage && (
+                <LoaderCircle
+                  data-icon="inline-start"
+                  className="animate-spin motion-reduce:animate-none"
+                />
+              )}
+              {result.isFetchingNextPage ? "جارٍ تحميل الإصدارات…" : "عرض المزيد"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </CatalogPage>
   );
 }
 
@@ -272,7 +244,7 @@ function EpisodeFilterGroup({
             render={
               <Button
                 variant={value === option.value ? "secondary" : "outline"}
-                size={Icon ? "icon-sm" : "sm"}
+                size={Icon ? "icon" : "default"}
               />
             }
           >

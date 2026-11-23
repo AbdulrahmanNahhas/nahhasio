@@ -102,7 +102,6 @@ export function ReleasesPage({ params }: { params: URLSearchParams }) {
     <PublicPage as="article" className="flex flex-col gap-6" aria-label="الإصدارات">
       <PublicPageHeader
         title="تقويم المكتبة"
-        description="الأفلام، بدايات المواسم، ومواعيد الحلقات المسجّلة في مكتبتك."
         actions={
           <a className={buttonVariants({ variant: "outline", size: "sm" })} href="#/episodes">
             <Clapperboard data-icon="inline-start" />

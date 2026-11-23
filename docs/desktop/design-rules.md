@@ -17,6 +17,12 @@ new approved admin pages without forcing every view into an identical card grid.
 
 ## Composition and boundaries
 
+Browse, Episodes, Music and Trailers, Studios, People, and Planets share the catalog page layout.
+Use the same page gutters, title and count, search placement, and spacing before filters and
+results. Search sits opposite the heading in wide RTL layouts and directly below it in narrow
+windows. Keep filters and secondary actions on the next row. Let longer lists of filter choices
+wrap or use dropdowns. Keep page-specific result layouts independent of the shared header.
+
 Use existing official primitives and variants; Field/FieldGroup for forms, complete Card
 composition, Alert/Empty/Badge for status, titled dialogs and labelled/icon-named controls.
 Use semantic tokens, logical RTL layout, gaps, static utilities and cn. Native link semantics,
