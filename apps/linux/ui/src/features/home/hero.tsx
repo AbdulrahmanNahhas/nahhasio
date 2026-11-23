@@ -14,12 +14,14 @@ export function Hero() {
   const navigation = useCardNavigation();
   const result = useQuery(homeOptions());
   const [index, setIndex] = useState(0);
-  const [pause, setPause] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [stopped, setStopped] = useState(false);
   const items = result.data?.featured ?? [];
   useEffect(() => {
     if (
-      pause ||
+      hovered ||
+      focused ||
       stopped ||
       items.length < 2 ||
       window.matchMedia("(prefers-reduced-motion:reduce)").matches
@@ -27,7 +29,7 @@ export function Hero() {
       return;
     const timer = setTimeout(() => setIndex((index + 1) % items.length), 15000);
     return () => clearTimeout(timer);
-  }, [pause, stopped, items.length, index]);
+  }, [hovered, focused, stopped, items.length, index]);
   const work = items[index % Math.max(items.length, 1)];
   if (!work)
     return (
@@ -70,11 +72,11 @@ export function Hero() {
       }}
       className="relative isolate flex min-h-160 items-end overflow-hidden focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-primary sm:min-h-180 lg:min-h-home-hero"
       aria-label="أحدث الأعمال"
-      onMouseEnter={() => setPause(true)}
-      onMouseLeave={() => setPause(false)}
-      onFocusCapture={() => setPause(true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setFocused(true)}
       onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setPause(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
     >
       <Artwork
@@ -118,6 +120,7 @@ export function Hero() {
         </p>
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
+            {...navigation}
             size="lg"
             onClick={() =>
               requestWatch({
@@ -130,6 +133,7 @@ export function Hero() {
             المشاهدة
           </Button>
           <a
+            {...navigation}
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href={workLink(work.id)}
           >
@@ -152,6 +156,7 @@ export function Hero() {
               className="w-6 shrink-0 transition-[width] duration-700 ease-in-out data-[active=true]:w-12 motion-reduce:transition-none"
             >
               <Button
+                {...navigation}
                 variant="ghost"
                 size="icon-xs"
                 className="group/dot w-full"
@@ -166,6 +171,7 @@ export function Hero() {
         </div>
         <div className="rounded-full border border-foreground/25 bg-muted/70 p-1">
           <Button
+            {...navigation}
             variant="ghost"
             size="icon-xs"
             aria-label={stopped ? "تشغيل التبديل التلقائي" : "إيقاف التبديل التلقائي"}

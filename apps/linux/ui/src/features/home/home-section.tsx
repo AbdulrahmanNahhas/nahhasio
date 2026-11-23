@@ -1,69 +1,38 @@
-import { ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronLeft } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useCardNavigation } from "@/components/card-navigation";
 
 export function HomeSectionHeading({
   title,
-  description,
   href,
-  linkLabel = "عرض الكل",
   children,
 }: {
   title: string;
-  description?: string;
   href?: string;
-  linkLabel?: string;
   children?: ReactNode;
 }) {
+  const navigation = useCardNavigation();
   return (
-    <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {children}
-        {href && (
-          <a href={href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            {linkLabel}
-            <ArrowLeft data-icon="inline-end" />
+    <header className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <h2 className="font-display text-2xl leading-normal font-semibold sm:text-3xl">
+        {href ? (
+          <a
+            {...navigation}
+            href={href}
+            className="group/heading inline-flex items-center gap-2 rounded-lg outline-none transition-colors hover:text-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-reduce:transition-none"
+          >
+            {title}
+            <ChevronLeft
+              className="size-5 text-muted-foreground group-hover/heading:text-current group-focus-visible/heading:text-current motion-safe:transition-transform motion-safe:group-hover/heading:-translate-x-1"
+              aria-hidden
+            />
           </a>
+        ) : (
+          title
         )}
-      </div>
+      </h2>
+      {children}
     </header>
-  );
-}
-
-/** Mount each lower discovery section once, shortly before it enters the scroll viewport. */
-export function DeferredHomeSection({ children }: { children: ReactNode }) {
-  const target = useRef<HTMLDivElement>(null);
-  const [near, setNear] = useState(false);
-  useEffect(() => {
-    if (!target.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setNear(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "500px" },
-    );
-    observer.observe(target.current);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <div ref={target} className="min-w-0">
-      {near ? (
-        children
-      ) : (
-        <div className="flex min-h-80 flex-col gap-4" aria-hidden="true">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      )}
-    </div>
   );
 }

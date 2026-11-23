@@ -1,126 +1,114 @@
 import type { CatalogPlanet } from "@nahhasio/api-contract";
-import { useQuery } from "@tanstack/react-query";
-import { cn } from "cn";
-import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useQuery, skipToken } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
-import { MediaCard } from "@/components/media-card";
-import { Failure, NoResults } from "@/components/status";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Artwork } from "@/components/artwork";
+import { useCardNavigation } from "@/components/card-navigation";
 import { emptyFilters } from "@/features/catalog/filter-model";
+import { PlanetEmblem } from "@/features/planets/planet-cards";
+import { entityLink } from "@/features/shell/navigation";
 import { gateway } from "@/lib/bridge";
+import { planetPalette } from "@/lib/catalog-colors";
 
 import { HomeSectionHeading } from "./home-section";
 
 export function PlanetShelves({ planets }: { planets: CatalogPlanet[] }) {
-  const [planet, setPlanet] = useState("");
-  const [day] = useState(() => Math.floor(Date.now() / 86400000));
-  const choices = planets;
-  const selected = choices.find((item) => item.slug === planet) ?? choices[day % choices.length];
-  const filters = {
-    ...emptyFilters(),
-    facets: [{ key: "planets", include: selected ? [selected.slug] : [], exclude: [] }],
-  };
-  const preview = useQuery({
-    queryKey: ["home", "planet-installments", selected?.slug],
-    queryFn: ({ signal }) =>
-      gateway.browse(
+  const section = useRef<HTMLElement>(null);
+  const [loadArtwork, setLoadArtwork] = useState(false);
+  const hasPlanets = planets.length > 0;
+  useEffect(() => {
+    const element = section.current;
+    if (!hasPlanets || !element || loadArtwork) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setLoadArtwork(true);
+      },
+      { root: element.closest("#main-content"), rootMargin: "240px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasPlanets, loadArtwork]);
+  if (!hasPlanets) return null;
+  return (
+    <section ref={section} aria-label="استكشف الكواكب" onFocusCapture={() => setLoadArtwork(true)}>
+      <HomeSectionHeading title="الكواكب" href="#/planets" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        {planets.slice(0, 8).map((planet) => (
+          <PlanetTile key={planet.id} planet={planet} loadArtwork={loadArtwork} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PlanetTile({ planet, loadArtwork }: { planet: CatalogPlanet; loadArtwork: boolean }) {
+  const navigation = useCardNavigation();
+  const latest = useQuery({
+    queryKey: ["home", "planet-latest-release", planet.slug],
+    queryFn: async ({ signal }) => {
+      const page = await gateway.browse(
         {
           view: "installments",
           privacy: "public",
-          sort: "year-desc",
-          filters: JSON.stringify(filters),
+          sort: "latest-released-desc",
+          filters: JSON.stringify({
+            ...emptyFilters(),
+            facets: [
+              { key: "planets", include: [planet.slug], exclude: [] },
+              { key: "releaseStates", include: ["released"], exclude: [] },
+            ],
+          }),
           page: 1,
-          pageSize: 10,
+          pageSize: 1,
         },
         signal,
-      ),
-    enabled: Boolean(selected),
+      );
+      return page.items[0] ?? null;
+    },
+    enabled: loadArtwork && planet.count > 0,
+    staleTime: 30000,
   });
-  if (!selected) return null;
+  const entry = latest.data;
+  const workId = entry?.work.id;
+  const installmentId = entry?.installment?.id;
+  const artwork = useQuery({
+    queryKey: ["work", workId],
+    queryFn: workId && installmentId ? ({ signal }) => gateway.work(workId, signal) : skipToken,
+    staleTime: 30000,
+    select: (work) => {
+      const images = work.installments.find(({ id }) => id === installmentId)?.artwork ?? [];
+      const banners = images.filter(({ role }) => role === "banner");
+      return banners.find(({ isPrimary }) => isPrimary) ?? banners[0];
+    },
+  });
+  const banner = artwork.data ?? entry?.work.banner;
   return (
-    <section aria-label="استكشف الكواكب">
-      <HomeSectionHeading
-        title="عوالم تستحق الاكتشاف"
-        description="اختر كوكبًا، واكتشف أحدث مواسمه وأفلامه وإصداراته."
-        href="#/planets"
-        linkLabel="كل الكواكب"
-      />
-      <div className="grid items-start gap-6 rounded-2xl border border-border bg-card p-4 sm:p-6 lg:grid-cols-4">
-        <div className="flex flex-col gap-3 lg:col-span-1">
-          <p className="text-xs text-muted-foreground">إلى أين نذهب؟</p>
-          <ToggleGroup
-            orientation="vertical"
-            variant="outline"
-            spacing={2}
-            className="flex max-h-80 w-full scroll-fade-y flex-col scrollbar-thin gap-2 overflow-y-auto overscroll-y-contain px-1 py-2 lg:max-h-144"
-            aria-label="اختر كوكبًا"
-            value={[selected.slug]}
-            onValueChange={(next) => {
-              if (next[0]) setPlanet(next[0]);
-            }}
-          >
-            {choices.map((item) => (
-              <ToggleGroupItem
-                key={item.id}
-                value={item.slug}
-                className="h-auto w-full min-w-0 shrink-0 justify-start gap-3 px-3 py-3"
-              >
-                <span className="font-emoji text-2xl" aria-hidden="true">
-                  {item.icon || "🪐"}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                  <span className="truncate">{item.nameAr}</span>
-                  <span className="text-xs text-muted-foreground">{item.count} عمل</span>
-                </span>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-        <div className="min-w-0 lg:col-span-3">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-xl font-semibold">{selected.nameAr}</h3>
-              <Badge variant="secondary">{selected.count} عمل</Badge>
-            </div>
-            <a
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
-              href={`#/planets/${encodeURIComponent(selected.slug)}`}
-            >
-              ادخل الكوكب
-              <ArrowLeft data-icon="inline-end" />
-            </a>
-          </div>
-          {preview.isPending && (
-            <div className="grid grid-cols-3 gap-4">
-              <Skeleton className="aspect-2/3" />
-              <Skeleton className="aspect-2/3" />
-              <Skeleton className="aspect-2/3" />
-            </div>
-          )}
-          {preview.error && <Failure error={preview.error} retry={() => void preview.refetch()} />}
-          {preview.data?.items.length === 0 && (
-            <NoResults title="لا توجد إصدارات في هذا الكوكب بعد" />
-          )}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-            {(preview.data?.items ?? []).map((entry, index) => (
-              <div
-                key={entry.installment?.id ?? entry.work.id}
-                className={cn(
-                  "min-w-0",
-                  index >= 4 && index < 6 && "hidden md:block",
-                  index >= 6 && "hidden xl:block",
-                )}
-              >
-                <MediaCard entry={entry} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
+    <a
+      {...navigation}
+      href={entityLink("planets", planet.slug)}
+      style={planetPalette(planet.primaryColor, planet.secondaryColor)}
+      className="group/planet relative isolate flex aspect-video min-h-28 min-w-0 items-end overflow-hidden rounded-2xl border border-foreground/15 bg-linear-to-br from-(--planet) to-(--planet-secondary) p-3 text-primary-foreground outline-none hover:border-foreground/60 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:p-4"
+    >
+      {banner && (
+        <Artwork
+          id={banner.id}
+          alt=""
+          width={640}
+          transparentFallback
+          fallback={<span />}
+          className="pointer-events-none absolute inset-0 size-full object-cover opacity-80 mix-blend-luminosity motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover/planet:scale-105"
+        />
+      )}
+      <span className="pointer-events-none absolute inset-0 bg-linear-to-t from-player-chrome via-player-chrome/35 to-transparent" />
+      <span className="relative flex min-w-0 items-center gap-2">
+        <PlanetEmblem
+          planet={planet}
+          className="size-8 bg-(--planet-secondary)/70 text-base sm:size-9"
+        />
+        <span className="font-display text-sm leading-tight font-semibold wrap-anywhere sm:text-lg">
+          {planet.nameAr}
+        </span>
+      </span>
+    </a>
   );
 }

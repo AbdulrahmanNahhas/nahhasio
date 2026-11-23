@@ -1,6 +1,7 @@
 import type { HomeViewingItem } from "@nahhasio/api-contract";
 import { useState } from "react";
 
+import { useCardNavigation } from "@/components/card-navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import { HomeSectionHeading } from "./home-section";
@@ -16,6 +17,7 @@ export function EpisodeSection({
   recent: HomeViewingItem[];
   continuing: string[];
 }) {
+  const navigation = useCardNavigation();
   const [selection, setSelection] = useState<"following" | "all" | null>(null);
   const relevant = following.filter((item) => !continuing.includes(item.work.id));
   const mode = relevant.length ? (selection ?? "following") : "all";
@@ -23,18 +25,10 @@ export function EpisodeSection({
   if (!recent.length && !relevant.length) return null;
   return (
     <section aria-label="أحدث الحلقات">
-      <HomeSectionHeading
-        title="أحدث الحلقات"
-        description={
-          mode === "following"
-            ? "حلقات صادرة لم تشاهدها من أعمال بدأتَها أو أضفتها للمفضلة."
-            : "آخر ما صدر من حلقات في المكتبة."
-        }
-        href="#/episodes"
-        linkLabel="كل الحلقات"
-      >
+      <HomeSectionHeading title="أحدث الحلقات" href="#/episodes">
         {relevant.length > 0 && (
           <ToggleGroup
+            data-home-toggle
             variant="outline"
             size="sm"
             spacing={0}
@@ -44,8 +38,12 @@ export function EpisodeSection({
               if (next[0] === "following" || next[0] === "all") setSelection(next[0]);
             }}
           >
-            <ToggleGroupItem value="following">متابعتي</ToggleGroupItem>
-            <ToggleGroupItem value="all">كل المكتبة</ToggleGroupItem>
+            <ToggleGroupItem {...navigation} value="following">
+              متابعتي
+            </ToggleGroupItem>
+            <ToggleGroupItem {...navigation} value="all">
+              كل المكتبة
+            </ToggleGroupItem>
           </ToggleGroup>
         )}
       </HomeSectionHeading>

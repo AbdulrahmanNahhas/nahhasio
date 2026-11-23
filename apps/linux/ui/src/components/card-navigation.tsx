@@ -10,7 +10,7 @@ type CardNavigation = {
 };
 function focusTarget(element: HTMLElement) {
   element.focus({ preventScroll: true });
-  cardLayout(element).scrollIntoView({
+  homeLayout(element).scrollIntoView({
     block: element.dataset.navigationAlign === "start" ? "start" : "nearest",
     inline: "nearest",
     behavior: "instant",
@@ -21,7 +21,61 @@ function cardLayout(element: HTMLElement) {
   return element.closest<HTMLElement>("[data-episode-card]") ?? element;
 }
 
-export function CardNavigationProvider({ children }: { children: ReactNode }) {
+function homeLayout(element: HTMLElement) {
+  return element.closest<HTMLElement>("[data-home-shelf-item]") ?? cardLayout(element);
+}
+
+function homeTarget(origin: HTMLElement, cards: HTMLElement[], key: string) {
+  const horizontal = key === "ArrowLeft" || key === "ArrowRight";
+  const forward = key === "ArrowRight" || key === "ArrowDown";
+  const source = homeLayout(origin);
+  const start = source.getBoundingClientRect();
+  const shelf = origin.closest("[data-home-shelf]");
+  const tabs = origin.closest('[role="tablist"], [data-home-toggle]');
+  if (horizontal && tabs) return undefined;
+  const center = start.left + start.width / 2;
+  return cards
+    .filter((card) => {
+      if (homeLayout(card) === source) return false;
+      if (horizontal) {
+        return (
+          card.closest("[data-home-shelf]") === shelf &&
+          !card.closest('[role="tablist"], [data-home-toggle]') &&
+          !card.dataset.navigationAlign
+        );
+      }
+      return !card.matches(
+        '[role="tab"][tabindex="-1"], [data-home-toggle] button[aria-pressed="false"]',
+      );
+    })
+    .map((card) => {
+      const rect = homeLayout(card).getBoundingClientRect();
+      const track = card.closest("[data-home-shelf]")?.getBoundingClientRect();
+      const dx = rect.left + rect.width / 2 - center;
+      const dy = rect.top - start.top;
+      const overlapsRow = rect.top < start.bottom - 4 && rect.bottom > start.top + 4;
+      const visibleInTrack = !track || (rect.right > track.left + 8 && rect.left < track.right - 8);
+      return { card, dx, dy, overlapsRow, visibleInTrack };
+    })
+    .filter(({ dx, dy, overlapsRow, visibleInTrack }) =>
+      horizontal
+        ? overlapsRow && (forward ? dx > 1 : dx < -1)
+        : visibleInTrack && (forward ? dy > 10 : dy < -10),
+    )
+    .toSorted((a, b) =>
+      horizontal
+        ? Math.abs(a.dx) - Math.abs(b.dx)
+        : Math.abs(a.dy) - Math.abs(b.dy) || Math.abs(a.dx) - Math.abs(b.dx),
+    )[0]?.card;
+}
+
+export function CardNavigationProvider({
+  children,
+  home = false,
+}: {
+  children: ReactNode;
+  home?: boolean;
+}) {
   const cards = useRef(new Set<HTMLElement>());
   const pendingEntry = useRef(false);
   const pendingLoad = useRef<(() => void) | undefined>(undefined);
@@ -94,6 +148,7 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>) => {
       if (
+        event.defaultPrevented ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -103,6 +158,14 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
         return;
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       if (event.target !== event.currentTarget) return;
+      if (home) {
+        const next = homeTarget(event.currentTarget, available(), event.key);
+        if (next) {
+          event.preventDefault();
+          focusTarget(next);
+        }
+        return;
+      }
 
       // Only explicitly registered cards participate; inputs, dialogs and native controls stay native.
       // Episode thumbnails animate; measure their stable card, and move to one primary action per episode.
@@ -147,7 +210,7 @@ export function CardNavigationProvider({ children }: { children: ReactNode }) {
       const next = candidates[0]?.card;
       if (next) focusTarget(next);
     },
-    [available],
+    [available, home],
   );
   const loadMore = useCallback(async (trigger: HTMLElement, load: () => Promise<void>) => {
     const previous = new Set(cards.current);

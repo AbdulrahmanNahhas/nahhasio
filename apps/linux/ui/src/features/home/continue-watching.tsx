@@ -1,4 +1,5 @@
 import type { HomeViewingItem } from "@nahhasio/api-contract";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { Clapperboard, Film, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
@@ -7,7 +8,7 @@ import { EpisodeThumbnail, episodeTiming } from "@/components/episode-thumbnail"
 import { NoResults } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { buttonVariants } from "@/components/ui/button";
 import { requestWatch, type WatchTarget } from "@/features/player/watch-request";
 import { workLink } from "@/features/shell/navigation";
 import { episodeNumberLabel } from "@/features/work/format";
@@ -31,42 +32,49 @@ export function continueItems(resume: HomeViewingItem[], next: HomeViewingItem[]
 }
 
 export function ContinueWatching({ items }: { items: ContinueItem[] }) {
-  const [selected, setSelected] = useState("episodes");
+  const navigation = useCardNavigation();
+  const [selected, setSelected] = useState<"episodes" | "movies" | null>(null);
   const episodes = items.filter(({ item }) => Boolean(item.episodeId));
   const movies = items.filter(({ item }) => !item.episodeId);
   const groups = [
     { value: "episodes", label: "الحلقات", icon: Clapperboard, items: episodes },
     { value: "movies", label: "الأفلام", icon: Film, items: movies },
   ];
+  const active = selected ?? (episodes.length ? "episodes" : "movies");
   if (!items.length) return null;
   return (
     <section aria-label="تابع مشاهدتك">
       <Tabs
-        value={selected}
+        value={active}
         onValueChange={(value) => {
           if (value === "episodes" || value === "movies") setSelected(value);
         }}
       >
-        <HomeSectionHeading
-          title="تابع مشاهدتك"
-          description={
-            selected === "episodes"
-              ? "استأنف حلقتك، أو ابدأ الحلقة التالية."
-              : "استأنف فيلمك، أو شاهد الإصدار التالي."
-          }
-        >
-          <TabsList aria-label="نوع المتابعة">
+        <HomeSectionHeading title="تابع مشاهدتك">
+          <TabsList
+            className="flex flex-wrap items-center gap-1 rounded-full bg-muted p-1"
+            aria-label="نوع المتابعة"
+          >
             {groups.map((group) => (
-              <TabsTrigger key={group.value} value={group.value}>
+              <TabsTab
+                {...navigation}
+                key={group.value}
+                value={group.value}
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: "aria-selected:bg-background aria-selected:text-foreground",
+                })}
+              >
                 <group.icon data-icon="inline-start" />
                 {group.label}
                 <Badge variant="secondary">{group.items.length}</Badge>
-              </TabsTrigger>
+              </TabsTab>
             ))}
           </TabsList>
         </HomeSectionHeading>
         {groups.map((group) => (
-          <TabsContent key={group.value} value={group.value}>
+          <TabsPanel key={group.value} value={group.value}>
             {group.items.length ? (
               <ScrollShelf
                 items={group.items}
@@ -86,6 +94,7 @@ export function ContinueWatching({ items }: { items: ContinueItem[] }) {
                   description="ستظهر هنا مشاهدتك المحفوظة والإصدارات التالية المتاحة من أعمال بدأتَها."
                 />
                 <Button
+                  {...navigation}
                   variant="outline"
                   size="sm"
                   onClick={() => setSelected(group.value === "episodes" ? "movies" : "episodes")}
@@ -94,7 +103,7 @@ export function ContinueWatching({ items }: { items: ContinueItem[] }) {
                 </Button>
               </div>
             )}
-          </TabsContent>
+          </TabsPanel>
         ))}
       </Tabs>
     </section>

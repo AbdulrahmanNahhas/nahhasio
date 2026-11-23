@@ -17,7 +17,7 @@ export function FamilyActivitySection({ items }: { items: FamilyActivity[] }) {
   if (!items.length) return null;
   return (
     <section aria-label="من العائلة">
-      <HomeSectionHeading title="من العائلة" description="آخر المراجعات والتعليقات المنشورة." />
+      <HomeSectionHeading title="من العائلة" />
       <ScrollShelf
         layout="banner"
         items={items.slice(0, 4)}

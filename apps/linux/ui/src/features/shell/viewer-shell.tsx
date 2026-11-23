@@ -100,7 +100,7 @@ export function ViewerShell({ user }: { user: User }) {
   const home = parts[0] === "home" || !parts[0];
   const ContentRegion = adminArea ? "div" : "main";
   const content = (
-    <CardNavigationProvider key={route.path}>
+    <CardNavigationProvider key={route.path} home={home}>
       <ContentRegion
         ref={main}
         tabIndex={-1}

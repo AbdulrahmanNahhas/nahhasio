@@ -13,7 +13,6 @@ import { HomeSectionHeading } from "./home-section";
 import { ScrollShelf } from "./scroll-shelf";
 export function Shelf({
   title,
-  description,
   query,
   href,
   className,
@@ -28,7 +27,6 @@ export function Shelf({
   showProgress?: boolean;
   hideEmpty?: boolean;
   title?: string;
-  description?: string;
   query?: LibraryQuery;
   catalogQuery?: CatalogQuery;
   heading?: ReactNode;
@@ -53,11 +51,7 @@ export function Shelf({
       {heading ? (
         <header className="mb-5">{heading}</header>
       ) : (
-        <HomeSectionHeading
-          title={title ?? "أعمال المكتبة"}
-          description={description}
-          href={href}
-        />
+        <HomeSectionHeading title={title ?? "أعمال المكتبة"} href={href} />
       )}
       {result.error && <Failure error={result.error} retry={() => void result.refetch()} />}
       {result.isLoading && (

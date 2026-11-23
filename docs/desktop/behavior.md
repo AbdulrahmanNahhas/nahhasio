@@ -111,6 +111,25 @@ This source checkpoint does not establish installed Flatpak acceptance, Secret p
 on every desktop, physical input, provider playback or real-catalog performance. See [Testing](../development/testing.md)
 for fixture/native acceptance procedures. Schema migration and deployment remain explicit.
 
+## Home
+
+Home presents the featured hero, Continue Watching, recent releases and episodes, library picks,
+upcoming releases, planets, awards, studios, and credited people. Data-dependent shelves appear
+when they have entries. Linked headings open the corresponding directory or a filtered Browse
+view. The recent releases shelf is ordered by release date. Catalog additions and edit history
+remain available as sort options in Browse.
+
+Planet tiles use catalog colors and emblems. They show the latest public released installment's
+banner when available, with the parent work's banner as a fallback. The awards shelf links public
+award organizations to recognized works. Studio logos and contributor portraits use the directory
+cards and link directly to the associated works.
+
+Arrow keys reach the hero controls, move horizontally within a shelf in physical RTL direction,
+and move between rows and section links. Tabs retain their own horizontal keyboard behavior.
+Tab and Enter retain normal link and button behavior. Scrollable shelves keep their edge fade
+and leave room around the focused cards. Work-card ratings use a top-right circle out of 100,
+with blue for 90–100, green for 75–89, amber for 60–74, and coral below 60.
+
 ## Awards administration
 
 ### Current experience

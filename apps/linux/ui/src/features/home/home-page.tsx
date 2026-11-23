@@ -5,12 +5,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { emptyFilters } from "@/features/catalog/filter-model";
 import { gateway } from "@/lib/bridge";
 
+import { AwardShelf } from "./award-shelf";
 import { continueItems, ContinueWatching } from "./continue-watching";
 import { EpisodeSection } from "./episode-section";
 import { Hero } from "./hero";
+import { HomeCredits } from "./home-credits";
 import { homeOptions } from "./home-data";
 import { HomeRecommendations } from "./home-recommendations";
-import { DeferredHomeSection } from "./home-section";
 import { PlanetShelves } from "./planet-shelves";
 import { Shelf } from "./shelf";
 import { UpcomingSection } from "./upcoming-section";
@@ -21,7 +22,8 @@ const releasedFilters = {
 };
 const releasedSearch = new URLSearchParams({
   view: "installments",
-  sort: "year-desc",
+  privacy: "public",
+  sort: "latest-released-desc",
   filters: JSON.stringify(releasedFilters),
 });
 
@@ -45,20 +47,17 @@ export function HomePage() {
           </div>
         )}
         <ContinueWatching items={continuing} />
-        <DeferredHomeSection>
-          <Shelf
-            title="صدر حديثًا"
-            description="آخر المواسم والأفلام والإصدارات الصادرة، الأحدث أولًا."
-            catalogQuery={{
-              view: "installments",
-              privacy: "public",
-              sort: "year-desc",
-              filters: JSON.stringify(releasedFilters),
-            }}
-            href={`#/browse?${releasedSearch}`}
-            hideEmpty
-          />
-        </DeferredHomeSection>
+        <Shelf
+          title="صدر حديثًا"
+          catalogQuery={{
+            view: "installments",
+            privacy: "public",
+            sort: "latest-released-desc",
+            filters: JSON.stringify(releasedFilters),
+          }}
+          href={`#/browse?${releasedSearch}`}
+          hideEmpty
+        />
         <EpisodeSection
           following={feed.data?.followingEpisodes ?? []}
           recent={feed.data?.recentEpisodes ?? []}
@@ -66,37 +65,10 @@ export function HomePage() {
         />
         <HomeRecommendations value={feed.data?.recommendations} />
         <UpcomingSection items={feed.data?.upcoming ?? []} />
-        <DeferredHomeSection>
-          <Shelf
-            title="أضيف حديثًا"
-            description="أحدث الأعمال التي انضمت إلى الكتالوج."
-            catalogQuery={{
-              view: "works",
-              privacy: "public",
-              sort: "added-desc",
-              filters: JSON.stringify(emptyFilters()),
-            }}
-            href="#/browse?sort=added-desc"
-            hideEmpty
-          />
-        </DeferredHomeSection>
-        <DeferredHomeSection>
-          <PlanetShelves planets={filters.data?.planets ?? []} />
-        </DeferredHomeSection>
-        <DeferredHomeSection>
-          <Shelf
-            title="آخر تحديثات المكتبة"
-            description="الأعمال التي حُدّثت بياناتها مؤخرًا."
-            catalogQuery={{
-              view: "works",
-              privacy: "public",
-              sort: "updated-desc",
-              filters: JSON.stringify(emptyFilters()),
-            }}
-            href="#/browse?sort=updated-desc"
-            hideEmpty
-          />
-        </DeferredHomeSection>
+        <PlanetShelves planets={filters.data?.planets ?? []} />
+        <AwardShelf />
+        <HomeCredits group="studios" />
+        <HomeCredits group="contributors" />
       </div>
     </div>
   );

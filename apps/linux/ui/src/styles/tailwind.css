@@ -53,6 +53,11 @@
   --color-success: var(--success);
   --color-studio-logo: #ffffff;
   --color-warning: var(--warning);
+  --color-score-high: oklch(0.79 0.12 242);
+  --color-score-good: oklch(0.72 0.15 154);
+  --color-score-mid: oklch(0.75 0.14 61);
+  --color-score-low: oklch(0.74 0.14 25);
+  --color-score-ink: oklch(0.17 0.02 80);
   --color-destructive-foreground: var(--primary-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

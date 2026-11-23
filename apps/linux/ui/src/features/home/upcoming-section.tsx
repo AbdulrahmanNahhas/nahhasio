@@ -17,12 +17,7 @@ export function UpcomingSection({ items }: { items: UpcomingInstallment[] }) {
   );
   return (
     <section aria-label="قريبًا">
-      <HomeSectionHeading
-        title="قريبًا"
-        description="المواسم والأفلام المعلنة، الأقرب موعدًا أولًا."
-        href="#/releases?view=upcoming"
-        linkLabel="التقويم"
-      />
+      <HomeSectionHeading title="قريبًا" href="#/releases?view=upcoming" />
       <ScrollShelf
         layout="banner"
         items={sorted}

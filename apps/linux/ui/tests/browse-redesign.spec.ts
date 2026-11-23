@@ -919,7 +919,7 @@ test("Browse card fields stand alone and table columns can be selected individua
   const fields = [
     { label: "العناوين", content: card.getByRole("heading", { name: "رحلة في المكتبة" }) },
     { label: "السنة ومعلومات العمل", content: card.getByText("2021", { exact: true }) },
-    { label: "التقييم", content: card.getByText("7.1", { exact: true }) },
+    { label: "التقييم", content: card.getByText("71", { exact: true }) },
     { label: "حالة الإصدار", content: card.getByText("مكتمل", { exact: true }) },
   ];
 
