@@ -58,7 +58,7 @@ export function Artwork({
   className?: string;
   priority?: boolean;
   fallback?: ReactNode;
-  studioLogo?: boolean | "compact" | "flush";
+  studioLogo?: boolean | "compact";
   transparentFallback?: boolean;
   width?: 320 | 640 | 1280 | 1920;
 }) {
@@ -151,11 +151,7 @@ export function Artwork({
       "duration-100 transition-[padding,background-color] motion-reduce:transition-none",
     studioLogo && "bg-(--studio-logo-background) object-contain object-center",
     studioLogo &&
-      (sampled && !color && studioLogo !== "flush"
-        ? studioLogo === "compact"
-          ? "p-2"
-          : "p-7.5 max-[720px]:p-4"
-        : "p-0"),
+      (sampled && !color ? (studioLogo === "compact" ? "p-2" : "p-7.5 max-[720px]:p-4") : "p-0"),
   );
   const imageStyle: (CSSProperties & { "--studio-logo-background": string }) | undefined =
     studioLogo ? { "--studio-logo-background": color ?? "var(--color-studio-logo)" } : undefined;

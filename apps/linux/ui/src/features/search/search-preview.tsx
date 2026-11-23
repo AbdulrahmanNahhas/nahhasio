@@ -231,9 +231,9 @@ function EntityPreviewArtwork({ entity, planet }: { entity: EntityMatch; planet?
     <Artwork
       id={entity.artworkId}
       alt=""
-      studioLogo="flush"
+      studioLogo
       width={640}
-      className="block aspect-video w-full bg-secondary object-contain"
+      className="block aspect-video w-full"
       fallback={<entity.group.icon className="size-12 text-muted-foreground" aria-hidden />}
     />
   );
