@@ -266,7 +266,7 @@ export function SearchStart({
           )}
           {planetCatalog.isLoading && <Skeleton className="h-28" />}
           {planetCatalog.data?.planets.length === 0 && <NoResults title="لا توجد كواكب لعرضها" />}
-          <PlanetCards planets={planetCatalog.data?.planets ?? []} compact onSelect={choose} />
+          <PlanetCards planets={planetCatalog.data?.planets ?? []} onSelect={choose} />
         </section>
       )}
       {(all || type === "pages") && (

@@ -6,15 +6,13 @@ import type {
   Vocabulary,
   WorkDetail,
 } from "@nahhasio/api-contract";
-import { ArrowUpLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
-
-import { planetPalette } from "@/lib/catalog-colors";
 
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
 import { Badge } from "../../components/ui/badge";
-import { entityLink, workLink } from "../shell/navigation";
+import { workLink } from "../shell/navigation";
 import { Disclosure, FieldList, Section } from "./field-list";
 import { artworkRoleLabels, dateLabel, safeExternalUrl } from "./format";
 
@@ -254,54 +252,6 @@ function ExternalSources({ work }: { work: WorkDetail }) {
   );
 }
 
-function WorkPlanetCard({ planet }: { planet: WorkDetail["planets"][number] }) {
-  const navigation = useCardNavigation();
-  return (
-    <a
-      {...navigation}
-      href={entityLink("planets", planet.slug)}
-      aria-label={`أعمال كوكب ${planet.nameAr}`}
-      className="bg-(--planet-secondary) border-(--planet-border) text-(--planet) group relative flex min-h-52 min-w-0 flex-col gap-5 overflow-hidden rounded-3xl border p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      style={planetPalette(planet.primaryColor, planet.secondaryColor)}
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-12 -end-8 size-44 rounded-full border border-current/20"
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -end-4 size-36 rounded-full border border-current/10"
-      />
-      <div className="relative flex items-start justify-between gap-4">
-        <span
-          aria-hidden="true"
-          className="grid size-14 shrink-0 place-items-center rounded-2xl border border-current/25 bg-background/45 text-3xl"
-        >
-          {planet.icon || "🪐"}
-        </span>
-        {planet.featuredRank !== null && <Badge variant="secondary">عمل بارز في الكوكب</Badge>}
-      </div>
-      <div className="relative flex flex-1 flex-col gap-3">
-        <h3 className="text-xl font-semibold text-foreground wrap-anywhere" dir="auto">
-          {planet.nameAr}
-        </h3>
-        {planet.description?.trim() && (
-          <p
-            className="text-base leading-relaxed text-foreground whitespace-pre-line wrap-anywhere"
-            dir="auto"
-          >
-            {planet.description}
-          </p>
-        )}
-      </div>
-      <span className="relative inline-flex items-center justify-between gap-3 text-sm text-foreground">
-        استكشف أعمال الكوكب
-        <ArrowUpLeft aria-hidden="true" className="size-5 shrink-0 text-current" />
-      </span>
-    </a>
-  );
-}
-
 function Award({ award, work }: { award: AwardRecognition; work: WorkDetail }) {
   const installment = work.installments.find((unit) => unit.id === award.installmentId);
   const category = award.category || award.awardCategory?.nameAr || award.awardCategory?.nameEn;
@@ -415,15 +365,6 @@ export function DataPanel({ work }: { work: WorkDetail }) {
         <VocabularyGroup title="الوسوم" items={work.tags} />
         <VocabularyGroup title="البلدان" items={work.countries} />
       </div>
-      {work.planets.length > 0 && (
-        <Section title="الكواكب">
-          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-            {work.planets.map((planet) => (
-              <WorkPlanetCard key={planet.id} planet={planet} />
-            ))}
-          </div>
-        </Section>
-      )}
       {work.awards.length > 0 && (
         <Section title="الجوائز والتكريمات">
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">

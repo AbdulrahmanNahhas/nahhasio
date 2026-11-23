@@ -33,11 +33,9 @@ export function PlanetEmblem({
 
 function PlanetCard({
   planet,
-  compact,
   onSelect,
 }: {
   planet: CatalogPlanet;
-  compact: boolean;
   onSelect?: (href: string) => void;
 }) {
   const navigation = useCardNavigation();
@@ -62,7 +60,7 @@ function PlanetCard({
       <div
         className={cn(
           "relative isolate flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-foreground/10 bg-card bg-linear-to-br from-(--planet-secondary) to-card p-4 text-center group-hover/card:border-(--planet) group-focus-visible/card:ring-2 group-focus-visible/card:ring-ring group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-background motion-safe:transition motion-safe:duration-200 motion-safe:group-hover/card:scale-102 motion-safe:group-focus-visible/card:scale-102",
-          compact ? "min-h-37" : "min-h-52 sm:min-h-60",
+          "min-h-37",
           hoverTilt,
         )}
         style={planetPalette(planet.primaryColor, planet.secondaryColor)}
@@ -74,10 +72,7 @@ function PlanetCard({
           className="absolute start-3 top-3 size-4 text-muted-foreground group-hover/card:text-foreground"
           aria-hidden
         />
-        <PlanetEmblem
-          planet={planet}
-          className={cn("mt-3 bg-(--planet)/25", compact ? "size-14 text-3xl" : "size-20 text-4xl")}
-        />
+        <PlanetEmblem planet={planet} className="mt-3 size-14 bg-(--planet)/25 text-3xl" />
         <h2
           className="font-display text-base leading-snug font-semibold wrap-anywhere sm:text-lg"
           dir="auto"
@@ -91,24 +86,17 @@ function PlanetCard({
 
 export function PlanetCards({
   planets,
-  compact = false,
   onSelect,
 }: {
   planets: CatalogPlanet[];
-  compact?: boolean;
   onSelect?: (href: string) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-2 gap-3 sm:gap-4",
-        compact ? "sm:grid-cols-3 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
-      )}
-    >
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
       {planets
         .toSorted((a, b) => b.count - a.count)
         .map((planet) => (
-          <PlanetCard key={planet.id} planet={planet} compact={compact} onSelect={onSelect} />
+          <PlanetCard key={planet.id} planet={planet} onSelect={onSelect} />
         ))}
     </div>
   );

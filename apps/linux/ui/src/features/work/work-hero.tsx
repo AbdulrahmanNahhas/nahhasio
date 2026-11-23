@@ -13,7 +13,6 @@ import { Button } from "../../components/ui/button";
 import { SaveWorkControl } from "../player/saved-works";
 import { offlineStatusOptions } from "../player/saved-works-data";
 import { requestDownload, requestWatch } from "../player/watch-request";
-import { entityLink } from "../shell/navigation";
 import { ageLabel, audienceLabels, statusLabels } from "./format";
 import type { WorkTracking } from "./use-work-tracking";
 import { WatchedControl } from "./watched-control";
@@ -80,21 +79,6 @@ export function WorkHero({ work, tracking }: { work: WorkDetail; tracking: WorkT
       <div className="pointer-events-none absolute inset-0 bg-linear-to-l from-background via-background/30 to-background/20" />
       <div className="relative mx-auto grid min-h-160 max-w-screen-2xl items-end gap-10 px-6 pt-28 pb-12 md:px-10 lg:min-h-176 lg:grid-cols-[minmax(0,1fr)_18rem] lg:px-14 lg:pt-40 lg:pb-16">
         <div className="flex min-w-0 max-w-3xl flex-col items-start gap-5 md:gap-6">
-          {work.planets.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {work.planets.map((planet) => (
-                <Badge
-                  {...navigation}
-                  key={planet.id}
-                  variant="outline"
-                  className="h-auto px-3 py-1.5 text-sm"
-                  render={<a href={entityLink("planets", planet.slug)} />}
-                >
-                  {planet.icon} {planet.nameAr}
-                </Badge>
-              ))}
-            </div>
-          )}
           <h1
             className="w-full text-4xl leading-tight font-bold md:text-5xl lg:text-6xl"
             dir="auto"

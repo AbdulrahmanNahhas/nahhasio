@@ -1211,7 +1211,7 @@ test("Arabic badges, meaningful populated headings and no headings for absent me
   ).toHaveAttribute("href", `#/studios/${id(32)}`);
   await page.getByRole("tab", { name: "البيانات", exact: true }).click();
   const data = page.getByRole("tabpanel");
-  for (const heading of ["المصادر الخارجية", "الأنواع الفنية", "الطابع", "الكواكب"])
+  for (const heading of ["المصادر الخارجية", "الأنواع الفنية", "الطابع"])
     await expect(data.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   for (const heading of [
     "هوية العمل",
@@ -1506,7 +1506,7 @@ test("tab and season changes preserve the main scroll position instead of restor
   await expect.poll(async () => Math.abs((await scrollTop()) - beforeSeason)).toBeLessThan(2);
 });
 
-test("data starts with safe direct source links, rich planet navigation, and removes populated identity aliases and artwork", async ({
+test("data keeps safe source links and the shared planet tile sits below the parental guide", async ({
   page,
 }) => {
   await openWork(page, "?tab=data");
@@ -1533,17 +1533,15 @@ test("data starts with safe direct source links, rich planet navigation, and rem
     .locator("details")
     .filter({ has: page.locator("summary").getByText("تفاصيل المراجع المسجّلة", { exact: true }) });
   await expect(referenceDetails).not.toHaveAttribute("open", "");
-  const planet = panel.getByRole("link", { name: "أعمال كوكب الخيال العائلي", exact: true });
+  await expect(panel.getByRole("heading", { name: "الكواكب", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: /الخيال العائلي/ })).toHaveCount(0);
+  const sidebar = page.getByRole("complementary", { name: "لمحة العمل" });
+  const planet = sidebar.getByRole("link", { name: "الخيال العائلي", exact: true });
   await expect(planet).toHaveAttribute("href", "#/planets/family-fantasy");
-  await expect(planet.getByRole("heading", { name: "الخيال العائلي", exact: true })).toBeVisible();
-  await expect(planet).toContainText(work.planets[0].description);
-  await expect(planet.getByText("عمل بارز في الكوكب", { exact: true })).toBeVisible();
-  expect(
-    await planet.evaluate((element) => ({
-      background: getComputedStyle(element).backgroundColor,
-      border: getComputedStyle(element).borderTopColor,
-    })),
-  ).toEqual({ background: "rgb(51, 36, 84)", border: "rgb(198, 167, 255)" });
+  await expect(page.locator('a[href="#/planets/family-fantasy"]')).toHaveCount(1);
+  const headings = sidebar.getByRole("heading");
+  await expect(headings).toHaveText(["لمحة العمل", "دليل الوالدين", "الكوكب"]);
+  await expect(planet.locator(":scope > span")).toHaveCSS("border-top-color", "rgb(198, 167, 255)");
   for (const heading of ["هوية العمل", "الأسماء البديلة", "الصور المحفوظة"])
     await expect(panel.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
   await expect(panel.getByText("اسم بديل لا يعرض هنا", { exact: true })).toHaveCount(0);

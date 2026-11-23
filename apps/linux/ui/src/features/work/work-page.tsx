@@ -16,6 +16,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { gateway } from "../../lib/bridge";
+import { PlanetTile } from "../planets/planet-tile";
 import { offlineStatusOptions } from "../player/saved-works-data";
 import { navigate, replaceParams, useViewerRoute } from "../shell/navigation";
 import { ActivityPanel } from "./activity-panel";
@@ -183,6 +184,19 @@ export function WorkPage({ id, installmentId }: { id: string; installmentId?: st
                       <RiskRows classification={work} />
                     </CardContent>
                   </Card>
+                  {work.planets.length > 0 && (
+                    <section aria-label="الكوكب" className="flex min-w-0 flex-col gap-3">
+                      <h2 className="text-lg font-semibold">الكوكب</h2>
+                      {work.planets.map((planet) => (
+                        <PlanetTile
+                          key={planet.id}
+                          planet={planet}
+                          variant="work"
+                          bannerId={work.banner?.id}
+                        />
+                      ))}
+                    </section>
+                  )}
                 </aside>
               </div>
             </TabsPrimitive.Root>

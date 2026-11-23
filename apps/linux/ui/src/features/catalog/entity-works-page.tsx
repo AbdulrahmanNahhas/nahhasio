@@ -24,6 +24,7 @@ import { gateway } from "@/lib/bridge";
 import type { CatalogQuery } from "@/lib/bridge";
 
 import { useIsAdmin } from "../account/use-is-admin";
+import { CatalogPlanetTile } from "../planets/planet-tile";
 import { replaceParams } from "../shell/navigation";
 import { PublicPage } from "../shell/public-page";
 import { sortChoices } from "./browse-refinements";
@@ -111,13 +112,7 @@ export function EntityWorksPage({
       </a>
       <header className="mb-8 flex items-center gap-6 max-[520px]:items-start max-[520px]:gap-4">
         {planet ? (
-          <span
-            className="grid size-36 shrink-0 place-items-center rounded-2xl bg-secondary font-emoji text-7xl max-[520px]:size-24 max-[520px]:text-5xl"
-            role="img"
-            aria-label={`رمز ${name}`}
-          >
-            {selectedPlanet?.icon || "🪐"}
-          </span>
+          selectedPlanet && <CatalogPlanetTile planet={selectedPlanet} variant="emblem" />
         ) : (
           <Artwork
             id={entity?.artworkId}
