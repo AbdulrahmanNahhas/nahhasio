@@ -72,6 +72,8 @@ struct TrailersQuery {
     format: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     sort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    media: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -225,6 +227,10 @@ impl ServerSession {
                         .sort
                         .as_deref()
                         .is_some_and(|v| !matches!(v, "newest" | "title"))
+                    || input
+                        .media
+                        .as_deref()
+                        .is_some_and(|v| !matches!(v, "music" | "trailer"))
                 {
                     return Err(Error::new("bad_request", "Invalid trailer filters"));
                 }

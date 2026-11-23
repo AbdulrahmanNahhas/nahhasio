@@ -2672,6 +2672,14 @@
             }
           },
           {
+            "name": "media",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["music", "trailer"]
+            }
+          },
+          {
             "name": "sort",
             "in": "query",
             "schema": {

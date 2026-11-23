@@ -4138,6 +4138,7 @@ export class ApiClient {
       pageSize?: number;
       q?: string;
       format?: "animated" | "live-action";
+      media?: "music" | "trailer";
       sort?: "newest" | "title";
     } = {},
     signal?: AbortSignal,

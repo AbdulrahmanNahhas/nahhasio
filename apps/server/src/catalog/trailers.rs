@@ -17,7 +17,19 @@ pub(super) struct Input {
     q: Option<String>,
     format: Option<String>,
     sort: Option<String>,
+    media: Option<Media>,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Media {
+    Music,
+    Trailer,
+}
+
+// Existing records store YouTube references without a media type. Match explicit cues in the
+// video title so a title like "The Sound of Music" on the parent work does not affect routing.
+const MUSIC_TITLE: &str = r"(^|[^[:alnum:]])(ost|soundtrack|theme songs?|music videos?|original score|opening (theme|song|credits)|ending (theme|song|credits)|موسيقى|الموسيقى|أغني[ةه]|الأغني[ةه]|أغاني|شارة|الشارة|ألحان|أنشودة)([^[:alnum:]]|$)|^(opening|ending)([[:space:]]+[0-9]+)?$";
 
 pub(super) async fn list(
     State(pool): State<PgPool>,
@@ -40,7 +52,7 @@ pub(super) async fn list(
         "title" => "t.sort_title,v.position,v.id",
         _ => return Err(ApiError(StatusCode::BAD_REQUEST, "Invalid trailer sort")),
     };
-    let filter = "not t.is_private and t.workflow_status in ('draft','published') and ($1::text is null or strpos(lower(t.canonical_title||' '||coalesce(t.title_ar,'')||' '||v.title),lower($1))>0 or exists(select 1 from title_aliases a where a.title_id=t.id and strpos(lower(a.title),lower($1))>0)) and ($2::text is null or t.format::text=$2)";
+    let filter = "not t.is_private and t.workflow_status in ('draft','published') and ($1::text is null or strpos(lower(t.canonical_title||' '||coalesce(t.title_ar,'')||' '||v.title),lower($1))>0 or exists(select 1 from title_aliases a where a.title_id=t.id and strpos(lower(a.title),lower($1))>0)) and ($2::text is null or t.format::text=$2) and ($6::boolean is null or (btrim(v.title) ~* $7)=$6)";
     let query = format!(
         r#"select jsonb_build_object('items',coalesce((select jsonb_agg(item order by ordinal) from (
 select row_number() over(order by {order}) ordinal,jsonb_build_object('work',({summary}),'trailer',jsonb_build_object('id',v.id,'youtubeVideoId',v.youtube_video_id,'title',v.title,'language',v.language,'isPrimary',v.is_primary,'position',v.position)) item
@@ -54,6 +66,8 @@ from title_trailers v join titles t on t.id=v.title_id where {filter} order by {
         .bind(size)
         .bind((page - 1) * size)
         .bind(page)
+        .bind(input.media.map(|media| matches!(media, Media::Music)))
+        .bind(MUSIC_TITLE)
         .fetch_one(&pool)
         .await?;
     Ok(Json(result.0))
