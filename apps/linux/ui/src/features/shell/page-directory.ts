@@ -1,4 +1,5 @@
 import {
+  Award,
   Building2,
   CalendarDays,
   Clapperboard,
@@ -49,6 +50,12 @@ export const libraryPages = [
     label: "الاستوديوهات",
     description: "الاستوديوهات وإنتاجاتها ومساهماتها",
     icon: Building2,
+  },
+  {
+    path: "awards",
+    label: "الجوائز",
+    description: "الفائزون والترشيحات حسب الجهة والسنة",
+    icon: Award,
   },
   { path: "people", label: "الصنّاع", description: "الأشخاص وأعمالهم وأدوارهم", icon: Users },
 ];

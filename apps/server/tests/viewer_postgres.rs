@@ -51,6 +51,20 @@ fn valid_database_name(name: &str) -> bool {
 #[tokio::test]
 #[ignore = "requires explicit opt-in and creates only a guarded schema-only disposable database"]
 async fn disposable_postgres_viewer_api() -> TestResult {
+    run_disposable_viewer_fixture(run_api_suite).await
+}
+
+#[tokio::test]
+#[ignore = "requires explicit opt-in and creates only a guarded schema-only disposable database"]
+async fn disposable_postgres_awards_api() -> TestResult {
+    run_disposable_viewer_fixture(viewer_awards).await
+}
+
+async fn run_disposable_viewer_fixture<F, Fut>(run: F) -> TestResult
+where
+    F: FnOnce(PgPool, PgPool) -> Fut + Send + 'static,
+    Fut: Future<Output = TestResult> + Send + 'static,
+{
     if env::var("NAHHASIO_RUN_VIEWER_DB_TEST").as_deref() != Ok("1") {
         return Err("Set NAHHASIO_RUN_VIEWER_DB_TEST=1 to authorize disposable testing".into());
     }
@@ -131,7 +145,7 @@ async fn disposable_postgres_viewer_api() -> TestResult {
             .await
             .map_err(|error| format!("Synthetic fixture seed failed: {error}"))?;
         let api_pool = database_pool_from_options(options.database(&name)).await?;
-        let result = run_api_suite(fixture.clone(), api_pool.clone()).await;
+        let result = run(fixture.clone(), api_pool.clone()).await;
         api_pool.close().await;
         fixture.close().await;
         result
@@ -579,6 +593,59 @@ async fn run_api_suite(fixture: PgPool, api_pool: PgPool) -> TestResult {
     println!(
         "PASS: empty work/season, unknown/future eligibility, all-unwatched state and browse parity, null-safe uniqueness."
     );
+    Ok(())
+}
+
+async fn viewer_awards(fixture: PgPool, api_pool: PgPool) -> TestResult {
+    sessions(&fixture).await?;
+    sqlx::raw_sql(include_str!("fixtures/viewer_awards.sql"))
+        .execute(&fixture)
+        .await?;
+    let api = &router(api_pool);
+    let path = "/api/v1/catalog/awards";
+    let (anonymous, _) = request(api, None, Method::GET, path, None).await?;
+    assert_eq!(anonymous, StatusCode::UNAUTHORIZED);
+    let (restricted, _) = request(api, Some(3), Method::GET, path, None).await?;
+    assert_eq!(restricted, StatusCode::FORBIDDEN);
+    let directory = success(api, 1, Method::GET, path, None).await?;
+    assert_eq!(
+        directory["totalPrograms"], 1,
+        "Private-only award stays hidden even for admin"
+    );
+    let winners = directory["programs"][0]["entries"].as_array().unwrap();
+    assert_eq!(winners.len(), 1, "The same work occupies one shelf slot");
+    assert_eq!(winners[0]["installmentId"], SEASON);
+    assert_eq!(winners[0]["year"], 2025);
+    assert_eq!(winners[0]["category"], "أفضل رسوم متحركة");
+    let detail = success(
+        api,
+        1,
+        Method::GET,
+        &format!("{path}?slug=fixture-award"),
+        None,
+    )
+    .await?;
+    let program = &detail["programs"][0];
+    assert_eq!(program["years"], json!(["2025", "2020", "undated"]));
+    assert_eq!(program["selectedYear"], "2025");
+    assert_eq!(program["totalEntries"], 2);
+    assert!(
+        program["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["result"] == "nominee")
+    );
+    let undated = success(
+        api,
+        1,
+        Method::GET,
+        &format!("{path}?slug=fixture-award&year=undated"),
+        None,
+    )
+    .await?;
+    assert_eq!(undated["programs"][0]["totalEntries"], 1);
+    assert_eq!(undated["programs"][0]["entries"][0]["year"], Value::Null);
     Ok(())
 }
 

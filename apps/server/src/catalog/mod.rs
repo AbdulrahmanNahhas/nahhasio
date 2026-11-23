@@ -2,6 +2,7 @@
 pub(crate) const WORK_RELEASE_STATUS: &str = "coalesce((select case when bool_and(x.status='completed') then 'completed' when bool_or((x.release_date<=current_date or (x.release_date is null and x.status='completed')) or x.status='airing') and bool_or(x.status in ('announced','airing')) then 'ongoing' when not bool_or((x.release_date<=current_date or (x.release_date is null and x.status='completed')) or x.status='airing') and bool_or(x.status='announced') then 'announced' else 'unknown' end from installments x where x.title_id=t.id),'unknown')";
 
 mod artwork;
+mod awards;
 mod browse;
 mod episodes;
 mod home;
@@ -28,6 +29,7 @@ pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/api/v1/works", get(works))
         .route("/api/v1/releases", get(releases::releases))
+        .route("/api/v1/catalog/awards", get(awards::list))
         .route("/api/v1/catalog/browse", get(browse::browse))
         .route("/api/v1/catalog/facets", get(browse::options))
         .route(

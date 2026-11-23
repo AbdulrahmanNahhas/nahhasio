@@ -56,6 +56,13 @@ checkpoints, including the direct-media cutover.
 - [ ] Customize shelves
 - [ ] Offline home using saved works
 
+## Awards Directory and Archive
+
+- [x] Open the Awards directory and individual award archives from Home
+- [x] Show up to five recent winning works per award
+- [x] Browse recorded years and distinguish winners and nominees by category
+- [x] Open the associated work or installment
+
 ## Search Page
 
 - [x] Search works

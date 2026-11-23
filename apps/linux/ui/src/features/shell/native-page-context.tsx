@@ -12,6 +12,7 @@ const pageTitles = {
   browse: "تصفّح المكتبة",
   releases: "التقويم",
   planets: "الكواكب",
+  awards: "الجوائز",
   episodes: "الحلقات",
   watch: "المشاهدة",
   trailers: "الشارات والإعلانات التشويقية",

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AdminRouteImport } from "./routes/admin";
+import { Route as AwardsRouteImport } from "./routes/awards";
 import { Route as BrowseRouteImport } from "./routes/browse";
 import { Route as CardLabRouteImport } from "./routes/card-lab";
 import { Route as DownloadsRouteImport } from "./routes/downloads";
@@ -34,6 +35,7 @@ import { Route as AdminPeopleRouteImport } from "./routes/admin.people";
 import { Route as AdminPlanetsRouteImport } from "./routes/admin.planets";
 import { Route as AdminStudiosRouteImport } from "./routes/admin.studios";
 import { Route as AdminWorksRouteImport } from "./routes/admin.works";
+import { Route as AwardsSlugRouteImport } from "./routes/awards_.$slug";
 import { Route as PeopleIdRouteImport } from "./routes/people_.$id";
 import { Route as PlanetsIdRouteImport } from "./routes/planets_.$id";
 import { Route as ProfilesIdRouteImport } from "./routes/profiles.$id";
@@ -55,6 +57,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: "/admin",
   path: "/admin",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AwardsRoute = AwardsRouteImport.update({
+  id: "/awards",
+  path: "/awards",
   getParentRoute: () => rootRouteImport,
 } as any);
 const BrowseRoute = BrowseRouteImport.update({
@@ -172,6 +179,11 @@ const AdminWorksRoute = AdminWorksRouteImport.update({
   path: "/works",
   getParentRoute: () => AdminRoute,
 } as any);
+const AwardsSlugRoute = AwardsSlugRouteImport.update({
+  id: "/awards_/$slug",
+  path: "/awards/$slug",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const PeopleIdRoute = PeopleIdRouteImport.update({
   id: "/people_/$id",
   path: "/people/$id",
@@ -236,6 +248,7 @@ const AdminWorksNewRoute = AdminWorksNewRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/admin": typeof AdminRouteWithChildren;
+  "/awards": typeof AwardsRoute;
   "/browse": typeof BrowseRoute;
   "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
@@ -258,6 +271,7 @@ export interface FileRoutesByFullPath {
   "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
+  "/awards/$slug": typeof AwardsSlugRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
   "/profiles/$id": typeof ProfilesIdRoute;
@@ -274,6 +288,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/awards": typeof AwardsRoute;
   "/browse": typeof BrowseRoute;
   "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
@@ -296,6 +311,7 @@ export interface FileRoutesByTo {
   "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
+  "/awards/$slug": typeof AwardsSlugRoute;
   "/people/$id": typeof PeopleIdRoute;
   "/planets/$id": typeof PlanetsIdRoute;
   "/profiles/$id": typeof ProfilesIdRoute;
@@ -314,6 +330,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/admin": typeof AdminRouteWithChildren;
+  "/awards": typeof AwardsRoute;
   "/browse": typeof BrowseRoute;
   "/card-lab": typeof CardLabRoute;
   "/downloads": typeof DownloadsRoute;
@@ -336,6 +353,7 @@ export interface FileRoutesById {
   "/admin/planets": typeof AdminPlanetsRoute;
   "/admin/studios": typeof AdminStudiosRoute;
   "/admin/works": typeof AdminWorksRoute;
+  "/awards_/$slug": typeof AwardsSlugRoute;
   "/people_/$id": typeof PeopleIdRoute;
   "/planets_/$id": typeof PlanetsIdRoute;
   "/profiles/$id": typeof ProfilesIdRoute;
@@ -355,6 +373,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/admin"
+    | "/awards"
     | "/browse"
     | "/card-lab"
     | "/downloads"
@@ -377,6 +396,7 @@ export interface FileRouteTypes {
     | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
+    | "/awards/$slug"
     | "/people/$id"
     | "/planets/$id"
     | "/profiles/$id"
@@ -393,6 +413,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
+    | "/awards"
     | "/browse"
     | "/card-lab"
     | "/downloads"
@@ -415,6 +436,7 @@ export interface FileRouteTypes {
     | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
+    | "/awards/$slug"
     | "/people/$id"
     | "/planets/$id"
     | "/profiles/$id"
@@ -432,6 +454,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/admin"
+    | "/awards"
     | "/browse"
     | "/card-lab"
     | "/downloads"
@@ -454,6 +477,7 @@ export interface FileRouteTypes {
     | "/admin/planets"
     | "/admin/studios"
     | "/admin/works"
+    | "/awards_/$slug"
     | "/people_/$id"
     | "/planets_/$id"
     | "/profiles/$id"
@@ -472,6 +496,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AdminRoute: typeof AdminRouteWithChildren;
+  AwardsRoute: typeof AwardsRoute;
   BrowseRoute: typeof BrowseRoute;
   CardLabRoute: typeof CardLabRoute;
   DownloadsRoute: typeof DownloadsRoute;
@@ -486,6 +511,7 @@ export interface RootRouteChildren {
   StudiosRoute: typeof StudiosRoute;
   TrailersRoute: typeof TrailersRoute;
   WatchRoute: typeof WatchRoute;
+  AwardsSlugRoute: typeof AwardsSlugRoute;
   PeopleIdRoute: typeof PeopleIdRoute;
   PlanetsIdRoute: typeof PlanetsIdRoute;
   ProfilesIdRoute: typeof ProfilesIdRoute;
@@ -507,6 +533,13 @@ declare module "@tanstack/react-router" {
       path: "/admin";
       fullPath: "/admin";
       preLoaderRoute: typeof AdminRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/awards": {
+      id: "/awards";
+      path: "/awards";
+      fullPath: "/awards";
+      preLoaderRoute: typeof AwardsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/browse": {
@@ -670,6 +703,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AdminWorksRouteImport;
       parentRoute: typeof AdminRoute;
     };
+    "/awards_/$slug": {
+      id: "/awards_/$slug";
+      path: "/awards/$slug";
+      fullPath: "/awards/$slug";
+      preLoaderRoute: typeof AwardsSlugRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/people_/$id": {
       id: "/people_/$id";
       path: "/people/$id";
@@ -800,6 +840,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren);
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  AwardsRoute: AwardsRoute,
   BrowseRoute: BrowseRoute,
   CardLabRoute: CardLabRoute,
   DownloadsRoute: DownloadsRoute,
@@ -814,6 +855,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudiosRoute: StudiosRoute,
   TrailersRoute: TrailersRoute,
   WatchRoute: WatchRoute,
+  AwardsSlugRoute: AwardsSlugRoute,
   PeopleIdRoute: PeopleIdRoute,
   PlanetsIdRoute: PlanetsIdRoute,
   ProfilesIdRoute: ProfilesIdRoute,

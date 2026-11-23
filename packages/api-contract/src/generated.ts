@@ -600,6 +600,37 @@ export const EpisodesPageSchema = z.strictObject({
 });
 export type EpisodesPage = z.infer<typeof EpisodesPageSchema>;
 
+export const AwardEntrySchema = z.strictObject({
+  id: z.string(),
+  workId: z.string(),
+  installmentId: z.string().nullable(),
+  title: z.string(),
+  installmentTitle: z.string().nullable(),
+  category: z.string(),
+  categoryKey: z.string(),
+  result: z.enum(["winner", "nominee"]),
+  year: z.number().int().nullable(),
+  posterId: z.string().nullable(),
+});
+export type AwardEntry = z.infer<typeof AwardEntrySchema>;
+
+export const AwardProgramSchema = z.strictObject({
+  slug: z.string(),
+  name: z.string(),
+  workCount: z.number().int(),
+  years: z.array(z.string()),
+  selectedYear: z.string().nullable(),
+  totalEntries: z.number().int(),
+  entries: z.array(AwardEntrySchema),
+});
+export type AwardProgram = z.infer<typeof AwardProgramSchema>;
+
+export const AwardsPageSchema = z.strictObject({
+  totalPrograms: z.number().int(),
+  programs: z.array(AwardProgramSchema),
+});
+export type AwardsPage = z.infer<typeof AwardsPageSchema>;
+
 export const RecommendationReasonSchema = z.strictObject({
   key: z.string(),
   label: z.string(),
@@ -3804,6 +3835,21 @@ export class ApiClient {
       signal,
     );
     return EpisodesPageSchema.parse(await response.json());
+  }
+  async listAwards(
+    query: { slug?: string; year?: string; page?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<AwardsPage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+      if (value !== undefined) params.set(key, String(value));
+    const response = await this.request(
+      "/api/v1/catalog/awards" + (params.size ? `?${params}` : ""),
+      "GET",
+      undefined,
+      signal,
+    );
+    return AwardsPageSchema.parse(await response.json());
   }
   async getHomeFeed(signal?: AbortSignal): Promise<HomeFeed> {
     const response = await this.request("/api/v1/catalog/home", "GET", undefined, signal);

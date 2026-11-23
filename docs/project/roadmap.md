@@ -37,8 +37,8 @@ into discovery. The existing packaged release checks and publication review stil
    release according to the catalog. Keep release state distinct from whether a playable source
    is available. Improve the experience before and after release, including upcoming and
    undated entries. Confirm the additional movie-specific change during this review.
-2. **Awards page.** Design a public destination for exploring award organizations, winners, nominees,
-   and their works. Connect the Home awards shelf to the public experience.
+2. **Awards page — implemented in source.** Home links to an awards directory with recent winning
+   works and individual archives grouped by year and category.
 3. **Planets page — implemented in source.** The directory shares Home's landscape cards,
    with catalog colors, emblems, recent-installment banners, and work counts.
 4. **Work page.** Refine the viewing page section by section, prioritizing clear Watch actions,

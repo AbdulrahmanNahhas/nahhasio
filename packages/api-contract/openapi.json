@@ -1023,6 +1023,52 @@
         }
       }
     },
+    "/api/v1/catalog/awards": {
+      "get": {
+        "operationId": "listAwards",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Viewer-visible award organizations and recent winners, or a selected organization and year with paginated category results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AwardsPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid awards query"
+          },
+          "401": {
+            "description": "Viewer authentication required"
+          }
+        }
+      }
+    },
     "/api/v1/catalog/home": {
       "get": {
         "operationId": "getHomeFeed",
@@ -5751,6 +5797,115 @@
           "pageSize": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "AwardsPage": {
+        "type": "object",
+        "required": ["totalPrograms", "programs"],
+        "properties": {
+          "totalPrograms": {
+            "type": "integer"
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AwardProgram"
+            }
+          }
+        }
+      },
+      "AwardProgram": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "workCount",
+          "years",
+          "selectedYear",
+          "totalEntries",
+          "entries"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workCount": {
+            "type": "integer"
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "selectedYear": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalEntries": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AwardEntry"
+            }
+          }
+        }
+      },
+      "AwardEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "workId",
+          "installmentId",
+          "title",
+          "installmentTitle",
+          "category",
+          "categoryKey",
+          "result",
+          "year",
+          "posterId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workId": {
+            "type": "string"
+          },
+          "installmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string"
+          },
+          "installmentTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string"
+          },
+          "categoryKey": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["winner", "nominee"]
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true
+          },
+          "posterId": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

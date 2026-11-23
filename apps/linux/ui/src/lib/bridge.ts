@@ -30,6 +30,7 @@ import {
   PasswordUpdateSchema,
   AccountMessageSchema,
   CatalogFiltersSchema,
+  AwardsPageSchema,
   CatalogPageSchema,
   FacetCatalogSchema,
   HomeFeedSchema,
@@ -313,6 +314,10 @@ export const gateway = {
     EpisodesPageSchema.parse(await call("episodes", query, signal)),
   recommendations: async (id: string, signal?: AbortSignal) =>
     RecommendationPageSchema.parse(await call("recommendations", { id }, signal)),
+  awards: async (
+    query: NonNullable<Parameters<ApiClient["listAwards"]>[0]>,
+    signal?: AbortSignal,
+  ) => AwardsPageSchema.parse(await call("awards", query, signal)),
   home: async (signal?: AbortSignal) => HomeFeedSchema.parse(await call("home", {}, signal)),
   filters: async (signal?: AbortSignal) =>
     CatalogFiltersSchema.parse(await call("filters", {}, signal)),

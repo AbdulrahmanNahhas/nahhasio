@@ -173,6 +173,7 @@ mod tests {
         for path in [
             "/api/v1/works",
             "/api/v1/catalog/home",
+            "/api/v1/catalog/awards",
             "/api/v1/works/00112233-4455-6677-8899-aabbccddeeff/state",
             "/api/v1/works/00112233-4455-6677-8899-aabbccddeeff/activity",
         ] {

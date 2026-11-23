@@ -141,9 +141,31 @@ impl ReleasesQuery {
         Ok(())
     }
 }
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AwardsQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    year: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<u32>,
+}
+
 impl ServerSession {
     pub(super) async fn execute_catalog(&self, request: Request) -> Result<Value, Error> {
         match request.command.as_str() {
+            "awards" => {
+                let input: AwardsQuery = parse(request.payload)?;
+                let response = self
+                    .authorized(Method::GET, "api/v1/catalog/awards")
+                    .await?
+                    .query(&input)
+                    .send()
+                    .await
+                    .map_err(network)?;
+                self.json(response).await
+            }
             "releases" => {
                 let input: ReleasesQuery = parse(request.payload)?;
                 input.validate()?;

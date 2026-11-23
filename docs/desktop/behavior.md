@@ -120,9 +120,9 @@ view. The recent releases shelf is ordered by release date. Catalog additions an
 remain available as sort options in Browse.
 
 Planet tiles use catalog colors and emblems. They show the latest public released installment's
-banner when available, with the parent work's banner as a fallback. The awards shelf links public
-award organizations to recognized works. Studio logos and contributor portraits use the directory
-cards and link directly to the associated works.
+banner when available, with the parent work's banner as a fallback. The awards shelf opens the
+Awards directory and individual award archives. Studio logos and contributor portraits use the
+directory cards and link directly to the associated works.
 
 The Planets directory shares Home's landscape tiles. It adds work counts and keeps name search
 and the direct links into each planet. Planet detail headers use a square version of the artwork
@@ -146,6 +146,14 @@ The server classifies registered YouTube references using explicit theme and mus
 clip title. When an older server rejects category filtering, the client applies the same rule to
 bounded pages of results and keeps the selected category. If more pages remain, the user can
 continue searching from the current position.
+
+## Awards browsing
+
+Open **الجوائز** from Home or the library navigation. Each award has a poster shelf for up to
+five distinct winning works, ordered by its latest recorded wins. The award archive opens on its
+newest recorded year and groups winners and nominees by category. Entries with no recorded year
+have their own selection. Each result opens the associated work and installment when recorded.
+Both views show recognitions linked to viewer-visible works in the Nahhasio catalog.
 
 ## Awards administration
 

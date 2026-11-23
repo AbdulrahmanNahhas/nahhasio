@@ -79,7 +79,7 @@ impl ServerSession {
             "workState" | "setFavorite" | "setWatched" | "syncTracking" | "workComment"
             | "workActivity" => self.execute_tracking(request).await,
             "releases" | "works" | "browse" | "facets" | "trailers" | "episodes"
-            | "recommendations" | "filters" | "home" | "work" | "artwork" => {
+            | "recommendations" | "filters" | "home" | "awards" | "work" | "artwork" => {
                 self.execute_catalog(request).await
             }
             "appInfo" => Ok(

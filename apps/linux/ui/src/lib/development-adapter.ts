@@ -108,6 +108,7 @@ async function request(
 }
 const getRoutes = {
   home: "/v1/catalog/home",
+  awards: "/v1/catalog/awards",
   filters: "/v1/catalog/filters",
   browse: "/v1/catalog/browse",
   facets: "/v1/catalog/facets",

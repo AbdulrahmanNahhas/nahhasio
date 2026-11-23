@@ -194,6 +194,43 @@ test.beforeEach(async ({ page }) => {
                 case "trailers":
                   result = { items: [], total: 0, page: 1, pageSize: 24 };
                   break;
+                case "awards": {
+                  const { slug, year = "2025" } = request.payload;
+                  const recognition = {
+                    id: "recognition-winner",
+                    workId: fixtureWork.id,
+                    installmentId: fixtureDetail.installments[0].id,
+                    title: fixtureWork.titleAr,
+                    installmentTitle: fixtureDetail.installments[0].title,
+                    category: "أفضل عمل رسوم متحركة",
+                    categoryKey: "animation",
+                    result: "winner",
+                    year: 2025,
+                    posterId: fixtureWork.poster?.id ?? null,
+                  };
+                  const nominee = {
+                    ...recognition,
+                    id: "recognition-nominee",
+                    title: "عمل مرشّح للاختبار",
+                    result: "nominee",
+                    year: 2024,
+                  };
+                  result = {
+                    totalPrograms: 1,
+                    programs: [
+                      {
+                        slug: "fixture-award",
+                        name: "جوائز الخيال",
+                        workCount: 2,
+                        years: slug ? ["2025", "2024"] : [],
+                        selectedYear: slug ? year : null,
+                        totalEntries: 1,
+                        entries: year === "2024" ? [nominee] : [recognition],
+                      },
+                    ],
+                  };
+                  break;
+                }
                 case "home":
                   result = {
                     resume: sessionStorage.getItem("fixture-home-resume")
@@ -1140,6 +1177,40 @@ for (const width of [480, 1440]) {
   );
 }
 
+for (const width of [360, 1440]) {
+  test(`awards ${width}: Home opens the directory, years change the archive, and works link to their installment`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await login(page);
+    await page
+      .getByRole("region", { name: "الجوائز", exact: true })
+      .getByRole("link", { name: "الجوائز", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { name: "الجوائز", level: 1 })).toBeVisible();
+    const shelf = page.getByRole("region", { name: "جوائز الخيال" });
+    await expect(shelf.getByText("أحدث الفائزين")).toBeVisible();
+    await shelf.getByRole("link", { name: "جوائز الخيال" }).click();
+    await expect(page.getByRole("heading", { name: "جوائز الخيال", level: 1 })).toBeVisible();
+    const category = page.getByRole("region", { name: "أفضل عمل رسوم متحركة" });
+    await expect(category.getByText("فائز", { exact: true })).toBeVisible();
+    await expect(category.getByRole("link")).toHaveAttribute(
+      "href",
+      /#\/titles\/.+\?installment=./,
+    );
+    await page.getByRole("combobox", { name: "سنة الجائزة" }).click();
+    await page.getByRole("option", { name: "2024" }).click();
+    await expect(page).toHaveURL(/year=2024/);
+    await expect(category.getByText("عمل مرشّح للاختبار")).toBeVisible();
+    await expect(category.getByText("مرشّح", { exact: true })).toBeVisible();
+    expect(
+      await page.locator("#main-content").evaluate((main) => main.scrollWidth <= main.clientWidth),
+    ).toBe(true);
+    await page.getByRole("link", { name: "كل الجوائز" }).click();
+    await expect(page.getByRole("heading", { name: "الجوائز", level: 1 })).toBeVisible();
+  });
+}
+
 test("home logic: scores, planet discovery and installment destination", async ({ page }) => {
   await login(page);
   await expect(releasedRow(page).getByText("71", { exact: true }).first()).toBeVisible();
@@ -1160,7 +1231,7 @@ test("home logic: scores, planet discovery and installment destination", async (
   const awards = page.getByRole("region", { name: "الجوائز", exact: true });
   await expect(awards.getByRole("link", { name: /جوائز الخيال/ })).toHaveAttribute(
     "href",
-    /awardPrograms.*fixture-award/,
+    "#/awards/fixture-award",
   );
   await expect(
     page
@@ -1201,7 +1272,10 @@ test("home logic: scores, planet discovery and installment destination", async (
     .getByRole("navigation", { name: "التنقل الرئيسي" })
     .getByRole("link", { name: "الكواكب", exact: true })
     .click();
-  await page.getByRole("link", { name: /الخيال/ }).click();
+  await page
+    .getByRole("region", { name: "صفحة الكواكب" })
+    .getByRole("link", { name: /^الخيال/ })
+    .click();
   await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(1);
   await browse(page);
   await expect(page.getByRole("link", { name: /^تفاصيل/ })).toHaveCount(2);
