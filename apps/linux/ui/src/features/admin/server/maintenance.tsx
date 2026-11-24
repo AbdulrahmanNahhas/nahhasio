@@ -125,7 +125,7 @@ export function ServerMaintenance({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">النسخ المتاحة للاستعادة</p>
               <Badge variant="secondary">
-                {new Intl.NumberFormat("ar").format(data.backups.length)} نسخة
+                {new Intl.NumberFormat("ar-u-nu-latn").format(data.backups.length)} نسخة
               </Badge>
             </div>
             {data.backups.length === 0 ? (

@@ -13,8 +13,8 @@ import { formatAdminBytes as bytes } from "../format";
 import { OverviewInsights } from "./overview-insights";
 import { serverOverviewQuery } from "./queries";
 
-const number = new Intl.NumberFormat("ar");
-const clock = new Intl.DateTimeFormat("ar", { hour: "numeric", minute: "2-digit" });
+const number = new Intl.NumberFormat("ar-u-nu-latn");
+const clock = new Intl.DateTimeFormat("ar-u-nu-latn", { hour: "numeric", minute: "2-digit" });
 export function ServerOverviewPage() {
   const overview = useQuery(serverOverviewQuery());
   return (
@@ -85,7 +85,7 @@ export function ServerOverviewPage() {
                 <time dateTime={new Date(overview.dataUpdatedAt).toISOString()}>
                   {clock.format(overview.dataUpdatedAt)}
                 </time>{" "}
-                · يتجدد كل ٣٠ ثانية
+                · يتجدد كل 30 ثانية
               </p>
             </div>
             <Readiness data={overview.data} />

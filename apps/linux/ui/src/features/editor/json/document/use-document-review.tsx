@@ -40,7 +40,8 @@ export function useDocumentReview(
     shouldBlockFn: ({ current, next }) =>
       (current.pathname !== next.pathname ||
         current.search.ids !== next.search.ids ||
-        current.search.target !== next.search.target) &&
+        current.search.target !== next.search.target ||
+        current.search.edit !== next.search.edit) &&
       dirty &&
       !committed.current,
     enableBeforeUnload: dirty && !saved,

@@ -352,7 +352,7 @@ test("desktop settings, private diagnostic preview and cache control", async ({ 
   expect(await report.inputValue()).not.toMatch(/private|fixture\.invalid|fixture@example/);
   await page.getByRole("link", { name: "التنزيلات والتخزين", exact: false }).click();
   await page.getByRole("button", { name: "إفراغ ذاكرة الصور المؤقتة" }).click();
-  await expect(page.getByText(/^[٠0] ميغابايت مستخدمة من (?:٥١٢|512)$/)).toBeVisible();
+  await expect(page.getByText("0 ميغابايت مستخدمة من 512", { exact: true })).toBeVisible();
 });
 
 test("administrators can open the existing server settings", async ({ page }) => {

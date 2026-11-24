@@ -92,7 +92,7 @@ function ProfileActivityContent({ id, overview }: { id: string; overview: Profil
         {highlights.map((stat) => (
           <div key={stat.key} className="flex flex-col gap-2">
             <dd className="text-3xl font-semibold tabular-nums">
-              {stat.value.toLocaleString("ar")}
+              {stat.value.toLocaleString("ar-u-nu-latn")}
             </dd>
             <dt className="text-xs text-muted-foreground">
               {stat.key === "watched" ? "وحدات مشاهدة مكتملة" : stat.label}
@@ -178,7 +178,7 @@ function ProfileActivityContent({ id, overview }: { id: string; overview: Profil
                     ].map((stat) => (
                       <div key={stat.label} className="flex flex-col gap-2">
                         <dd className="text-3xl font-semibold tabular-nums">
-                          {stat.value.toLocaleString("ar")}
+                          {stat.value.toLocaleString("ar-u-nu-latn")}
                         </dd>
                         <dt className="text-xs text-muted-foreground">{stat.label}</dt>
                       </div>
@@ -193,7 +193,7 @@ function ProfileActivityContent({ id, overview }: { id: string; overview: Profil
                     >
                       <dt className="text-sm text-muted-foreground">{stat.label}</dt>
                       <dd className="text-xl font-semibold tabular-nums">
-                        {stat.value.toLocaleString("ar")}
+                        {stat.value.toLocaleString("ar-u-nu-latn")}
                       </dd>
                     </div>
                   ))}
@@ -305,7 +305,7 @@ function ProfileEntries({
     <>
       {!preview && (
         <p className="text-xs text-muted-foreground">
-          {result.data.pages[0].total.toLocaleString("ar")} سجل
+          {result.data.pages[0].total.toLocaleString("ar-u-nu-latn")} سجل
         </p>
       )}
       <div className="grid gap-4 md:grid-cols-2">

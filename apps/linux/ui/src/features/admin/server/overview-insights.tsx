@@ -32,7 +32,7 @@ import { optionLabel } from "@/features/catalog/filter-model";
 import { formatAdminDate as activityDate } from "../format";
 
 export type LibraryInsights = ServerOverview["insights"];
-const number = new Intl.NumberFormat("ar");
+const number = new Intl.NumberFormat("ar-u-nu-latn");
 const labels = {
   animated: "رسوم متحركة",
   "live-action": "تمثيل حي",
@@ -84,7 +84,7 @@ function monthLabel(value: string) {
   const date = new Date(`${value}-01T00:00:00Z`);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat("ar", { month: "short", timeZone: "UTC" }).format(date);
+    : new Intl.DateTimeFormat("ar-u-nu-latn", { month: "short", timeZone: "UTC" }).format(date);
 }
 export function OverviewInsights({ data, works }: { data: LibraryInsights; works: number }) {
   const missing = data.missing.toSorted((a, b) => b.value - a.value);

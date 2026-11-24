@@ -3,7 +3,9 @@ export function formatAdminDate(value: string | null | undefined) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "تاريخ غير متاح"
-    : new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    : new Intl.DateTimeFormat("ar-u-nu-latn", { dateStyle: "medium", timeStyle: "short" }).format(
+        date,
+      );
 }
 export function formatAdminBytes(value: number) {
   const scale =
@@ -14,5 +16,5 @@ export function formatAdminBytes(value: number) {
         : value >= 1024
           ? ([1024, "ك.ب"] as const)
           : ([1, "بايت"] as const);
-  return `${new Intl.NumberFormat("ar", { maximumFractionDigits: 1 }).format(value / scale[0])} ${scale[1]}`;
+  return `${new Intl.NumberFormat("ar-u-nu-latn", { maximumFractionDigits: 1 }).format(value / scale[0])} ${scale[1]}`;
 }

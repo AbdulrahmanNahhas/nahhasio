@@ -185,7 +185,7 @@ function PreferencesForm({ initial }: { initial: PlaybackPreferencesData }) {
               name="subtitlePosition"
               value={draft.subtitlePosition}
               disabled={busy}
-              description="٠ أعلى الشاشة، و١٠٠ أسفلها."
+              description="0 أعلى الشاشة، و100 أسفلها."
               onChange={(subtitlePosition) => setDraft({ ...draft, subtitlePosition })}
             />
             <Field>

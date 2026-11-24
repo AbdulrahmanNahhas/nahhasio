@@ -185,7 +185,7 @@ function AccountDirectory({ section }: { section: (typeof destinations)[number][
               <span className="text-sm text-muted-foreground">
                 {search ? "نتائج البحث" : "السجلات"}
               </span>
-              <Badge variant="secondary">{query.data.total.toLocaleString("ar")}</Badge>
+              <Badge variant="secondary">{query.data.total.toLocaleString("ar-u-nu-latn")}</Badge>
             </div>
           )}
           {query.data?.rows.length === 0 && (

@@ -305,7 +305,7 @@ export function AwardsPage({
                         <Icon data-icon="inline-start" />
                         {awardLabels[value]}
                         <Badge variant="secondary">
-                          {records.data?.counts[value]?.toLocaleString("ar") ?? "…"}
+                          {records.data?.counts[value]?.toLocaleString("ar-u-nu-latn") ?? "…"}
                         </Badge>
                       </TabsTrigger>
                     ))}
@@ -400,7 +400,7 @@ export function AwardsPage({
               ? "جارٍ تحميل النتائج…"
               : records.isError
                 ? "تعذّرت قراءة النتائج"
-                : `${(records.data?.total ?? 0).toLocaleString("ar")} ${recognition ? "جائزة وترشيح" : "سجل"}`}
+                : `${(records.data?.total ?? 0).toLocaleString("ar-u-nu-latn")} ${recognition ? "جائزة وترشيح" : "سجل"}`}
           </p>
           {records.isPending ? (
             <Skeleton className="h-96" />

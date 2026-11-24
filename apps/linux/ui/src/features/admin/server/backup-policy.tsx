@@ -39,7 +39,7 @@ export function BackupPolicy({
           <FieldContent>
             <FieldLabel htmlFor="scheduled-backups">نسخة يومية تلقائية</FieldLabel>
             <FieldDescription>
-              الساعة ٤ صباحًا بتوقيت الخادم، مع تأخير حتى ١٥ دقيقة. يُعوّض الموعد الفائت بعد التشغيل.
+              الساعة 4 صباحًا بتوقيت الخادم، مع تأخير حتى 15 دقيقة. يُعوّض الموعد الفائت بعد التشغيل.
             </FieldDescription>
           </FieldContent>
           <Switch
@@ -62,7 +62,7 @@ export function BackupPolicy({
             disabled={disabled}
           />
           <FieldDescription>
-            من ١ إلى ٣٠. تبقى النسخ اليدوية، وآخر نسختين قبل التحديث وآخر نسختين قبل الاستعادة. يُطبّق
+            من 1 إلى 30. تبقى النسخ اليدوية، وآخر نسختين قبل التحديث وآخر نسختين قبل الاستعادة. يُطبّق
             التنظيف بعد اكتمال نسخة جديدة.
           </FieldDescription>
         </Field>

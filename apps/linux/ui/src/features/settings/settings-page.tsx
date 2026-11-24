@@ -117,8 +117,9 @@ function StorageSettings() {
               </ItemTitle>
               {cache.data && (
                 <ItemDescription>
-                  {Math.round(cache.data.bytes / 1024 / 1024).toLocaleString("ar")} ميغابايت مستخدمة
-                  من {Math.round(cache.data.budgetBytes / 1024 / 1024).toLocaleString("ar")}
+                  {Math.round(cache.data.bytes / 1024 / 1024).toLocaleString("ar-u-nu-latn")}{" "}
+                  ميغابايت مستخدمة من{" "}
+                  {Math.round(cache.data.budgetBytes / 1024 / 1024).toLocaleString("ar-u-nu-latn")}
                 </ItemDescription>
               )}
             </ItemContent>

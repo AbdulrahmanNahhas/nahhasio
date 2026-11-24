@@ -445,11 +445,14 @@ export function ViewingRecords({ accountId }: { accountId: string }) {
                 )}
                 {row.position_seconds !== undefined && (
                   <Badge variant="outline">
-                    {Math.floor(row.position_seconds / 60).toLocaleString("ar")} دقيقة مسجّلة
+                    {Math.floor(row.position_seconds / 60).toLocaleString("ar-u-nu-latn")} دقيقة
+                    مسجّلة
                   </Badge>
                 )}
                 {row.visit_count !== undefined && (
-                  <Badge variant="outline">{row.visit_count.toLocaleString("ar")} زيارة</Badge>
+                  <Badge variant="outline">
+                    {row.visit_count.toLocaleString("ar-u-nu-latn")} زيارة
+                  </Badge>
                 )}
                 {row.personal_rating != null && (
                   <Badge variant="outline">تقييم شخصي {row.personal_rating}</Badge>

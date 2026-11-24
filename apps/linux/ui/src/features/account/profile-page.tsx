@@ -98,7 +98,7 @@ function ProfileView({ profile, owner }: { profile: PublicProfile; owner: boolea
           {profile.joinedAt && (
             <p className="text-sm text-muted-foreground">
               عضو منذ{" "}
-              {new Date(profile.joinedAt).toLocaleDateString("ar", {
+              {new Date(profile.joinedAt).toLocaleDateString("ar-u-nu-latn", {
                 year: "numeric",
                 month: "long",
               })}

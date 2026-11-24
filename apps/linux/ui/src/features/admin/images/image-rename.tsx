@@ -112,7 +112,7 @@ export function ImageRename({
       toast.add({
         type: "success",
         title: "تم تنظيم أسماء الصور",
-        description: `عدد الصور: ${new Intl.NumberFormat("ar").format(result.renamed)}`,
+        description: `عدد الصور: ${new Intl.NumberFormat("ar-u-nu-latn").format(result.renamed)}`,
       });
     },
   });

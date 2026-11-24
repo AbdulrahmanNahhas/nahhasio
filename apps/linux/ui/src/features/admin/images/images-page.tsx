@@ -375,7 +375,7 @@ export function ImagesPage({
                     {fileSize(asset.byteSize)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Intl.DateTimeFormat("ar", { dateStyle: "medium" }).format(
+                    {new Intl.DateTimeFormat("ar-u-nu-latn", { dateStyle: "medium" }).format(
                       new Date(asset.createdAt),
                     )}
                   </TableCell>

@@ -86,7 +86,7 @@ export function MediaFileDetails({ file }: { file: ServerMediaFile }) {
             <dt>آخر تحقق</dt>
             <dd>
               {file.lastVerifiedAt
-                ? new Date(file.lastVerifiedAt).toLocaleString("ar")
+                ? new Date(file.lastVerifiedAt).toLocaleString("ar-u-nu-latn")
                 : "لم يُتحقّق منه"}
             </dd>
           </div>
@@ -102,7 +102,7 @@ export function MediaFileDetails({ file }: { file: ServerMediaFile }) {
           </div>
         </dl>
         {file.trashExpiresAt && (
-          <p>موعد الحذف النهائي: {new Date(file.trashExpiresAt).toLocaleString("ar")}</p>
+          <p>موعد الحذف النهائي: {new Date(file.trashExpiresAt).toLocaleString("ar-u-nu-latn")}</p>
         )}
         <p className="break-all" dir="ltr">
           {file.relativePath}

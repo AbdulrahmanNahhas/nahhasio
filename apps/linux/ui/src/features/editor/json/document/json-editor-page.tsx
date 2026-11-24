@@ -249,7 +249,7 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {snapshots.length} سجل · {visibleFields.length} حقل ·{" "}
-                  {draft.length.toLocaleString()} حرف
+                  {draft.length.toLocaleString("ar-u-nu-latn")} حرف
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -458,7 +458,7 @@ function JsonWorkspace({ snapshots }: { snapshots: WorkSnapshot[] }) {
                       ))}
                     </ul>
                     {parsed.error.issues.length > 8 && (
-                      <p>تظهر أول ٨ مشكلات؛ صحّحها لإظهار بقية المشكلات.</p>
+                      <p>تظهر أول 8 مشكلات؛ صحّحها لإظهار بقية المشكلات.</p>
                     )}
                   </AlertDescription>
                 </Alert>

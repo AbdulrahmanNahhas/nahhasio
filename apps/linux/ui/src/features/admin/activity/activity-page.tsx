@@ -241,7 +241,7 @@ function ActivityRecords({
               {records.isFetching
                 ? "جارٍ تحديث السجلات…"
                 : records.data
-                  ? `${records.data.total.toLocaleString("ar")} سجل مطابق`
+                  ? `${records.data.total.toLocaleString("ar-u-nu-latn")} سجل مطابق`
                   : "تعذّرت قراءة عدد السجلات"}
             </p>
             <Button

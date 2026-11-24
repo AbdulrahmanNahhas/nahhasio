@@ -44,7 +44,7 @@ export function roleLabel(role: string) {
 }
 export function fileSize(size: number) {
   return (
-    new Intl.NumberFormat("ar", { maximumFractionDigits: 1 }).format(
+    new Intl.NumberFormat("ar-u-nu-latn", { maximumFractionDigits: 1 }).format(
       size >= 1048576 ? size / 1048576 : size / 1024,
     ) + (size >= 1048576 ? " ميغابايت" : " كيلوبايت")
   );

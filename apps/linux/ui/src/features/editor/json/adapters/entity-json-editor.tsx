@@ -198,7 +198,7 @@ function Workspace({ target, loaded }: { target: JsonEntityTarget; loaded: Loade
   }
   async function importFile(file: File) {
     if (file.size > maxJsonFileBytes) {
-      setMessage("الملف يتجاوز ٤ ميغابايت.");
+      setMessage("الملف يتجاوز 4 ميغابايت.");
       return;
     }
     try {
@@ -281,7 +281,7 @@ function Workspace({ target, loaded }: { target: JsonEntityTarget; loaded: Loade
               {identityValid ? "بنية صالحة · المراجع تُراجع قبل الحفظ" : "صحّح JSON ونطاق السجلات"}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              {loaded.originals.length} سجل · {draft.length.toLocaleString()} حرف
+              {loaded.originals.length} سجل · {draft.length.toLocaleString("ar-u-nu-latn")} حرف
             </span>
           </div>
           <div className="flex flex-wrap gap-2">

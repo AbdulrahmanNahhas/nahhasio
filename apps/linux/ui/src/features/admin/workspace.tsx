@@ -95,7 +95,8 @@ export function RecordsPager({
   return (
     <nav aria-label="صفحات النتائج" className="flex flex-wrap items-center justify-between gap-2">
       <span className="text-sm text-muted-foreground">
-        صفحة {page.toLocaleString("ar")} من {Math.ceil(total / pageSize).toLocaleString("ar")}
+        صفحة {page.toLocaleString("ar-u-nu-latn")} من{" "}
+        {Math.ceil(total / pageSize).toLocaleString("ar-u-nu-latn")}
       </span>
       <div className="flex gap-2">
         <Button

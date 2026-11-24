@@ -178,7 +178,7 @@ export function PlanetMovementPage({
           <CardHeader>
             <CardTitle>من: {sourceName}</CardTitle>
             <CardDescription>
-              {works.data?.total ?? "…"} عمل · حد الاختيار ٥٠ عملاً، ويمكن متابعة الاختيار عبر الصفحات.
+              {works.data?.total ?? "…"} عمل · حد الاختيار 50 عملاً، ويمكن متابعة الاختيار عبر الصفحات.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

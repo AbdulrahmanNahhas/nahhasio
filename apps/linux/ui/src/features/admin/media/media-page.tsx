@@ -433,7 +433,7 @@ export function MediaJobsPage() {
           </h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Badge variant="outline">{status[job.status]}</Badge>
-            <span>{new Date(job.createdAt).toLocaleString("ar")}</span>
+            <span>{new Date(job.createdAt).toLocaleString("ar-u-nu-latn")}</span>
             <div className="flex gap-2">
               {["queued", "running"].includes(job.status) ? (
                 <Button
