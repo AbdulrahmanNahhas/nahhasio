@@ -59,7 +59,9 @@ commit or publish personalized lists without explicit authorization.
 
 Read docs/project/overview.md, docs/project/roadmap.md and docs/development/getting-started.md. Current milestone is 0.1 Alpha;
 the future roadmap is not a release checklist. Fedora Atomic/rootless Podman is the server target;
-Linux Flatpak is the client through v1.0. Nix/devenv is development-only. No website ships.
+Linux Flatpak is the viewing and administration client for 0.2.0. See the
+[0.3.0 Android plan](docs/project/android.md) for the planned phone and TV viewing clients.
+Nix/devenv is development-only.
 GitHub repository: AbdulrahmanNahhas/nahhasio; historical @arcadia workspace and database names
 remain compatible. Treat unresolved decisions as unresolved.
 
@@ -166,7 +168,7 @@ activation can silently keep the old executable alive.
 
 ## Desktop UI rules
 
-These shadcn/TanStack composition rules apply to `apps/linux/ui`, including administration.
+These UI SDK, shadcn and TanStack composition rules apply to `apps/linux/ui`, including administration.
 Preserve the reviewed design tokens/components, accessible labels, keyboard focus/navigation,
 RTL, reduced motion and typed native-bridge boundaries. Permissions are enforced by the server.
 
@@ -177,11 +179,19 @@ component set for the desktop. Read the `nahhasio-desktop-ui` skill there; prese
 static utility presentation and typed native boundary. Do not hand-edit vendored primitives to
 fix caller errors.
 
-For work using UI SDK, follow the [ui-sdk skill](.agents/skills/ui-sdk/SKILL.md) if installed
-and read `apps/linux/ui/node_modules/@ui-sdk/react/docs/llms.txt`. When building a component
+For new interactive behavior, check UI SDK first and reuse the shared components when suitable.
+Follow the [ui-sdk skill](.agents/skills/ui-sdk/SKILL.md) and read
+`apps/linux/ui/node_modules/@ui-sdk/react/docs/llms.txt`. When building a component
 from UI SDK behaviors, search `core.md` by heading and read `rendering.md` in the same docs
 directory. Use the existing typed native bridge for data and native operations. Adding agent
 tools, WebMCP, or model providers requires separate authorization.
+
+The [shadcn skill](.agents/skills/shadcn/SKILL.md) comes from [shadcn/ui](https://github.com/shadcn-ui/ui/tree/main/skills/shadcn).
+The [UI SDK skill](.agents/skills/ui-sdk/SKILL.md) comes from [Vercel Labs](https://ui-sdk.dev/docs/agents/skills).
+Review these upstream sources periodically, especially during UI dependency upgrades or design-system
+reviews. Refresh each skill from its official source when appropriate, preserve local adaptations, and
+record provenance through the installer in `skills-lock.json`. Follow the
+[skill refresh procedure](docs/development/agent-playbook.md#maintain-the-skills).
 
 - Use component variants/sizes and semantic theme tokens. Caller classes control layout.
 - Use Field/FieldGroup, full Card composition, and Empty/Alert/Badge for their respective roles.

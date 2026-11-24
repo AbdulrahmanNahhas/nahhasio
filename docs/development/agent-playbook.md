@@ -32,7 +32,17 @@
 - Keep personal skills outside the repository. When you maintain one in a separate directory,
   link that directory under `~/.agents/skills/` instead of copying it here. The optional
   `media-review` skill is not required to develop, build, or use Nahhasio.
-- `skills-lock.json` records upstream provenance. Review upstream updates individually and preserve
-  local adaptations; do not regenerate hashes by hand or bulk-overwrite customized instructions.
+- Review the [official UI SDK skill](https://ui-sdk.dev/docs/agents/skills) and
+  [official shadcn skill](https://ui.shadcn.com/docs/skills) during design-system reviews and their
+  corresponding dependency upgrades. Check for changes to the guidance, component API, and
+  accessibility conventions.
+- Preview upstream refreshes with the Skills CLI in a temporary project. The official sources are
+  `vercel-labs/ui --skill ui-sdk` and `shadcn/ui --skill shadcn`. Compare the full skill directory,
+  apply relevant updates and preserve the Nahhasio-specific notes. Take provenance entries from
+  the installer's `skills-lock.json`. Review dependency upgrades separately so the skill's
+  examples and the installed API are not confused.
+- [Anthropic's frontend-design](https://github.com/anthropics/skills/tree/main/skills/frontend-design)
+  is the upstream reference for the local adaptation. Keep Nahhasio's reviewed design decisions
+  and local workflow when incorporating upstream changes.
 - Prefer version-matched installed API docs and relevant source to stale upstream examples. Do not
   widen permissions, register live credentials, or add servers just to make a skill discoverable.
