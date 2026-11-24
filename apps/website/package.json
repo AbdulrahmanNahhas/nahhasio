@@ -1,0 +1,21 @@
+{
+  "name": "@nahhasio/website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:site": "node build.mjs"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.7.0",
+    "@tailwindcss/node": "4.3.3",
+    "@tailwindcss/oxide": "4.3.3",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.3.2",
+    "esbuild": "0.28.1",
+    "lucide-react": "1.52.0",
+    "marked": "17.0.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwindcss": "4.3.3"
+  }
+}

@@ -23,6 +23,8 @@ checkpoint is evidence for that run, not proof of today's source, installed vers
 | Choose fixture, native, packaged, or installed checks | [Verification](development/testing.md)                                               |
 | Use or maintain the agent instructions                | [Agent playbook](development/agent-playbook.md) · [Repository rules](../AGENTS.md)   |
 
+The [public-facing product and documentation website](../apps/website/README.md) is a separate static build.
+
 ## Catalog and storage
 
 | Need                                                   | Start here                                               |
