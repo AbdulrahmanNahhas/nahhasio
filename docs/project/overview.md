@@ -15,7 +15,10 @@ The home server targets Fedora Atomic/Silverblue with rootless Podman Quadlets a
 The GTK4/libadwaita/WebKitGTK/libmpv client ships as Flatpak. React/Vite/TypeScript provides its
 interface, with TanStack Router/Query and official shadcn Base UI Maia/Mist components. The
 installed server and operator CLI are Rust-only. Node/pnpm and Nix/devenv are development/build
-tools. There is no shipped website. Linux is the only client through v1.0.
+tools. The [static website source](../../apps/website/README.md) is for product information and
+documentation. Linux Flatpak remains the viewing and administration client for 0.2.0.
+[Android phone and Android TV](android.md) are planned for 0.3.0, with signed APKs
+distributed through GitHub Releases first.
 
 The current release covers rootless hosting, coordinated backup/restore, catalog transfer,
 independent laptop development, signed server/Flatpak delivery and app maintenance controls.

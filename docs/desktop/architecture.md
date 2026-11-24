@@ -74,12 +74,12 @@ native protocol tests remain in the desktop. Browser fixtures are not native pla
 Separate repositories are feasible later, but repository separation and runtime update independence
 are different things.
 
-| Component                 | Build/release boundary                                                         | Updating it                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Client core library       | Can compile/test without the desktop UI or native SDKs                         | A linked desktop must rebuild/release to incorporate a new library version       |
-| Desktop application       | Builds UI assets and its native executable with selected core/adapter versions | Flatpak/Software owns installed client updates                                   |
-| Server and worker         | Separate Rust/OCI artifacts, schema and maintenance compatibility gates        | Can update separately when the client/API and schema compatibility checks permit |
-| Future mobile application | Separate application consuming versioned client libraries/contracts            | Its own eventual platform packaging and update mechanism                         |
+| Component                                       | Build/release boundary                                                         | Updating it                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Client core library                             | Can compile/test without the desktop UI or native SDKs                         | A linked desktop must rebuild/release to incorporate a new library version       |
+| Desktop application                             | Builds UI assets and its native executable with selected core/adapter versions | Flatpak/Software owns installed client updates                                   |
+| Server and worker                               | Separate Rust/OCI artifacts, schema and maintenance compatibility gates        | Can update separately when the client/API and schema compatibility checks permit |
+| [Planned Android client](../project/android.md) | Shares the viewing UI and versioned API contracts through a platform adapter   | Signed APK through GitHub Releases                                               |
 
 A Rust `rlib` is not a stable plugin ABI or an independently hot-updatable installed service. Do not
 add dynamic libraries, a local daemon or an executable downloader solely to avoid rebuilding a

@@ -2,16 +2,16 @@
 
 [Documentation index](../README.md) · [Feature backlog](features.md) · [Deployment](../operations/deployment.md)
 
-**On this page:** [0.2.0 plan](#020-release-plan) · [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
+**On this page:** [0.2.0 plan](#020-release-plan) · [0.2.1–0.2.5 ideas](#02x-follow-ups) · [0.3.0 Android plan](#030-android-plan) · [Foundation shortlist](#01-alpha-foundation-shortlist--catalog-first) · [Task inventory](#task-inventory)
 
 Use this as a planning inventory, not a release gate or implementation audit. For the latest
 recorded rollout and verification limits, use [Operations](../operations/runbook.md) and the
 [family-server handoff](../operations/family-server.md).
 
 **Next numbered release: 0.2.0.** The 0.1 Alpha foundation and long-term inventory follow below.
-[Project overview](overview.md) owns confirmed scope. This is the long-term inventory, not a promise
-that all tasks ship in Alpha or a fixed v1.0 specification. Linux is the only client through v1.0;
-other platforms follow later. No website ships in the delivered product.
+[Project overview](overview.md) owns confirmed scope. The inventory includes long-term work
+beyond the numbered milestones. The delivered catalog and viewing experience runs in native
+app packages.
 
 For the short page-by-page product checklist, see [Features](features.md). This document
 retains implementation, storage, deployment and acceptance tasks.
@@ -29,23 +29,36 @@ retains implementation, storage, deployment and acceptance tasks.
 
 ## 0.2.0 release plan
 
-These five items define the product scope for [Nahhasio 0.2.0](../releases/0.2.0.md).
-The completed Home redesign provides the design reference for planet tiles and entry points
-into discovery. The existing packaged release checks and publication review still apply.
+The remaining product work for [Nahhasio 0.2.0](../releases/0.2.0.md) is a small Work page
+UI and UX pass. Broader Work page improvements can follow after the release. The packaged
+release checks and publication review still apply.
 
-1. **Airing and releases.** Make dated episodes and movies automatically eligible for viewing on
-   release according to the catalog. Keep release state distinct from whether a playable source
-   is available. Improve the experience before and after release, including upcoming and
-   undated entries. Confirm the additional movie-specific change during this review.
-2. **Awards page — implemented in source.** Home links to an awards directory with recent winning
+1. **Awards page — implemented in source.** Home links to an awards directory with recent winning
    works and individual archives grouped by year and category.
-3. **Planets page — implemented in source.** The directory shares Home's landscape cards,
+2. **Planets page — implemented in source.** The directory shares Home's landscape cards,
    with catalog colors, emblems, recent-installment banners, and work counts.
-4. **Work page.** Refine the viewing page section by section, prioritizing clear Watch actions,
-   installment and episode navigation, and visible release and availability states.
-5. **Music-first redesign of الإعلانات التشويقية — implemented in source.** The sidebar uses a
+3. **Music-first redesign of الإعلانات التشويقية — implemented in source.** The sidebar uses a
    music icon. The page opens on Music and offers separately browsable Trailers and All views,
    with compact track-style cards.
+
+## 0.2.x follow-ups
+
+- **0.2.1 candidate — airing and releases.** Make dated episodes and movies automatically eligible
+  for viewing on release. Keep release status separate from playable source availability,
+  including upcoming and undated entries. Confirm the additional movie-specific change later.
+- **0.2.5 idea — private cloud catalog and local sync.** Keep the home PostgreSQL database and
+  original artwork authoritative. Explore a private hosted catalog, optimized artwork, and an
+  authenticated API for app and web browsing while the home server is off. Start with a
+  **Sync now** action that publishes a complete revision. Explore per-account tracking sync next.
+  Home-server files and media jobs still depend on the home server.
+
+## 0.3.0 Android plan
+
+Ship the first Android phone client as a signed APK on GitHub Releases. Target Android TV in
+the same milestone using the shared Arabic RTL viewing UI, with physical-remote acceptance
+before listing TV as supported. The first APK prioritizes catalog browsing, tracking, and
+playback of linked server files. The [Android plan](android.md) defines the playback and
+packaging approach, plus the follow-up experiments for torrents and offline video.
 
 ## 0.1 Alpha foundation shortlist — catalog first
 
@@ -103,7 +116,8 @@ subtitle retrieval; optional future transcoding; richer profiles/policies; stati
 production update automation and mature release compatibility. These are valuable backlog items,
 not prerequisites for every Alpha checkpoint.
 
-LAN is the confirmed initial network scope. Public access/VPN and non-Linux clients remain future.
+LAN is the confirmed initial network scope for Linux and the planned Android clients.
+Public access and VPN remain future work.
 Guided explicit Alpha upgrades are the default; scheduled automatic upgrades can follow recovery.
 The initial accounts are admin and family user; more profiles/policy systems are optional future.
 The former Jellyfin integration is replaced by direct Nahhasio delivery; installed media acceptance remains separate from source checks.
@@ -127,7 +141,7 @@ Total: **280 tasks across 21 areas**.
 - [ ] **NH-00-03** Confirm family accounts, viewing profiles and child-policy requirements.
 - [ ] **NH-00-04** Confirm manual/confirmed/scheduled server and desktop update policy.
 - [ ] **NH-00-05** Confirm which optional capabilities are required for v1.0.
-- [ ] **NH-00-06** Record that v1.0 supports the Linux client only and ships no website.
+- [ ] **NH-00-06** Record supported client platforms and distribution channels for v1.0.
 - [ ] **NH-00-07** Record the approximately 70 Arabic-dubbed works as existing server-file sources.
 - [ ] **NH-00-08** Inventory active Markdown, code consumers, incoming links and obsolete guidance.
 - [ ] **NH-00-09** Consolidate the product direction into one project guide and one release checklist.
