@@ -53,5 +53,8 @@ The [public-facing product and documentation website](../apps/website/README.md)
 - Identify the artifact, environment, and date for verification; distinguish source, fixture, packaged,
   and installed results. Do not infer production status from source or run live checks just to edit docs.
 - Keep credentials, personal catalog exports, captures, and backups out of Git.
-- Run `python3 tools/docs/check_docs.py` and `pnpm exec oxfmt --check <edited paths>` from the root.
-  The docs check is offline and validates local Markdown paths and skill names, not remote URLs or anchors.
+- Run `devenv shell -- python3 tools/docs/check_docs.py`, the format check on edited docs,
+  and `git diff --check` from the root. The project link check covers local Markdown paths and
+  skill names in its selected files. When moving sections or adding skill references, also check
+  the affected anchors and moved files. Validate skill frontmatter against the
+  [Agent Skills specification](https://agentskills.io/specification).

@@ -10,9 +10,10 @@ artwork records, viewing history or database functions/constraints were replaced
 ## Active migration history
 
 `packages/database/drizzle/0000_current_catalog.sql` is the new starting point. Its SQL captures
-the current database structure, including functions, triggers, indexes and constraints. Its single
-Drizzle snapshot matches `schema.ts`; a generation check reported no schema changes. PostgreSQL 17
-or newer is required. Keep `pg_trgm` available for the existing search index.
+the adopted structure, including functions, triggers, indexes and constraints. The baseline
+snapshot matched `schema.ts` at adoption. Subsequent migrations are ordered by the
+[active journal](../../packages/database/drizzle/meta/_journal.json). PostgreSQL 17 or
+newer is required. Keep `pg_trgm` available for the existing search index.
 
 An empty installation applies this baseline. It creates a new server identity and the 16 controlled
 credit-role definitions, with no family works, accounts, artwork paths or viewing records. The

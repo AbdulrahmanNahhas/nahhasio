@@ -4,10 +4,10 @@
 
 **On this page:** [Viewer](#shared-ui-and-navigation) · [Playback](#player-page) · [Administration](#admin-overview-page) · [Acceptance](#consolidated-acceptance)
 
-This page-level backlog dates to 2026-10-25. Checked items describe implemented surfaces at
-recorded checkpoints, not installed acceptance. Use [Client behavior](../desktop/behavior.md) for reviewed
-flows and [Testing](../development/testing.md) for acceptance; see [Operations](../operations/runbook.md) for later delivery
-checkpoints, including the direct-media cutover.
+This is a planning inventory started on 2026-10-25. Checked items describe source or
+checkpoint implementation. Open items may still need a narrower implementation or acceptance
+review. Use [Client behavior](../desktop/behavior.md) for present-day flows and
+[Testing](../development/testing.md) for the applicable checks.
 
 ## Shared UI and Navigation
 
@@ -144,7 +144,7 @@ checkpoints, including the direct-media cutover.
 - [ ] Download to device
 - [ ] Personal rating and notes
 - [ ] Related works navigation
-- [ ] Reviews and discussion
+- [x] Account-scoped reviews, ratings and discussion
 - [ ] Complete offline work page
 
 ## Parts and Episodes on Work Page
@@ -448,10 +448,11 @@ checkpoints, including the direct-media cutover.
 - [x] Parts/episodes and scores
 - [x] Privacy and publication status
 - [x] Registered image selection/upload/search controls
+- [ ] Installment banner controls in the work editor
 - [x] Draft JSON dialog
 - [x] Change-review/save flow
 - [x] Unsaved navigation protection
-- [ ] Whole-work files-only setting
+- [x] Whole-work files-only setting
 - [ ] Linked library files and media versions
 - [ ] Provider import preview
 - [ ] Missing/invalid field guidance

@@ -23,7 +23,8 @@ view does not imply implemented writes, jobs or stored-media delivery.
 - Access: accounts, authentication/session records, capabilities and existing restriction/policy
   tables. Initial product use is an admin account and a family user, not new profile machinery.
 - Administration: audit logs, editorial revisions, jobs and saved views.
-- Media: media assets/assignments, files/tracks, device-download records and Jellyfin media links.
+- Media: artwork and assignments, managed files and tracks, and device-download records.
+  Jellyfin link tables remain as historical data and are available to inspection.
 
 Do not rebuild these concepts or remove populated tables because Alpha initially uses fewer
 features. Inspect ownership/links and define migrations before adding duplicates or deleting data.
@@ -90,3 +91,15 @@ Before moving the live database/artwork: independent backups, checksum/restore v
 counts/content/constraint checks, artwork containment/link checks, then approved cutover.
 Change configured storage roots rather than casually rewriting stable asset IDs and every path.
 Preserve scores/notes/history/account links while implementing or reorganizing media services.
+
+## Personalized catalog snapshots
+
+After an authorized live catalog addition, edit or deletion, refresh the ignored
+`catalog-lists/` snapshots with `devenv shell -- python3 bin/refresh-catalog-lists`. Use the
+`family` viewing account for watch history. The local `catalog-lists/README.md` describes
+the categories and columns. Family viewing changes also need an explicit refresh.
+
+The generator prompts for admin credentials. An agent with an authorized session can supply
+`--session-file <private temporary session file>`, then log out and remove its temporary file.
+If the server or login is unavailable, retain the previous snapshots and report the pending
+refresh. Keep these lists private unless the user explicitly authorizes sharing.

@@ -67,9 +67,10 @@ composition. Use a bottom drawer below 768 px for longer detail and selection fl
 scroll region within the drawer, including short phone screens. Keep the SDK’s optional global
 stylesheet out of the desktop bundle.
 
-Tailwind owns feature presentation; keep fonts/tokens/essential global rules in the stylesheet.
-Runtime geometry follows the existing typed/token boundary. Do not hand-edit vendored primitives
-to fix caller errors. The full official desktop component set was approved; imports stay scoped.
+Tailwind owns feature presentation. Keep fonts, tokens and essential global rules in the
+stylesheet. Use static utilities and configured tokens for new code. Runtime geometry follows
+the existing typed boundary. Fix caller errors at the caller and keep approved official
+components scoped to their consumers. Run the shadcn lint rules with `pnpm lint`.
 
 Do not put HTTP/session secrets, arbitrary native operations or direct server fetch in UI code.
 Desktop uses Vite/Router/Query, not TanStack Start. The former TanStack Start web dashboard is retired.

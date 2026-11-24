@@ -48,58 +48,9 @@ heavily on LLMs while building it, including **Claude Opus 5** and **GPT 6 Sol**
 
 ## Screenshots
 
-Save your captures under `assets/readme/` using the filenames below. From the repository root,
-run `pnpm --filter @nahhasio/website sync:screenshots` to refresh this gallery and rebuild the site.
-
-<!-- screenshot-gallery:start -->
-
-### Desktop
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>Home</b><br /><em>Screenshot pending</em><br /><code>desktop-home.webp</code></td>
-      <td align="center"><b>Browse</b><br /><em>Screenshot pending</em><br /><code>desktop-browse.webp</code></td>
-    </tr>
-    <tr>
-      <td align="center"><b>Work details</b><br /><em>Screenshot pending</em><br /><code>desktop-work.webp</code></td>
-      <td align="center"><b>Watch</b><br /><em>Screenshot pending</em><br /><code>desktop-watch.webp</code></td>
-    </tr>
-    <tr>
-      <td align="center"><b>People</b><br /><em>Screenshot pending</em><br /><code>desktop-people.webp</code></td>
-      <td align="center"><b>Studios</b><br /><em>Screenshot pending</em><br /><code>desktop-studios.webp</code></td>
-    </tr>
-    <tr>
-      <td align="center"><b>Settings</b><br /><em>Screenshot pending</em><br /><code>desktop-settings.webp</code></td>
-      <td align="center"><b>Library administration</b><br /><em>Screenshot pending</em><br /><code>desktop-admin.webp</code></td>
-    </tr>
-  </table>
-</div>
-
-### Mobile layout
-
-These phone-width views show the responsive layout. The packaged client is for Linux.
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>Home</b><br /><em>Screenshot pending</em><br /><code>mobile-home.webp</code></td>
-      <td align="center"><b>Browse</b><br /><em>Screenshot pending</em><br /><code>mobile-browse.webp</code></td>
-      <td align="center"><b>Browse filters</b><br /><em>Screenshot pending</em><br /><code>mobile-filters.webp</code></td>
-      <td align="center"><b>Work details</b><br /><em>Screenshot pending</em><br /><code>mobile-work.webp</code></td>
-    </tr>
-    <tr>
-      <td align="center"><b>Episodes</b><br /><em>Screenshot pending</em><br /><code>mobile-episodes.webp</code></td>
-      <td align="center"><b>Watch</b><br /><em>Screenshot pending</em><br /><code>mobile-watch.webp</code></td>
-      <td align="center"><b>Profile</b><br /><em>Screenshot pending</em><br /><code>mobile-profile.webp</code></td>
-      <td align="center"><b>Settings</b><br /><em>Screenshot pending</em><br /><code>mobile-settings.webp</code></td>
-    </tr>
-  </table>
-</div>
-
-<!-- screenshot-gallery:end -->
-
----
+The public gallery is awaiting demo captures. The [website guide](apps/website/README.md)
+documents the current build and screenshot wiring. Phone-width layouts are previews of the
+shared interface. Android phone and TV delivery are in the [0.3.0 plan](docs/project/android.md).
 
 ## Highlights
 

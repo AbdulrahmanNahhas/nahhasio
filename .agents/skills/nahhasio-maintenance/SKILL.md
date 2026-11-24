@@ -1,18 +1,20 @@
 ---
 name: nahhasio-maintenance
-description: Organize Nahhasio documentation, update agent skills, reconcile dated status claims, and maintain contributor or release handoffs without changing application behavior or live data.
+description: Maintain Nahhasio documentation, AGENTS.md, repository skills, and release or operations handoffs. Use when changing guidance or reconciling it with source and recorded evidence.
 ---
 
-# Maintain Nahhasio docs and instructions
+# Maintain repository guidance
 
-1. Start at [the docs index](../../../docs/README.md) and [agent playbook](../../../docs/development/agent-playbook.md). Follow [repository rules](../../../AGENTS.md).
-2. Inspect the worktree, the owning guide, and relevant source or recorded evidence. Label backlog,
-   source implementation, build/fixture results, and dated installed observations separately.
-   If evidence conflicts or is missing, cross-link it and say what is unknown; do not infer acceptance.
-3. Update the owner rather than duplicating procedures or status. Preserve historical receipts,
-   stable task IDs and inbound links; redact private data rather than copying it into examples.
-4. For skill work, preserve user-specific rules and upstream provenance. Keep frontmatter triggers
-   distinct, and link to the current owner for commands and capabilities. Don't enable agent tools,
-   add dependencies, or use a live host just to validate documentation.
-5. From the repo root, run `python3 tools/docs/check_docs.py`, format-check changed Markdown with
-   `pnpm exec oxfmt --check`, and run `git --no-pager diff --check`. Summarize scope and any gaps.
+1. Use the [docs index](../../../docs/README.md) and [agent playbook](../../../docs/development/agent-playbook.md)
+   to find the owning guide. Inspect the worktree and the specific source, command, or dated
+   verification record that supports the change.
+2. Put durable policy in [AGENTS.md](../../../AGENTS.md), task workflows in skills, and
+   implementation, operating and release facts in their owning guides. Keep stable roadmap IDs,
+   useful historical receipts, and inbound links when reorganizing.
+3. Give each skill a distinct trigger. Link to detailed references only where a task needs them.
+   For vendor updates, follow the [refresh procedure](../../../docs/development/agent-playbook.md#refresh-a-vendor-skill)
+   and preserve provenance, licenses and meaningful local adaptations.
+4. Distinguish source behavior, tested fixtures, installed acceptance, and proposals. Review any
+   affected public website guides for product drift using demo-safe examples.
+5. Run the [documentation checks](../../../docs/README.md#maintaining-these-docs) and check skill
+   frontmatter and references. Report the checks and any evidence gaps.

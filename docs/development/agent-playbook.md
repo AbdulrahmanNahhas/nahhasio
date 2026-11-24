@@ -1,48 +1,50 @@
-# Agent maintenance playbook
+# Agent playbook
 
-[Documentation index](../README.md) · [Repository rules](../../AGENTS.md)
+[Documentation index](../README.md) · [Repository instructions](../../AGENTS.md) · [Verification](testing.md)
 
-## Pick the smallest useful set of skills
+## Route the task
 
-| Task                                              | Start with                                                                 | Add only when needed                                                                                                                                                                                                                                     |
-| ------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Docs, handoffs, or agent instruction changes      | [nahhasio-maintenance](../../.agents/skills/nahhasio-maintenance/SKILL.md) | The specialist owning the topic                                                                                                                                                                                                                          |
-| Desktop implementation or review                  | [nahhasio-desktop-ui](../../.agents/skills/nahhasio-desktop-ui/SKILL.md)   | [shadcn](../../.agents/skills/shadcn/SKILL.md) for official registry components                                                                                                                                                                          |
-| Compose or extend UI SDK components               | [ui-sdk](../../.agents/skills/ui-sdk/SKILL.md)                             | [Desktop UI](../../.agents/skills/nahhasio-desktop-ui/SKILL.md) for Nahhasio's design and native bridge rules                                                                                                                                            |
-| Desktop navigation or remote state                | [Desktop UI](../../.agents/skills/nahhasio-desktop-ui/SKILL.md)            | [Router](../../.agents/skills/tanstack-router-best-practices/SKILL.md), [Query](../../.agents/skills/tanstack-query-best-practices/SKILL.md), or [integration](../../.agents/skills/tanstack-integration-best-practices/SKILL.md) when both are involved |
-| New visual design or explicitly approved redesign | [frontend-design](../../.agents/skills/frontend-design/SKILL.md)           | Desktop constraints above; a refactor alone does not authorize a redesign                                                                                                                                                                                |
-| Inspect or edit catalog data                      | [nahhasio-db](../../.agents/skills/nahhasio-db/SKILL.md)                   | [nahhasio-cataloging](../../.agents/skills/nahhasio-cataloging/SKILL.md) for Arabic editorial fields and scores                                                                                                                                          |
-| Write a standalone review or comparison           | Optional personal `media-review` skill                                     | Cataloging only if the user also asks to change stored data; the review rubric is separate                                                                                                                                                               |
+| Task                                        | Workflow                                                                                         | Evidence and constraints                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Change the React viewer or admin            | [Nahhasio desktop UI](../../.agents/skills/nahhasio-desktop-ui/SKILL.md)                         | [Design rules](../desktop/design-rules.md) and [client architecture](../desktop/architecture.md) |
+| Add UI behavior or use a registry primitive | [UI SDK](../../.agents/skills/ui-sdk/SKILL.md) or [shadcn](../../.agents/skills/shadcn/SKILL.md) | Installed API, package configuration, and existing call sites                                    |
+| Design a new surface or approved redesign   | [Frontend design](../../.agents/skills/frontend-design/SKILL.md)                                 | Reviewed [design rules](../desktop/design-rules.md) and the requested journey                    |
+| Change the static product site              | [Website README](../../apps/website/README.md)                                                   | Public copy, local output, relative URLs and demo-only captures                                  |
+| Inspect or change catalog records           | [Nahhasio DB](../../.agents/skills/nahhasio-db/SKILL.md)                                         | Explicit target and authorized [live workflow](../operations/family-server.md)                   |
+| Set scores, classifications or warnings     | [Nahhasio cataloging](../../.agents/skills/nahhasio-cataloging/SKILL.md)                         | Actual installment evidence and the field contract                                               |
+| Update docs, instructions or skills         | [Nahhasio maintenance](../../.agents/skills/nahhasio-maintenance/SKILL.md)                       | Current source, owning guide and historical evidence                                             |
 
-## How to work
+A standalone review can use the optional personal `media-review` skill. Cataloging applies when the review
+will change stored editorial fields. Start an ordinary code change with the relevant package and guide.
 
-1. Read the matching guide and inspect the actual files, tool versions, and worktree before editing.
-2. For native or API changes, find the current owner and generated contract before introducing
-   another path. For ops work, read [Operations](../operations/runbook.md) and the dated
-   [host handoff](../operations/family-server.md); neither authorizes commands against a live machine.
-3. Check only what is relevant at each checkpoint. Docs need the local docs and format checks;
-   code needs focused checks from [Verification](testing.md). Report what ran and what did not.
+## Maintain the instructions
 
-## Maintain the skills
+- Keep durable repository rules and authorization boundaries in [AGENTS.md](../../AGENTS.md).
+  Route from there to task-specific skills or owning guides. Add a nested `AGENTS.md` when a
+  subtree needs distinct instructions that should apply on every change in its scope.
+- Each repo skill lives under `.agents/skills/<name>/SKILL.md`. Give it a precise description
+  with a recognizable trigger. Keep the entry point short and link to a specific reference when
+  an operation needs detailed examples or constraints.
+- Keep commands, schema ownership, and installed status in their owning guides. The skill tells
+  the agent which guide to consult, which decisions matter, and what to verify.
+- Look up APIs in the installed version when available. For TanStack, start from the
+  [desktop routing and query guide](../desktop/architecture.md#routing-and-query-ownership)
+  and follow its official references. Keep personal workflows in the personal skill directory.
+- Check [Agent Skills](https://agentskills.io/specification) for the portable format and
+  [AGENTS.md](https://agents.md/) for repository instruction scoping.
 
-- Put repository-wide policy in `AGENTS.md`, task workflows in the skills, and product/operational
-  facts in the owning guides. Reference those sources instead of copying them into several skills.
-- Each skill directory must match its `name`. Use a specific trigger and put lengthy examples in
-  nearby references, unless the skill is deliberately portable as a single file.
-- Keep personal skills outside the repository. When you maintain one in a separate directory,
-  link that directory under `~/.agents/skills/` instead of copying it here. The optional
-  `media-review` skill is not required to develop, build, or use Nahhasio.
-- Review the [official UI SDK skill](https://ui-sdk.dev/docs/agents/skills) and
-  [official shadcn skill](https://ui.shadcn.com/docs/skills) during design-system reviews and their
-  corresponding dependency upgrades. Check for changes to the guidance, component API, and
-  accessibility conventions.
-- Preview upstream refreshes with the Skills CLI in a temporary project. The official sources are
-  `vercel-labs/ui --skill ui-sdk` and `shadcn/ui --skill shadcn`. Compare the full skill directory,
-  apply relevant updates and preserve the Nahhasio-specific notes. Take provenance entries from
-  the installer's `skills-lock.json`. Review dependency upgrades separately so the skill's
-  examples and the installed API are not confused.
-- [Anthropic's frontend-design](https://github.com/anthropics/skills/tree/main/skills/frontend-design)
-  is the upstream reference for the local adaptation. Keep Nahhasio's reviewed design decisions
-  and local workflow when incorporating upstream changes.
-- Prefer version-matched installed API docs and relevant source to stale upstream examples. Do not
-  widen permissions, register live credentials, or add servers just to make a skill discoverable.
+## Refresh a vendor skill
+
+1. Check the installed dependency and the vendor source. UI SDK ships a matching skill at
+   `apps/linux/ui/node_modules/@ui-sdk/core/skills/ui-sdk/SKILL.md`. Shadcn publishes its skill
+   and CLI workflow in the [official shadcn docs](https://ui.shadcn.com/docs/skills).
+2. When refreshing a checked-in vendor snapshot, preview the official skill with the Skills CLI
+   in a temporary directory. Compare the entry point and its resources. Preserve useful local
+   routing and the upstream license. `skills-lock.json` records the installer's upstream
+   provenance. The tracked Markdown can include reviewed Nahhasio adaptations.
+3. Verify names, links, and task routing. For a significant workflow change, walk through a
+   realistic request and check the resulting scope, commands and side effects. Follow the
+   [documentation checks](../README.md#maintaining-these-docs) before handing off.
+
+The local frontend-design workflow draws on [Anthropic's frontend-design skill](https://github.com/anthropics/skills/tree/main/skills/frontend-design).
+Keep dependency upgrades and skill refreshes reviewable on their own merits.

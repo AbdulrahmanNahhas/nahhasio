@@ -1,6 +1,6 @@
 ---
 name: ui-sdk
-description: Builds interfaces with ui-sdk in React, Vue, Svelte, Solid or web components. Covers choosing and composing its components, building a component or behavior it doesn't ship from @ui-sdk/core (like a stepper, splitter, transfer list or emoji picker), making the interface usable by agents through createAgent, agent tools and WebMCP, and testing keyboard, focus, ARIA, server rendering and right to left, including writing tests for an existing component. Use when the user asks about ui-sdk or when a task edits components that actually use @ui-sdk/*.
+description: Compose or test UI SDK components and behaviors. Use when the user asks about UI SDK or when implementing or debugging a feature that uses @ui-sdk/react or @ui-sdk/core.
 ---
 
 # Build with ui-sdk
@@ -9,7 +9,8 @@ ui-sdk is a library of UI behaviors: keyboard navigation, focus, selection, dism
 
 ## Nahhasio desktop boundary
 
-Use the installed React docs under `apps/linux/ui/node_modules/@ui-sdk/react/docs/`. Use scoped
+The vendor ships a version-matched skill under `node_modules/@ui-sdk/core/skills/ui-sdk/`.
+For Nahhasio use the installed React docs under `apps/linux/ui/node_modules/@ui-sdk/react/docs/`. Use scoped
 styles for SDK components: do not import `@ui-sdk/core/web.css` into the desktop stylesheet, since
 its slot selectors also match existing shadcn primitives. Follow the [desktop skill](../nahhasio-desktop-ui/SKILL.md).
 Do not add CDN assets, WebMCP tools, model providers or bridge actions merely because the SDK supports them.

@@ -1,6 +1,8 @@
 # Nahhasio website
 
-Static product website with a landing page, features, screenshot gallery, searchable guides, and changelog. The site builds with React and shadcn components at build time and serves HTML, CSS, and a small script for navigation and search.
+Static product site for the landing page, features, gallery, guides, and changelog. React and
+the local shadcn components render at build time. The browser receives HTML, CSS and a small
+script. The viewer and administration UI run separately in [apps/linux/ui](../linux/ui/README.md).
 
 ## Preview
 
@@ -18,5 +20,11 @@ Open [the local preview](http://127.0.0.1:4178/). Build output lives under `apps
 - `src/site.tsx` owns the layout, and `src/site.css` owns the visual design.
 - `src/content.ts` owns feature descriptions, guide navigation, and screenshot captions.
 - `content/guides/` and `content/changes/` hold the Markdown shown on the website. Use the [project guide](../../docs/project/overview.md), [client behavior guide](../../docs/desktop/behavior.md), and [release notes](../../docs/releases/README.md) to check product claims.
-- Add a capture under `assets/` using `screen-browse`, `screen-work`, `screen-watch`, or `screen-library` with one of the extensions `.avif`, `.webp`, `.png`, or `.jpg`. Rebuild to replace the corresponding placeholder. Use demo data for captures intended for public use.
-- The hero uses the project’s existing mark until a Browse capture is added, then displays that capture. The shadcn Base UI primitives in `src/shadcn/` are local to this website.
+- Screenshot captions and slots are defined in `src/content.ts`. The current build reads
+  `assets/screen-{browse,work,watch,library}.{avif,webp,png,jpg}`, while the renderer expects
+  slot IDs such as `desktop-browse`. The gallery needs that mapping fixed before adding
+  public captures. Use demo data for every public image.
+- Guide and changelog Markdown is trusted repository content rendered by `build.mjs`.
+  Keep it independently readable and ground product claims in the owning guides linked above.
+- Use a local built copy to verify direct guide links, search, keyboard dismissal, both
+  gallery layouts and a real fixture capture. A successful build verifies generation.

@@ -22,7 +22,8 @@ devenv shell -- pnpm check:architecture
 Core tests exercise existing preference serialization/validation, player configuration, server
 origin restrictions, identifiers, byte ranges and explicit-input storage layout. They do not need
 GTK, WebKit, mpv, PostgreSQL, credentials or network. The transitive dependency guard is included in
-`pnpm check` and its fixture tests run without Cargo; a dedicated CI job verifies the core separately.
+The architecture check uses Cargo metadata and Python guard fixtures. A dedicated CI job verifies
+the core separately.
 Account-scoped persistence and native bridge/player tests remain desktop checks. Extraction is not
 proof of packaged input, playback or cross-platform acceptance. See [architecture](../desktop/architecture.md).
 
@@ -89,6 +90,22 @@ PostgreSQL, including completed items in an active job and a real file removed b
 Report failures accurately. If an unrelated formatter or test blocks an aggregate command,
 run remaining relevant checks independently; do not silently skip failures or change unrelated
 source to make the report green. Historical checkpoint results are recoverable in Git; they are not permanent exemptions or evidence for a newer artifact.
+
+### Browser performance and static site
+
+Build the shared UI with a Vite manifest and compare the static import closure of the entry,
+bootstrap and target routes. Record raw and compressed JavaScript separately from CSS, fonts and
+artwork. Automatic route splitting is already enabled. Verify which chunks the browser actually
+loads and when before making claims about startup or route latency.
+
+For Browse, Home and Work, record the query shape, fixture size, payload bytes and request count.
+Compare cold and warm runs on the same environment. Inspect representative query plans on
+disposable PostgreSQL and keep HTTP, rendering and database timing distinct. Work measurements
+should include a multi-season title and the cost of opening a single episode or installment.
+
+The [static product site](../../apps/website/README.md) has a separate build and smoke surface.
+Open its generated output and exercise navigation, guide deep links, search and screenshot
+controls. Measure the public HTML, CSS, script and images independently of the shared app bundle.
 
 ## 2. Fresh native application
 
@@ -185,7 +202,7 @@ permission paths and native UX still need consolidated acceptance. Older native/
 cover particular artifacts only. Historical transfer fixtures encountered a peer/seed timeout;
 public torrent-transfer success is not established. Report current facts instead of repeating old
 pass/fail statements as current results. Flatpak/cross-machine deployment and server-file playback
-need dedicated acceptance once implemented.
+need dedicated acceptance on the relevant packaged and installed artifacts.
 
 ## Desktop renderer compatibility
 
@@ -221,7 +238,7 @@ schema graph without a frontend dependency.
 
 ### Current baseline acceptance — 2026-10-20
 
-The active migration history is now `0000_current_catalog`, not the retired 31-file chain.
+The active history begins with `0000_current_catalog` and includes subsequent additive migrations.
 `bin/test-rust-catalog` continues to test empty bootstrap, rollback, shared locking and both
 Drizzle/Rust continuation directions, plus catalog/editor/media/report preservation. The current
 baseline snapshot also produced no changes through Drizzle generation. The real restored-data

@@ -29,9 +29,9 @@ retains implementation, storage, deployment and acceptance tasks.
 
 ## 0.2.0 release plan
 
-The remaining product work for [Nahhasio 0.2.0](../releases/0.2.0.md) is a small Work page
-UI and UX pass. Broader Work page improvements can follow after the release. The packaged
-release checks and publication review still apply.
+The [0.2.0 release notes](../releases/0.2.0.md) record the source changes and upgrade path.
+Packaged release checks and publication review still apply. See [verification](../development/testing.md)
+for the applicable acceptance scope.
 
 1. **Awards page — implemented in source.** Home links to an awards directory with recent winning
    works and individual archives grouped by year and category.
@@ -40,6 +40,8 @@ release checks and publication review still apply.
 3. **Music-first redesign of الإعلانات التشويقية — implemented in source.** The sidebar uses a
    music icon. The page opens on Music and offers separately browsable Trailers and All views,
    with compact track-style cards.
+4. **Work details and episodes — implemented in source.** The current layout, release selector,
+   episode browsing, and actions are documented in [Work page behavior](../desktop/behavior.md#work-page-details).
 
 ## 0.2.x follow-ups
 
@@ -79,12 +81,12 @@ checkpoints; detailed implementation order stays subject to review.
 - [ ] **A11** Define explicit Alpha installation/update/backup steps and known limitations.
 - [ ] **A12** Run the consolidated Alpha acceptance on isolated data and the target environment.
 
-## Current hosting priority
+## Hosting priorities
 
 Follow [DEPLOYMENT](../operations/deployment.md): build and accept signed artifacts, install rootless Fedora
 services, rehearse recovery, transfer the verified catalog, then verify reboot/LAN/updates. Schema
-and Rust-service foundations are implemented; their historical phase plan is in Git. No playback
-or provider test phase is required for this release. Remaining administration work follows hosting.
+and Rust-service foundations are implemented. The earlier hosting checkpoint excluded playback
+and provider testing. Use the release-specific verification scope for current claims.
 
 The future remote operator CLI uses a server URL and API key from Shadow, backed by authorized
 HTTPS catalog operations. It is deferred; the existing CLI is still a direct-database operator.

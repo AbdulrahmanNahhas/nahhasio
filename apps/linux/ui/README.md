@@ -12,7 +12,7 @@ operations. Native sessions and selected-server trust persist in private server-
 
 Small `src/routes` entries use hash history and one QueryClient. Never hand-edit the generated
 route tree. Feature queries are bounded/cancellable and caches belong to server/account identity.
-Desktop uses Vite/Router/Query, not Start. There is no website runtime.
+Desktop and the local browser preview use Vite/Router/Query. The [product website](../../website/README.md) builds separately as static HTML.
 
 `src/styles/tailwind.css` owns fonts/tokens/global rules; feature layouts use static utilities.
 Official primitives stay generated; CSPProvider disables Base UI injected styles, while the

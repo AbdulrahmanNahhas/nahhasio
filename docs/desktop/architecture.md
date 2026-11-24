@@ -144,3 +144,20 @@ Use focused fixtures and package checks for each slice, then consolidated deskto
 not combine this work with broad dependency upgrades or visual redesigns. No performance gain is
 claimed from extracting modules; address normalization avoids unnecessary transport construction,
 and one media coordinator now resolves its storage roots once rather than three times.
+
+## Routing and query ownership
+
+- The [router](../../apps/linux/ui/src/app/router.tsx) uses hash history and intent preloading.
+  Keep route modules small. Validate URL search parameters at the route and use them for
+  shareable filtering, sorting and pagination. Vite already enables automatic code splitting.
+- Use feature-local typed query options and pass the query's abort signal to the gateway where
+  supported. Keep server and account ownership consistent when changing keys, caches or
+  invalidation. Share query options between preloaders and components where both need the same
+  resource. Invalidate the affected keys after a successful mutation.
+- Use bounded server reads. Derive view state from query results and URL state. Keep editable
+  drafts and device preferences separate from the remote cache.
+- Use the official [Router data-loading guide](https://tanstack.com/router/latest/docs/guide/external-data-loading),
+  [Query keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys),
+  [query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation),
+  and [invalidation](https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation)
+  for the installed versions. The desktop uses Vite and a typed bridge.

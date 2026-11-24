@@ -36,7 +36,8 @@ alone do not prove that unopened files or other workspace packages are clean.
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | apps/server                    | Rust/Axum/SQLx authentication, bounded catalog/viewer API and authorized administration                                               |
 | apps/linux/src                 | GTK/WebKit lifecycle, contained assets, native network/session, player/device media                                                   |
-| apps/linux/ui                  | React/Vite viewing/admin UI, TanStack Router/Query, Tailwind/shadcn                                                                   |
+| apps/linux/ui                  | Shared React/Vite viewing and admin UI for GTK and the local browser preview                                                          |
+| apps/website                   | Static public product site and guides, built with its own `build:site` command                                                        |
 | crates/client-core             | UI-independent client policies/models, shared errors, preferences, byte ranges and storage-layout rules                               |
 | crates/native-player           | Isolated GTK/libmpv adapter and diagnostic examples                                                                                   |
 | crates/media-transfer          | UI-independent torrent engine and durable device state                                                                                |
@@ -447,6 +448,9 @@ devenv shell -- cargo test --workspace --locked
 devenv --offline shell -- nahhasio-test-recovery
 ```
 
+Build the [static product site](../../apps/website/README.md) separately with
+`devenv shell -- pnpm --filter @nahhasio/website build:site`.
+
 Use focused disposable checks for relevant risks and consolidated installation acceptance after
 implementation. Documentation-only changes need format/link checks. [TESTING](testing.md) owns
 commands and native/browser distinctions. No mutation test may use the family catalog.
@@ -463,9 +467,10 @@ Keep the checkout and a small independent local database/artwork sample on Shado
 provider keys, devices and personal tracking. They never replace the current laptop catalog
 automatically. Retain the original full private recovery copy through verified cutover.
 
-Aqua owns selected Rust-learning exercises. Supply stable exercise IDs, interfaces, hints and
-acceptance criteria. Preserve the working app; do not wire `todo!`, panics or fake success into
-normal paths or complete exercises without the requested authorization.
+Aqua owns selected Rust-learning exercises. Supply a stable ID, goal, allowed tools or crates,
+constraints, docs links, interfaces, and acceptance criteria. Prefer isolated exercises and
+progressive hints. Explain relevant ownership, lifetimes, errors and async behavior during review.
+Keep the working app runnable and give full solutions when explicitly requested.
 
 The future remote operator CLI will use a server URL and API key over HTTPS from Shadow. It is
 not implemented by the current direct-database CLI or installed host wrapper. See the deferred

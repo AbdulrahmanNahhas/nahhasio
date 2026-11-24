@@ -79,8 +79,8 @@ Disposable checks do not establish installed Fedora/Podman, final Flatpak or liv
 The Fedora Atomic family PC owns the authoritative PostgreSQL catalog, artwork, provider settings
 and local backups. It also runs the TV's Linux client. Shadow keeps the development checkout and
 an independent small database/artwork dataset; its installed client can connect to the family PC.
-There is no production source checkout, Node process or website. Only the application HTTPS port
-is exposed on the home network. PostgreSQL stays on the private container network.
+The production runtime consists of installed services. Only the application HTTPS port is exposed
+on the home network. PostgreSQL stays on the private container network.
 
 The four code phases are rootless installation, backup/transfer/development separation, verified
 server/client updates, and app maintenance controls. The remaining administration features can
@@ -164,8 +164,8 @@ builds. Private signing keys remain outside Git and are never included in artifa
 
 Preparation produces a draft release. Approved publication verifies its signed repository
 archive, retains previous objects on the `flatpak-repository` branch and deploys a static package
-feed using GitHub Pages (Actions source). There is no shipped Nahhasio website/runtime. The
-server alpha manifest is promoted only after package-feed deployment succeeds. Initial client
+feed using GitHub Pages (Actions source). The [static product site](../../apps/website/README.md)
+has a separate build. Promote the server alpha manifest after package-feed deployment succeeds. Initial client
 trust can be bootstrapped through the existing independently trusted Ed25519 key; the manifest
 binds the Flatpak public key, repository URL and artifact hashes.
 

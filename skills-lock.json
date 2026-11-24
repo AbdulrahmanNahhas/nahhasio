@@ -13,24 +13,6 @@
       "skillPath": "skills/shadcn/SKILL.md",
       "computedHash": "da388f632cd83783c02967446e21941c9ee8291ccb43ba74c23f7d4e9b7c298c"
     },
-    "tanstack-integration-best-practices": {
-      "source": "deckardger/tanstack-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/tanstack-integration/SKILL.md",
-      "computedHash": "f8454d0835f04539c0d90a5a481937bc0e1cd7e31ac8610f302abd3421f3d24a"
-    },
-    "tanstack-query-best-practices": {
-      "source": "deckardger/tanstack-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/tanstack-query/SKILL.md",
-      "computedHash": "8e5a7e3cdc6900c3967945658aa277629ba7b5264ddadc017ee2b76359456719"
-    },
-    "tanstack-router-best-practices": {
-      "source": "deckardger/tanstack-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/tanstack-router/SKILL.md",
-      "computedHash": "659549bfcacc5767cd489fcbceb2889247bd38c82f0a37c282da754eb2603f63"
-    },
     "ui-sdk": {
       "source": "vercel-labs/ui",
       "commit": "855bc7fd4df3d61aee33d9d975dc3e4f71debc6c",

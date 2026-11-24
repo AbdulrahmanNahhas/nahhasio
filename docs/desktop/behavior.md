@@ -311,6 +311,11 @@ and unrelated metadata. Deletion retains the existing dependency check and save 
 
 ### Image workflow
 
+The work editor offers work poster, banner and logo, installment posters, and episode image
+controls. The separate Images library can assign a registered banner to an installment.
+Work detail projects installment artwork and episode cards can fall back to its banner.
+Browse banner cards use the parent work banner and fall back to a poster.
+
 The selected installment owns a temporary TMDB season selection for individual searches.
 It starts with the installment's position among seasons, excluding movies; specials start at zero.
 The small season input remains editable to correct provider differences.

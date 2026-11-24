@@ -8,7 +8,7 @@ This guide owns product decisions. See [Deployment](../operations/deployment.md)
 ## Product and current release
 
 Nahhasio is an Arabic-first private family catalog, artwork and tracking system with a Linux
-viewing and administration client. Current milestone: **0.1 Alpha**. Catalog identities and
+viewing and administration client. The current source milestone is [0.2.0](../releases/0.2.0.md). Catalog identities and
 editorial data are the foundation; a work can exist without any available video.
 
 The home server targets Fedora Atomic/Silverblue with rootless Podman Quadlets and PostgreSQL.
@@ -57,7 +57,7 @@ roots under `~/Nahhasio`; source names are normalized only after episode identit
 Stored media is delivered by Nahhasio with authenticated byte-range requests, through a
 native-only relay to mpv. Jellyfin is retired. Server copies are allowed for any work; files-only
 is a separate whole-work restriction on internet sources. No transcoding, remote-home access,
-server torrents or generic URL downloader ships in this first media checkpoint.
+unattended server torrent streaming or generic URL downloader ships in this media workflow. Explicit server acquisition remains an admin operation.
 
 Admin imports support existing server folders, resumable native-picked uploads, and reviewed
 YouTube videos/playlists. A separate rootless worker owns acquisition, probing and publication.
