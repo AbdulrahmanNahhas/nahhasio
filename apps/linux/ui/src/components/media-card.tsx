@@ -13,6 +13,7 @@ import { workLink } from "../features/shell/navigation";
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
 import { CatalogStateBadge } from "./catalog-state-badge";
+import { scoreTone } from "./score-tone";
 import { Badge } from "./ui/badge";
 import { useCardTilt } from "./use-card-tilt";
 
@@ -37,20 +38,12 @@ export function ScoreBadge({ score }: { score: ScoreSummary }) {
 function CardScore({ score }: { score: ScoreSummary }) {
   if (score.rating === null) return null;
   const value = Math.round(score.rating * 10);
-  const tone =
-    value >= 90
-      ? "bg-score-high"
-      : value >= 75
-        ? "bg-score-good"
-        : value >= 60
-          ? "bg-score-mid"
-          : "bg-score-low";
   const label = `التقييم المحسوب ${value} من 100 · ${score.scored} من ${score.total} أجزاء مقيّمة`;
   return (
     <span
       className={cn(
         "absolute inset-s-2 top-2 grid size-9 place-items-center rounded-full border-2 border-score-ink/15 text-xs font-bold text-score-ink tabular-nums shadow-sm",
-        tone,
+        scoreTone(value).background,
       )}
       role="img"
       aria-label={label}

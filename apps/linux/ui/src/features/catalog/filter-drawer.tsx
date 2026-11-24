@@ -71,7 +71,7 @@ const categories = [
     icon: CalendarDays,
     label: "تفاصيل الإصدار",
     description: "النوع وحالة الإصدار واللغة وسنوات الإصدار",
-    facets: ["kinds", "releaseStatuses", "structureStates", "languages"],
+    facets: ["kinds", "releaseStatuses", "structureStates", "languages", "dubLanguages"],
   },
   {
     key: "story",
@@ -198,7 +198,6 @@ export function FilterDrawer({
         )
         .filter(
           (facet) =>
-            facet.key !== "dubLanguages" &&
             facet.key !== "warningStates" &&
             (facet.key !== "structureStates" || view === "installments"),
         )
@@ -215,7 +214,9 @@ export function FilterDrawer({
                     ),
                 ),
               }
-            : facet,
+            : facet.key === "dubLanguages"
+              ? { ...facet, label: "لغات الدبلجة" }
+              : facet,
         )
     : [];
   const categoryGroups = (item: (typeof categories)[number]) =>

@@ -1,7 +1,7 @@
 import type { FacetOption } from "@nahhasio/api-contract";
 import { cn } from "cn";
 import { ArrowLeft, Building2 } from "lucide-react";
-import type { MouseEventHandler } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { useCardNavigation } from "@/components/card-navigation";
@@ -14,14 +14,18 @@ export function EntityCard({
   artworkLayout,
   compact = false,
   includePrivate = false,
+  metadata,
+  accessibleLabel,
   onClick,
 }: {
-  entity: FacetOption;
+  entity: Pick<FacetOption, "label" | "artworkId"> & Partial<Pick<FacetOption, "count">>;
   kind: "person" | "studio";
   href: string;
   artworkLayout: "portrait" | "square" | "banner";
   compact?: boolean;
   includePrivate?: boolean;
+  metadata?: ReactNode;
+  accessibleLabel?: string;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const person = kind === "person";
@@ -32,6 +36,7 @@ export function EntityCard({
     <a
       {...navigation}
       href={href}
+      aria-label={accessibleLabel}
       className="group/card relative flex min-w-0 flex-col gap-3 rounded-2xl outline-none hover:z-10 focus-visible:z-10"
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse" || event.pointerType === "pen") chooseTilt();
@@ -87,10 +92,13 @@ export function EntityCard({
           >
             {entity.label}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {entity.count}{" "}
-            {compact ? "عمل" : includePrivate ? "عمل في المكتبة" : "عمل عام في المكتبة"}
-          </p>
+          {metadata ??
+            (entity.count !== undefined && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {entity.count}{" "}
+                {compact ? "عمل" : includePrivate ? "عمل في المكتبة" : "عمل عام في المكتبة"}
+              </p>
+            ))}
         </div>
         {!compact && (
           <ArrowLeft

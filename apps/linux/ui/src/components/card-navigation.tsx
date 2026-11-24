@@ -171,6 +171,7 @@ export function CardNavigationProvider({
       // Episode thumbnails animate; measure their stable card, and move to one primary action per episode.
       const layout = cardLayout(event.currentTarget);
       const origin = layout.getBoundingClientRect();
+      const group = layout.closest("[data-card-navigation-group]");
       const panel = event.currentTarget.closest('[role="tabpanel"]');
       const header = panel ? null : event.currentTarget.closest("header");
       const horizontal = event.key === "ArrowLeft" || event.key === "ArrowRight";
@@ -191,7 +192,10 @@ export function CardNavigationProvider({
         .map(({ card, rect }) => {
           const dx = rect.left + rect.width / 2 - centerX;
           const dy = rect.top - origin.top;
-          return { card, dx, dy };
+          const outsideGroup = Boolean(
+            group && card.closest("[data-card-navigation-group]") !== group,
+          );
+          return { card, dx, dy, outsideGroup };
         })
         .filter(({ dx, dy }) =>
           horizontal
@@ -200,10 +204,12 @@ export function CardNavigationProvider({
               ? dy > 4
               : dy < -4,
         )
-        .toSorted((a, b) =>
-          horizontal
-            ? Math.abs(a.dx) - Math.abs(b.dx)
-            : Math.abs(a.dy) - Math.abs(b.dy) || Math.abs(a.dx) - Math.abs(b.dx),
+        .toSorted(
+          (a, b) =>
+            Number(a.outsideGroup) - Number(b.outsideGroup) ||
+            (horizontal
+              ? Math.abs(a.dx) - Math.abs(b.dx)
+              : Math.abs(a.dy) - Math.abs(b.dy) || Math.abs(a.dx) - Math.abs(b.dx)),
         );
 
       event.preventDefault();

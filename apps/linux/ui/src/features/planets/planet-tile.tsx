@@ -1,6 +1,7 @@
 import type { CatalogPlanet, Planet } from "@nahhasio/api-contract";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { cn } from "cn";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Artwork } from "@/components/artwork";
@@ -159,7 +160,12 @@ export function PlanetTile({
       >
         {banner}
         <span className="pointer-events-none absolute inset-0 bg-linear-to-t from-player-chrome via-player-chrome/35 to-transparent" />
-        <span className="relative flex min-w-0 items-center gap-2.5">
+        <span
+          className={cn(
+            "relative flex min-w-0 items-center gap-2.5",
+            variant === "work" && "w-full",
+          )}
+        >
           <span className="shrink-0 font-emoji text-3xl leading-none sm:text-4xl" aria-hidden>
             {planet.icon || "🪐"}
           </span>
@@ -174,6 +180,9 @@ export function PlanetTile({
             </span>
             {variant === "directory" && <span className="text-xs">{workCount} عمل</span>}
           </span>
+          {variant === "work" && (
+            <ChevronLeft className="ms-auto size-4 shrink-0 opacity-80" aria-hidden />
+          )}
         </span>
       </span>
     </a>

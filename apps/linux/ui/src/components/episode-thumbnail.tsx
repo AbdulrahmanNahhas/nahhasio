@@ -112,7 +112,7 @@ export function EpisodeThumbnail({
           ? "group-focus-within/episode:ring-success group-hover/episode:border-success"
           : "group-focus-within/episode:ring-foreground group-hover/episode:border-foreground/60",
         !disabled &&
-          "group-hover/episode:shadow-xl motion-safe:not-data-enter-pressed:group-hover/episode:scale-104 motion-safe:not-data-enter-pressed:group-focus-within/episode:scale-102 motion-safe:group-active/episode:scale-98 motion-safe:data-enter-pressed:scale-98",
+          "group-hover/episode:shadow-xl motion-safe:not-active:not-data-enter-pressed:group-hover/episode:scale-104 motion-safe:not-active:not-data-enter-pressed:group-focus-within/episode:scale-102 motion-safe:active:scale-97 motion-safe:data-enter-pressed:scale-97",
         !disabled && tilt,
       )}
       onPointerEnter={(event) => {

@@ -23,6 +23,8 @@
 /* shadcn Maia / Mist / Sky, with Arabic font coverage and catalog status tokens. */
 @theme inline {
   --spacing-home-hero: 84svh;
+  --spacing-work-hero: clamp(72svh, 56.25vw, 88svh);
+  --spacing-work-sidebar: calc(100dvh - 2rem);
   --font-sans:
     "Noto Sans Variable", "Noto Sans Arabic Variable", "Plex Arabic", system-ui, sans-serif;
   --font-emoji: "Noto Color Emoji", emoji, sans-serif;
@@ -57,6 +59,17 @@
   --color-score-good: oklch(0.72 0.15 154);
   --color-score-mid: oklch(0.75 0.14 61);
   --color-score-low: oklch(0.74 0.14 25);
+  --color-rating-0: oklch(0.66 0.17 15);
+  --color-rating-1: oklch(0.68 0.18 19);
+  --color-rating-2: oklch(0.7 0.19 23);
+  --color-rating-3: oklch(0.72 0.18 27);
+  --color-rating-4: oklch(0.74 0.17 32);
+  --color-rating-5: oklch(0.75 0.17 49);
+  --color-rating-6: oklch(0.77 0.16 59);
+  --color-rating-7: oklch(0.8 0.15 74);
+  --color-rating-8: oklch(0.73 0.17 153);
+  --color-rating-9: oklch(0.74 0.14 237);
+  --color-rating-10: oklch(0.78 0.15 255);
   --color-score-ink: oklch(0.17 0.02 80);
   --color-destructive-foreground: var(--primary-foreground);
   --color-chart-1: var(--chart-1);
@@ -220,4 +233,38 @@
 
 @utility pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom), --spacing(2));
+}
+
+[data-work-hero] [data-slot="badge"],
+[data-work-hero] :is([data-slot="button"], [data-slot="menu-trigger"]) {
+  backdrop-filter: blur(4px);
+}
+
+.press-feedback:active:not(
+    :disabled,
+    [aria-disabled="true"],
+    [aria-busy="true"],
+    [data-disabled],
+    [data-pending]
+  ) {
+  scale: 0.97;
+  transition-duration: 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-feedback {
+    transition: none;
+  }
+
+  .press-feedback:active:not(
+      :disabled,
+      [aria-disabled="true"],
+      [aria-busy="true"],
+      [data-disabled],
+      [data-pending]
+    ) {
+    scale: none;
+    filter: brightness(0.9);
+    transition: none;
+  }
 }
