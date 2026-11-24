@@ -385,9 +385,11 @@ async fn sync_tracking(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ActivityQuery {
     page: Option<i64>,
+    #[serde(default)]
+    include_own_review: bool,
 }
 impl ActivityQuery {
     fn page(&self) -> ApiResult<i64> {
@@ -404,12 +406,15 @@ from title_reviews r where r.title_id=$1::uuid and r.moderation_status='publishe
 union all
 select c.id,c.account_id,c.body,c.contains_spoilers,null::integer,c.parent_id,c.created_at,c.updated_at,'comment'::text
 from title_comments c where c.title_id=$1::uuid and c.moderation_status='published'),
-visible as (select e.*,a.display_name,a.avatar_key from entries e join accounts a on a.id=e.account_id where a.status='active' and a.is_discoverable),
+formatted as (select e.*,a.is_discoverable,jsonb_build_object('id',e.id,'kind',e.kind,'body',e.body,'containsSpoilers',e.contains_spoilers,
+'rating',e.rating,'parentId',e.parent_id,'author',jsonb_build_object('id',e.account_id,'displayName',a.display_name,'avatarKey',a.avatar_key),
+'createdAt',e.created_at,'updatedAt',e.updated_at) item
+from entries e join accounts a on a.id=e.account_id where a.status='active' and (a.is_discoverable or e.account_id=$3::uuid)),
+visible as (select * from formatted where is_discoverable),
 page as (select * from visible order by created_at desc,kind,id limit 20 offset (($2::bigint-1)*20))
 select jsonb_build_object('workId',$1::uuid,'page',$2::bigint,'pageSize',20,'total',(select count(*) from visible),
-'items',coalesce((select jsonb_agg(jsonb_build_object('id',id,'kind',kind,'body',body,'containsSpoilers',contains_spoilers,
-'rating',rating,'parentId',parent_id,'author',jsonb_build_object('id',account_id,'displayName',display_name,'avatarKey',avatar_key),
-'createdAt',created_at,'updatedAt',updated_at) order by created_at desc,kind,id) from page),'[]'::jsonb))"#;
+'ownReview',(select item from formatted where kind='review' and account_id=$3::uuid),
+'items',coalesce((select jsonb_agg(item order by created_at desc,kind,id) from page),'[]'::jsonb))"#;
 async fn activity(
     State(pool): State<PgPool>,
     Extension(user): Extension<User>,
@@ -420,14 +425,20 @@ async fn activity(
     let Query(input) = input.map_err(|_| invalid("Invalid discussion query"))?;
     let page = input.page()?;
     let mut tx = begin(&pool, false).await?;
-    account(&mut tx, &user).await?;
+    let actor = account(&mut tx, &user).await?;
     ensure_work(&mut tx, &id, user.is_admin, false).await?;
-    let result = sqlx::query_scalar::<_, SqlJson<Value>>(ACTIVITY_SQL)
+    let mut result = sqlx::query_scalar::<_, SqlJson<Value>>(ACTIVITY_SQL)
         .bind(&id)
         .bind(page)
+        .bind(actor)
         .fetch_one(&mut *tx)
         .await?
         .0;
+    if !input.include_own_review
+        && let Some(fields) = result.as_object_mut()
+    {
+        fields.remove("ownReview");
+    }
     tx.commit().await?;
     Ok(Json(result))
 }
@@ -439,10 +450,20 @@ enum CommentAction {
     Update,
     Delete,
 }
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum DiscussionKind {
+    #[default]
+    Comment,
+    Review,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CommentInput {
     action: CommentAction,
+    #[serde(default)]
+    kind: DiscussionKind,
+    rating: Option<i32>,
     comment_id: Option<String>,
     parent_id: Option<String>,
     #[serde(default)]
@@ -467,6 +488,16 @@ impl CommentInput {
         {
             return Err(invalid("Invalid comment target"));
         }
+        if self.rating.is_some_and(|rating| !(1..=5).contains(&rating))
+            || (matches!(self.kind, DiscussionKind::Comment) && self.rating.is_some())
+            || (matches!(self.kind, DiscussionKind::Review) && self.parent_id.is_some())
+            || (matches!(self.kind, DiscussionKind::Review)
+                && matches!(self.action, CommentAction::Create)
+                && self.rating.is_none())
+            || (!writing && self.rating.is_some())
+        {
+            return Err(invalid("Invalid review rating or target"));
+        }
         Ok(())
     }
 }
@@ -486,7 +517,10 @@ async fn change_comment(
         .map_err(authorization)?;
     let actor = session.account_id;
     ensure_work(&mut tx, &id, session.is_admin, true).await?;
-    let result=match input.action {
+    let result = if matches!(input.kind, DiscussionKind::Review) {
+        change_review(&mut tx, &id, &actor, &input).await?
+    } else {
+        match input.action {
         CommentAction::Create => {
             if let Some(parent)=&input.parent_id {
                 let found=sqlx::query_scalar::<_,String>("select c.id::text from title_comments c join accounts a on a.id=c.account_id where c.id=$1::uuid and c.title_id=$2::uuid and c.moderation_status='published' and a.status='active' and a.is_discoverable for share of c")
@@ -505,11 +539,58 @@ async fn change_comment(
             sqlx::query_scalar::<_,String>("update title_comments set moderation_status='hidden',updated_at=now() where id=$1::uuid and title_id=$2::uuid and account_id=$3::uuid and moderation_status='published' returning id::text")
                 .bind(&input.comment_id).bind(&id).bind(&actor).fetch_optional(&mut *tx).await?.ok_or_else(not_found)?
         },
+    }
     };
     tx.commit().await?;
     Ok(Json(
         serde_json::json!({"id":result,"deleted":matches!(input.action,CommentAction::Delete)}),
     ))
+}
+
+async fn change_review(
+    tx: &mut Transaction<'_, Postgres>,
+    work: &str,
+    actor: &str,
+    input: &CommentInput,
+) -> ApiResult<String> {
+    match input.action {
+        CommentAction::Create => {
+            sqlx::query_scalar(
+                "insert into title_reviews (account_id,title_id,body,contains_spoilers,rating)
+                 values ($1::uuid,$2::uuid,$3,$4,$5)
+                 on conflict (account_id,title_id) do update set
+                 body=excluded.body,contains_spoilers=excluded.contains_spoilers,rating=excluded.rating,
+                 moderation_status='published',created_at=now(),updated_at=now()
+                 where title_reviews.moderation_status='hidden' and title_reviews.moderated_at is null
+                 and title_reviews.moderated_by_account_id is null and title_reviews.body=''
+                 and title_reviews.rating is null
+                 returning id::text",
+            )
+            .bind(actor).bind(work).bind(input.body.trim()).bind(input.contains_spoilers).bind(input.rating)
+            .fetch_optional(&mut **tx).await?
+            .ok_or(ApiError(StatusCode::CONFLICT, "لهذا العمل مراجعة محفوظة مسبقًا"))
+        }
+        CommentAction::Update => {
+            sqlx::query_scalar(
+                "update title_reviews set body=$4,contains_spoilers=$5,rating=$6,updated_at=now()
+                 where id=$1::uuid and title_id=$2::uuid and account_id=$3::uuid
+                 and moderation_status='published' returning id::text",
+            )
+            .bind(&input.comment_id).bind(work).bind(actor)
+            .bind(input.body.trim()).bind(input.contains_spoilers).bind(input.rating)
+            .fetch_optional(&mut **tx).await?.ok_or_else(not_found)
+        }
+        CommentAction::Delete => {
+            sqlx::query_scalar(
+                "update title_reviews set body='',rating=null,contains_spoilers=false,
+                 moderation_status='hidden',updated_at=now()
+                 where id=$1::uuid and title_id=$2::uuid and account_id=$3::uuid
+                 and moderation_status='published' returning id::text",
+            )
+            .bind(&input.comment_id).bind(work).bind(actor)
+            .fetch_optional(&mut **tx).await?.ok_or_else(not_found)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -538,6 +619,43 @@ mod tests {
 
     use serde_json::json;
     const ID: &str = "00112233-4455-6677-8899-aabbccddeeff";
+
+    #[test]
+    fn reviews_limit_ratings_and_reject_comment_parent_targets() {
+        for (value, valid) in [
+            (
+                json!({"action":"create","kind":"review","body":"Review","rating":5}),
+                true,
+            ),
+            (
+                json!({"action":"create","kind":"review","body":"Review"}),
+                false,
+            ),
+            (
+                json!({"action":"create","kind":"review","body":"Review","rating":6}),
+                false,
+            ),
+            (
+                json!({"action":"create","kind":"review","body":"Review","rating":3,"parentId":ID}),
+                false,
+            ),
+            (
+                json!({"action":"create","body":"Comment","rating":3}),
+                false,
+            ),
+            (
+                json!({"action":"update","kind":"review","body":"Review","commentId":ID}),
+                true,
+            ),
+            (
+                json!({"action":"delete","kind":"review","commentId":ID,"rating":3}),
+                false,
+            ),
+        ] {
+            let input: CommentInput = serde_json::from_value(value).unwrap();
+            assert_eq!(input.validate().is_ok(), valid);
+        }
+    }
 
     #[test]
     fn strict_targets_require_real_identifiers_and_parent_context() {
@@ -603,7 +721,14 @@ mod tests {
     fn discussion_is_bounded_and_filters_authors_and_moderation() {
         assert_eq!(ActivityQuery::default().page().unwrap(), 1);
         for page in [0, -1, 100_001] {
-            assert!(ActivityQuery { page: Some(page) }.page().is_err());
+            assert!(
+                ActivityQuery {
+                    page: Some(page),
+                    ..Default::default()
+                }
+                .page()
+                .is_err()
+            );
         }
         assert!(serde_json::from_value::<ActivityQuery>(json!({"page":1,"accountId":ID})).is_err());
         assert_eq!(
@@ -612,7 +737,8 @@ mod tests {
                 .count(),
             2
         );
-        assert!(ACTIVITY_SQL.contains("a.status='active' and a.is_discoverable"));
+        assert!(ACTIVITY_SQL.contains("a.status='active'"));
+        assert!(ACTIVITY_SQL.contains("from formatted where is_discoverable"));
         assert!(ACTIVITY_SQL.contains("limit 20"));
         assert!(ACTIVITY_SQL.contains("order by created_at desc,kind,id"));
     }

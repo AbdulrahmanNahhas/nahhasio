@@ -16,6 +16,10 @@ struct CommentCommand {
 struct CommentData {
     action: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rating: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     comment_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     parent_id: Option<String>,
@@ -54,10 +58,12 @@ impl WatchedCommand {
     }
 }
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ActivityCommand {
     id: String,
     page: u32,
+    #[serde(default)]
+    include_own_review: bool,
 }
 impl ServerSession {
     pub(super) async fn execute_tracking(&self, request: Request) -> Result<Value, Error> {
@@ -129,6 +135,14 @@ impl ServerSession {
                 let input: CommentCommand = parse(request.payload)?;
                 if !valid_id(&input.id)
                     || !matches!(input.data.action.as_str(), "create" | "update" | "delete")
+                    || !matches!(
+                        input.data.kind.as_deref(),
+                        None | Some("comment" | "review")
+                    )
+                    || input
+                        .data
+                        .rating
+                        .is_some_and(|rating| !(1..=5).contains(&rating))
                     || input
                         .data
                         .comment_id
@@ -161,13 +175,16 @@ impl ServerSession {
                 if !valid_id(&input.id) || !(1..=100_000).contains(&input.page) {
                     return Err(Error::new("bad_request", "Invalid discussion query"));
                 }
-                let response = self
+                let request = self
                     .authorized(Method::GET, &format!("api/v1/works/{}/activity", input.id))
                     .await?
-                    .query(&[("page", input.page)])
-                    .send()
-                    .await
-                    .map_err(network)?;
+                    .query(&[("page", input.page)]);
+                let request = if input.include_own_review {
+                    request.query(&[("includeOwnReview", true)])
+                } else {
+                    request
+                };
+                let response = request.send().await.map_err(network)?;
                 self.json(response).await
             }
             _ => Err(Error::new("bad_request", "Unknown desktop command")),

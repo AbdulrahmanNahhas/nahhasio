@@ -253,7 +253,7 @@
     "/api/v1/works/{id}/activity": {
       "get": {
         "operationId": "getWorkActivity",
-        "description": "Published work comments/reviews by active discoverable authors, newest first with stable kind/UUID ties. Spoiler bodies are plain text and require UI reveal. Owner may read a private work. Fixed 20 entries per page.",
+        "description": "Published work comments/reviews by active discoverable authors, newest first with stable kind/UUID ties. Spoiler bodies are plain text and require UI reveal. Owner may read a private work. Fixed 20 entries per page. Clients may request the authenticated account’s own published review separately from the feed.",
         "parameters": [
           {
             "name": "id",
@@ -273,6 +273,11 @@
               "maximum": 100000,
               "default": 1
             }
+          },
+          {
+            "name": "includeOwnReview",
+            "in": "query",
+            "schema": { "type": "boolean" }
           }
         ],
         "responses": {
@@ -2402,7 +2407,7 @@
         },
         "responses": {
           "200": {
-            "description": "Own comment changed",
+            "description": "Own comment or review changed",
             "content": {
               "application/json": {
                 "schema": {
@@ -3837,6 +3842,14 @@
             "items": {
               "$ref": "#/components/schemas/WorkActivityItem"
             }
+          },
+          "ownReview": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkActivityItem"
+              }
+            ],
+            "nullable": true
           },
           "total": {
             "type": "integer",
@@ -13919,6 +13932,15 @@
           "action": {
             "type": "string",
             "enum": ["create", "update", "delete"]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["comment", "review"]
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
           },
           "commentId": {
             "type": "string",

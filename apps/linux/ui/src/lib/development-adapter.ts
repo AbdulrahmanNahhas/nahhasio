@@ -429,7 +429,7 @@ export async function developmentCall(
   if (command === "workActivity" || command === "workComment") {
     const work = id.parse(payload.id);
     return request(
-      `/v1/works/${work}/${command === "workActivity" ? `activity${query({ page: payload.page ?? 1 })}` : "comments"}`,
+      `/v1/works/${work}/${command === "workActivity" ? `activity${query({ page: payload.page ?? 1, ...(payload.includeOwnReview === true && { includeOwnReview: true }) })}` : "comments"}`,
       command === "workActivity" ? "GET" : "POST",
       command === "workComment" ? payload.data : undefined,
       signal,

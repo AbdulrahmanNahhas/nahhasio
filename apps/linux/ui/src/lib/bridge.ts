@@ -193,6 +193,11 @@ export async function nativeCall(
   return response.result;
 }
 const call = nativeCall;
+const unsupportedOwnReview = z.union([
+  z.object({ status: z.literal(400) }),
+  z.object({ code: z.literal("bad_request") }),
+]);
+
 export const gateway = {
   avatar: async (key: string, signal?: AbortSignal) =>
     z
@@ -347,8 +352,18 @@ export const gateway = {
     CommentChangedSchema.parse(
       await call("workComment", { id, data: CommentMutationSchema.parse(data) }),
     ),
-  workActivity: async (id: string, page = 1, signal?: AbortSignal) => {
+  workActivity: async (id: string, page = 1, signal?: AbortSignal, includeOwnReview = false) => {
     z.number().int().min(1).max(100000).parse(page);
+    if (includeOwnReview) {
+      try {
+        return WorkActivityPageSchema.parse(
+          await call("workActivity", { id, page, includeOwnReview: true }, signal),
+        );
+      } catch (error) {
+        if (!(error instanceof Error) || !unsupportedOwnReview.safeParse(error.cause).success)
+          throw error;
+      }
+    }
     return WorkActivityPageSchema.parse(await call("workActivity", { id, page }, signal));
   },
   artwork: async (id: string, signal?: AbortSignal, width = 640) => {

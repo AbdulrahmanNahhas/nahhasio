@@ -76,6 +76,7 @@ export type WorkActivityItem = z.infer<typeof WorkActivityItemSchema>;
 export const WorkActivityPageSchema = z.strictObject({
   workId: z.string().uuid(),
   items: z.array(WorkActivityItemSchema),
+  ownReview: WorkActivityItemSchema.nullable().optional(),
   total: z.number().int().min(0),
   page: z.number().int().min(1),
   pageSize: z.number().int().min(1),
@@ -2995,6 +2996,8 @@ export type CatalogEpisodeImagesResult = z.infer<typeof CatalogEpisodeImagesResu
 
 export const CommentMutationSchema = z.strictObject({
   action: z.enum(["create", "update", "delete"]),
+  kind: z.enum(["comment", "review"]).optional(),
+  rating: z.number().int().min(1).max(5).optional(),
   commentId: z.string().uuid().nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
   body: z.string().max(1200).optional(),
@@ -3745,7 +3748,7 @@ export class ApiClient {
   }
   async getWorkActivity(
     id: string,
-    query: { page?: number } = {},
+    query: { page?: number; includeOwnReview?: boolean } = {},
     signal?: AbortSignal,
   ): Promise<WorkActivityPage> {
     const params = new URLSearchParams();
