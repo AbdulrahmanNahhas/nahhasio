@@ -896,12 +896,12 @@ checkpoints, including the direct-media cutover.
 - [ ] Startup/restart recovery
 - [x] No website needed by the delivered server/client
 
-## Future Clients — After v1.0
+## Future Clients
+
+- [ ] Android phone and Android TV — [0.3.0 plan](android.md)
 
 - [ ] Windows
 - [ ] macOS
-- [ ] Android
-- [ ] Android TV
 
 ## Consolidated Acceptance
 
