@@ -51,7 +51,7 @@ import { downloadLibraryOptions } from "./download-data";
 import { SavedVideoRow } from "./saved-video-row";
 import { offlineStatusOptions, savedWorksOptions, syncSavedWorks } from "./saved-works-data";
 
-export function SaveWorkControl({ id, compact = false }: { id: string; compact?: boolean }) {
+export function SaveWorkControl({ id }: { id: string }) {
   const client = useQueryClient();
   const navigation = useCardNavigation();
   const status = useQuery(offlineStatusOptions());
@@ -75,20 +75,14 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
       : saved
         ? "محفوظ على الجهاز · فتح مكتبة الجهاز"
         : "حفظ بيانات العمل وصوره للجهاز";
-  if (status.data?.offline && !compact)
-    return (
-      <Badge variant="secondary">
-        <Check /> محفوظ على الجهاز
-      </Badge>
-    );
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1">
         <Button
           {...navigation}
           variant={saved ? "secondary" : "outline"}
-          size="lg"
-          className="h-12"
+          size="icon-lg"
+          className="size-12"
           aria-label={label}
           title={label}
           disabled={
@@ -109,7 +103,6 @@ export function SaveWorkControl({ id, compact = false }: { id: string; compact?:
           ) : (
             <Bookmark data-icon="inline-start" />
           )}
-          {compact ? (job?.running ? "جارٍ الحفظ…" : saved ? "محفوظ" : "حفظ العمل") : label}
         </Button>
       </div>
       {(works.isError || status.isError) && (
@@ -360,7 +353,7 @@ export function SavedWorks() {
                     <CardDescription>
                       حُفظ في{" "}
                       <time dateTime={work.savedAt}>
-                        {new Date(work.savedAt).toLocaleDateString("ar")}
+                        {new Date(work.savedAt).toLocaleDateString("ar-u-nu-latn")}
                       </time>
                     </CardDescription>
                     <div className="flex flex-wrap gap-2">

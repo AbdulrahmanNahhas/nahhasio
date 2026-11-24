@@ -3,12 +3,17 @@ export function episodeNumberLabel(value: string) {
   if (!/^[+-]?\d+\.\d+$/.test(value)) return value;
   return value.replace(/0+$/, "").replace(/\.$/, "");
 }
-export function dateLabel(date: string | null | undefined) {
+export function dateLabel(
+  date: string | null | undefined,
+  dateStyle: "medium" | "long" = "medium",
+) {
   if (!date) return "غير معروف";
   const value = new Date(date.length === 10 ? `${date}T00:00:00Z` : date);
   return Number.isNaN(value.getTime())
     ? date
-    : new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeZone: "UTC" }).format(value);
+    : new Intl.DateTimeFormat("ar-u-ca-gregory-nu-latn", { dateStyle, timeZone: "UTC" }).format(
+        value,
+      );
 }
 export function pickArtwork(images: ArtworkAssignment[], role: string) {
   return images.find((a) => a.role === role && a.isPrimary) ?? images.find((a) => a.role === role);

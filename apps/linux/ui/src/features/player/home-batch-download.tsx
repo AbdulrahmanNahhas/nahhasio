@@ -4,9 +4,10 @@ import {
   ServerMediaFilesSchema,
 } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ListVideo } from "lucide-react";
+import { Download } from "lucide-react";
 import { useState } from "react";
 
+import { MobileDrawer } from "@/components/ui-sdk/mobile-drawer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { nativeCall } from "@/lib/bridge";
 
 import { DeviceDownloadsCheck, useDeviceDownloadsState } from "./device-downloads-state";
@@ -28,23 +30,40 @@ import { formatSourceSize } from "./source-format";
 
 export function HomeBatchDownload({ workId }: { workId: string }) {
   const [open, setOpen] = useState(false);
+  const mobile = useIsMobile();
+  const title = "تنزيل فيديوهات إلى هذا الجهاز";
+  const description = "اختر النسخ المطلوبة من مكتبة المنزل لتنزيلها إلى جهازك.";
+  const trigger = (
+    <Button
+      variant="outline"
+      size={mobile ? "icon-lg" : "lg"}
+      aria-label="تنزيل حلقات من مكتبة المنزل"
+      title={title}
+    >
+      <Download data-icon="inline-start" aria-hidden />
+      {!mobile && "تنزيل"}
+    </Button>
+  );
+  if (mobile) {
+    return (
+      <MobileDrawer
+        title={title}
+        description={description}
+        showTitle
+        trigger={trigger}
+        open={open}
+        onOpenChange={setOpen}
+      >
+        <div className="p-4">{open && <BatchSelection workId={workId} />}</div>
+      </MobileDrawer>
+    );
+  }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="outline"
-            size="icon-lg"
-            aria-label="تنزيل حلقات من مكتبة المنزل"
-            title="اختيار حلقات لتنزيلها إلى الجهاز"
-          />
-        }
-      >
-        <ListVideo />
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent className="max-h-5/6 overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>تنزيل فيديوهات إلى هذا الجهاز</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             اختر النسخ المطلوبة من مكتبة المنزل. تُحفظ بيانات العمل وصوره تلقائيًا، ثم يبدأ تنزيل
             الفيديوهات. لا يُحذف شيء من الخادم.

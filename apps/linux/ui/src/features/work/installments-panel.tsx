@@ -1,18 +1,42 @@
 import { installmentRating } from "@arcadia/domain";
 import type { WorkDetail, ViewerUnitState } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownUp, ChevronDown, Download, Info, Play, Check } from "lucide-react";
+import {
+  Menu,
+  MenuGroupLabel,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "@ui-sdk/react/menu";
+import { cn } from "cn";
+import {
+  ArrowDownUp,
+  CalendarDays,
+  ChevronDown,
+  Clock,
+  Download,
+  Info,
+  Layers3,
+  Play,
+  Check,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
 import { EpisodeThumbnail, episodeTiming } from "@/components/episode-thumbnail";
 import { LanguageBadges } from "@/components/language-badges";
+import { scoreTone } from "@/components/score-tone";
+import { SdkMenuContent, SdkMenuIndicator, sdkMenuItemClassName } from "@/components/ui-sdk/menu";
+import { MobileDrawer } from "@/components/ui-sdk/mobile-drawer";
+import { Progress } from "@/components/ui/progress";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { workLanguages } from "@/lib/languages";
 
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
-import { ScoreBadge } from "../../components/media-card";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
+import { Button, buttonVariants } from "../../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -21,42 +45,45 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../components/ui/dialog";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../components/ui/popover";
 import { HomeBatchDownload } from "../player/home-batch-download";
 import { savedDownloadOptions } from "../player/saved-downloads";
 import { requestDownload, requestWatch } from "../player/watch-request";
 import { replaceParams, useViewerRoute } from "../shell/navigation";
-import { ArtworkGallery, MediaFiles, References } from "./data-panel";
+import { ArtworkGallery, MediaFiles } from "./data-panel";
 import { RiskRows } from "./family-panel";
-import { Disclosure, FieldList } from "./field-list";
-import {
-  dateLabel,
-  episodeNumberLabel,
-  externalIdLabels,
-  pickArtwork,
-  statusLabels,
-} from "./format";
+import { Disclosure, FieldList, PanelEmpty } from "./field-list";
+import { dateLabel, episodeNumberLabel, pickArtwork, statusLabels } from "./format";
+import { InstallmentDetails } from "./installment-details";
 import type { WorkTracking } from "./use-work-tracking";
 import { WatchedControl } from "./watched-control";
 
 type Installment = WorkDetail["installments"][number];
 type Episode = Installment["episodes"][number];
+const previewEpisodeCount = 9;
 
 export function InstallmentsPanel({
   work,
   initial,
   tracking,
+  fullEpisodes,
+  onShowAllEpisodes,
 }: {
   work: WorkDetail;
   initial?: string;
   tracking: WorkTracking;
+  fullEpisodes: boolean;
+  onShowAllEpisodes: () => void;
 }) {
   const saved = useQuery({ ...savedDownloadOptions(), refetchInterval: 5000 });
   const route = useViewerRoute();
   const navigation = useCardNavigation();
+  const mobile = useIsMobile();
   const [descending, setDescending] = useState(false);
-  const [selectorOpen, setSelectorOpen] = useState(false);
-  const item = work.installments.find((unit) => unit.id === initial) ?? work.installments[0];
+  const [filter, setFilter] = useState("all");
+  const installments = fullEpisodes
+    ? work.installments.filter((unit) => unit.kind === "season")
+    : work.installments;
+  const item = installments.find((unit) => unit.id === initial) ?? installments[0];
   if (!item) return null;
   const select = (id: string) => {
     const params = new URLSearchParams(route.params);
@@ -64,15 +91,13 @@ export function InstallmentsPanel({
     params.delete("tab");
     params.delete("episode");
     params.set("installment", id);
-    params.set("tab", "installments");
     replaceParams(`/titles/${work.id}`, params);
-    setSelectorOpen(false);
   };
   const changeEpisode = (episodeId: string, open: boolean) => {
     const params = new URLSearchParams(route.params);
     if (open) {
       params.set("installment", item.id);
-      params.set("tab", "installments");
+      params.delete("tab");
       params.set("episode", episodeId);
     } else {
       params.delete("episode");
@@ -82,115 +107,305 @@ export function InstallmentsPanel({
   const episodes = item.episodes.toSorted((a, b) =>
     descending ? b.position - a.position : a.position - b.position,
   );
+  const openEpisodeId = route.params.get("episode");
+  const matchesFilter = (episode: Episode) => {
+    const unit = tracking.unitByEpisode.get(episode.id);
+    return filter === "all" || (unit && unit.isPlayed === (filter === "watched"));
+  };
+  const filteredEpisodes =
+    fullEpisodes && filter !== "all" ? episodes.filter(matchesFilter) : episodes;
+  const visibleEpisodes = fullEpisodes
+    ? openEpisodeId && filter !== "all"
+      ? episodes.filter((episode) => episode.id === openEpisodeId || matchesFilter(episode))
+      : filteredEpisodes
+    : episodes.filter(
+        (episode, index) => index < previewEpisodeCount || episode.id === openEpisodeId,
+      );
   const rating = installmentRating(item.scores ?? {});
+  const score = rating === null ? null : Math.round(rating * 10);
+  const poster = pickArtwork(item.artwork, "poster")?.id ?? work.poster?.id;
   const summary = tracking.state.data?.installments.find(
     (unit) => unit.installmentId === item.id,
   )?.summary;
+  const upcoming = item.releaseState === "upcoming" || item.status === "announced";
+  const status = upcoming
+    ? "upcoming"
+    : item.status === "unknown"
+      ? item.releaseState
+      : item.status;
+  const languages = item.languages ?? workLanguages(work);
+  const isSeason = item.kind === "season";
+  const isFilm = item.kind === "movie";
+  const compactRelease = isSeason || isFilm;
+  const filmUnit = isFilm
+    ? tracking.unitsByInstallment.get(item.id)?.find((unit) => unit.episodeId === null)
+    : undefined;
+  const showFilmSynopsis =
+    work.installments.length > 1 || item.summary.trim() !== work.summary.trim();
+  const hasEpisodeCount = item.kind === "season" && item.episodes.length > 0;
+  const seasonProgress =
+    item.kind === "season" && summary && summary.releasedUnits > 0 ? summary : null;
+  const showEpisodeTotal =
+    hasEpisodeCount && item.episodes.length !== seasonProgress?.releasedUnits;
+  const synopsis = item.summary.trim() && (
+    <p
+      className={cn(
+        "line-clamp-3 max-w-4xl text-base leading-relaxed wrap-anywhere text-foreground/90",
+        !compactRelease && "sm:text-lg",
+      )}
+      dir="auto"
+    >
+      {item.summary}
+    </p>
+  );
+  const releaseActions = !isSeason && (
+    <>
+      {!upcoming && (
+        <Button
+          {...navigation}
+          size={isFilm ? "default" : "lg"}
+          onClick={() =>
+            requestWatch({
+              workId: work.id,
+              installmentId: item.id,
+              title: `${work.titleAr || work.canonicalTitle} · ${item.title}`,
+            })
+          }
+        >
+          <Play data-icon="inline-start" aria-hidden />
+          {filmUnit?.isPlayed
+            ? "إعادة المشاهدة"
+            : filmUnit && filmUnit.positionSeconds > 0
+              ? "تابع المشاهدة"
+              : "تشغيل الإصدار"}
+        </Button>
+      )}
+      {!isFilm && <InstallmentDetails item={item} work={work} />}
+    </>
+  );
+  const sortLabel = descending ? "الأحدث أولًا" : "الأقدم أولًا";
+  const controls = (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-2"
+      aria-label="خيارات الإصدار"
+      role="group"
+    >
+      {installments.length > 1 && (
+        <InstallmentPicker work={work} items={installments} item={item} onSelect={select} />
+      )}
+      <WatchedControl
+        tracking={tracking}
+        installmentId={item.id}
+        label={item.title}
+        compact={compactRelease}
+      />
+      {episodes.length > 1 && (
+        <Button
+          {...navigation}
+          variant="outline"
+          size={mobile ? "icon-lg" : "lg"}
+          aria-label={sortLabel}
+          title={sortLabel}
+          onClick={() => setDescending(!descending)}
+        >
+          <ArrowDownUp data-icon="inline-start" aria-hidden />
+          {!mobile && sortLabel}
+        </Button>
+      )}
+      <HomeBatchDownload workId={work.id} />
+    </div>
+  );
   return (
-    <div className="flex min-w-0 flex-col gap-7">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold md:text-3xl">
-          {item.kind === "season" ? "الحلقات" : "الإصدار"}
-        </h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <Popover open={selectorOpen} onOpenChange={setSelectorOpen}>
-            <PopoverTrigger render={<Button {...navigation} variant="outline" size="lg" />}>
-              <ChevronDown data-icon="inline-start" />
-              {item.title}
-            </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-96 w-80 max-w-full overflow-y-auto">
-              <PopoverTitle>اختر الجزء</PopoverTitle>
-              {work.installments.map((unit) => (
-                <Button
-                  key={unit.id}
-                  variant={unit.id === item.id ? "secondary" : "ghost"}
-                  onClick={() => select(unit.id)}
-                  className="h-auto justify-start gap-4 py-3"
-                  aria-pressed={unit.id === item.id}
-                >
-                  <Artwork
-                    id={pickArtwork(unit.artwork, "poster")?.id ?? work.poster?.id}
-                    alt=""
-                    className="h-20 w-14 shrink-0 rounded-lg object-cover"
-                  />
-                  <span className="flex min-w-0 flex-col items-start gap-2 text-start">
-                    <span className="text-base">{unit.title}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {unit.kind === "season"
-                        ? `${unit.episodes.length} حلقة`
-                        : unit.runtimeMinutes
-                          ? `${unit.runtimeMinutes} دقيقة`
-                          : "إصدار مستقل"}
-                    </span>
-                  </span>
-                </Button>
-              ))}
-            </PopoverContent>
-          </Popover>
-          <HomeBatchDownload workId={work.id} />
-          <WatchedControl tracking={tracking} installmentId={item.id} label={item.title} />
-          {item.episodes.length > 1 && (
-            <Button {...navigation} variant="outline" onClick={() => setDescending(!descending)}>
-              <ArrowDownUp data-icon="inline-start" />
-              {descending ? "الأحدث أولًا" : "الأقدم أولًا"}
-            </Button>
+    <div className={cn("flex min-w-0 flex-col", mobile || fullEpisodes ? "gap-4" : "gap-7")}>
+      {(!fullEpisodes || !mobile) && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {!fullEpisodes && (
+            <h2 className="text-2xl font-semibold md:text-3xl">
+              {isSeason ? "الحلقات" : "الإصدار"}
+            </h2>
           )}
+          {!mobile && controls}
         </div>
-      </div>
-      <div className="flex flex-wrap items-start gap-5 rounded-2xl border border-border/60 bg-card p-5 md:p-6">
-        <Artwork
-          id={pickArtwork(item.artwork, "poster")?.id ?? work.poster?.id}
-          alt=""
-          className="h-32 w-22 shrink-0 rounded-xl object-cover"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <h3 className="text-xl font-semibold md:text-2xl">{item.title}</h3>
-          <LanguageBadges languages={item.languages ?? workLanguages(work)} />
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            {!(item.status === "announced" && rating === null) && (
-              <ScoreBadge score={{ rating, scored: rating === null ? 0 : 1, total: 1 }} />
-            )}
-            <Badge variant="outline">{statusLabels.get(item.status)}</Badge>
-            <span>{dateLabel(item.releaseDate)}</span>
-            {item.runtimeMinutes && <span>{item.runtimeMinutes} دقيقة</span>}
-            {summary && summary.releasedUnits > 0 && (
-              <span>
-                {summary.watchedReleasedUnits} من {summary.releasedUnits} تمّت مشاهدته
-              </span>
-            )}
-          </div>
-          {item.summary.trim() && (
-            <p className="line-clamp-3 text-base leading-loose" dir="auto">
-              {item.summary}
-            </p>
+      )}
+      {(!fullEpisodes || item.kind !== "season") && (
+        <section
+          aria-label={item.title}
+          className={cn(
+            "relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card/60 p-4",
+            compactRelease ? "gap-3 sm:p-4" : "gap-5 sm:p-6",
+            seasonProgress && "pb-5 sm:pb-5",
           )}
-          <div className="flex flex-wrap gap-3">
-            {item.kind !== "season" && (
-              <Button
-                {...navigation}
-                disabled={item.status === "announced"}
-                onClick={() =>
-                  requestWatch({
-                    workId: work.id,
-                    installmentId: item.id,
-                    title: `${work.titleAr || work.canonicalTitle} · ${item.title}`,
-                  })
-                }
+        >
+          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+            {poster && (
+              <Artwork
+                id={poster}
+                alt=""
+                className={cn(
+                  "aspect-2/3 w-16 shrink-0 rounded-xl object-cover",
+                  isSeason ? "sm:w-20 lg:w-22" : isFilm ? "sm:w-22" : "sm:w-24 lg:w-28",
+                )}
+              />
+            )}
+            <div className={cn("flex min-w-0 flex-1 flex-col", compactRelease ? "gap-2" : "gap-3")}>
+              <div
+                className={cn(
+                  "flex min-w-0 flex-col items-start gap-2",
+                  compactRelease
+                    ? "sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3"
+                    : "sm:flex-row sm:items-start sm:justify-between sm:gap-4",
+                )}
               >
-                <Play data-icon="inline-start" />
-                تشغيل الإصدار
-              </Button>
-            )}
-            <InstallmentDetails item={item} />
+                <div className="flex min-w-0 items-start gap-2 sm:items-center">
+                  <h3
+                    className={cn(
+                      "min-w-0 text-xl leading-snug font-bold wrap-anywhere",
+                      compactRelease ? "sm:text-2xl" : "sm:text-3xl",
+                    )}
+                  >
+                    <bdi>{item.title}</bdi>
+                  </h3>
+                  {compactRelease && <InstallmentDetails item={item} work={work} />}
+                </div>
+                {(status !== "unknown" || score !== null) && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {status !== "unknown" && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "h-7 px-2.5 text-sm",
+                          upcoming && "border-warning/35 bg-warning/10 text-warning",
+                          status === "airing" && "border-success/35 bg-success/10 text-success",
+                        )}
+                      >
+                        {statusLabels.get(status)}
+                      </Badge>
+                    )}
+                    {score !== null && (
+                      <span
+                        className={cn(
+                          "grid size-9 shrink-0 place-items-center rounded-full border border-score-ink/15 text-sm font-bold text-score-ink tabular-nums",
+                          !compactRelease && "sm:size-11 sm:text-base",
+                          scoreTone(score).background,
+                        )}
+                        aria-label={`التقييم ${score} من 100`}
+                        role="img"
+                      >
+                        {score}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              {(item.releaseDate ||
+                hasEpisodeCount ||
+                item.runtimeMinutes ||
+                seasonProgress ||
+                languages.length > 0) && (
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground/85",
+                    !compactRelease && "sm:text-base",
+                  )}
+                >
+                  {item.releaseDate && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <time dateTime={item.releaseDate}>{dateLabel(item.releaseDate)}</time>
+                    </span>
+                  )}
+                  {showEpisodeTotal && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers3 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      {item.episodes.length} حلقة
+                    </span>
+                  )}
+                  {item.runtimeMinutes && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      {item.runtimeMinutes} دقيقة
+                    </span>
+                  )}
+                  {seasonProgress && (
+                    <span className="inline-flex items-center gap-1.5 text-sm tabular-nums">
+                      {seasonProgress.isFullyWatched ? (
+                        <Check className="size-4 shrink-0 text-success" aria-hidden />
+                      ) : null}
+                      شوهد {seasonProgress.watchedReleasedUnits} من {seasonProgress.releasedUnits}{" "}
+                      حلقة
+                    </span>
+                  )}
+                  {languages.length > 0 && (
+                    <div className="min-w-0 lg:ms-auto">
+                      <LanguageBadges languages={languages} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {isSeason && synopsis}
+              {isFilm && (
+                <div className="flex min-w-0 flex-col gap-3">
+                  {showFilmSynopsis && synopsis}
+                  <div className="flex flex-wrap justify-end gap-2">{releaseActions}</div>
+                </div>
+              )}
+            </div>
           </div>
+          {seasonProgress && (
+            <Progress
+              className={cn(
+                "absolute inset-x-0 bottom-0 **:data-[slot=progress-track]:h-1 **:data-[slot=progress-track]:rounded-none",
+                seasonProgress.isFullyWatched && "**:data-[slot=progress-indicator]:bg-success",
+              )}
+              aria-label="تقدّم مشاهدة الموسم"
+              value={(seasonProgress.watchedReleasedUnits / seasonProgress.releasedUnits) * 100}
+            />
+          )}
+          {!compactRelease && (
+            <>
+              {synopsis}
+              <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                {releaseActions}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+      {mobile && controls}
+      {fullEpisodes && episodes.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <ToggleGroup
+            aria-label="حالة مشاهدة الحلقات"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={[filter]}
+            onValueChange={(value) => setFilter(value[0] ?? "all")}
+            disabled={!tracking.state.data}
+          >
+            <ToggleGroupItem value="all">الكل</ToggleGroupItem>
+            <ToggleGroupItem value="watched">شُوهدت</ToggleGroupItem>
+            <ToggleGroupItem value="unwatched">لم تُشاهَد</ToggleGroupItem>
+          </ToggleGroup>
+          <p role="status" className="text-sm text-muted-foreground tabular-nums">
+            {filteredEpisodes.length} من {episodes.length} حلقة
+          </p>
         </div>
-      </div>
-      {item.episodes.length > 0 && (
+      )}
+      {fullEpisodes && isSeason && visibleEpisodes.length === 0 && (
+        <PanelEmpty
+          title={
+            episodes.length > 0 ? "لا توجد حلقات تطابق هذا الفلتر" : "لا توجد حلقات لهذا الموسم بعد"
+          }
+        />
+      )}
+      {visibleEpisodes.length > 0 && (
         <div
           className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3"
           aria-label="حلقات الجزء"
+          data-card-navigation-group
         >
-          {episodes.map((episode) => (
+          {visibleEpisodes.map((episode) => (
             <EpisodeCard
               key={episode.id}
               episode={episode}
@@ -205,60 +420,150 @@ export function InstallmentsPanel({
               installment={item}
               work={work}
               tracking={tracking}
-              open={route.params.get("episode") === episode.id}
+              open={openEpisodeId === episode.id}
               onOpenChange={(open) => changeEpisode(episode.id, open)}
             />
           ))}
         </div>
       )}
+      {!fullEpisodes && episodes.length > previewEpisodeCount && (
+        <Button
+          {...navigation}
+          variant="outline"
+          size="lg"
+          className="mx-auto"
+          onClick={onShowAllEpisodes}
+        >
+          عرض كل الحلقات
+          <bdi className="text-xs text-muted-foreground tabular-nums">{episodes.length}</bdi>
+        </Button>
+      )}
     </div>
   );
 }
 
-function InstallmentDetails({ item }: { item: Installment }) {
+function InstallmentPicker({
+  work,
+  items,
+  item,
+  onSelect,
+}: {
+  work: WorkDetail;
+  items: Installment[];
+  item: Installment;
+  onSelect: (id: string) => void;
+}) {
+  const mobile = useIsMobile();
   const navigation = useCardNavigation();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const [open, setOpen] = useState(false);
+  const title = "المواسم والإصدارات";
+  const triggerContent = (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        <Layers3 className="shrink-0" data-icon="inline-start" aria-hidden />
+        <bdi className="min-w-0 truncate">{item.title}</bdi>
+      </div>
+      <ChevronDown data-icon="inline-end" aria-hidden />
+    </>
+  );
+  if (mobile) {
+    return (
+      <MobileDrawer
+        title={title}
+        showTitle={false}
+        open={open}
+        onOpenChange={setOpen}
+        trigger={
+          <Button
+            {...navigation}
+            variant="outline"
+            size="lg"
+            className="min-w-0 max-w-full flex-1 justify-between"
+          >
+            {triggerContent}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-2 p-4">
+          {items.map((unit) => (
+            <Button
+              key={unit.id}
+              variant={unit.id === item.id ? "secondary" : "ghost"}
+              className="h-auto w-full justify-start gap-3 p-2 text-start whitespace-normal rounded-2xl!"
+              aria-current={unit.id === item.id ? "true" : undefined}
+              onClick={() => {
+                onSelect(unit.id);
+                setOpen(false);
+              }}
+            >
+              <InstallmentOption unit={unit} work={work} />
+              {unit.id === item.id && <Check data-icon="inline-end" aria-hidden />}
+            </Button>
+          ))}
+        </div>
+      </MobileDrawer>
+    );
+  }
   return (
-    <Dialog>
-      <DialogTrigger render={<Button {...navigation} variant="ghost" size="sm" />}>
-        <Info data-icon="inline-start" />
-        تفاصيل الإصدار
-      </DialogTrigger>
-      <DialogContent initialFocus={heading} className="max-h-5/6 overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle ref={heading} tabIndex={-1}>
-            {item.title}
-          </DialogTitle>
-          <DialogDescription>بيانات الإصدار المسجّلة في المكتبة</DialogDescription>
-        </DialogHeader>
-        {item.summary.trim() && (
-          <p className="text-base leading-loose whitespace-pre-line">{item.summary}</p>
-        )}
-        <FieldList
-          rows={[
-            ["الترتيب", item.position],
-            ["المدة بالدقائق", item.runtimeMinutes],
-            ["تاريخ الإصدار", dateLabel(item.releaseDate)],
-            ["حالة الإصدار", statusLabels.get(item.status)],
-            ["الحلقات", item.episodes.length],
-          ]}
+    <Menu>
+      <MenuTrigger
+        {...navigation}
+        className={buttonVariants({
+          variant: "outline",
+          size: "lg",
+          className: "min-w-0 max-w-full",
+        })}
+      >
+        {triggerContent}
+      </MenuTrigger>
+      <SdkMenuContent align="start" className="w-80">
+        <MenuRadioGroup value={item.id} onValueChange={onSelect}>
+          <MenuGroupLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
+            {title}
+          </MenuGroupLabel>
+          <MenuSeparator className="mx-2 my-1 h-px bg-border" />
+          {items.map((unit) => (
+            <MenuRadioItem
+              key={unit.id}
+              value={unit.id}
+              label={unit.title}
+              closeOnSelect
+              className={cn(sdkMenuItemClassName, "gap-3")}
+            >
+              <InstallmentOption unit={unit} work={work} />
+              <SdkMenuIndicator />
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </SdkMenuContent>
+    </Menu>
+  );
+}
+
+function InstallmentOption({ unit, work }: { unit: Installment; work: WorkDetail }) {
+  return (
+    <>
+      <span className="w-10 shrink-0" aria-hidden>
+        <Artwork
+          id={pickArtwork(unit.artwork, "poster")?.id ?? work.poster?.id}
+          alt=""
+          className="aspect-2/3 w-full rounded-md object-cover"
         />
-        <RiskRows classification={item.classification} overrides={item.classificationOverrides} />
-        <References items={item.externalReferences} />
-        <FieldList
-          rows={Object.entries(item.externalIds)
-            .filter(([, value]) => value !== null)
-            .map(([key, value]) => [externalIdLabels.get(key) ?? key, value])}
-        />
-        {item.mediaFiles.length > 0 && <MediaFiles files={item.mediaFiles} />}
-        {item.artwork.length > 0 && <ArtworkGallery images={item.artwork} />}
-        <Disclosure title="معرّف السجل">
-          <p className="text-xs" dir="ltr">
-            {item.id}
-          </p>
-        </Disclosure>
-      </DialogContent>
-    </Dialog>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+        <bdi className="max-w-full truncate font-semibold">{unit.title}</bdi>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {unit.kind === "season"
+            ? `${unit.episodes.length} حلقة`
+            : unit.runtimeMinutes
+              ? `${unit.runtimeMinutes} دقيقة`
+              : "إصدار مستقل"}
+          {(unit.releaseState === "upcoming" || unit.status === "announced") && (
+            <Badge variant="outline">قادم</Badge>
+          )}
+        </span>
+      </span>
+    </>
   );
 }
 
@@ -280,6 +585,8 @@ function EpisodeCard({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigation = useCardNavigation();
+  const mobile = useIsMobile();
+  const heading = useRef<HTMLHeadingElement>(null);
   const [triggerId, setTriggerId] = useState<string | null>(null);
   const number = episodeNumberLabel(episode.number);
   const state = tracking.unitByEpisode.get(episode.id);
@@ -301,123 +608,161 @@ function EpisodeCard({
     episode.artwork[0] ??
     pickArtwork(installment.artwork, "banner") ??
     work.banner;
-  return (
-    <Dialog
-      open={open}
-      triggerId={triggerId}
-      onOpenChange={(nextOpen, details) => {
-        if (
-          nextOpen &&
-          "ctrlKey" in details.event &&
-          (details.event.ctrlKey ||
-            details.event.metaKey ||
-            details.event.shiftKey ||
-            details.event.altKey)
-        ) {
-          details.cancel();
-          return;
-        }
-        if (nextOpen) setTriggerId(details.trigger?.id ?? null);
-        onOpenChange(nextOpen);
+  const title = `${number} · ${episode.title || "حلقة بلا عنوان"}`;
+  const description = "تفاصيل الحلقة في المكتبة";
+  const info = (
+    <Button
+      {...navigation}
+      variant="secondary"
+      size="icon-sm"
+      className="absolute end-3 top-3"
+      aria-label={`تفاصيل الحلقة ${number}`}
+      title={`تفاصيل الحلقة ${number}`}
+    >
+      <Info aria-hidden />
+    </Button>
+  );
+  const download = downloaded ? (
+    <Button
+      nativeButton={false}
+      size="sm"
+      variant="outline"
+      render={<a href="#/downloads?view=library" />}
+      aria-label={`إدارة الحلقة ${number} المحمّلة`}
+    >
+      <Check data-icon="inline-start" aria-hidden />
+      محمّلة على الجهاز
+    </Button>
+  ) : (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={upcoming}
+      aria-label={`تنزيل الحلقة ${number}`}
+      onClick={() => {
+        onOpenChange(false);
+        requestDownload({
+          workId: work.id,
+          installmentId: installment.id,
+          episodeId: episode.id,
+          title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
+        });
       }}
     >
-      <article
-        data-episode-card
-        className="group/episode relative flex min-w-0 flex-col gap-3 hover:z-10 focus-within:z-10"
-        aria-label={`الحلقة ${number}`}
-      >
-        <EpisodeThumbnail
-          artworkId={image?.id}
-          label={upcoming ? `الحلقة ${number} لم تصدر بعد` : `تشغيل الحلقة ${number}`}
-          onPlay={play}
-          disabled={upcoming}
-          played={state?.isPlayed}
-          position={state?.positionSeconds ?? 0}
-          duration={duration}
-          topStart={<Badge variant="secondary">الحلقة {number}</Badge>}
-          topEnd={
-            downloaded ? (
-              <Badge variant="secondary">
-                <Check data-icon="inline-start" />
-                على الجهاز
-              </Badge>
-            ) : upcoming ? (
-              <Badge variant="secondary">قادم</Badge>
-            ) : null
-          }
-          bottomStart={timing ? <Badge variant="secondary">{timing}</Badge> : null}
-          bottomEnd={
-            episode.runtimeMinutes ? (
-              <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
-            ) : null
-          }
-        />
+      <Download data-icon="inline-start" aria-hidden />
+      تنزيل
+    </Button>
+  );
+  const detailsBody = (
+    <div className="flex flex-col items-start gap-4">
+      {download}
+      <EpisodeDetails episode={episode} number={number} state={state} />
+    </div>
+  );
+  return (
+    <article
+      data-episode-card
+      className="group/episode relative flex min-w-0 flex-col gap-3 hover:z-10 focus-within:z-10"
+      aria-label={`الحلقة ${number}`}
+    >
+      <EpisodeThumbnail
+        artworkId={image?.id}
+        label={upcoming ? `الحلقة ${number} لم تصدر بعد` : `تشغيل الحلقة ${number}`}
+        onPlay={play}
+        disabled={upcoming}
+        played={state?.isPlayed}
+        position={state?.positionSeconds ?? 0}
+        duration={duration}
+        topStart={<Badge variant="secondary">الحلقة {number}</Badge>}
+        bottomStart={
+          upcoming ? (
+            <Badge variant="secondary">قادم</Badge>
+          ) : state?.isPlayed ? (
+            <Badge variant="secondary">
+              <Check className="text-success" data-icon="inline-start" aria-hidden /> شُوهدت
+            </Badge>
+          ) : timing ? (
+            <Badge variant="secondary">{timing}</Badge>
+          ) : null
+        }
+        bottomEnd={
+          downloaded ? (
+            <Badge variant="secondary">محمّلة على الجهاز</Badge>
+          ) : episode.runtimeMinutes ? (
+            <Badge variant="secondary">{episode.runtimeMinutes} د</Badge>
+          ) : null
+        }
+      />
+      {mobile ? (
+        <MobileDrawer
+          title={title}
+          description={description}
+          showTitle
+          open={open}
+          onOpenChange={onOpenChange}
+          trigger={info}
+        >
+          <div className="p-4">{detailsBody}</div>
+        </MobileDrawer>
+      ) : (
+        <Dialog
+          open={open}
+          triggerId={triggerId}
+          onOpenChange={(nextOpen, details) => {
+            if (
+              nextOpen &&
+              "ctrlKey" in details.event &&
+              (details.event.ctrlKey ||
+                details.event.metaKey ||
+                details.event.shiftKey ||
+                details.event.altKey)
+            ) {
+              details.cancel();
+              return;
+            }
+            if (nextOpen) setTriggerId(details.trigger?.id ?? null);
+            onOpenChange(nextOpen);
+          }}
+        >
+          <DialogTrigger render={info} />
+          <DialogContent initialFocus={heading} className="max-h-5/6 overflow-y-auto sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle ref={heading} tabIndex={-1}>
+                {title}
+              </DialogTitle>
+              <DialogDescription>{description}</DialogDescription>
+            </DialogHeader>
+            {detailsBody}
+          </DialogContent>
+        </Dialog>
+      )}
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <h3 className="min-w-0">
           <Button
             {...navigation}
             variant="ghost"
             size="sm"
-            className="h-auto max-w-full justify-start px-0 py-0 text-start whitespace-normal"
+            className="h-auto max-w-full justify-start px-0 py-0 text-start text-lg whitespace-normal"
             disabled={upcoming}
             onClick={play}
           >
             {episode.title || `الحلقة ${number}`}
           </Button>
         </h3>
-        {episode.summary.trim() && (
-          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground" dir="auto">
-            {episode.summary}
-          </p>
-        )}
-        <div className="mt-auto flex flex-wrap items-center gap-2">
-          <WatchedControl
-            tracking={tracking}
-            installmentId={installment.id}
-            episodeId={episode.id}
-            label={`الحلقة ${number}`}
-            concise
-          />
-          {downloaded ? (
-            <Button
-              nativeButton={false}
-              size="sm"
-              variant="secondary"
-              render={<a href="#/downloads?view=library" />}
-              aria-label={`إدارة الحلقة ${number} المحمّلة`}
-            >
-              <Check data-icon="inline-start" />
-              محمّلة على الجهاز
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              {...navigation}
-              disabled={episode.releaseState === "upcoming" || installment.status === "announced"}
-              aria-label={`تنزيل الحلقة ${number}`}
-              onClick={() =>
-                requestDownload({
-                  workId: work.id,
-                  installmentId: installment.id,
-                  episodeId: episode.id,
-                  title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
-                })
-              }
-            >
-              <Download data-icon="inline-start" />
-              تنزيل
-            </Button>
-          )}
-          <DialogTrigger
-            render={<Button {...navigation} variant="ghost" size="icon-sm" />}
-            aria-label={`تفاصيل الحلقة ${number}`}
-          >
-            <Info data-icon="inline-start" />
-          </DialogTrigger>
-        </div>
-        <EpisodeDetails episode={episode} number={number} state={state} />
-      </article>
-    </Dialog>
+        <WatchedControl
+          tracking={tracking}
+          installmentId={installment.id}
+          episodeId={episode.id}
+          label={`الحلقة ${number}`}
+          compact
+        />
+      </div>
+      {episode.summary.trim() && (
+        <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground" dir="auto">
+          {episode.summary}
+        </p>
+      )}
+    </article>
   );
 }
 function EpisodeDetails({
@@ -429,15 +774,8 @@ function EpisodeDetails({
   number: string;
   state?: ViewerUnitState;
 }) {
-  const heading = useRef<HTMLHeadingElement>(null);
   return (
-    <DialogContent initialFocus={heading} className="max-h-5/6 overflow-y-auto sm:max-w-3xl">
-      <DialogHeader>
-        <DialogTitle ref={heading} tabIndex={-1}>
-          {number} · {episode.title || "حلقة بلا عنوان"}
-        </DialogTitle>
-        <DialogDescription>تفاصيل الحلقة في المكتبة</DialogDescription>
-      </DialogHeader>
+    <>
       {episode.summary.trim() && (
         <p className="text-base leading-loose whitespace-pre-line">{episode.summary}</p>
       )}
@@ -470,6 +808,6 @@ function EpisodeDetails({
           {episode.id}
         </p>
       </Disclosure>
-    </DialogContent>
+    </>
   );
 }

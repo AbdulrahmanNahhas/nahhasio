@@ -56,7 +56,7 @@ const StructureEditor = lazy(() =>
   })),
 );
 
-export function WorkDetailPage({ id }: { id: string }) {
+export function WorkDetailPage({ id, onExit }: { id: string; onExit?: () => void }) {
   const query = useQuery(workSnapshotsOptions([id]));
   if (query.isPending) return <Skeleton className="h-96" />;
   if (query.isError)
@@ -71,14 +71,16 @@ export function WorkDetailPage({ id }: { id: string }) {
     );
   const snapshot = query.data[0];
   if (!snapshot) return null;
-  return <WorkWorkspace key={snapshot.revision} snapshot={snapshot} />;
+  return <WorkWorkspace key={snapshot.revision} snapshot={snapshot} onExit={onExit} />;
 }
 export function WorkWorkspace({
   snapshot,
   create = false,
+  onExit,
 }: {
   snapshot: WorkSnapshot;
   create?: boolean;
+  onExit?: () => void;
 }) {
   useQuery(vocabularyOptions());
   const [draft, setDraft] = useState(snapshot.document);
@@ -111,13 +113,15 @@ export function WorkWorkspace({
             />
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Link
-              to="/admin/works"
-              className="flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-primary"
-            >
-              <ArrowRight className="size-3.5" aria-hidden="true" />
-              الأعمال
-            </Link>
+            {!onExit && (
+              <Link
+                to="/admin/works"
+                className="flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              >
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+                الأعمال
+              </Link>
+            )}
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1 className="break-words text-xl font-semibold">{name}</h1>
               {draft.canonicalTitle !== name && (
@@ -146,16 +150,23 @@ export function WorkWorkspace({
             </div>
           </div>
         </div>
-        {!create && (
-          <Button
-            nativeButton={false}
-            variant="outline"
-            size="sm"
-            render={<a href={`#/titles/${snapshot.document.id}`} />}
-          >
-            <ExternalLink data-icon="inline-start" />
-            عرض العمل
+        {onExit ? (
+          <Button variant="outline" size="sm" onClick={onExit} disabled={flow.busy}>
+            <ArrowRight data-icon="inline-start" />
+            العودة إلى عرض العمل
           </Button>
+        ) : (
+          !create && (
+            <Button
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+              render={<a href={`#/titles/${snapshot.document.id}`} />}
+            >
+              <ExternalLink data-icon="inline-start" />
+              عرض العمل
+            </Button>
+          )
         )}
       </header>
       {error && (
@@ -196,7 +207,7 @@ export function WorkWorkspace({
                 void navigate({
                   to: ".",
                   replace: true,
-                  search: { section },
+                  search: onExit ? { ...state, section } : { section },
                 });
             }}
           >
@@ -237,7 +248,13 @@ export function WorkWorkspace({
                   draft={draft}
                   update={update}
                   onStructure={() =>
-                    void navigate({ to: ".", replace: true, search: { section: "structure" } })
+                    void navigate({
+                      to: ".",
+                      replace: true,
+                      search: onExit
+                        ? { ...state, section: "structure" }
+                        : { section: "structure" },
+                    })
                   }
                 />
               </TabsContent>

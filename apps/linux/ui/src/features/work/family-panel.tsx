@@ -9,14 +9,16 @@ import { ageLabel, audienceLabels, classificationLabels, riskLabels } from "./fo
 export function RiskRows({
   classification,
   overrides,
+  baseline,
 }: {
   classification: Classification;
   overrides?: ClassificationOverrides;
+  baseline?: Classification;
 }) {
   const rows: Array<[string, ReactNode]> = [];
   for (const [key, label] of classificationLabels) {
     const value = classification[key];
-    if (!value) continue;
+    if (!value || value === baseline?.[key]) continue;
     const isRisk = key !== "audience" && key !== "age";
     rows.push([
       label,

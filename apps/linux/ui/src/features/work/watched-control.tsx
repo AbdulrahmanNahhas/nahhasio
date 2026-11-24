@@ -1,5 +1,9 @@
+import { cn } from "cn";
 import { CheckIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+
+import { MobileDrawer } from "@/components/ui-sdk/mobile-drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useCardNavigation } from "../../components/card-navigation";
 import { Failure } from "../../components/status";
@@ -22,7 +26,6 @@ export function WatchedControl({
   episodeId,
   label,
   compact = false,
-  large = false,
   concise = false,
 }: {
   tracking: WorkTracking;
@@ -30,10 +33,10 @@ export function WatchedControl({
   episodeId?: string;
   label: string;
   compact?: boolean;
-  large?: boolean;
   concise?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const mobile = useIsMobile();
   const navigation = useCardNavigation();
   const data = tracking.state.data;
   const episode = episodeId ? tracking.unitByEpisode.get(episodeId) : undefined;
@@ -61,16 +64,20 @@ export function WatchedControl({
   const control = (
     <Button
       {...navigation}
-      variant={isPlayed ? "secondary" : "outline"}
-      size={compact ? (large ? "icon-lg" : "icon") : concise ? "sm" : "default"}
-      className={large ? "size-12" : undefined}
+      variant={isPlayed && concise ? "secondary" : "outline"}
+      size={compact ? "icon-lg" : concise ? "sm" : "lg"}
+      className={cn(
+        compact &&
+          isPlayed &&
+          "border-success/35 bg-success/10 text-success hover:border-success/60 hover:bg-success/20 hover:text-success active:bg-success/25 aria-expanded:bg-success/20 aria-expanded:text-success",
+      )}
       disabled={disabled}
       aria-label={text}
       aria-pressed={isPlayed}
       title={text}
       onClick={episodeId ? mutate : undefined}
     >
-      <Icon data-icon="inline-start" />
+      {(!isPlayed || compact || concise) && <Icon data-icon="inline-start" aria-hidden />}
       {!compact &&
         (concise
           ? isPlayed
@@ -82,24 +89,47 @@ export function WatchedControl({
     </Button>
   );
   if (episodeId) return control;
+  const description = `يشمل هذا التغيير جميع الحلقات والإصدارات المسجّلة في ${label}، بما فيها القادمة. العلامة يدوية ولا تغيّر تقدم التشغيل أو حالة الإصدار.`;
+  const confirm = (
+    <Button disabled={tracking.pending} onClick={mutate}>
+      {isPlayed ? <EyeOff data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
+      {tracking.pending ? "جارٍ الحفظ…" : "تأكيد التغيير"}
+    </Button>
+  );
+  if (mobile) {
+    return (
+      <MobileDrawer
+        title={text}
+        description={description}
+        showTitle
+        open={open}
+        onOpenChange={setOpen}
+        trigger={control}
+      >
+        <div className="flex flex-col gap-3 p-4">
+          {tracking.watched.error && <Failure error={tracking.watched.error} />}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              إلغاء
+            </Button>
+            {confirm}
+          </div>
+        </div>
+      </MobileDrawer>
+    );
+  }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={control} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{text}</DialogTitle>
-          <DialogDescription>
-            يشمل هذا التغيير جميع الحلقات والإصدارات المسجّلة في {label}، بما فيها القادمة. العلامة
-            يدوية ولا تغيّر تقدم التشغيل أو حالة الإصدار.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {tracking.watched.error && <Failure error={tracking.watched.error} />}
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>إلغاء</DialogClose>
-          <Button disabled={tracking.pending} onClick={mutate}>
-            {isPlayed ? <EyeOff data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
-            {tracking.pending ? "جارٍ الحفظ…" : "تأكيد التغيير"}
-          </Button>
+          {confirm}
         </DialogFooter>
       </DialogContent>
     </Dialog>

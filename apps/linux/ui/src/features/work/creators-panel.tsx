@@ -1,119 +1,76 @@
 import type { Contribution, WorkDetail } from "@nahhasio/api-contract";
-import { ArrowUpLeft } from "lucide-react";
 
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { EntityCard } from "@/features/catalog/entity-card";
+import { ScrollShelf } from "@/features/home/scroll-shelf";
 import { languageName } from "@/lib/languages";
 
-import { Artwork } from "../../components/artwork";
-import { useCardNavigation } from "../../components/card-navigation";
-import { Badge } from "../../components/ui/badge";
 import { entityLink } from "../shell/navigation";
-import { Section } from "./field-list";
 import { pickArtwork } from "./format";
 
-function Credit({ credit }: { credit: Contribution }) {
-  const navigation = useCardNavigation();
-  const organization = credit.kind === "organization";
-  const roleDescription = credit.roleDescriptionAr.trim() || credit.roleDescriptionEn.trim();
-  return (
-    <article className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-0">
-      <a
-        {...navigation}
-        href={entityLink(organization ? "studios" : "contributors", credit.id)}
-        aria-label={`أعمال ${credit.name}`}
-        className="group flex min-w-0 flex-1 items-start gap-4 rounded-xl p-2 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        <Artwork
-          id={
-            pickArtwork(credit.artwork, organization ? "logo" : "profile")?.id ??
-            credit.artwork[0]?.id
-          }
-          studioLogo={organization}
-          alt=""
-          className={
-            organization
-              ? "h-24 w-32 shrink-0 rounded-xl"
-              : "size-20 shrink-0 rounded-xl object-cover"
-          }
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold wrap-anywhere">
-              <bdi>{credit.name}</bdi>
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-primary" dir="auto">
-                {credit.roleLabelAr || credit.roleLabelEn || credit.role}
-              </span>
-              {credit.languages?.map((language) => (
-                <Badge variant="outline" key={language}>
-                  {languageName(language)}
-                </Badge>
-              ))}
-              {credit.isPrimary && <Badge variant="secondary">دور رئيسي</Badge>}
-            </div>
-          </div>
-          {credit.description.trim() && (
-            <p
-              className="line-clamp-3 text-sm leading-relaxed text-muted-foreground wrap-anywhere"
-              dir="auto"
-            >
-              {credit.description}
-            </p>
-          )}
-          {roleDescription && roleDescription !== credit.description.trim() && (
-            <p className="line-clamp-2 text-sm leading-relaxed wrap-anywhere" dir="auto">
-              {roleDescription}
-            </p>
-          )}
-          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary">
-            {organization ? "استكشف أعمال الجهة" : "استكشف أعمال الشخص"}
-            <ArrowUpLeft aria-hidden="true" className="size-4 shrink-0" />
-          </span>
-        </div>
-      </a>
-    </article>
-  );
-}
-
 export function CreatorsPanel({ work }: { work: WorkDetail }) {
-  if (!work.contributions.length)
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>لا يوجد مساهمون مسجّلون</EmptyTitle>
-          <EmptyDescription>ستظهر أسماء الصنّاع والاستوديوهات هنا عند إضافتها.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  const groups = [
-    {
-      title: "الأشخاص",
-      description: "المساهمون في كتابة العمل وإخراجه وأدائه وتنفيذه، بحسب الأدوار المسجّلة.",
-      items: work.contributions.filter((credit) => credit.kind !== "organization"),
-    },
-    {
-      title: "الاستوديوهات والجهات",
-      description: "جهات الإنتاج والمساهمات المؤسسية المسجّلة لهذا العمل.",
-      items: work.contributions.filter((credit) => credit.kind === "organization"),
-    },
-  ];
+  const creditsByEntity = new Map<string, { entity: Contribution; credits: Contribution[] }>();
+  for (const credit of work.contributions) {
+    const key = `${credit.kind}:${credit.id}`;
+    const group = creditsByEntity.get(key);
+    if (group) group.credits.push(credit);
+    else creditsByEntity.set(key, { entity: credit, credits: [credit] });
+  }
+  const contributions = [...creditsByEntity.values()].toSorted(
+    (a, b) => Number(b.entity.kind === "organization") - Number(a.entity.kind === "organization"),
+  );
   return (
-    <div className="min-w-0">
-      {groups
-        .filter((group) => group.items.length > 0)
-        .map((group) => (
-          <Section key={group.title} title={group.title} description={group.description}>
-            <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-              {group.items.map((credit) => (
-                <Credit
-                  credit={credit}
-                  key={`${credit.kind}:${credit.id}:${credit.roleId}:${credit.position}`}
-                />
-              ))}
-            </div>
-          </Section>
-        ))}
-    </div>
+    <section className="min-w-0" aria-label="الاستوديوهات والأشخاص">
+      <h2 className="text-xl font-semibold">الاستوديوهات والأشخاص</h2>
+      <ScrollShelf
+        label="مساهمو العمل"
+        itemClassName={({ entity }) =>
+          entity.kind === "organization" ? "w-50 sm:w-55 xl:w-60" : "w-40 sm:w-44 xl:w-48"
+        }
+        items={contributions}
+        render={({ entity, credits }) => {
+          const studio = entity.kind === "organization";
+          const images = credits.flatMap((credit) => credit.artwork);
+          const artwork = pickArtwork(images, studio ? "logo" : "profile") ?? images[0];
+          const roles = new Set(
+            credits.map((credit) => credit.roleLabelAr || credit.roleLabelEn || credit.role),
+          );
+          const languages = new Set(credits.flatMap((credit) => credit.languages ?? []));
+          const notes = new Set(
+            credits
+              .flatMap((credit) => [
+                credit.description.trim(),
+                credit.roleDescriptionAr.trim() || credit.roleDescriptionEn.trim(),
+              ])
+              .filter(Boolean),
+          );
+          return (
+            <EntityCard
+              key={`${entity.kind}:${entity.id}`}
+              entity={{ label: entity.name, artworkId: artwork?.id }}
+              kind={studio ? "studio" : "person"}
+              href={entityLink(studio ? "studios" : "contributors", entity.id)}
+              artworkLayout={studio ? "square" : "portrait"}
+              accessibleLabel={`أعمال ${entity.name}`}
+              metadata={
+                <div className="mt-1 flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+                  <p dir="auto">{[...roles].join("، ")}</p>
+                  {!studio && credits.some((credit) => credit.isPrimary) && <p>دور رئيسي</p>}
+                  {languages.size > 0 && (
+                    <p dir="auto">{[...languages].map(languageName).join("، ")}</p>
+                  )}
+                  {!studio &&
+                    [...notes].map((note) => (
+                      <p key={note} className="line-clamp-2" dir="auto">
+                        {note}
+                      </p>
+                    ))}
+                </div>
+              }
+              compact
+            />
+          );
+        }}
+      />
+    </section>
   );
 }

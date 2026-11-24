@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SelectField } from "@/features/editor/fields/work-fields";
 import { episodeNumberLabel, pickArtwork } from "@/features/work/format";
 import { useWorkTracking } from "@/features/work/use-work-tracking";
+import { WorkDiscussion } from "@/features/work/work-discussion";
 
 import { BrowserSourceControls } from "./browser-source-controls";
 import { MovieInfo } from "./movie-info";
@@ -19,7 +20,6 @@ import { SourceControls } from "./source-selection";
 import type { PlayerController } from "./use-player-snapshot";
 import { useVideoViewport, VideoBackdrop } from "./use-video-viewport";
 import { WatchAbout, WatchActions, WatchDetails, WatchEpisodeNavigation } from "./watch-details";
-import { WatchDiscussion } from "./watch-discussion";
 import { WatchEpisodeSidebar } from "./watch-episode-sidebar";
 import type { WatchTarget } from "./watch-request";
 
@@ -435,7 +435,7 @@ export function WatchPage({
         {work && <WatchAbout work={work} part={playingPart} episode={episode} />}
         {work ? (
           <div className="min-w-0 border-t border-border pt-4 xl:col-start-1">
-            <WatchDiscussion key={work.id} id={work.id} accountId={accountId} offline={offline} />
+            <WorkDiscussion key={work.id} id={work.id} accountId={accountId} offline={offline} />
           </div>
         ) : error || !catalogVideo ? null : (
           <Skeleton className="h-28 xl:col-start-1" />

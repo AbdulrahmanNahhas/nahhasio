@@ -1,81 +1,160 @@
-import { installmentRating } from "@arcadia/domain";
-import type { WorkDetail } from "@nahhasio/api-contract";
+import type { Installment, WorkDetail } from "@nahhasio/api-contract";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Lightbulb } from "lucide-react";
 
+import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
+import { LanguageBadges } from "../../components/language-badges";
 import { MediaCard } from "../../components/media-card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Separator } from "../../components/ui/separator";
 import { gateway } from "../../lib/bridge";
-import { workLink } from "../shell/navigation";
+import { entityLink, workLink } from "../shell/navigation";
 import { Disclosure, Section } from "./field-list";
-import { pickArtwork } from "./format";
-import { highestRisk, RiskBadge } from "./risk-badge";
-import type { WorkTracking } from "./use-work-tracking";
+import { dateLabel, pickArtwork } from "./format";
 
-type Risk = WorkDetail["sexualityRisk"];
-function riskClasses(risk: Risk) {
-  if (risk === "low") return "border-success/70 bg-success/5 ring-0";
-  if (risk === "medium") return "border-warning/70 bg-warning/5 ring-0";
-  if (risk === "high") return "border-destructive/70 bg-destructive/5 ring-0";
-  return "border-border";
-}
-function RiskNote({ title, text, risks }: { title: string; text: string; risks: Risk[] }) {
-  const severity = highestRisk(risks);
+export function WorkSynopsis({ work }: { work: WorkDetail }) {
+  const terms = [...work.tones, ...work.tags].filter((term) => term.labelAr.trim());
+  if (!work.summary.trim() && terms.length === 0) return null;
   return (
-    <Card className={cn("border", riskClasses(severity))}>
-      <CardHeader>
-        <CardTitle>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <RiskBadge risk={severity} />
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <section className="flex min-w-0 flex-col gap-6" aria-label="نبذة العمل">
+      {work.summary.trim() && (
         <p
-          className="text-base leading-loose whitespace-pre-line wrap-anywhere md:text-lg"
+          className="text-lg leading-loose whitespace-pre-line wrap-anywhere lg:text-xl"
           dir="auto"
         >
-          {text}
+          {work.summary}
         </p>
+      )}
+      <SynopsisTags terms={terms} />
+    </section>
+  );
+}
+
+function SynopsisTags({ terms, compact }: { terms: WorkDetail["tags"]; compact?: boolean }) {
+  if (!terms.length) return null;
+  return (
+    <div className={cn("flex flex-wrap", compact ? "gap-2" : "gap-3")} aria-label="الطابع والوسوم">
+      {terms.map((term) => (
+        <Badge
+          key={term.id}
+          variant="secondary"
+          className={cn(
+            "h-auto max-w-full whitespace-normal wrap-anywhere",
+            compact ? "px-3 py-1 text-sm" : "px-4 py-2 text-base",
+          )}
+        >
+          {term.labelAr}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+export function FilmOverview({ work, film }: { work: WorkDetail; film: Installment }) {
+  const navigation = useCardNavigation();
+  const poster = pickArtwork(film.artwork, "poster") ?? work.poster;
+  const synopsis = work.summary.trim() || film.summary.trim();
+  const terms = [...work.tones, ...work.tags].filter((term) => term.labelAr.trim());
+  const languages = (film.languages?.length ? film.languages : (work.languages ?? [])).filter(
+    (language) => language.trim(),
+  );
+  const directors = new Map(
+    work.contributions
+      .filter(
+        (credit) => credit.kind === "person" && credit.role === "director" && credit.name.trim(),
+      )
+      .map((credit) => [credit.id, credit.name]),
+  );
+
+  return (
+    <Card
+      role="region"
+      aria-label="عن الفيلم"
+      className={cn(
+        "grid min-w-0 content-start gap-x-0 gap-y-4 bg-card/60",
+        poster && "sm:grid-cols-[auto_minmax(0,1fr)]",
+      )}
+    >
+      {poster && (
+        <div className="row-span-2 ms-6 hidden w-28 self-start sm:block lg:w-36" aria-hidden>
+          <Artwork
+            id={poster.id}
+            alt=""
+            width={320}
+            className="aspect-2/3 w-full rounded-xl object-cover"
+          />
+        </div>
+      )}
+      <CardHeader>
+        <CardTitle>
+          <h2 className="text-xl font-semibold sm:text-2xl">عن الفيلم</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex min-w-0 flex-col gap-4">
+        {synopsis && (
+          <p
+            className="max-w-3xl text-base leading-loose whitespace-pre-line wrap-anywhere sm:text-lg"
+            dir="auto"
+          >
+            {synopsis}
+          </p>
+        )}
+        <SynopsisTags terms={terms} compact />
+        {(synopsis || terms.length > 0) && <Separator />}
+        <dl className="flex min-w-0 flex-wrap gap-x-7 gap-y-3 text-base">
+          {film.releaseDate && (
+            <div className="min-w-0">
+              <dt className="text-sm text-muted-foreground">تاريخ الإصدار</dt>
+              <dd className="mt-1">
+                <time dateTime={film.releaseDate}>
+                  <bdi>{dateLabel(film.releaseDate, "long")}</bdi>
+                </time>
+              </dd>
+            </div>
+          )}
+          <div className="min-w-0">
+            <dt className="text-sm text-muted-foreground">نوع الفيلم</dt>
+            <dd className="mt-1">{work.format === "animated" ? "رسوم متحركة" : "تمثيل حي"}</dd>
+          </div>
+          {languages.length > 0 && (
+            <div className="min-w-0">
+              <dt className="text-sm text-muted-foreground">اللغات</dt>
+              <dd className="mt-1">
+                <LanguageBadges languages={languages} />
+              </dd>
+            </div>
+          )}
+          {directors.size > 0 && (
+            <div className="min-w-0">
+              <dt className="text-sm text-muted-foreground">الإخراج</dt>
+              <dd className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {[...directors].map(([id, name]) => (
+                  <a
+                    {...navigation}
+                    key={id}
+                    href={entityLink("contributors", id)}
+                    className="rounded-sm wrap-anywhere underline decoration-border underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
+                    dir="auto"
+                  >
+                    {name}
+                  </a>
+                ))}
+              </dd>
+            </div>
+          )}
+        </dl>
       </CardContent>
     </Card>
   );
 }
 
-export function OverviewPanel({ work, tracking }: { work: WorkDetail; tracking: WorkTracking }) {
-  const terms = [...work.genres, ...work.tones, ...work.tags].filter((term) => term.labelAr.trim());
+export function OverviewPanel({ work }: { work: WorkDetail }) {
+  if (!work.dubbingNotes?.trim() && !work.relations.length) return null;
   return (
     <div className="flex min-w-0 flex-col gap-8 md:gap-12">
-      {(work.summary.trim() || terms.length > 0) && (
-        <section className="flex min-w-0 flex-col gap-6" aria-label="نبذة العمل">
-          {work.summary.trim() && (
-            <p
-              className="text-lg leading-loose whitespace-pre-line wrap-anywhere lg:text-xl"
-              dir="auto"
-            >
-              {work.summary}
-            </p>
-          )}
-          {terms.length > 0 && (
-            <div className="flex flex-wrap gap-3" aria-label="الأنواع والطابع والوسوم">
-              {terms.map((term) => (
-                <Badge
-                  key={term.id}
-                  variant="secondary"
-                  className="h-auto max-w-full px-4 py-2 text-base whitespace-normal wrap-anywhere"
-                >
-                  {term.labelAr}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
       {work.dubbingNotes?.trim() && (
         <Disclosure title="ملاحظات الدبلجة">
           <p className="text-base leading-loose whitespace-pre-line wrap-anywhere" dir="auto">
@@ -83,98 +162,11 @@ export function OverviewPanel({ work, tracking }: { work: WorkDetail; tracking: 
           </p>
         </Disclosure>
       )}
-      {(work.contentWarnings?.trim() || work.analysisNotes?.trim()) && (
-        <div className="grid gap-6 xl:grid-cols-2">
-          {work.contentWarnings?.trim() && (
-            <RiskNote
-              title="تنبيه المحتوى"
-              text={work.contentWarnings}
-              risks={[work.sexualityRisk, work.behavioralRisk]}
-            />
-          )}
-          {work.analysisNotes?.trim() && (
-            <RiskNote
-              title="ملاحظات التحليل"
-              text={work.analysisNotes}
-              risks={[work.theologyRisk]}
-            />
-          )}
-        </div>
-      )}
-      {work.trivia.length > 0 && (
-        <Section title="حقائق ومعلومات">
-          <div className="grid gap-5 xl:grid-cols-2">
-            {work.trivia.map((fact) => (
-              <Card key={fact}>
-                <CardHeader>
-                  <CardTitle>
-                    <Lightbulb aria-label="معلومة" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-base leading-loose md:text-lg">{fact}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </Section>
-      )}
-      {work.installments.length > 0 && (
-        <Section title="الأجزاء والمواسم">
-          <InstallmentTiles work={work} tracking={tracking} />
-        </Section>
-      )}
       {work.relations.length > 0 && (
         <Section title="الأعمال المرتبطة">
           <RelatedWorks work={work} />
         </Section>
       )}
-    </div>
-  );
-}
-
-export function InstallmentTiles({ work, tracking }: { work: WorkDetail; tracking: WorkTracking }) {
-  return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
-      {work.installments.map((unit) => {
-        const rating = installmentRating(unit.scores ?? {});
-        return (
-          <MediaCard
-            key={unit.id}
-            withinWork
-            entry={{
-              work,
-              installment: {
-                id: unit.id,
-                workId: work.id,
-                workTitle: work.canonicalTitle,
-                workTitleAr: work.titleAr,
-                title: unit.title,
-                kind: unit.kind,
-                releaseDate: unit.releaseDate,
-                runtimeMinutes: unit.runtimeMinutes,
-                languages: unit.languages,
-                episodeCount: unit.episodes.length,
-                poster: pickArtwork(unit.artwork, "poster") ?? work.poster,
-                score: { rating, scored: rating === null ? 0 : 1, total: 1 },
-              },
-              classification: unit.classification,
-              status: unit.status,
-              watchState:
-                tracking.state.data?.installments.find((item) => item.installmentId === unit.id)
-                  ?.summary.watchState ?? "unknown",
-              criteria: {
-                story: unit.scores?.story ?? null,
-                characters: unit.scores?.characters ?? null,
-                depth: unit.scores?.depth ?? null,
-                worldBuilding: unit.scores?.worldBuilding ?? null,
-                originality: unit.scores?.originality ?? null,
-                craft: unit.scores?.craft ?? null,
-              },
-            }}
-          />
-        );
-      })}
     </div>
   );
 }

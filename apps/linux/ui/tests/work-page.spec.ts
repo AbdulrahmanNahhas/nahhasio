@@ -21,7 +21,7 @@ import type {
   ServerMediaFile,
   DeviceMediaBatchResult,
 } from "@nahhasio/api-contract";
-import { expect, test } from "@playwright/test";
+import { expect, test as baseTest } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import type { z } from "zod";
 
@@ -29,6 +29,16 @@ import type { PlayerSnapshot } from "../src/features/player/bridge";
 import type { librarySchema } from "../src/features/player/download-data";
 import { offlineStatusSchema } from "../src/features/player/saved-works-data";
 import type { EmbedStatus, ProviderListing } from "../src/features/player/stream-providers";
+
+const test = baseTest.extend<{
+  adminProfile: boolean;
+  longSeason: boolean;
+  legacyDiscussion: boolean;
+}>({
+  adminProfile: [true, { option: true }],
+  longSeason: [false, { option: true }],
+  legacyDiscussion: [false, { option: true }],
+});
 
 const inactivePlayer: PlayerSnapshot = {
   active: false,
@@ -360,6 +370,8 @@ type BridgeRequest = {
     isPlayed?: boolean;
     isFavorite?: boolean;
     page?: number;
+    includeOwnReview?: boolean;
+    operation?: string;
     title?: string;
     sessionId?: string;
     data?: CommentMutation;
@@ -386,11 +398,23 @@ declare global {
   }
 }
 
-async function installBridge(page: Page, testWork: WorkDetail = work) {
+async function installBridge(
+  page: Page,
+  testWork: WorkDetail = work,
+  isAdmin = true,
+  legacyDiscussion = false,
+) {
   // Fail closed: these journeys must never fall through to a real catalog API.
   await page.route("**/api/**", (route) => route.abort());
   await page.addInitScript(
-    ({ fixtureWork, fixtureState, fixtureActivity, fixturePlayer }) => {
+    ({
+      fixtureWork,
+      fixtureState,
+      fixtureActivity,
+      fixturePlayer,
+      fixtureAdmin,
+      legacyDiscussion: fixtureLegacyDiscussion,
+    }) => {
       let playback = fixturePlayer;
       let playbackGeneration = 0;
 
@@ -448,6 +472,18 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   | WorkViewerState
                   | WorkActivityPage
                   | RecommendationPage
+                  | { result: [] }
+                  | {
+                      result: {
+                        revision: string;
+                        document: {
+                          id: string;
+                          canonicalTitle: string;
+                          titleAr: string | null;
+                          summary: string;
+                        };
+                      }[];
+                    }
                   | ServerMediaFile[]
                   | DeviceMediaBatchResult
                   | z.infer<typeof offlineStatusSchema>,
@@ -459,12 +495,12 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                     result: JSON.parse(JSON.stringify(result)),
                   }),
                 );
-              const failure = (errorMessage: string) =>
+              const failure = (errorMessage: string, code = "fixture_failure") =>
                 queueMicrotask(() =>
                   window["__nahhasioReply"]?.({
                     id: request.id,
                     ok: false,
-                    error: { code: "fixture_failure", message: errorMessage },
+                    error: { code, message: errorMessage },
                   }),
                 );
               switch (request.command) {
@@ -616,10 +652,10 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   if (data.action === "create")
                     fixtureActivity.unshift({
                       id: commentId,
-                      kind: "comment",
+                      kind: data.kind ?? "comment",
                       body: data.body ?? "",
                       containsSpoilers: data.containsSpoilers ?? false,
-                      rating: null,
+                      rating: data.rating ?? null,
                       parentId: data.parentId ?? null,
                       author: {
                         id: "00000000-0000-4000-8000-000000000001",
@@ -634,6 +670,7 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                     if (item) {
                       item.body = data.body ?? "";
                       item.containsSpoilers = data.containsSpoilers ?? false;
+                      if (item.kind === "review") item.rating = data.rating ?? null;
                     }
                   }
                   if (data.action === "delete") {
@@ -649,17 +686,41 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                       id: "fixture-owner",
                       name: "العائلة",
                       email: "fixture@example.test",
-                      role: "owner",
+                      role: fixtureAdmin ? "owner" : "member",
                       accountId: "00000000-0000-4000-8000-000000000001",
-                      kind: "admin",
+                      kind: fixtureAdmin ? "admin" : "family",
                       avatarKey: "nahhasio-library.svg",
                       bio: "",
-                      isAdmin: true,
+                      isAdmin: fixtureAdmin,
                       updatedAt: "2026-10-12T00:00:00.000000Z",
                     },
                     expiresAt: "2099-10-09T00:00:00Z",
                   });
                   return;
+                case "editorCall": {
+                  if (fixtureAdmin && request.payload.operation === "vocabulary") {
+                    success({ result: [] });
+                    return;
+                  }
+                  if (!fixtureAdmin || request.payload.operation !== "read") {
+                    failure("Unexpected editor operation");
+                    return;
+                  }
+                  success({
+                    result: [
+                      {
+                        revision: "f".repeat(64),
+                        document: {
+                          id: fixtureWork.id,
+                          canonicalTitle: fixtureWork.canonicalTitle,
+                          titleAr: fixtureWork.titleAr,
+                          summary: fixtureWork.summary,
+                        },
+                      },
+                    ],
+                  });
+                  return;
+                }
                 case "offline.status":
                   success({
                     scope: null,
@@ -756,6 +817,10 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                   success(fixture.state);
                   return;
                 case "workActivity": {
+                  if (fixtureLegacyDiscussion && request.payload.includeOwnReview) {
+                    failure("Invalid discussion query", "bad_request");
+                    return;
+                  }
                   const pageNumber = request.payload.page ?? 1;
                   success({
                     workId: fixtureWork.id,
@@ -763,6 +828,14 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
                     total: fixtureActivity.length,
                     page: pageNumber,
                     pageSize: 20,
+                    ...(request.payload.includeOwnReview && {
+                      ownReview:
+                        fixtureActivity.find(
+                          (item) =>
+                            item.kind === "review" &&
+                            item.author.id === "00000000-0000-4000-8000-000000000001",
+                        ) ?? null,
+                    }),
                   });
                   return;
                 }
@@ -779,16 +852,18 @@ async function installBridge(page: Page, testWork: WorkDetail = work) {
       fixtureState: initialState,
       fixtureActivity: activity,
       fixturePlayer: inactivePlayer,
+      fixtureAdmin: isAdmin,
+      legacyDiscussion,
     },
   );
 }
 async function openWork(page: Page, query = "") {
   await page.goto(`/#/titles/${workId}${query}`);
   await expect(page.getByRole("heading", { name: workTitle, level: 1, exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "إضافة إلى المفضلة" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "المزيد من إجراءات العمل" })).toBeVisible();
 }
 async function openEpisodes(page: Page) {
-  await page.getByRole("tab", { name: "الأجزاء", exact: true }).click();
+  await page.getByRole("heading", { name: "الحلقات", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("article", { name: "الحلقة 1", exact: true })).toBeVisible();
 }
 const episodeCard = (page: Page, number: number) =>
@@ -822,7 +897,7 @@ async function expectFocusInside(dialog: Locator) {
     .toBe(true);
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, adminProfile, longSeason, legacyDiscussion }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   WorkDetailSchema.parse(work);
   WorkViewerStateSchema.parse(initialState);
@@ -833,48 +908,98 @@ test.beforeEach(async ({ page }) => {
     page: 1,
     pageSize: 20,
   });
-  await installBridge(page);
+  const fixture = longSeason
+    ? {
+        ...work,
+        installments: work.installments.map((part) =>
+          part.id === seasonId
+            ? { ...part, episodes: [...part.episodes, episode(12), episode(13)] }
+            : part,
+        ),
+      }
+    : work;
+  await installBridge(page, fixture, adminProfile, legacyDiscussion);
+});
+
+test("administrator opens the existing editor on the Work route and keeps a draft when exit is cancelled", async ({
+  page,
+}) => {
+  await openWork(page);
+  await page.getByRole("button", { name: "تحرير العمل", exact: true }).click();
+  await expect(page).toHaveURL(/edit=1/);
+  const title = page.getByRole("textbox", { name: "العنوان العربي" });
+  await expect(title).toHaveValue(workTitle);
+  await title.fill("مسودة محلية");
+  await page.getByRole("tab", { name: "الجوائز", exact: true }).click();
+  await expect(page).toHaveURL(/edit=1&section=awards/);
+  await page.getByRole("tab", { name: "نظرة عامة", exact: true }).click();
+  await expect(title).toHaveValue("مسودة محلية");
+  await page.getByRole("button", { name: "العودة إلى عرض العمل" }).click();
+  const leave = page.getByRole("alertdialog", { name: "تغييرات غير محفوظة" });
+  await expect(leave).toBeVisible();
+  await leave.getByRole("button", { name: "العودة للمحرر" }).click();
+  await expect(title).toHaveValue("مسودة محلية");
+  await page.getByRole("button", { name: "العودة إلى عرض العمل" }).click();
+  await leave.getByRole("button", { name: "تجاهل ومغادرة" }).click();
+  await expect(page.getByRole("button", { name: "تحرير العمل" })).toBeVisible();
+  expect(await requests(page, "editorCall")).toContainEqual({
+    operation: "read",
+    data: { ids: [workId] },
+  });
+});
+
+test.describe("family viewer", () => {
+  test.use({ adminProfile: false });
+  test("a viewer cannot open edit mode with a Work page URL", async ({ page }) => {
+    await openWork(page, "?edit=1");
+    await expect(page.getByRole("button", { name: "تحرير العمل", exact: true })).toHaveCount(0);
+    expect(await requests(page, "editorCall")).toEqual([]);
+  });
 });
 
 test("favorite uses returned server state, blocks pending duplicates, and recovers from failure", async ({
   page,
 }) => {
   await openWork(page);
-  const add = page.getByRole("button", { name: "إضافة إلى المفضلة" });
+  await page.getByRole("button", { name: "المزيد من إجراءات العمل" }).click();
+  const favorite = page.getByRole("menuitemcheckbox", { name: /^(إضافة إلى|إزالة من) المفضلة$/ });
+  await expect(favorite).toHaveAccessibleName("إضافة إلى المفضلة");
+  await expect(favorite).toBeEnabled();
   await page.evaluate(() => {
     const fixture = window.workPageFixture;
     fixture.favoriteOutcome = "retain";
     fixture.holdFavorite = true;
   });
-  await add.click();
-  await expect(add).toBeDisabled();
-  await expect(add).toHaveAttribute("aria-pressed", "false");
+  await favorite.click();
+  await expect(favorite).toBeDisabled();
+  await expect(favorite).toHaveAttribute("aria-checked", "false");
   await expect(page.getByRole("button", { name: "تحديد العمل كمُشاهَد" })).toBeDisabled();
   expect(await requests(page, "setFavorite")).toEqual([{ workId, isFavorite: true }]);
   await page.evaluate(() => window.workPageFixture.releaseFavorite());
-  await expect(add).toBeEnabled();
-  await expect(add).toHaveAttribute("aria-pressed", "false");
+  await expect(favorite).toBeEnabled();
+  await expect(favorite).toHaveAttribute("aria-checked", "false");
   await page.evaluate(() => {
     const fixture = window.workPageFixture;
     fixture.favoriteOutcome = "accept";
     fixture.holdFavorite = false;
   });
-  await add.click();
-  const remove = page.getByRole("button", { name: "إزالة من المفضلة" });
-  await expect(remove).toHaveAttribute("aria-pressed", "true");
+  await favorite.click();
+  await expect(favorite).toHaveAttribute("aria-checked", "true");
+  await expect(favorite).toHaveAccessibleName("إزالة من المفضلة");
+  await expect(favorite.locator("svg")).toHaveClass(/fill-current/);
   await page.evaluate(() => {
     window.workPageFixture.favoriteOutcome = "fail";
   });
-  await remove.click();
+  await favorite.click();
   await expect(page.getByRole("alert")).toContainText("تعذّر حفظ المفضلة في الخادم التجريبي");
-  await expect(remove).toBeEnabled();
-  await expect(remove).toHaveAttribute("aria-pressed", "true");
+  await expect(favorite).toBeEnabled();
+  await expect(favorite).toHaveAttribute("aria-checked", "true");
   expect((await currentState(page)).isFavorite).toBe(true);
   await page.evaluate(() => {
     window.workPageFixture.favoriteOutcome = "accept";
   });
-  await remove.click();
-  await expect(add).toHaveAttribute("aria-pressed", "false");
+  await favorite.click();
+  await expect(favorite).toHaveAttribute("aria-checked", "false");
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(await requests(page, "setFavorite")).toEqual([
     { workId, isFavorite: true },
@@ -916,7 +1041,9 @@ test("episode watched mutation has exact scope, preserves progress and handles f
     playedManually: true,
   });
   await expect(
-    page.getByRole("tabpanel").getByText("1 من 7 تمّت مشاهدته", { exact: true }),
+    page
+      .getByRole("region", { name: "الأجزاء والإصدارات" })
+      .getByText("شوهد 1 من 7 حلقة", { exact: true }),
   ).toBeVisible();
   expect(after.summary.watchedReleasedUnits).toBe(1);
   await page.evaluate(() => {
@@ -1056,8 +1183,10 @@ test("released dates and completed film are not watched state or playable availa
   await expect(episodeCard(page, 8).getByText("قادم", { exact: true })).toBeVisible();
   await expect(episodeCard(page, 1).getByRole("button", { name: "تشغيل الحلقة 1" })).toBeEnabled();
   await page.getByRole("button", { name: "الموسم الأول", exact: true }).click();
-  await page.getByRole("button", { name: /^فيلم المكتبة/ }).click();
-  await expect(page.getByRole("tabpanel").getByText("مكتمل", { exact: true })).toBeVisible();
+  await page.getByRole("menuitemradio", { name: /^فيلم المكتبة/ }).click();
+  await expect(
+    page.getByRole("region", { name: "الأجزاء والإصدارات" }).getByText("مكتمل", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "تحديد فيلم المكتبة كمُشاهَد" })).toHaveAttribute(
     "aria-pressed",
     "false",
@@ -1070,35 +1199,29 @@ test("season selection lives in the URL, survives reload, and keeps all episodes
   page,
 }) => {
   await openWork(page, `?installment=${futureSeasonId}`);
-  await expect(page.getByRole("tab", { name: "الأجزاء", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(page.getByRole("region", { name: "الأجزاء والإصدارات" })).toBeVisible();
   await expect(episodeCard(page, 10)).toBeVisible();
   await expect(episodeCard(page, 1)).toHaveCount(0);
   await page.getByRole("button", { name: "الموسم القادم", exact: true }).click();
-  await page.getByRole("button", { name: /^الموسم الأول 9 حلقة$/ }).click();
-  await expect(page).toHaveURL(new RegExp(`installment=${seasonId}&tab=installments$`));
+  await page.getByRole("menuitemradio", { name: /^الموسم الأول 9 حلقة$/ }).click();
+  await expect(page).toHaveURL(new RegExp(`installment=${seasonId}$`));
   await expect(page.getByRole("textbox", { name: "ابحث في الحلقات" })).toHaveCount(0);
-  await expect(page.getByRole("tabpanel").getByRole("article")).toHaveCount(9);
+  await expect(
+    page.getByRole("region", { name: "الأجزاء والإصدارات" }).getByRole("article"),
+  ).toHaveCount(9);
   await expect(episodeCard(page, 7)).toBeVisible();
   await page.getByRole("button", { name: "الموسم الأول", exact: true }).click();
-  await page.getByRole("button", { name: /^الموسم القادم 2 حلقة$/ }).click();
-  await expect(page).toHaveURL(new RegExp(`installment=${futureSeasonId}&tab=installments$`));
+  await page.getByRole("menuitemradio", { name: /^الموسم القادم 2 حلقة/ }).click();
+  await expect(page).toHaveURL(new RegExp(`installment=${futureSeasonId}$`));
   await page.reload();
   await expect(episodeCard(page, 10)).toBeVisible();
   await expect(episodeCard(page, 11)).toBeVisible();
   await page.getByRole("button", { name: "الموسم القادم", exact: true }).click();
-  await page.getByRole("button", { name: /^الموسم الأول 9 حلقة$/ }).click();
+  await page.getByRole("menuitemradio", { name: /^الموسم الأول 9 حلقة$/ }).click();
   await expect(page.getByRole("textbox", { name: "ابحث في الحلقات" })).toHaveCount(0);
-  await expect(page.getByRole("tabpanel").getByRole("article")).toHaveCount(9);
-  await page.getByRole("tab", { name: "الملف", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`#/titles/${workId}$`));
-  const tile = page.getByRole("link", { name: "تفاصيل الموسم القادم", exact: true });
-  await tile.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`installment=${futureSeasonId}$`));
-  await expect(episodeCard(page, 10)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "الأجزاء والإصدارات" }).getByRole("article"),
+  ).toHaveCount(9);
 });
 
 for (const [width, columns] of [
@@ -1114,22 +1237,7 @@ for (const [width, columns] of [
     await page.setViewportSize({ width, height: 1000 });
     await openWork(page);
     await expectNoOverflow(page);
-    const tablist = page.getByRole("tablist", { name: "أقسام العمل" });
-    const tabMetrics = await tablist.evaluate((element) => ({
-      width: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-      height: element.clientHeight,
-      scrollHeight: element.scrollHeight,
-    }));
-    expect(tabMetrics.scrollWidth).toBeLessThanOrEqual(tabMetrics.width + 1);
-    expect(tabMetrics.scrollHeight).toBeLessThanOrEqual(tabMetrics.height + 1);
-    await expect(tablist.getByRole("tab")).toHaveCount(5);
-    if (width <= 480) {
-      const rows = await tablist
-        .getByRole("tab")
-        .evaluateAll((tabs) => tabs.map((tab) => Math.round(tab.getBoundingClientRect().top)));
-      expect(new Set(rows).size).toBeGreaterThan(1);
-    }
+    await expect(page.getByRole("tablist", { name: "أقسام العمل" })).toHaveCount(0);
     await openEpisodes(page);
     const grid = page.locator('[aria-label="حلقات الجزء"]');
     await expect(grid.getByRole("article")).toHaveCount(9);
@@ -1145,12 +1253,36 @@ for (const [width, columns] of [
     if (columns > 1) expect(firstRow[0].x).toBeGreaterThan(firstRow[1].x);
     expect(geometry.every((box) => box.width > 100)).toBe(true);
     await expectNoOverflow(page);
-    for (const tab of ["الصنّاع", "التقييم", "البيانات", "الملف"]) {
-      await page.getByRole("tab", { name: tab, exact: true }).click();
-      await expect(page.getByRole("tabpanel")).toBeVisible();
+    for (const [button, title, drawerSlot] of [
+      ["تفاصيل العمل", "تفاصيل العمل", "drawer-content"],
+      ["تفاصيل تقييم نحّاسيو", "تقييم نحّاسيو", "drawer-popup"],
+    ]) {
+      const trigger = page.getByRole("button", { name: button, exact: true });
+      await trigger.click();
+      const overlay = page.getByRole("dialog", { name: title, exact: true });
+      await expect(overlay).toBeVisible();
+      await expect(overlay).toHaveAttribute(
+        "data-slot",
+        width < 768 ? drawerSlot : "dialog-content",
+      );
+      if (title === "تفاصيل العمل") {
+        await expect(overlay.getByRole("button", { name: "إغلاق تفاصيل العمل" })).toHaveCount(
+          width < 768 ? 0 : 1,
+        );
+      } else if (width < 768) {
+        await expect(overlay.getByRole("img", { name: /^بصمة المعايير الستة/ })).toHaveCount(0);
+      }
+      const box = await overlay.boundingBox();
+      expect(box && box.x >= 0 && box.x + box.width <= width + 1).toBeTruthy();
       await expectNoOverflow(page);
+      if (title === "تفاصيل العمل" && width >= 768) {
+        await overlay.getByRole("button", { name: "إغلاق تفاصيل العمل" }).click();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+      await expect(overlay).toHaveCount(0);
+      await expect(trigger).toBeFocused();
     }
-    await page.getByRole("tab", { name: "الأجزاء", exact: true }).click();
     await episodeCard(page, 2).getByRole("button", { name: "تفاصيل الحلقة 2" }).click();
     const dialog = page.getByRole("dialog", { name: "2 · رحلة الحلقة 2" });
     await expect(dialog).toBeVisible();
@@ -1168,7 +1300,7 @@ test("Arabic badges, meaningful populated headings and no headings for absent me
   page,
 }) => {
   await openWork(page);
-  const profile = page.getByRole("tabpanel");
+  const profile = page.locator("#work-sections");
   await expect(profile.getByRole("heading", { name: "الحكاية", exact: true })).toHaveCount(0);
   const overviewSummary = profile.getByText(summary, { exact: true });
   await expect(overviewSummary).toBeVisible();
@@ -1176,42 +1308,49 @@ test("Arabic badges, meaningful populated headings and no headings for absent me
     await overviewSummary.evaluate((element) => element.closest('[data-slot="card"]') === null),
   ).toBe(true);
   await expect(page.getByRole("tab", { name: "العائلة", exact: true })).toHaveCount(0);
-  await expect(profile.getByRole("heading", { name: "حقائق ومعلومات", exact: true })).toBeVisible();
-  await expect(profile.getByRole("heading", { name: "تنبيه المحتوى", exact: true })).toBeVisible();
+  await expect(profile.getByRole("heading", { name: "حقائق ومعلومات", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(profile.getByRole("heading", { name: "تنبيه المحتوى", exact: true })).toHaveCount(0);
   await expect(profile.getByRole("heading", { name: "الأعمال المرتبطة", exact: true })).toHaveCount(
     0,
   );
-  const badges = profile.locator('[aria-label="الأنواع والطابع والوسوم"]');
-  await expect(badges).toHaveText("مغامرةمتفائل");
+  const genres = page.getByRole("list", { name: "الأنواع الفنية" });
+  await expect(genres).toHaveText("مغامرة");
+  await expect(genres.locator("svg")).toHaveCount(1);
+  const genreLink = await genres
+    .getByRole("link", { name: "مغامرة", exact: true })
+    .getAttribute("href");
+  expect(genreLink).toMatch(/^#\/browse\?/);
+  const genreFilters = new URLSearchParams(genreLink?.split("?")[1]).get("filters");
+  expect(JSON.parse(genreFilters ?? "{}").facets).toEqual([
+    { key: "genres", include: ["adventure"], exclude: [] },
+  ]);
+  const badges = profile.locator('[aria-label="الطابع والوسوم"]');
+  await expect(badges).toHaveText("متفائل");
   const badgeSizes = await badges.locator('[data-slot="badge"]').evaluateAll((items) =>
     items.map((item) => ({
       fontSize: Number.parseFloat(getComputedStyle(item).fontSize),
       height: item.getBoundingClientRect().height,
     })),
   );
-  expect(badgeSizes).toHaveLength(2);
+  expect(badgeSizes).toHaveLength(1);
   for (const size of badgeSizes) {
     expect(size.fontSize).toBeGreaterThanOrEqual(14);
     expect(size.height).toBeGreaterThanOrEqual(28);
   }
   await expect(profile.getByText(/English|untranslated/)).toHaveCount(0);
   await expect(
-    profile
-      .getByRole("link", { name: "تفاصيل فيلم المكتبة", exact: true })
-      .getByText("90 دقيقة", { exact: true }),
+    page.getByRole("heading", { name: "الاستوديوهات والأشخاص", exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "الصنّاع", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "الأشخاص", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "ليلى الكاتبة", exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "الاستوديوهات والجهات", exact: true }),
-  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "أعمال استوديو المكتبة", exact: true }),
   ).toHaveAttribute("href", `#/studios/${id(32)}`);
-  await page.getByRole("tab", { name: "البيانات", exact: true }).click();
-  const data = page.getByRole("tabpanel");
-  for (const heading of ["المصادر الخارجية", "الأنواع الفنية", "الطابع"])
+  await page.getByRole("button", { name: "تفاصيل العمل", exact: true }).click();
+  const data = page.getByRole("dialog", { name: "تفاصيل العمل" });
+  await expect(data.getByRole("heading", { name: "لغات العمل", exact: true })).toBeVisible();
+  for (const heading of ["الأنواع الفنية", "الطابع", "حقائق ومعلومات"])
     await expect(data.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   for (const heading of [
     "هوية العمل",
@@ -1223,27 +1362,39 @@ test("Arabic badges, meaningful populated headings and no headings for absent me
     "الصور المحفوظة",
   ])
     await expect(data.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
+  for (const [group, label, key, value] of [
+    ["الطابع", "متفائل", "tones", "optimistic"],
+    ["لغات العمل", "العربية", "languages", "ar"],
+    ["لغات الدبلجة", "الإنجليزية", "dubLanguages", "en"],
+  ]) {
+    const href = await data
+      .getByRole("list", { name: group, exact: true })
+      .getByRole("link", { name: label, exact: true })
+      .getAttribute("href");
+    expect(href).toMatch(/^#\/browse\?/);
+    const filters = new URLSearchParams(href?.split("?")[1]).get("filters");
+    expect(JSON.parse(filters ?? "{}").facets).toEqual([{ key, include: [value], exclude: [] }]);
+  }
   await expect(data.getByText(/English|untranslated/)).toHaveCount(0);
 });
 
-test("overview shows the full summary while hero keeps four lines without expansion controls", async ({
-  page,
-}) => {
+test("full synopsis appears once above the episodes", async ({ page }) => {
   await openWork(page);
-  const paragraph = page.getByRole("tabpanel").getByText(summary, { exact: true });
+  const paragraph = page
+    .getByRole("region", { name: "نبذة العمل" })
+    .getByText(summary, { exact: true });
   await expect(paragraph).toHaveText(summary);
   expect(await paragraph.evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe(
     "none",
   );
   const hero = page.getByRole("article", { name: "صفحة العمل" }).locator("header").first();
-  expect(
-    await hero
-      .getByText(summary, { exact: true })
-      .evaluate((element) => getComputedStyle(element).webkitLineClamp),
-  ).toBe("4");
+  await expect(hero.getByText(summary, { exact: true })).toHaveCount(0);
+  const episodes = page.getByRole("region", { name: "الأجزاء والإصدارات" });
+  const synopsisBounds = await paragraph.boundingBox();
+  const episodesBounds = await episodes.boundingBox();
+  expect(synopsisBounds && episodesBounds && synopsisBounds.y < episodesBounds.y).toBeTruthy();
   await expect(page.getByRole("button", { name: "قراءة المزيد" })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("tabpanel").locator('[data-kind="installment"]')).toHaveCount(3);
 });
 
 test("episode keyboard navigation follows physical RTL directions and details restore focus", async ({
@@ -1318,11 +1469,11 @@ test("episode details remain deep links while artwork starts the selected episod
   const link = card.getByRole("button", { name: "تفاصيل الحلقة 2", exact: true });
   await expect(link.locator("button, a, input")).toHaveCount(0);
   await expect(card.getByRole("button", { name: "تشغيل الحلقة 2" })).toBeEnabled();
-  await expect(card.getByRole("button", { name: "تنزيل الحلقة 2" })).toBeEnabled();
   await link.focus();
   await link.press("Enter");
   const dialog = page.getByRole("dialog", { name: "2 · رحلة الحلقة 2" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "تنزيل الحلقة 2" })).toBeEnabled();
   await expect(page).toHaveURL(new RegExp(`episode=${id(102)}$`));
   await expect(dialog.getByRole("heading", { name: "2 · رحلة الحلقة 2" })).toBeFocused();
   expect(await dialog.evaluate((element) => element.scrollTop)).toBe(0);
@@ -1351,35 +1502,32 @@ test("episode details remain deep links while artwork starts the selected episod
   expect(await requests(page, "setWatched")).toEqual([]);
 });
 
-test("work activity loads on demand, hides spoilers, renders plain text and paginates without duplicates", async ({
-  page,
-}) => {
+test("work discussion conceals spoilers, paginates and accepts comments", async ({ page }) => {
   await openWork(page, `?installment=${seasonId}`);
-  expect(await requests(page, "workActivity")).toEqual([]);
-  await page.getByRole("tab", { name: "الملف", exact: true }).click();
-  const discussion = page.getByRole("region", { name: "آراء العائلة ونقاشها", exact: true });
+  const discussion = page.getByRole("region", { name: "نقاش العائلة", exact: true });
   await expect(discussion).toBeVisible();
   await expect(discussion.getByText(activity[0].body, { exact: true })).toHaveCount(0);
   await expect(discussion.getByText("فرد العائلة 0", { exact: true })).toBeVisible();
-  await expect(discussion.getByText("4 / 5", { exact: true })).toBeVisible();
+  await expect(discussion.getByRole("img", { name: "تقييم 4 من 5", exact: true })).toBeVisible();
   await expect(discussion.getByText("تعليق العائلة 19", { exact: true })).toBeVisible();
   await expect(discussion.getByText("تعليق العائلة 20", { exact: true })).toHaveCount(0);
   // Dev StrictMode may cancel the mount request and send one replacement; neither may preload page 2.
   const firstPageRequests = await requests(page, "workActivity");
   expect(firstPageRequests.length).toBeGreaterThanOrEqual(1);
   expect(firstPageRequests.length).toBeLessThanOrEqual(2);
-  for (const request of firstPageRequests) expect(request).toEqual({ id: workId, page: 1 });
-  const reveal = discussion.getByRole("button", { name: "إظهار محتوى يحوي حرقًا للأحداث" });
+  for (const request of firstPageRequests)
+    expect(request).toEqual({ id: workId, page: 1, includeOwnReview: true });
+  const reveal = discussion.getByRole("button", { name: "إظهار تعليق يحوي حرقًا" });
   await reveal.focus();
   await page.keyboard.press("Enter");
   await expect(discussion.getByText(activity[0].body, { exact: true })).toBeVisible();
   await expect(discussion.locator("script")).toHaveCount(0);
   expect(await page.evaluate(() => "spoilerExecuted" in window)).toBe(false);
-  const more = discussion.getByRole("button", { name: "عرض المزيد", exact: true });
+  const more = discussion.getByRole("button", { name: "تعليقات أقدم", exact: true });
   await more.focus();
   await page.keyboard.press("Enter");
   await expect(discussion.getByText("تعليق العائلة 20", { exact: true })).toBeVisible();
-  await expect(discussion.getByText("ردّ", { exact: true })).toBeVisible();
+  await expect(discussion.getByText("رد", { exact: true }).first()).toBeVisible();
   await expect(more).toHaveCount(0);
   await expect(discussion.getByText(activity[0].body, { exact: true })).toBeVisible();
   expect(await requests(page, "workActivity")).toEqual([
@@ -1389,54 +1537,77 @@ test("work activity loads on demand, hides spoilers, renders plain text and pagi
   for (let index = 0; index < activity.length; index++)
     await expect(discussion.getByText(`فرد العائلة ${index}`, { exact: true })).toHaveCount(1);
   expect(await requests(page, "setWatched")).toEqual([]);
+  const composer = discussion.getByRole("textbox", { name: "اكتب تعليقًا للعائلة" });
+  await expect(composer).toHaveCount(0);
+  await discussion.getByRole("button", { name: "ما رأيك؟ اكتب تعليقًا أو مراجعة…" }).click();
+  await expect(composer).toBeFocused();
+  await composer.fill("رأيي في مغامرات المكتبة");
+  await discussion.getByRole("button", { name: "إرسال التعليق", exact: true }).click();
+  await expect(discussion.getByText("رأيي في مغامرات المكتبة", { exact: true })).toBeVisible();
+  await expect(composer).toHaveCount(0);
+
+  await discussion.getByRole("button", { name: "ما رأيك؟ اكتب تعليقًا أو مراجعة…" }).click();
+  await composer.fill("مراجعة مغامرات المكتبة");
+  await discussion.getByRole("radio", { name: "5 من 5", exact: true }).click();
+  await discussion.getByRole("button", { name: "طي محرّر النقاش" }).click();
+  await discussion.getByRole("button", { name: "متابعة المسودة" }).click();
+  await expect(discussion.getByRole("radio", { name: "5 من 5", exact: true })).toBeChecked();
+  await discussion.getByRole("button", { name: "نشر المراجعة", exact: true }).click();
+  const review = discussion.getByRole("article").filter({ hasText: "مراجعة مغامرات المكتبة" });
+  await expect(review.getByRole("img", { name: "تقييم 5 من 5", exact: true })).toBeVisible();
+  await discussion.getByRole("button", { name: "تعديل مراجعتك", exact: true }).click();
+  await expect(composer).toHaveValue("مراجعة مغامرات المكتبة");
+  await discussion.getByRole("radio", { name: "3 من 5", exact: true }).click();
+  await discussion.getByRole("button", { name: "حفظ التعديل", exact: true }).click();
+  await expect(review.getByRole("img", { name: "تقييم 3 من 5", exact: true })).toBeVisible();
 });
 
-const riskCard = (page: Page, label: string) =>
-  page
-    .getByRole("tabpanel")
-    .locator('[data-slot="card"]')
-    .filter({ has: page.getByRole("heading", { name: label, exact: true }) });
+test.describe("legacy discussion server", () => {
+  test.use({ legacyDiscussion: true });
 
-test("risk cards separate sexuality and behavior from theology with distinct severity colors", async ({
-  page,
-}) => {
+  test("loads the existing feed when the optional review request is rejected", async ({ page }) => {
+    await openWork(page);
+    const discussion = page.getByRole("region", { name: "نقاش العائلة", exact: true });
+    await expect(discussion.getByText("فرد العائلة 0", { exact: true })).toBeVisible();
+    const activityRequests = await requests(page, "workActivity");
+    expect(activityRequests).toContainEqual({ id: workId, page: 1, includeOwnReview: true });
+    expect(activityRequests).toContainEqual({ id: workId, page: 1 });
+    await discussion.getByRole("button", { name: "ما رأيك؟ اكتب تعليقًا…", exact: true }).click();
+    await expect(discussion.getByRole("textbox", { name: "اكتب تعليقًا للعائلة" })).toBeFocused();
+    await expect(discussion.getByRole("radiogroup", { name: "تقييمك من 5" })).toHaveCount(0);
+  });
+});
+
+test("parental guide keeps severity colors and both editorial notes", async ({ page }) => {
   await openWork(page);
-  const content = riskCard(page, "تنبيه المحتوى");
-  const theology = riskCard(page, "ملاحظات التحليل");
-  await expect(content).toHaveCount(1);
-  await expect(theology).toHaveCount(1);
   const sidebar = page.getByRole("complementary", { name: "لمحة العمل" });
   for (const label of ["المحتوى الجنسي", "العنف والسلوك", "الموضوعات العقدية"]) {
     await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
-    await expect(page.getByRole("tabpanel").getByText(label, { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "الأجزاء والإصدارات" }).getByText(label, { exact: true }),
+    ).toHaveCount(0);
   }
-  const low = sidebar.locator('[data-slot="badge"]').filter({ hasText: /^منخفض$/ });
-  const medium = content.locator('[data-slot="badge"]').filter({ hasText: /^متوسط$/ });
-  const high = theology.locator('[data-slot="badge"]').filter({ hasText: /^مرتفع$/ });
-  const palettes = [];
-  for (const badge of [low, medium, high]) {
-    await expect(badge).toBeVisible();
-    palettes.push(
-      await badge.evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          color: style.color,
-          background: style.backgroundColor,
-          border: style.borderTopColor,
-        };
-      }),
+  const colors = [];
+  for (const label of ["منخفض", "متوسط", "مرتفع"]) {
+    const severity = sidebar.getByText(label, { exact: true });
+    colors.push(await severity.evaluate((element) => getComputedStyle(element).color));
+  }
+  expect(new Set(colors).size).toBe(3);
+  for (const title of ["تنبيه المحتوى", "ملاحظات التحليل"])
+    await expect(page.locator("#work-sections").getByRole("heading", { name: title })).toHaveCount(
+      0,
     );
-  }
-  expect(new Set(palettes.map((palette) => palette.color)).size).toBe(3);
-  expect(new Set(palettes.map((palette) => palette.background)).size).toBe(3);
-  expect(new Set(palettes.map((palette) => palette.border)).size).toBe(3);
+  await sidebar.getByRole("button", { name: "تفاصيل دليل الوالدين" }).click();
+  const guide = page.getByRole("dialog", { name: "دليل الوالدين", exact: true });
+  await expect(guide).toContainText(work.contentWarnings!);
+  await expect(guide).toContainText(work.analysisNotes!);
 });
 
 test("decimal episode labels are normalized everywhere without changing mutation identities", async ({
   page,
 }) => {
   await openWork(page, `?installment=${seasonId}`);
-  const panel = page.getByRole("tabpanel");
+  const panel = page.getByRole("region", { name: "الأجزاء والإصدارات" });
   await expect(panel.getByRole("textbox")).toHaveCount(0);
   await expect(episodeCard(page, 1).getByText("الحلقة 1", { exact: true })).toBeVisible();
   await expect(episodeCard(page, 2).getByText("الحلقة 2", { exact: true })).toBeVisible();
@@ -1468,51 +1639,126 @@ test("decimal episode labels are normalized everywhere without changing mutation
   ]);
 });
 
-test("tab and season changes preserve the main scroll position instead of restoring parameter routes", async ({
+test.describe("long season", () => {
+  test.use({ longSeason: true });
+
+  test("show all opens an episode-only view and can return to the nine-episode preview", async ({
+    page,
+  }) => {
+    await openWork(page, `?installment=${seasonId}`);
+    const episodes = page.getByRole("region", { name: "الأجزاء والإصدارات", exact: true });
+    await expect(episodes.getByRole("article")).toHaveCount(9);
+    await episodes.getByRole("button", { name: /^عرض كل الحلقات/ }).click();
+    await expect(page).toHaveURL(/view=episodes/);
+    await expect(episodes.getByRole("article")).toHaveCount(11);
+    await expect(episodes.getByRole("button", { name: "الموسم الأول", exact: true })).toBeVisible();
+    const filters = episodes.getByRole("group", { name: "حالة مشاهدة الحلقات" });
+    await filters.getByRole("button", { name: "شُوهدت", exact: true }).click();
+    await expect(episodes.getByRole("article")).toHaveCount(0);
+    await expect(episodes.getByText("لا توجد حلقات تطابق هذا الفلتر")).toBeVisible();
+    await filters.getByRole("button", { name: "لم تُشاهَد", exact: true }).click();
+    const first = episodeCard(page, 1);
+    await first.getByRole("button", { name: "تحديد الحلقة 1 كمُشاهَد", exact: true }).click();
+    await expect(first).toHaveCount(0);
+    await filters.getByRole("button", { name: "شُوهدت", exact: true }).click();
+    await expect(episodes.getByRole("article")).toHaveCount(1);
+    await expect(first).toBeVisible();
+    await expect(page.getByRole("region", { name: "أعمال قد تعجبك" })).toHaveCount(0);
+    await page.getByRole("button", { name: "العودة إلى العمل", exact: true }).click();
+    await expect(episodes.getByRole("article")).toHaveCount(9);
+    await expect(page).toHaveURL(new RegExp(`installment=${seasonId}$`));
+  });
+});
+
+test("short mobile work pages keep details scrollable and use drawers for episode actions", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await openWork(page, `?installment=${seasonId}`);
+  await expect(page.getByRole("navigation", { name: "أقسام العمل" })).toHaveCount(0);
+  await page.getByRole("button", { name: "تفاصيل العمل", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "تفاصيل العمل", exact: true });
+  await expect(details).toHaveAttribute("data-slot", "drawer-content");
+  await expect
+    .poll(() =>
+      details.evaluate((element) =>
+        [...element.children].some((child) => {
+          child.scrollTop = child.scrollHeight;
+          return child.scrollTop > 0;
+        }),
+      ),
+    )
+    .toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(details).toHaveCount(0);
+
+  const toolbar = page.getByRole("group", { name: "خيارات الإصدار" });
+  const season = page.getByRole("region", { name: "الموسم الأول", exact: true });
+  const seasonBottom = await season.evaluate((element) => element.getBoundingClientRect().bottom);
+  expect(await toolbar.evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThan(
+    seasonBottom,
+  );
+  await toolbar.getByRole("button", { name: "الموسم الأول", exact: true }).click();
+  const seasons = page.getByRole("dialog", { name: "المواسم والإصدارات" });
+  await expect(seasons).toHaveAttribute("data-slot", "drawer-content");
+  await seasons.getByRole("button", { name: /^الموسم الأول/ }).click();
+  await expect(seasons).toHaveCount(0);
+
+  await toolbar.getByRole("button", { name: "تنزيل حلقات من مكتبة المنزل" }).click();
+  const downloads = page.getByRole("dialog", { name: "تنزيل فيديوهات إلى هذا الجهاز" });
+  await expect(downloads).toHaveAttribute("data-slot", "drawer-content");
+  await downloads.getByRole("button", { name: "إغلاق", exact: true }).click();
+
+  await episodeCard(page, 1).getByRole("button", { name: "تفاصيل الحلقة 1" }).click();
+  const episodeDetails = page.getByRole("dialog", { name: "1 · رحلة الحلقة 1" });
+  await expect(episodeDetails).toHaveAttribute("data-slot", "drawer-content");
+  await expect(episodeDetails.getByRole("button", { name: "تنزيل الحلقة 1" })).toBeEnabled();
+  await expectNoOverflow(page);
+});
+
+test("season changes preserve the main scroll position", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 600 });
   await openWork(page);
-  const tablist = page.getByRole("tablist", { name: "أقسام العمل" });
-  const before = await tablist.evaluate((element) => {
-    const main = document.getElementById("main-content");
-    if (!main) throw new Error("Main viewing scroll container missing");
-    main.scrollTop += element.getBoundingClientRect().top - main.getBoundingClientRect().top - 24;
-    return main.scrollTop;
-  });
-  expect(before).toBeGreaterThan(300);
+  await openEpisodes(page);
   const scrollTop = () => page.locator("#main-content").evaluate((element) => element.scrollTop);
-  for (const tab of ["الأجزاء", "التقييم", "البيانات", "الصنّاع", "الملف", "الأجزاء"]) {
-    await tablist.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(tablist.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await expect.poll(async () => Math.abs((await scrollTop()) - before)).toBeLessThan(2);
-  }
   const selector = page.getByRole("button", { name: "الموسم الأول", exact: true });
   // Align the selector before measuring so Playwright's ordinary click scrolling isn't mistaken for a route reset.
   await selector.scrollIntoViewIfNeeded();
   const beforeSeason = await scrollTop();
   await selector.click();
-  await page.getByRole("button", { name: "الموسم القادم 2 حلقة", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`installment=${futureSeasonId}&tab=installments$`));
+  await page.getByRole("menuitemradio", { name: /^الموسم القادم 2 حلقة/ }).click();
+  await expect(page).toHaveURL(new RegExp(`installment=${futureSeasonId}$`));
   await expect.poll(async () => Math.abs((await scrollTop()) - beforeSeason)).toBeLessThan(2);
   const nextSelector = page.getByRole("button", { name: "الموسم القادم", exact: true });
   await expect(nextSelector).toBeFocused();
   await nextSelector.click();
-  await page.getByRole("button", { name: "الموسم الأول 9 حلقة", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`installment=${seasonId}&tab=installments$`));
+  await page.getByRole("menuitemradio", { name: "الموسم الأول 9 حلقة", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`installment=${seasonId}$`));
   await expect.poll(async () => Math.abs((await scrollTop()) - beforeSeason)).toBeLessThan(2);
 });
 
-test("data keeps safe source links and the shared planet tile sits below the parental guide", async ({
+test("work sources open in the More submenu and the planet tile stays below the parental guide", async ({
   page,
 }) => {
-  await openWork(page, "?tab=data");
-  const panel = page.getByRole("tabpanel");
-  await expect(panel.getByRole("heading").first()).toHaveText("المصادر الخارجية");
-  const sources = panel.getByRole("region", { name: "المصادر الخارجية", exact: true });
+  await page.goto(`/#/titles/${workId}?tab=data`);
+  const panel = page.getByRole("dialog", { name: "تفاصيل العمل" });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole("region", { name: "المصادر الخارجية", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("heading", { name: "الكواكب", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: /الخيال العائلي/ })).toHaveCount(0);
+  for (const heading of ["هوية العمل", "الأسماء البديلة", "الصور المحفوظة"])
+    await expect(panel.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
+  await expect(panel.getByText("اسم بديل لا يعرض هنا", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText(work.canonicalTitle, { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("img")).toHaveCount(0);
+  await expect(panel.getByText("removed-work-art.png", { exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("button", { name: "المزيد من إجراءات العمل", exact: true }).click();
+  const sources = page.getByRole("menuitem", { name: "المصادر الخارجية", exact: true });
+  await sources.press("ArrowLeft");
+  const submenu = page.getByRole("menu", { name: "المصادر الخارجية", exact: true });
+  await expect(submenu).toBeVisible();
   for (const [label, href] of [
     ["IMDb", "https://www.imdb.com/title/tt1234567/"],
     ["TMDB", "https://www.themoviedb.org/tv/1234"],
@@ -1520,74 +1766,60 @@ test("data keeps safe source links and the shared planet tile sits below the par
     ["MyAnimeList", "https://myanimelist.net/anime/3456"],
     ["موقع الحكاية", "https://example.test/library"],
   ]) {
-    const link = sources.getByRole("link", { name: new RegExp(`^${label} زيارة صفحة العمل`) });
-    await expect(link).toHaveCount(1);
-    await expect(link).toHaveAttribute("href", href);
-    await expect(link).toHaveAttribute("target", "_blank");
-    await expect(link).toHaveAttribute("rel", /noopener/);
-    await expect(link).toHaveAttribute("rel", /noreferrer/);
+    const item = submenu.getByRole("menuitem", { name: label, exact: true });
+    await expect(item).toHaveAttribute("href", href);
+    await expect(item).toHaveAttribute("target", "_blank");
+    await expect(item).toHaveAttribute("rel", "noopener noreferrer");
   }
-  await expect(sources.getByRole("link")).toHaveCount(5);
-  await expect(panel.locator('a[href^="javascript:"]')).toHaveCount(0);
-  const referenceDetails = sources
-    .locator("details")
-    .filter({ has: page.locator("summary").getByText("تفاصيل المراجع المسجّلة", { exact: true }) });
-  await expect(referenceDetails).not.toHaveAttribute("open", "");
-  await expect(panel.getByRole("heading", { name: "الكواكب", exact: true })).toHaveCount(0);
-  await expect(panel.getByRole("link", { name: /الخيال العائلي/ })).toHaveCount(0);
+  await expect(submenu.getByRole("menuitem")).toHaveCount(5);
+  await expect(submenu.locator('a[href^="javascript:"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(sources).toBeFocused();
+  await page.keyboard.press("Escape");
   const sidebar = page.getByRole("complementary", { name: "لمحة العمل" });
   const planet = sidebar.getByRole("link", { name: "الخيال العائلي", exact: true });
   await expect(planet).toHaveAttribute("href", "#/planets/family-fantasy");
   await expect(page.locator('a[href="#/planets/family-fantasy"]')).toHaveCount(1);
   const headings = sidebar.getByRole("heading");
-  await expect(headings).toHaveText(["لمحة العمل", "دليل الوالدين", "الكوكب"]);
+  await expect(headings).toHaveText(["دليل الوالدين", "أقسام العمل"]);
   await expect(planet.locator(":scope > span")).toHaveCSS("border-top-color", "rgb(198, 167, 255)");
-  for (const heading of ["هوية العمل", "الأسماء البديلة", "الصور المحفوظة"])
-    await expect(panel.getByRole("heading", { name: heading, exact: true })).toHaveCount(0);
-  await expect(panel.getByText("اسم بديل لا يعرض هنا", { exact: true })).toHaveCount(0);
-  await expect(panel.getByText(work.canonicalTitle, { exact: true })).toHaveCount(0);
-  await expect(panel.getByRole("img")).toHaveCount(0);
-  await expect(panel.getByText("removed-work-art.png", { exact: true })).toHaveCount(0);
+  const shortcuts = sidebar.getByRole("navigation", { name: "أقسام العمل", exact: true });
+  await shortcuts.getByRole("button", { name: "الأجزاء والإصدارات", exact: true }).click();
+  await expect(page.getByRole("region", { name: "الأجزاء والإصدارات", exact: true })).toBeFocused();
 });
 
-test("score explanation and textual score table remain collapsed and keyboard-expandable", async ({
+test("score overview exposes installment breakdowns and a calculation popover", async ({
   page,
 }) => {
-  await openWork(page, "?tab=scores");
-  const panel = page.getByRole("tabpanel");
-  await expect(panel.getByRole("heading", { name: "بصمة التقييم", exact: true })).toBeVisible();
-  const explanation = panel
-    .locator("details")
-    .filter({ has: page.locator("summary").getByText("كيف يُحسب التقييم؟", { exact: true }) });
-  await expect(explanation).toHaveCount(1);
-  await expect(explanation).not.toHaveAttribute("open", "");
-  await expect(explanation.getByText(/لا تُعاد موازنة المعايير الناقصة/)).toBeHidden();
-  const trigger = explanation.locator(":scope > summary");
-  await trigger.focus();
-  await page.keyboard.press("Enter");
-  await expect(explanation).toHaveAttribute("open", "");
-  await expect(explanation.getByText(/لا تُعاد موازنة المعايير الناقصة/)).toBeVisible();
-  await expect(trigger).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(explanation).not.toHaveAttribute("open", "");
-  const tableDetails = panel.locator("details").filter({
-    has: page.locator("summary").getByText("كل درجات الأجزاء · بديل نصّي للرسوم", { exact: true }),
-  });
-  await expect(tableDetails).not.toHaveAttribute("open", "");
-  await tableDetails.locator("summary").press("Enter");
-  const table = tableDetails.getByRole("table");
-  await expect(table).toBeVisible();
-  await expect(table.getByRole("row")).toHaveCount(4);
-  await expect(table.getByRole("row").filter({ hasText: "الموسم القادم" })).toContainText(
+  await page.goto(`/#/titles/${workId}?tab=scores`);
+  const panel = page.getByRole("dialog", { name: "تقييم نحّاسيو" });
+  await expect(panel.getByRole("heading", { name: workTitle, exact: true })).toBeVisible();
+  await expect(panel.getByRole("img", { name: /^بصمة المعايير الستة/ })).toBeVisible();
+
+  const season = panel.locator("details").filter({ hasText: "الموسم الأول" });
+  await season.locator("summary").press("Enter");
+  await expect(season.getByText("القصة والحبكة", { exact: true })).toBeVisible();
+  await expect(panel.locator("summary").filter({ hasText: "الموسم القادم" })).toContainText(
     "غير مقيّم",
   );
+
+  const method = panel.getByRole("button", { name: "كيف يُحسب التقييم؟", exact: true });
+  await method.press("Enter");
+  const calculation = page.getByRole("dialog", { name: "كيف يُحسب التقييم؟", exact: true });
+  await expect(calculation).toHaveAttribute("data-slot", "popover-content");
+  await expect(calculation.getByText(/لا تُعاد موازنة المعايير الناقصة/)).toBeVisible();
+  await expect(calculation.getByText(/القصة 25%/)).toBeVisible();
+  await expect(calculation.getByText("متوسط المجاميع قبل التقريب")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(calculation).toHaveCount(0);
+  await expect(method).toBeFocused();
 });
 
-test("richer crew cards link the whole summary without extra role disclosures", async ({
+test("shared credits shelf lists studios first and preserves work-specific roles", async ({
   page,
 }) => {
   await openWork(page, "?tab=creators");
-  const panel = page.getByRole("tabpanel");
+  const panel = page.locator("#work-sections");
   const person = panel.getByRole("link", { name: "أعمال ليلى الكاتبة", exact: true });
   const organization = panel.getByRole("link", { name: "أعمال استوديو المكتبة", exact: true });
   await expect(person).toHaveAttribute("href", `#/people/${id(30)}`);
@@ -1596,13 +1828,14 @@ test("richer crew cards link the whole summary without extra role disclosures", 
   await expect(person.getByText("كتابة", { exact: true })).toBeVisible();
   await expect(person.getByText("دور رئيسي", { exact: true })).toBeVisible();
   await expect(organization).toHaveAttribute("href", `#/studios/${id(32)}`);
-  await expect(organization).toContainText("جهة إنتاج حكايات العائلة");
-  await expect(organization).toContainText("تنفيذ الرسوم وإنتاج الموسم");
-  const card = panel.getByRole("article").filter({
-    has: page.getByRole("link", { name: "أعمال ليلى الكاتبة", exact: true }),
-  });
-  await expect(card.locator("details")).toHaveCount(0);
-  await expect(card.getByText("ليلى المؤلفة", { exact: true })).toHaveCount(0);
+  await expect(organization).not.toContainText("جهة إنتاج حكايات العائلة");
+  await expect(organization).not.toContainText("تنفيذ الرسوم وإنتاج الموسم");
+  await expect(organization).not.toContainText("دور رئيسي");
+  const shelf = panel.getByRole("list", { name: "مساهمو العمل", exact: true });
+  await expect(shelf.getByRole("link").first()).toHaveAttribute("href", `#/studios/${id(32)}`);
+  await expect(person.locator('[data-slot="person-artwork"]')).toBeVisible();
+  await expect(organization.locator('[data-slot="studio-artwork"]')).toBeVisible();
+  await expect(person.getByText("ليلى المؤلفة", { exact: true })).toHaveCount(0);
   await person.focus();
   await expect(person).toBeFocused();
 });
@@ -1612,16 +1845,18 @@ test("arrows reach work actions, watched controls, panel links and disclosures w
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openWork(page);
-  const episodes = page.getByRole("button", { name: "تنزيل الفيديو", exact: true });
-  const favorite = page.getByRole("button", { name: "إضافة إلى المفضلة", exact: true });
-  const watched = page.getByRole("button", { name: "تحديد العمل كمُشاهَد", exact: true });
-  await episodes.focus();
-  await page.keyboard.press("ArrowLeft");
-  await expect(favorite).toBeFocused();
-  await page.keyboard.press("ArrowLeft");
-  await expect(watched).toBeFocused();
+  const trailers = page.getByRole("button", { name: "كل الإعلانات التشويقية", exact: true });
+  const more = page.getByRole("button", { name: "المزيد من إجراءات العمل", exact: true });
+  await trailers.press("ArrowLeft");
+  await expect(more).toBeFocused();
+  await more.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(more).toBeFocused();
   await page.keyboard.press("ArrowRight");
-  await expect(favorite).toBeFocused();
+  await expect(trailers).toBeFocused();
+  await expect(page.getByRole("menu")).toHaveCount(0);
   expect(await requests(page, "setFavorite")).toEqual([]);
   expect(await requests(page, "setWatched")).toEqual([]);
   await openEpisodes(page);
@@ -1641,39 +1876,23 @@ test("arrows reach work actions, watched controls, panel links and disclosures w
   await page.keyboard.press("ArrowLeft");
   await expect(episodeCard(page, 2).locator("[data-episode-primary]")).toBeFocused();
   expect(await requests(page, "setWatched")).toEqual([]);
-  const crewTab = page.getByRole("tab", { name: "الصنّاع", exact: true });
-  await crewTab.click();
-  await crewTab.focus();
-  await page.keyboard.press("ArrowDown");
   const person = page.getByRole("link", { name: "أعمال ليلى الكاتبة", exact: true });
-  await expect(person).toBeFocused();
-  await page.keyboard.press("ArrowDown");
+  await person.focus();
+  await page.keyboard.press("ArrowRight");
   await expect(
     page.getByRole("link", { name: "أعمال استوديو المكتبة", exact: true }),
   ).toBeFocused();
-  const scoreTab = page.getByRole("tab", { name: "التقييم", exact: true });
-  await scoreTab.click();
-  await scoreTab.focus();
-  await page.keyboard.press("ArrowDown");
-  const tableDisclosure = page
-    .getByRole("tabpanel")
-    .locator("details")
-    .filter({
-      has: page.locator("summary").getByText("كل درجات الأجزاء · بديل نصّي للرسوم", { exact: true }),
-    });
-  await expect(tableDisclosure.locator(":scope > summary")).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  const explanation = page
-    .getByRole("tabpanel")
-    .locator("details")
-    .filter({
-      has: page.locator("summary").getByText("كيف يُحسب التقييم؟", { exact: true }),
-    });
-  await expect(explanation.locator(":scope > summary")).toBeFocused();
-  await expect(explanation).not.toHaveAttribute("open", "");
-  await page.keyboard.press("Enter");
-  await expect(explanation).toHaveAttribute("open", "");
+  const score = page.getByRole("button", { name: "تفاصيل تقييم نحّاسيو" });
+  const details = page.getByRole("button", { name: "تفاصيل العمل", exact: true });
+  await details.press("ArrowLeft");
+  await expect(score).toBeFocused();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await score.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "تقييم نحّاسيو" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(score).toBeFocused();
 });
 
 for (const width of [520, 1440]) {
@@ -1683,17 +1902,39 @@ for (const width of [520, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await openWork(page);
     const hero = page.locator("article > header");
-    const download = hero.getByRole("button", { name: "تنزيل الفيديو", exact: true });
+    const more = hero.getByRole("button", { name: "المزيد من إجراءات العمل", exact: true });
     const save = hero.getByRole("button", { name: "حفظ بيانات العمل وصوره للجهاز", exact: true });
-    await expect(download).toBeVisible();
+    await expect(more).toBeVisible();
     await expect(save).toBeVisible();
-    expect((await download.boundingBox())?.height).toBe(48);
+    expect((await more.boundingBox())?.height).toBe(48);
     expect((await save.boundingBox())?.height).toBe(48);
-    await expect(download).toHaveText("");
+    await expect(more).toHaveText("");
+    const guideTrigger = page.getByRole("button", { name: "تفاصيل دليل الوالدين" });
+    await guideTrigger.focus();
+    await page.keyboard.press("Enter");
+    const guide = page.getByRole("dialog", { name: "دليل الوالدين" });
+    await expect(guide).toBeVisible();
+    await expect(guide).toHaveAttribute(
+      "data-slot",
+      width < 768 ? "drawer-content" : "dialog-content",
+    );
+    await expect(guide.getByText("غير مقيّم", { exact: true })).toHaveCount(1);
+    for (const label of [
+      "المحتوى الجنسي",
+      "العنف والسلوك",
+      "الألفاظ النابية والكحول",
+      "الموضوعات العقدية",
+    ]) {
+      await expect(guide.getByText(label, { exact: true })).toBeVisible();
+    }
+    await page.keyboard.press("Escape");
+    await expect(guide).toHaveCount(0);
+    await expect(guideTrigger).toBeFocused();
     const section = page.getByRole("region", { name: "أعمال قد تعجبك" });
     await section.scrollIntoViewIfNeeded();
-    await expect(section.getByText("80% تشابه").first()).toBeVisible();
-    await section.getByRole("button", { name: "لماذا اقتُرح هذا العمل؟" }).first().click();
+    const similarity = section.getByRole("button", { name: "لماذا اقتُرح هذا العمل؟" }).first();
+    await expect(similarity).toHaveText("80%");
+    await similarity.click();
     await expect(page.getByRole("dialog", { name: "لماذا هذا الاقتراح؟" })).toContainText("مغامرة");
     await page.keyboard.press("Escape");
     const cards = section.getByRole("listitem");
@@ -1701,8 +1942,11 @@ for (const width of [520, 1440]) {
     const tops = await cards.evaluateAll((items) =>
       items.map((item) => Math.round(item.getBoundingClientRect().top)),
     );
-    expect(new Set(tops).size).toBe(width === 1440 ? 2 : 5);
-    await expect(section.getByText("اقتراح 10", { exact: true })).toBeAttached();
+    expect(new Set(tops).size).toBe(1);
+    const shelf = section.getByRole("list", { name: "الأعمال المقترحة" });
+    expect(await shelf.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    await cards.last().scrollIntoViewIfNeeded();
+    await expect(section.getByRole("link", { name: "تفاصيل اقتراح 10" })).toBeInViewport();
     await expectNoOverflow(page);
     if (process.env.NAHHASIO_UI_SCREENSHOTS === "1")
       await page.screenshot({
@@ -1718,7 +1962,7 @@ for (const width of [390, 860, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 719 });
     await openWork(page);
-    await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
+    await page.getByRole("button", { name: "تابع المشاهدة", exact: true }).click();
     const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
     await expect(watch).toBeVisible();
     const sources = watch.getByLabel("مصادر الفيديو", { exact: true });
@@ -1727,6 +1971,7 @@ for (const width of [390, 860, 1440]) {
     await sources.getByRole("tab", { name: "تورنت", exact: true }).click();
     await expect(sources).toContainText("تعذّر الوصول إلى Custom");
     await expect(watch.getByLabel("حلقات العمل", { exact: true })).toBeVisible();
+    await watch.getByRole("button", { name: "ما رأيك؟ اكتب تعليقًا أو مراجعة…" }).click();
     const composer = watch.getByLabel("اكتب تعليقًا للعائلة", { exact: true });
     await composer.fill("تعليق الاختبار بدون تشغيل");
     await page.keyboard.press("Space");
@@ -1738,8 +1983,9 @@ for (const width of [390, 860, 1440]) {
     const comment = watch
       .getByRole("article")
       .filter({ has: page.getByText("تعليق الاختبار بدون تشغيل", { exact: true }) });
-    await comment.getByRole("button", { name: "تعديل تعليقك", exact: true }).click();
-    await watch.getByLabel("تعديل التعليق", { exact: true }).fill("تعليق معدّل");
+    await comment.getByRole("button", { name: "إجراءات تعليقك", exact: true }).click();
+    await watch.getByRole("menuitem", { name: "تعديل", exact: true }).click();
+    await composer.fill("تعليق معدّل");
     await watch.getByRole("button", { name: "حفظ التعديل", exact: true }).click();
     await expect(watch.getByText("تعليق معدّل", { exact: true })).toBeVisible();
     await expectNoOverflow(page);
@@ -1842,6 +2088,9 @@ test("watch sidebar combines episode states and filters watched episodes in RTL"
     },
   );
   await openEpisodes(page);
+  await expect(episodeCard(page, 2).getByText("محمّلة على الجهاز", { exact: true })).toBeVisible({
+    timeout: 8000,
+  });
   await episodeCard(page, 2).locator("[data-episode-primary]").click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة", exact: true });
   const sidebar = watch.getByRole("complementary", { name: "حلقات العمل", exact: true });
@@ -1866,7 +2115,7 @@ test("watch sidebar combines episode states and filters watched episodes in RTL"
     .getByLabel("تفاصيل المشاهدة", { exact: true })
     .getByRole("link", { name: "تفاصيل التقييم", exact: true });
   await expect(rating).toHaveText(/^الموسم\s*8\s*العمل\s*8$/);
-  await expect(rating).toHaveAttribute("href", `#/titles/${workId}?tab=scores`);
+  await expect(rating).toHaveAttribute("href", `#/titles/${workId}?panel=score`);
   await expect(watch.getByRole("region", { name: "تنبيه المحتوى", exact: true })).toContainText(
     "متوسط",
   );
@@ -1958,7 +2207,7 @@ test("watch page special: film-style sidebar distinguishes browsing and selected
     ),
   });
   await openWork(page);
-  await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
+  await page.getByRole("button", { name: "تابع المشاهدة", exact: true }).click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
   await watch
     .getByLabel("حلقات العمل", { exact: true })
@@ -1981,7 +2230,7 @@ test("watch page local file: no sidebar, one filename and fullscreen in bottom c
   page,
 }) => {
   await openWork(page);
-  await page.getByRole("button", { name: /^(تشغيل|متابعة)$/ }).click();
+  await page.getByRole("button", { name: "تابع المشاهدة", exact: true }).click();
   const watch = page.getByRole("main", { name: "صفحة المشاهدة" });
   await watch.getByRole("button", { name: "خيارات المصدر", exact: true }).click();
   await page.getByRole("menuitem", { name: "فتح فيديو من الجهاز", exact: true }).click();
@@ -2004,14 +2253,19 @@ test("work media actions stay in context and upcoming episodes cannot start play
   page,
 }) => {
   await openWork(page);
-  await expect(page.getByLabel("اللغات ومصدر التشغيل")).toContainText("العربية");
-  const trailer = page.getByRole("link", {
-    name: "مشاهدة الإعلان التشويقي على YouTube",
-    exact: true,
-  });
+  const details = page.getByRole("button", { name: "تفاصيل العمل", exact: true });
+  await details.click();
+  const detailsSheet = page.getByRole("dialog", { name: "تفاصيل العمل", exact: true });
+  await expect(detailsSheet.getByText("لغات العمل", { exact: true })).toBeVisible();
+  await expect(
+    detailsSheet.getByRole("link", { name: "العربية", exact: true }).first(),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(detailsSheet).toHaveCount(0);
+  await page.getByRole("button", { name: "كل الإعلانات التشويقية", exact: true }).click();
+  const trailer = page.getByRole("menuitem").filter({ hasText: "الإعلان الرئيسي" });
   await expect(trailer).toHaveAttribute("href", "https://www.youtube.com/watch?v=lmnopqrstuv");
   await expect(trailer).toHaveAttribute("target", "_blank");
-  await page.getByRole("button", { name: "كل الإعلانات التشويقية", exact: true }).click();
   await expect(page.getByRole("menuitem").filter({ hasText: "الإعلان الأول" })).toHaveAttribute(
     "href",
     "https://www.youtube.com/watch?v=abcdefghijk",

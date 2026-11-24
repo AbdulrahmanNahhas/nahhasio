@@ -80,7 +80,7 @@ export function WatchDetails({
       </div>
       {work && (partRating !== null || workRating != null) && (
         <a
-          href={`${workLink(work.id)}?tab=scores`}
+          href={`${workLink(work.id)}?panel=score`}
           onClick={onLeave}
           aria-label="تفاصيل التقييم"
           className="flex shrink-0 items-center gap-2 self-center rounded-xl border border-border bg-card px-3 py-2 focus-visible:outline-2 focus-visible:outline-ring sm:gap-3"
@@ -220,7 +220,7 @@ export function WatchAbout({
         <Card size="sm">
           <CardHeader>
             <CardTitle>
-              <h2>
+              <h2 className="opacity-50">
                 {episode
                   ? "عن الحلقة"
                   : part?.kind === "movie"
@@ -233,10 +233,7 @@ export function WatchAbout({
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             {summary && (
-              <p
-                dir="auto"
-                className="max-w-prose text-base leading-relaxed whitespace-pre-line wrap-anywhere"
-              >
+              <p dir="auto" className="text-base leading-relaxed whitespace-pre-line wrap-anywhere">
                 {summary}
               </p>
             )}

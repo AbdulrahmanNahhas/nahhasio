@@ -177,7 +177,7 @@ function EpisodeCard({
             if (!episode.disabled) onSelectEpisode?.(episode);
           }}
           className={cn(
-            "group/episode relative block h-auto aspect-video w-full overflow-hidden rounded-xl border border-border bg-card p-0 text-start transition-[border-color,box-shadow] hover:border-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none",
+            "group/episode relative block h-auto aspect-video w-full overflow-hidden rounded-xl border border-border bg-card p-0 text-start hover:border-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none",
             episode.current && "border-primary ring-2 ring-primary",
           )}
         >
@@ -206,11 +206,7 @@ function EpisodeCard({
             <Badge variant="outline">{episode.disabledReason || "غير متاحة للمشاهدة"}</Badge>
           )}
         </div>
-        <h4
-          id={titleId}
-          className="text-base leading-relaxed font-semibold wrap-anywhere"
-          dir="auto"
-        >
+        <h4 id={titleId} className="text-lg leading-relaxed font-semibold wrap-anywhere" dir="auto">
           {episode.title || label || "حلقة بلا عنوان"}
         </h4>
         {summary ? (

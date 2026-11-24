@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollShelf } from "@/features/home/scroll-shelf";
 import { offlineStatusOptions } from "@/features/player/saved-works-data";
 import { gateway } from "@/lib/bridge";
 
@@ -22,15 +23,23 @@ function MatchExplanation({ match }: { match: WorkMatch }) {
   const total = match.reasons.reduce((sum, reason) => sum + reason.weight, 0);
   const strongest = match.reasons.filter((reason) => reason.similarity > 0).slice(0, 3);
   return (
-    <div className="mt-3 flex items-center justify-between gap-2">
-      <Badge variant="secondary">{match.percentage}% تشابه</Badge>
+    <div className="pointer-events-none absolute inset-x-0 -bottom-3 z-10 flex justify-center">
       <Popover>
         <PopoverTrigger
-          render={<Button size="icon-sm" variant="ghost" aria-label="لماذا اقتُرح هذا العمل؟" />}
+          render={
+            <Button
+              size="sm"
+              variant="secondary"
+              className="pointer-events-auto bg-background/85"
+              aria-label="لماذا اقتُرح هذا العمل؟"
+              aria-description={`${match.percentage}% تشابه`}
+            />
+          }
         >
-          <CircleHelp />
+          <CircleHelp data-icon="inline-start" aria-hidden />
+          <bdi>{match.percentage}%</bdi>
         </PopoverTrigger>
-        <PopoverContent className="max-h-96 w-80 max-w-full overflow-y-auto" align="end">
+        <PopoverContent className="max-h-96 w-80 max-w-full overflow-y-auto" align="center">
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <PopoverTitle>لماذا هذا الاقتراح؟</PopoverTitle>
@@ -104,38 +113,32 @@ export function RecommendationsPanel({ id }: { id: string }) {
   if (offline.data?.offline || query.data?.items.length === 0) return null;
   return (
     <section className="mt-12 min-w-0 border-t border-border pt-8" aria-label="أعمال قد تعجبك">
-      <header className="mb-5 flex flex-col gap-2">
-        <h2 className="text-xl font-semibold">أعمال قد تعجبك</h2>
-        <p className="text-sm text-muted-foreground">
-          حتى عشرة أعمال من مكتبتك، بناءً على هذا العمل. افتح علامة الاستفهام لمعرفة تفاصيل التشابه.
-        </p>
-      </header>
+      <h2 className="mb-2 text-xl font-semibold">أعمال قد تعجبك</h2>
       {query.isError && <Failure error={query.error} retry={() => void query.refetch()} />}
       {query.isPending && (
-        <div
-          className="grid grid-cols-2 gap-x-4 gap-y-7 lg:grid-cols-5"
-          aria-label="جارٍ تحميل الاقتراحات"
-        >
-          {Array.from({ length: 10 }, (_, index) => (
-            <Skeleton key={index} className="aspect-2/3" />
-          ))}
-        </div>
+        <ScrollShelf
+          layout="poster"
+          label="جارٍ تحميل الاقتراحات"
+          items={["one", "two", "three", "four", "five"]}
+          render={(slot) => <Skeleton key={slot} className="aspect-2/3" />}
+        />
       )}
-      <div
-        role="list"
-        aria-label="الأعمال المقترحة"
-        className="grid grid-cols-2 gap-x-4 gap-y-7 lg:grid-cols-5"
-      >
-        {query.data?.items.map((work) => {
-          const match = query.data?.matches?.find((item) => item.workId === work.id);
-          return (
-            <div key={work.id} role="listitem" className="min-w-0">
-              <MediaCard work={work} />
-              {match && <MatchExplanation match={match} />}
-            </div>
-          );
-        })}
-      </div>
+      {query.data && (
+        <ScrollShelf
+          layout="poster"
+          label="الأعمال المقترحة"
+          items={query.data.items}
+          render={(work) => {
+            const match = query.data.matches?.find((item) => item.workId === work.id);
+            return (
+              <div key={work.id} className="relative isolate min-w-0 hover:z-10 focus-within:z-10">
+                <MediaCard work={work} minimal />
+                {match && <MatchExplanation match={match} />}
+              </div>
+            );
+          }}
+        />
+      )}
     </section>
   );
 }

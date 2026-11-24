@@ -1,134 +1,106 @@
-import { installmentRating, scoreWeights } from "@arcadia/domain";
+import { installmentRating } from "@arcadia/domain";
 import type { WorkDetail } from "@nahhasio/api-contract";
+import { cn } from "cn";
+import { CircleHelp, X } from "lucide-react";
 
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-import { Badge } from "../../components/ui/badge";
 import { criteria } from "../catalog/filter-model";
-import { Disclosure, FieldList, Section } from "./field-list";
-import { episodeNumberLabel } from "./format";
-import { CriterionTrend, ScoreFingerprint } from "./score-charts";
-import { scoreProfile, scoreValue, weightedValue } from "./score-model";
+import { Disclosure, FieldList, PanelEmpty } from "./field-list";
+import { scoreColor, ScoreFingerprint } from "./score-charts";
+import { scoreProfile, scoreValue } from "./score-model";
 
-export function ScoresPanel({ work }: { work: WorkDetail }) {
-  const profile = scoreProfile(work);
-  const ratedCriteria = criteria.filter((criterion) =>
-    work.installments.some((unit) => scoreValue(unit.scores?.[criterion.key]) !== null),
-  );
-  if (!ratedCriteria.length)
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>لم يُقيّم هذا العمل بعد</EmptyTitle>
-          <EmptyDescription>تظهر الدرجات بعد تقييم معايير أحد الأجزاء.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
+function ScoreBadge({ score }: { score: number }) {
+  const value = Math.round(score * 10);
   return (
-    <div className="min-w-0">
-      {profile.summary.scored > 0 && (
-        <Section title="بصمة التقييم" description="متوسط المعايير الستة للأجزاء المكتملة.">
-          <div className="grid min-w-0 gap-8 xl:grid-cols-2">
-            <ScoreFingerprint profile={profile} />
-            <div className="flex min-w-0 flex-col justify-center gap-5">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <strong className="text-4xl font-semibold tabular-nums">
-                  {profile.summary.rating === null ? "غير مقيّم" : profile.summary.rating.toFixed(1)}
-                </strong>
-                {profile.summary.rating !== null && (
-                  <span className="text-sm text-muted-foreground">من ١٠</span>
-                )}
-                <Badge variant="outline">
-                  {profile.summary.scored} / {profile.summary.total} أجزاء مكتملة
-                </Badge>
-              </div>
-              <FieldList
-                rows={profile.criteria.map((criterion) => [
-                  criterion.label,
-                  <span key={criterion.key} className="inline-flex items-baseline gap-3">
-                    <strong className="tabular-nums">
-                      {criterion.average === null
-                        ? "غير مقيّم"
-                        : episodeNumberLabel(criterion.average.toFixed(2))}
-                    </strong>
-                    <span className="text-xs text-muted-foreground">
-                      وزن {scoreWeights[criterion.key] * 100}%
-                    </span>
-                  </span>,
-                ])}
-              />
-            </div>
-          </div>
-        </Section>
+    <div
+      className={cn(
+        "relative isolate flex size-16 shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-current/35",
+        scoreColor(score),
       )}
-      <Section
-        title="تطوّر المعايير عبر الأجزاء"
-        description="الأجزاء من اليمين إلى اليسار. الفجوات تعني غياب الدرجة، لا صفرًا."
-      >
-        <>
-          <div className="grid min-w-0 gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-            {ratedCriteria.map((criterion) => (
-              <CriterionTrend key={criterion.key} work={work} criterion={criterion} />
-            ))}
-          </div>
-          <Disclosure title="كل درجات الأجزاء · بديل نصّي للرسوم">
-            <div
-              className="overflow-x-auto rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
-              tabIndex={0}
-              role="region"
-              aria-label="جدول درجات الأجزاء"
-            >
-              <table className="w-full text-start text-sm tabular-nums">
-                <caption className="sr-only">
-                  جميع المعايير الستة لكل جزء، مع التقييم الموزون. غير مقيّم تعني غياب الدرجة.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="p-3 text-start">
-                      الجزء
-                    </th>
-                    {criteria.map((criterion) => (
-                      <th scope="col" className="p-3 text-start" key={criterion.key}>
-                        {criterion.label}
-                      </th>
-                    ))}
-                    <th scope="col" className="p-3 text-start">
-                      الموزون
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {work.installments.map((unit, index) => (
-                    <tr className="odd:bg-muted/40" key={unit.id}>
-                      <th scope="row" className="p-3 text-start font-medium">
-                        <span className="text-muted-foreground">{index + 1} · </span>
-                        <bdi>{unit.title}</bdi>
-                      </th>
-                      {criteria.map((criterion) => (
-                        <td className="p-3" key={criterion.key}>
-                          {scoreValue(unit.scores?.[criterion.key]) ?? "غير مقيّم"}
-                        </td>
-                      ))}
-                      <td className="p-3">
-                        {installmentRating(unit.scores ?? {})?.toFixed(1) ?? "غير مقيّم"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Disclosure>
-        </>
-      </Section>
-      <Disclosure title="كيف يُحسب التقييم؟">
-        <p className="text-sm leading-loose text-muted-foreground">
+    >
+      <span className="absolute inset-0 -z-10 bg-current/10" aria-hidden />
+      <strong className="text-2xl leading-none font-bold tabular-nums">{value}</strong>
+      <span className="text-xs text-muted-foreground">من 100</span>
+    </div>
+  );
+}
+
+function CriterionRows({ rows }: { rows: { key: string; label: string; value: number | null }[] }) {
+  return (
+    <dl className="min-w-0 divide-y divide-border">
+      {rows.map(({ key, label, value }) => (
+        <div key={key} className="flex min-h-10 items-center gap-2 py-2 sm:gap-3">
+          <dt className="min-w-0 flex-1 leading-snug">{label}</dt>
+          <dd className="flex w-1/2 shrink-0 items-center gap-2 sm:gap-3">
+            {value === null ? (
+              <span className="ms-auto text-xs text-muted-foreground">غير مقيّم</span>
+            ) : (
+              <>
+                <svg
+                  width="100%"
+                  height={8}
+                  className={cn("h-2 min-w-0 flex-1 rounded-full bg-muted", scoreColor(value))}
+                  aria-hidden
+                >
+                  <rect
+                    x={`${100 - value * 10}%`}
+                    width={`${value * 10}%`}
+                    height={8}
+                    rx={4}
+                    className="fill-current"
+                  />
+                </svg>
+                <bdi dir="ltr" className="w-10 shrink-0 text-end font-semibold tabular-nums">
+                  {Number(value.toFixed(2))}
+                </bdi>
+              </>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ScoreCalculation({ profile }: { profile: ReturnType<typeof scoreProfile> }) {
+  const mobile = useIsMobile();
+  const Root = mobile ? Drawer : Popover;
+  const Trigger = mobile ? DrawerTrigger : PopoverTrigger;
+  const Title = mobile ? DrawerTitle : PopoverTitle;
+  const title = "كيف يُحسب التقييم؟";
+  const content = (
+    <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <Title>{title}</Title>
+        {mobile && (
+          <DrawerClose
+            render={<Button variant="ghost" size="icon" aria-label="إغلاق شرح التقييم" />}
+          >
+            <X aria-hidden />
+          </DrawerClose>
+        )}
+      </div>
+      <div className="flex flex-col gap-4 text-sm leading-loose text-muted-foreground">
+        <p>
           تُضرب درجة كل معيار في وزنه. تقييم العمل هو متوسط المجاميع الموزونة المكتملة قبل أي تقريب،
           ثم يُقرّب مرة واحدة إلى منزلة عشرية.
         </p>
-        <p className="text-base leading-loose md:text-lg">
-          القصة ٢٥٪ + الشخصيات ٢٠٪ + العمق ٢٠٪ + بناء العالم ١٠٪ + الأصالة ١٠٪ + الإبداع والتنفيذ ١٥٪.
-          لا تُعاد موازنة المعايير الناقصة، ولا تُستخدم درجات الأجزاء المقرّبة لحساب متوسط العمل.
+        <p>
+          القصة 25%، الشخصيات 20%، العمق 20%، بناء العالم 10%، الأصالة 10%، والإبداع والتنفيذ 15%. لا
+          تُعاد موازنة المعايير الناقصة، ولا تُستخدم درجات الأجزاء المقرّبة لحساب متوسط العمل.
         </p>
+      </div>
+      <div className="mt-4 border-t border-border">
         <FieldList
           rows={[
             ["عدد الأجزاء المحتسبة", profile.summary.scored],
@@ -136,52 +108,119 @@ export function ScoresPanel({ work }: { work: WorkDetail }) {
             ["تقييم العمل بعد التقريب", profile.summary.rating?.toFixed(1)],
           ]}
         />
-        {work.installments
-          .filter((unit) =>
-            criteria.some((criterion) => scoreValue(unit.scores?.[criterion.key]) !== null),
-          )
-          .map((unit) => {
-            const raw = weightedValue(unit.scores);
-            const rating = installmentRating(unit.scores ?? {});
-            return (
-              <Disclosure
-                key={unit.id}
-                title={
-                  <>
-                    <bdi>{unit.title}</bdi> ·{" "}
-                    {rating === null ? "تقييم غير مكتمل" : `${rating.toFixed(1)} / 10`}
-                  </>
-                }
-              >
-                <FieldList
-                  rows={criteria.map((criterion) => {
-                    const value = scoreValue(unit.scores?.[criterion.key]);
-                    return [
-                      criterion.label,
-                      value === null ? (
-                        "غير مقيّم · لا مساهمة محسوبة"
-                      ) : (
-                        <span key={criterion.key} dir="ltr" className="tabular-nums">
-                          {value} × {scoreWeights[criterion.key] * 100}% ={" "}
-                          {(value * scoreWeights[criterion.key]).toFixed(4)}
-                        </span>
-                      ),
-                    ];
-                  })}
-                />
-                <FieldList
-                  rows={[
-                    [
-                      "المجموع قبل التقريب",
-                      raw === null ? "غير مكتمل · مستبعد من متوسط العمل" : raw.toFixed(4),
-                    ],
-                    ["التقييم بعد التقريب", rating?.toFixed(1)],
-                  ]}
-                />
-              </Disclosure>
-            );
-          })}
-      </Disclosure>
+      </div>
+    </div>
+  );
+
+  return (
+    <Root>
+      <Trigger render={<Button variant="ghost" size="icon" aria-label={title} title={title} />}>
+        <CircleHelp aria-hidden />
+      </Trigger>
+      {mobile ? (
+        <DrawerContent className="max-h-5/6">{content}</DrawerContent>
+      ) : (
+        <PopoverContent
+          align="start"
+          sideOffset={8}
+          className="max-h-(--available-height) w-96 max-w-(--available-width) overflow-hidden p-0"
+        >
+          {content}
+        </PopoverContent>
+      )}
+    </Root>
+  );
+}
+
+function InstallmentScores({ installments }: { installments: WorkDetail["installments"] }) {
+  return (
+    <section className="min-w-0" aria-label="درجات الأجزاء">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card/60">
+        {installments.map((unit) => {
+          const rating = installmentRating(unit.scores ?? {});
+          const rows = criteria.map(({ key, label }) => ({
+            key,
+            label,
+            value: scoreValue(unit.scores?.[key]),
+          }));
+          const label = rows.some(({ value }) => value !== null) ? "غير مكتمل" : "غير مقيّم";
+          return (
+            <Disclosure
+              key={unit.id}
+              compact
+              lazyContent
+              title={
+                <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                  <bdi className="min-w-0 wrap-anywhere">{unit.title}</bdi>
+                  {rating === null ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+                  ) : (
+                    <bdi
+                      dir="ltr"
+                      className={cn("shrink-0 font-semibold tabular-nums", scoreColor(rating))}
+                    >
+                      {rating.toFixed(1)}
+                      <span className="text-xs font-normal text-muted-foreground"> / 10</span>
+                    </bdi>
+                  )}
+                </span>
+              }
+            >
+              <CriterionRows rows={rows} />
+            </Disclosure>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function ScoresPanel({ work }: { work: WorkDetail }) {
+  const mobile = useIsMobile();
+  const profile = scoreProfile(work);
+  const { rating, scored, total } = profile.summary;
+  const hasScores = work.installments.some((unit) =>
+    criteria.some(({ key }) => scoreValue(unit.scores?.[key]) !== null),
+  );
+  if (!hasScores) {
+    return <PanelEmpty title="لم يُقيّم هذا العمل بعد" />;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <header className="flex items-center gap-3 pe-10">
+        {rating !== null && <ScoreBadge score={rating} />}
+        <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 className="text-lg font-semibold wrap-anywhere" dir="auto">
+              {work.titleAr || work.canonicalTitle}
+            </h2>
+            <ScoreCalculation profile={profile} />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {rating === null
+              ? "يظهر التقييم الكلي عند اكتمال المعايير الستة في أحد الأجزاء."
+              : `الأجزاء المحتسبة ${scored} من ${total}`}
+          </p>
+        </div>
+      </header>
+      {rating !== null && (
+        <section className="min-w-0 border-t border-border pt-4" aria-label="درجات المعايير من 10">
+          <div className="grid min-w-0 items-center gap-2 md:grid-cols-2 md:gap-6">
+            <div className="min-w-0">
+              <CriterionRows
+                rows={profile.criteria.map(({ key, label, average }) => ({
+                  key,
+                  label,
+                  value: average,
+                }))}
+              />
+            </div>
+            {!mobile && <ScoreFingerprint profile={profile} />}
+          </div>
+        </section>
+      )}
+      {(total > 1 || rating === null) && <InstallmentScores installments={work.installments} />}
     </div>
   );
 }

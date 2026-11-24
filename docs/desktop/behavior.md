@@ -399,16 +399,91 @@ fullscreen. Keyboard transport is scoped to the video area in page mode, preserv
 ### Family discussion
 
 Discussion remains work-level, using the existing title_comments and title_reviews tables.
-The viewer feed is reused, with 30-second refresh while online. The new bounded comments endpoint
-supports create/reply, update and hide-own-comment actions. Identity comes from the authenticated
+The viewer feed is reused, with 30-second refresh while online. The collapsed composer opens on
+request and keeps its draft when folded. Adding a 1–5 star score to a new top-level post saves a
+review. Each account has one review per work, which it can edit or remove. The bounded endpoint
+also supports creating, replying to, updating, and hiding comments. Older servers continue to
+load the feed and accept comments through the original request. Identity comes from the authenticated
 account, checked in a write transaction; parent comments must belong to the same work and be
 visible. Edits cannot change parent/work/author. Hiding a comment preserves other people's replies.
 The request body supports 1200 Arabic characters without exceeding the byte limit.
 
 Comment drafts stay in component state across source errors and episode changes within the work.
 Posting failures retain the draft. Switching a nonempty draft to another reply/edit requires an
-explicit discard decision. Spoiler text is concealed, and delete has a confirmation. Offline mode
+explicit discard decision. Spoiler text is concealed, long posts can be expanded, and delete has a confirmation. Offline mode
 shows discussion as unavailable; comments are not added to the offline mutation queue.
+
+## Work page details
+
+The Work page is a continuous screen. The sharp banner scrolls with the hero and fades into a
+blurred copy of the artwork that stays pinned behind the page. A panel on the
+opposite side shows the next watch target and progress when available, plus shortcuts to work
+details and the Nahhasio score. On narrow screens the panel stacks below the playback controls.
+Play, save to device, and trailers share the main action row. Video downloads and the favorite
+toggle are in the More menu. The watched control sits next to the viewing information.
+Unfinished works of every format show the next watch target and a progress bar. With a single
+released item, the bar can show partial playback when its duration is known. Completed works
+place the watched check, work details, and score in one compact row and label the playback
+action **إعادة المشاهدة**. Film release cards place playback beneath the synopsis.
+The hero groups age, year, and viewing length in one panel. It calls out works that are airing
+or upcoming. Full format and release status are in Work Details. Genre links open Browse with
+that genre selected.
+The desktop hero spans the available width and adjusts its height to the window. The synopsis and tags
+appear immediately below it, separated from episodes and releases by a divider. The parental guide
+and planet cards use the same width in the sticky desktop sidebar. The planet artwork links directly
+to its page. On wider series pages, the sidebar also links to the available release, credits, and family
+discussion sections.
+Hero controls use a light backdrop blur.
+The panels below use translucent surfaces over the already blurred artwork. Square studio cards and
+portrait people cards share one horizontal shelf, with studios first. Each contributor’s roles
+appear on the same card. Studio cards show their roles. Family discussion sits below recommendations and shares the player’s composer,
+threaded replies, spoiler controls, and comment management.
+
+For works with multiple installments, the selector shows artwork, episode count or runtime, and a
+mark beside the current selection. It opens as a menu on desktop and a drawer on phones. On phones,
+the toolbar sits between the release card and the episodes, with icon buttons for sort and download.
+Single movies use the hero for playback. **عن الفيلم** combines the synopsis and tags with
+the recorded release date, format, languages, and directing credits. The poster sits alongside
+the overview on wider screens, and credits follow it in the main column alongside the sidebar.
+Where shown, the installment
+card includes release information, score, and languages, with seasonal progress along the
+card’s bottom edge once episodes have been released. Upcoming releases show their status and
+release date when recorded. The info button beside the season or film title opens release-specific
+details, such as parental rating differences, recorded tracks, external references, and artwork.
+The Work page previews the first nine episodes in the chosen sort order. **عرض كل الحلقات**
+opens the full episode view with filters for all, watched, or unwatched episodes.
+**العودة إلى العمل** returns to the preview. Episode thumbnails show watch status, and their
+floating info button opens details and the episode's download action.
+
+Work Details, Score, Episode Details, and video downloads open in bottom drawers under 768 px.
+Work Details starts with a compact release-fact grid, including the first and latest recorded
+release dates when they differ. Trivia follows the release facts. Classification chips open Browse
+with the corresponding filter, including recorded dubbing languages. Country chips show a flag
+when the catalog entry provides a recognizable country code.
+Provider and reference links are in **المصادر الخارجية** under the Work hero’s More menu.
+This menu also includes the release links for a single movie. For any work without usable
+provider IDs of its own, the menu picks up IDs and references from the first installment.
+The desktop dialog has a close button. Award rows show the result, linked installment, and safe
+source link when available, with actions beside the award details on wide screens. Score opens on
+the overview and shows the score out of 100 where available.
+The radar chart is visible on wider screens, with criterion bars on all layouts.
+Criterion bars use a score-specific color for each whole-number band out of 10. Installment rows
+expand to show individual criteria. The question-mark button opens the calculation in a popover
+on wider screens and a nested drawer on narrow screens. The desktop interface uses Western digits
+for UI-formatted numbers and dates.
+Legacy Work page links continue to resolve.
+
+**دليل الوالدين** summarizes Nahhasio’s age and audience rating and the three recorded risk
+categories. Each meter has five segments, with 0, 1, 2, and 4 filled for none, low, medium, and
+high. The desktop dialog and mobile drawer also show a combined profanity and alcohol
+row marked **غير مقيّم**, with a divider before any recorded content warning and analysis notes. On
+mobile, the drawer opens directly to the risk meters. The warning icon uses the higher of the sexuality and behavior ratings, and the analysis icon uses
+the theology rating.
+
+Online administrators can enter **تحرير العمل** from the viewer page. The page hosts the same
+editor workspace used by the admin dashboard, including fields for unfilled data, the revision
+check, change review, and the unsaved-draft guard. Server-side authorization applies to every
+editor request.
 
 ## Work recommendations
 
@@ -416,7 +491,8 @@ The viewer's work page requests up to ten other draft or published, non-private 
 `GET /api/v1/catalog/recommendations?workId=…`. The current work is excluded. All eligible
 candidates are ranked in PostgreSQL; the client receives only ten summaries and their explanations.
 No migrations, catalog mutations, viewing-history inference or third-party recommendation service
-are involved. With fewer eligible works the section shows fewer cards. Offline mode hides it.
+are involved. Recommendations appear in a horizontally scrolling shelf with only posters and a similarity button on each matched poster. With fewer
+eligible works the section shows fewer cards. Offline mode hides it.
 
 ### Match score
 
