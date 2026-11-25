@@ -82,8 +82,8 @@ cross join lateral (
     left join installments i on i.id = r.installment_id
     left join lateral (
         select m.asset_id from media_asset_assignments m
-        where m.role = 'poster' and (m.title_id = t.id or m.installment_id = i.id)
-        order by (m.installment_id is not null) desc, m.is_primary desc, m.id
+        where m.role = 'poster' and m.is_primary and (m.title_id = t.id or m.installment_id = i.id)
+        order by (m.installment_id is not null) desc, m.id
         limit 1
     ) poster on true
 ) e

@@ -2,10 +2,15 @@
   const root = document.getElementById("nahhasio-review");
   const pages = [...root.querySelectorAll("[data-page]")];
   const guides = [...root.querySelectorAll("[data-guide]")];
-  const dialog = root.querySelector("dialog");
+  const dialog = root.querySelector(".search-dialog");
   const search = dialog.querySelector("input");
   const results = [...dialog.querySelectorAll("li")];
   const status = dialog.querySelector("[role=status]");
+  const captureDialog = root.querySelector(".capture-dialog");
+  const captureTitle = captureDialog.querySelector("h2");
+  const captureImage = captureDialog.querySelector("[data-enlarged-capture]");
+  const captureButtons = root.querySelectorAll("[data-show-captures]");
+  const capturePanels = root.querySelectorAll("[data-capture-panel]");
   let hasNavigated = false;
 
   function navigate() {
@@ -68,6 +73,11 @@
     button.addEventListener("click", openSearch);
   }
   search.addEventListener("input", filter);
+  dialog.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    dialog.close();
+  });
   dialog.addEventListener("click", (event) => {
     if (event.target.closest("a")) dialog.close();
   });
@@ -78,6 +88,21 @@
     }
   });
   root.addEventListener("click", (event) => {
+    const layout = event.target.closest("[data-show-captures]")?.dataset.showCaptures;
+    if (layout) {
+      for (const button of captureButtons) {
+        button.setAttribute("aria-pressed", String(button.dataset.showCaptures === layout));
+      }
+      for (const panel of capturePanels) panel.hidden = panel.dataset.capturePanel !== layout;
+    }
+    const capture = event.target.closest("a[data-capture]");
+    if (capture && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      captureTitle.textContent = capture.dataset.capture;
+      captureImage.alt = capture.querySelector("img").alt;
+      captureImage.src = capture.href;
+      captureDialog.showModal();
+    }
     const link = event.target.closest("a[href^='#']");
     if (link?.hash === location.hash) navigate();
   });

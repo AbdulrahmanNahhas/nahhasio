@@ -311,10 +311,12 @@ and unrelated metadata. Deletion retains the existing dependency check and save 
 
 ### Image workflow
 
-The work editor offers work poster, banner and logo, installment posters, and episode image
-controls. The separate Images library can assign a registered banner to an installment.
-Work detail projects installment artwork and episode cards can fall back to its banner.
-Browse banner cards use the parent work banner and fall back to a poster.
+The work editor offers work poster, banner and logo, installment posters and banners, and episode
+image controls. Open an installment tab to upload or select its artwork. The Images library can
+also assign a registered banner to an installment. Browse banner cards prefer the installment
+banner, then the work banner, then the poster. Episode cards can fall back to the installment
+banner. Removing a primary image clears it from the viewing surfaces while retaining the
+registered image and alternate assignments in the Images library.
 
 The selected installment owns a temporary TMDB season selection for individual searches.
 It starts with the installment's position among seasons, excluding movies; specials start at zero.

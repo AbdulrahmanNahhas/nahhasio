@@ -47,6 +47,31 @@ export function WorkImages({
       parts.map((item, position) => (position === index ? { ...item, ...value } : item)),
     );
   }
+  function installmentArtwork(position: number, role: "poster" | "banner", label: string) {
+    const installment = parts[position];
+    const saved = installment.id
+      ? original.installments?.find((item) => item.id === installment.id)
+      : undefined;
+    return (
+      <ArtworkField
+        key={`${installment.id ?? position}-${role}`}
+        label={label}
+        role={role}
+        work={draft}
+        installment={installment}
+        original={saved?.media?.[role]}
+        value={installment.media?.[role]}
+        onChange={(value) =>
+          update(
+            "installments",
+            parts.map((item, current) =>
+              current === position ? { ...item, media: { ...item.media, [role]: value } } : item,
+            ),
+          )
+        }
+      />
+    );
+  }
   return (
     <FieldGroup>
       <Tabs
@@ -98,33 +123,21 @@ export function WorkImages({
           >
             <h3 className="text-sm font-medium">ملصقات الأجزاء</h3>
             <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {parts.map((installment, position) => (
-                <ArtworkField
-                  key={installment.id ?? position}
-                  label={installment.title || `الجزء ${position + 1}`}
-                  role="poster"
-                  work={draft}
-                  installment={installment}
-                  original={
-                    original.installments?.find(
-                      (item) => Boolean(installment.id) && item.id === installment.id,
-                    )?.media?.poster
-                  }
-                  value={installment.media?.poster}
-                  onChange={(value) =>
-                    update(
-                      "installments",
-                      parts.map((item, current) =>
-                        current === position
-                          ? { ...item, media: { ...item.media, poster: value } }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-              ))}
+              {parts.map((installment, position) =>
+                installmentArtwork(
+                  position,
+                  "poster",
+                  installment.title || `الجزء ${position + 1}`,
+                ),
+              )}
             </div>
           </section>
+        )}
+        {part && (
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            {installmentArtwork(index, "poster", "ملصق الجزء")}
+            {installmentArtwork(index, "banner", "خلفية الجزء")}
+          </div>
         )}
         {part && (
           <Card>

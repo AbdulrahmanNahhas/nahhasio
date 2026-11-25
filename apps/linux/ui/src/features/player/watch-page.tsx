@@ -15,6 +15,7 @@ import { BrowserSourceControls } from "./browser-source-controls";
 import { MovieInfo } from "./movie-info";
 import { MovieInstallments } from "./movie-installments";
 import { PlayerHost } from "./player-host";
+import { isUpcomingTarget } from "./release-eligibility";
 import { savedDownloadOptions } from "./saved-downloads";
 import { SourceControls } from "./source-selection";
 import type { PlayerController } from "./use-player-snapshot";
@@ -138,13 +139,7 @@ export function WatchPage({
     />
   );
   function choose(selectedPart: Part, selectedEpisode?: Episode) {
-    if (
-      !work ||
-      selectedEpisode?.releaseState === "upcoming" ||
-      selectedPart.status === "announced" ||
-      selectedPart.releaseState === "upcoming"
-    )
-      return;
+    if (!work || isUpcomingTarget(selectedPart, selectedEpisode)) return;
     setBrowsePart(selectedPart.id);
     onWatch({
       workId: work.id,
@@ -169,12 +164,12 @@ export function WatchPage({
   const episodeNavigation = (
     <WatchEpisodeNavigation
       onPrevious={
-        hasEpisodeNavigation && playingPart && previous && previous.releaseState !== "upcoming"
+        hasEpisodeNavigation && playingPart && previous && !isUpcomingTarget(playingPart, previous)
           ? () => choose(playingPart, previous)
           : undefined
       }
       onNext={
-        hasEpisodeNavigation && playingPart && next && next.releaseState !== "upcoming"
+        hasEpisodeNavigation && playingPart && next && !isUpcomingTarget(playingPart, next)
           ? () => choose(playingPart, next)
           : undefined
       }
@@ -207,7 +202,7 @@ export function WatchPage({
           runtimeMinutes: item.runtimeMinutes,
           image: item.still ?? pickArtwork(item.artwork, "still"),
           current: item.id === episode?.id,
-          disabled: item.releaseState === "upcoming",
+          disabled: playingPart ? isUpcomingTarget(playingPart, item) : false,
           disabledReason: "قادم",
         }))}
         onSelectEpisode={(item) => {
@@ -358,8 +353,7 @@ export function WatchPage({
                       disabled={
                         player.pending ||
                         (part.id === playingPart?.id && Boolean(s?.sourceKind)) ||
-                        part.status === "announced" ||
-                        part.releaseState === "upcoming"
+                        isUpcomingTarget(part)
                       }
                       onClick={() => choose(part)}
                     >
@@ -401,7 +395,7 @@ export function WatchPage({
                 activeId={episode?.id}
                 playing={Boolean(s?.sourceKind && !s.paused && !s.ended)}
                 pending={player.pending}
-                disabled={part.status === "announced" || part.releaseState === "upcoming"}
+                disabled={isUpcomingTarget(part)}
                 expanded={episodesOpen}
                 onExpand={() => setEpisodesOpen(!episodesOpen)}
                 onChoose={(item) => {

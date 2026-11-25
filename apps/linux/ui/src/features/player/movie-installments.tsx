@@ -8,6 +8,7 @@ import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { pickArtwork } from "@/features/work/format";
 import type { WorkTracking } from "@/features/work/use-work-tracking";
 
+import { isUpcomingTarget } from "./release-eligibility";
 import { WatchCompanion } from "./watch-companion";
 
 type Installment = WorkDetail["installments"][number];
@@ -50,8 +51,7 @@ export function MovieInstallments({
           >
             {installments.map((installment) => {
               const selected = installment.id === selectedId;
-              const upcoming =
-                installment.status === "announced" || installment.releaseState === "upcoming";
+              const upcoming = isUpcomingTarget(installment);
               const watched = tracking.state.data?.installments.find(
                 (item) => item.installmentId === installment.id,
               )?.summary.isFullyWatched;

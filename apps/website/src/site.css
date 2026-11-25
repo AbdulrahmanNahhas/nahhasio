@@ -668,7 +668,7 @@
   font-size: 14px;
   color: var(--site-dim);
 }
-#nahhasio-review .search-dialog {
+#nahhasio-review :is(.search-dialog, .capture-dialog) {
   margin: auto;
   width: min(520px, 100% - 26px);
   max-height: min(620px, 90vh);
@@ -678,8 +678,17 @@
   border-radius: 14px;
   padding: 15px;
 }
-#nahhasio-review .search-dialog::backdrop {
+#nahhasio-review :is(.search-dialog, .capture-dialog)::backdrop {
   background: #060811c9;
+}
+#nahhasio-review .capture-dialog {
+  width: min(1100px, 100% - 26px);
+  max-height: 90vh;
+}
+#nahhasio-review .capture-dialog img {
+  width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
 }
 #nahhasio-review .dialog-header {
   display: flex;

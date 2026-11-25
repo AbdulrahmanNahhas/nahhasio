@@ -46,6 +46,7 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 import { HomeBatchDownload } from "../player/home-batch-download";
+import { isUpcomingTarget } from "../player/release-eligibility";
 import { savedDownloadOptions } from "../player/saved-downloads";
 import { requestDownload, requestWatch } from "../player/watch-request";
 import { replaceParams, useViewerRoute } from "../shell/navigation";
@@ -127,7 +128,7 @@ export function InstallmentsPanel({
   const summary = tracking.state.data?.installments.find(
     (unit) => unit.installmentId === item.id,
   )?.summary;
-  const upcoming = item.releaseState === "upcoming" || item.status === "announced";
+  const upcoming = isUpcomingTarget(item);
   const status = upcoming
     ? "upcoming"
     : item.status === "unknown"
@@ -558,9 +559,7 @@ function InstallmentOption({ unit, work }: { unit: Installment; work: WorkDetail
             : unit.runtimeMinutes
               ? `${unit.runtimeMinutes} دقيقة`
               : "إصدار مستقل"}
-          {(unit.releaseState === "upcoming" || unit.status === "announced") && (
-            <Badge variant="outline">قادم</Badge>
-          )}
+          {isUpcomingTarget(unit) && <Badge variant="outline">قادم</Badge>}
         </span>
       </span>
     </>
@@ -593,7 +592,7 @@ function EpisodeCard({
   const duration =
     state?.durationSeconds ?? (episode.runtimeMinutes ? episode.runtimeMinutes * 60 : null);
   const timing = !state?.isPlayed ? episodeTiming(state?.positionSeconds ?? 0, duration) : null;
-  const upcoming = episode.releaseState === "upcoming" || installment.status === "announced";
+  const upcoming = isUpcomingTarget(installment, episode);
   const play = () =>
     requestWatch({
       workId: work.id,
@@ -605,7 +604,7 @@ function EpisodeCard({
     episode.still ??
     pickArtwork(episode.artwork, "still") ??
     pickArtwork(episode.artwork, "banner") ??
-    episode.artwork[0] ??
+    episode.artwork.find((item) => item.isPrimary) ??
     pickArtwork(installment.artwork, "banner") ??
     work.banner;
   const title = `${number} · ${episode.title || "حلقة بلا عنوان"}`;

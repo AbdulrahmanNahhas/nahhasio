@@ -16,7 +16,7 @@ export function dateLabel(
       );
 }
 export function pickArtwork(images: ArtworkAssignment[], role: string) {
-  return images.find((a) => a.role === role && a.isPrimary) ?? images.find((a) => a.role === role);
+  return images.find((image) => image.role === role && image.isPrimary);
 }
 export const riskLabels = new Map([
   ["none", "لا يوجد"],

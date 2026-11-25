@@ -1,5 +1,6 @@
 import type { WorkDetail } from "@nahhasio/api-contract";
 
+import { isUpcomingTarget } from "./release-eligibility";
 import type { ProviderOffer } from "./stream-providers";
 import type { WatchTarget } from "./watch-request";
 
@@ -20,15 +21,8 @@ function catalogId(id?: number | null) {
 export function browserSources(work: WorkDetail, target: WatchTarget) {
   const part = target.installmentId
     ? work.installments.find((item) => item.id === target.installmentId)
-    : work.installments.find(
-        (item) => item.releaseState !== "upcoming" && item.status !== "announced",
-      );
-  if (
-    !part ||
-    part.releaseState === "upcoming" ||
-    part.status === "announced" ||
-    work.playbackPolicy === "files-only"
-  )
+    : work.installments.find((item) => !isUpcomingTarget(item));
+  if (!part || isUpcomingTarget(part) || work.playbackPolicy === "files-only")
     return { anime: false, sources: [], identity: null };
 
   const series = part.kind === "season";
@@ -42,7 +36,7 @@ export function browserSources(work: WorkDetail, target: WatchTarget) {
   const validEpisode =
     !series ||
     (episode &&
-      episode.releaseState !== "upcoming" &&
+      !isUpcomingTarget(part, episode) &&
       /^\d+(?:\.0+)?$/.test(episode.number) &&
       number > 0 &&
       number <= 100000 &&

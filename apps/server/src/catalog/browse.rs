@@ -1,7 +1,8 @@
 //! Paginated catalog discovery. Facet names and SQL fragments are server-owned; values are bound.
 use super::{ApiError, ApiResult, queries, tracking};
 use crate::auth::User;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode, header};
+use axum::response::IntoResponse;
 use axum::{
     Extension, Json,
     extract::{Query, State},
@@ -235,7 +236,7 @@ coalesce(i.release_date::text,t.release_year::text||'-01-01') release_sort,
 coalesce(i.title,'') unit_title,t.canonical_title,t.title_ar,
 jsonb_build_object('work',({work}),'installment',case when i.id is null then null else jsonb_build_object(
 'languages',to_jsonb(coalesce(i.languages,t.languages)),'id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,'releaseDate',i.release_date,'runtimeMinutes',i.runtime_minutes,
-'episodeCount',(select count(*) from episodes where installment_id=i.id),'poster',coalesce((select {art} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' order by m.is_primary desc,m.id limit 1),({work})->'poster'),'score',score_value) end,
+'episodeCount',(select count(*) from episodes where installment_id=i.id),'poster',coalesce((select {art} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' and m.is_primary order by m.is_primary desc,m.id limit 1),({work})->'poster'),'score',score_value) end,
 'classification',jsonb_build_object('audience',coalesce(i.audience_override,t.audience),'age',coalesce(i.age_override,t.age),'sexualityRisk',coalesce(i.sexuality_risk_override,t.sexuality_risk),'behavioralRisk',coalesce(i.behavioral_risk_override,t.behavioral_risk),'theologyRisk',coalesce(i.theology_risk_override,t.theology_risk)),
 'watchProgress',jsonb_build_object('releasedUnits',tracking.total,'watchedReleasedUnits',tracking.played),'status',{release_status},'watchState',watch_state,'criteria',jsonb_build_object({criteria})) entry,
 rating,jsonb_build_object({criteria}) criteria"#,
@@ -299,9 +300,29 @@ fn condition() -> String {
 pub(super) async fn browse(
     State(pool): State<PgPool>,
     Extension(user): Extension<User>,
+    headers: HeaderMap,
     Query(input): Query<Input>,
-) -> ApiResult<Json<Value>> {
+) -> ApiResult<impl IntoResponse> {
     let (page, size, view, privacy, order, filters) = input.validated()?;
+    // Older strict clients cannot decode an additional field in this projection.
+    let include_banner = headers
+        .get_all("prefer")
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(','))
+        .any(|value| {
+            value
+                .trim()
+                .eq_ignore_ascii_case("include=installment-banner")
+        });
+    let installment_artwork = if include_banner {
+        format!(
+            " || case when unit_id is null then '{{}}'::jsonb else jsonb_build_object('installment',(entry->'installment') || jsonb_build_object('banner',(select {} from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=expanded.unit_id and m.role='banner' and m.is_primary))) end",
+            queries::ARTWORK
+        )
+    } else {
+        String::new()
+    };
     let group = input.group.as_deref().unwrap_or("none");
     let memberships = membership_groups(group);
     let (group_key, group_rank) = if memberships.is_some() {
@@ -318,7 +339,7 @@ pub(super) async fn browse(
         format!("{group_rank} asc nulls last,{group_key},{order}")
     };
     let query = format!(
-        "with base as ({base}), filtered as (select * from base where {condition}), expanded as ({expanded}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from expanded group by {group_key}), page as (select entry || jsonb_build_object('groupKey',{group_key},'contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=expanded.id) work_roles),'[]'::jsonb)) entry,row_number() over(order by {order}) ord from expanded order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from expanded),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',$10::bigint,'pageSize',$8::bigint)",
+        "with base as ({base}), filtered as (select * from base where {condition}), expanded as ({expanded}), group_counts as (select {group_key} key,count(*) count,min({group_rank}) rank from expanded group by {group_key}), page as (select entry || jsonb_build_object('groupKey',{group_key},'contributionRoles',coalesce((select jsonb_agg(jsonb_build_object('entityId',entity_id,'value',role_slug,'label',role_label) order by role_label,role_slug,entity_id) from (select distinct c.entity_id entity_id,r.slug role_slug,coalesce(nullif(r.label_ar,''),r.label_en,r.slug) role_label from contributions c join roles r on r.id=c.role_id where c.title_id=expanded.id) work_roles),'[]'::jsonb)){installment_artwork} entry,row_number() over(order by {order}) ord from expanded order by {order} limit $8 offset $9) select jsonb_build_object('items',coalesce((select jsonb_agg(entry order by ord) from page),'[]'::jsonb),'total',(select count(*) from expanded),'groups',coalesce((select jsonb_agg(jsonb_build_object('key',key,'count',count) order by rank nulls last,key) from group_counts),'[]'::jsonb),'page',$10::bigint,'pageSize',$8::bigint)",
         base = base(user.is_admin, Projection::Page),
         condition = condition()
     );
@@ -335,7 +356,7 @@ pub(super) async fn browse(
         .bind(page)
         .fetch_one(&pool)
         .await?;
-    Ok(Json(value.0))
+    Ok(([(header::VARY, "Prefer")], Json(value.0)))
 }
 fn membership_groups(group: &str) -> Option<(&'static str, &'static str)> {
     match group {

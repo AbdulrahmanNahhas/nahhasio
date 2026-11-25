@@ -86,7 +86,7 @@ fn item() -> String {
 'releaseDate',to_char(p.release_date,'YYYY-MM-DD'),'status',p.status,'runtimeMinutes',p.runtime_minutes,
 'episodeCount',case when p.kind='installment' then (select count(*) from episodes e where e.installment_id=i.id) else null end,
 'poster',(select {artwork} from media_asset_assignments m join media_assets a on a.id=m.asset_id
-where m.role='poster' and (m.installment_id=i.id or m.title_id=t.id)
+where m.role='poster' and m.is_primary and (m.installment_id=i.id or m.title_id=t.id)
 order by (m.installment_id=i.id) desc nulls last,m.is_primary desc,m.id limit 1))"#,
         artwork = queries::ARTWORK
     )

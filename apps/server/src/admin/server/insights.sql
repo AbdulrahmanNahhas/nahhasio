@@ -5,7 +5,7 @@ with work_stats as (
 ), missing_episodes as (
  select e.id,e.number::float8 number,t.id work_id,coalesce(nullif(t.title_ar,''),t.canonical_title) work_name,t.tmdb_id,(select count(*) from installments prior where prior.title_id=i.title_id and prior.kind='season' and (prior.position,prior.id)<=(i.position,i.id)) season,i.kind::text kind
  from episodes e join installments i on i.id=e.installment_id join titles t on t.id=i.title_id
- where not exists(select 1 from media_asset_assignments m where m.episode_id=e.id and m.role in ('still','poster','banner'))
+ where not exists(select 1 from media_asset_assignments m where m.episode_id=e.id and m.role in ('still','poster','banner') and m.is_primary)
 ), eligible as (
  select * from missing_episodes where kind='season' and tmdb_id is not null and number>0 and number=trunc(number)
  order by work_name,season,number,id limit 1000
@@ -20,9 +20,9 @@ select jsonb_build_object(
  'artworkRoles',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select role::text key,count(distinct asset_id) value from media_asset_assignments group by role order by count(distinct asset_id) desc)x),
  'genres',(select coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value)),'[]') from (select coalesce(nullif(g.label_ar,''),g.label_en) key,count(*) value from title_genres x join genres g on g.id=x.value_id group by g.id order by count(*) desc,g.slug limit 8)x),
  'missing',jsonb_build_array(
- jsonb_build_object('key','poster','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='poster'))),
- jsonb_build_object('key','banner','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='banner'))),
- jsonb_build_object('key','logo','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='logo'))),
+ jsonb_build_object('key','poster','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='poster' and m.is_primary))),
+ jsonb_build_object('key','banner','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='banner' and m.is_primary))),
+ jsonb_build_object('key','logo','value',(select count(*) from titles t where not exists(select 1 from media_asset_assignments m where m.title_id=t.id and m.role='logo' and m.is_primary))),
  jsonb_build_object('key','summary','value',(select count(*) from titles where trim(summary)='')),
  jsonb_build_object('key','genres','value',(select count(*) from titles t where not exists(select 1 from title_genres g where g.title_id=t.id))),
  jsonb_build_object('key','credits','value',(select count(*) from titles t where not exists(select 1 from contributions c where c.title_id=t.id)))),

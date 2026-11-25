@@ -188,6 +188,7 @@ export const UpcomingInstallmentSchema = z.strictObject({
   runtimeMinutes: z.number().int().nullable(),
   episodeCount: z.number().int(),
   poster: ArtworkSchema.nullable(),
+  banner: ArtworkSchema.nullable().optional(),
   score: ScoreSummarySchema,
   languages: z.array(z.string()).optional(),
 });

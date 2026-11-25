@@ -53,7 +53,7 @@ const VISIBLE: &str = "(not t.is_private and t.workflow_status in ('draft','publ
 fn work_rows(from: &str, condition: &str, fields: (&str, &str, &str, &str, &str, &str)) -> String {
     let (body, date, detail, value, spoiler, status) = fields;
     format!(
-        "select x.id::text id,coalesce(nullif(t.title_ar,''),t.canonical_title) name,{body} body,t.id::text work_id,(select m.asset_id::text from media_asset_assignments m where m.title_id=t.id and m.role='poster' order by m.is_primary desc,m.id limit 1) artwork_id,{date} created_at,{detail} detail,({value})::bigint value,{spoiler} spoiler,({status})::text status from {from} where ({condition}) and {VISIBLE}"
+        "select x.id::text id,coalesce(nullif(t.title_ar,''),t.canonical_title) name,{body} body,t.id::text work_id,(select m.asset_id::text from media_asset_assignments m where m.title_id=t.id and m.role='poster' and m.is_primary order by m.is_primary desc,m.id limit 1) artwork_id,{date} created_at,{detail} detail,({value})::bigint value,{spoiler} spoiler,({status})::text status from {from} where ({condition}) and {VISIBLE}"
     )
 }
 fn work_progress() -> String {
@@ -72,7 +72,7 @@ fn rows(section: &str) -> String {
         "watching" => {
             let progress = work_progress();
             let watch_state = tracking::WATCH_STATE;
-            format!("select t.id::text id,coalesce(nullif(t.title_ar,''),t.canonical_title) name,null::text body,t.id::text work_id,(select m.asset_id::text from media_asset_assignments m where m.title_id=t.id and m.role='poster' order by m.is_primary desc,m.id limit 1) artwork_id,tracking.updated_at created_at,tracking.played::text||' / '||tracking.total::text||' وحدة مكتملة' detail,null::bigint value,false spoiler,'watching'::text status from titles t cross join lateral ({progress}) tracking where ({watch_state})='in-progress' and {VISIBLE}")
+            format!("select t.id::text id,coalesce(nullif(t.title_ar,''),t.canonical_title) name,null::text body,t.id::text work_id,(select m.asset_id::text from media_asset_assignments m where m.title_id=t.id and m.role='poster' and m.is_primary order by m.is_primary desc,m.id limit 1) artwork_id,tracking.updated_at created_at,tracking.played::text||' / '||tracking.total::text||' وحدة مكتملة' detail,null::bigint value,false spoiler,'watching'::text status from titles t cross join lateral ({progress}) tracking where ({watch_state})='in-progress' and {VISIBLE}")
         }
         "watched" => {
             let units=tracking::units("t.id","i.id");

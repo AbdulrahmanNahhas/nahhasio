@@ -39,7 +39,7 @@ select i.release_date,t.sort_title work_title,i.position,i.id,jsonb_build_object
 'id',i.id,'workId',t.id,'workTitle',t.canonical_title,'workTitleAr',t.title_ar,'title',i.title,'kind',i.kind,
 'releaseDate',i.release_date,'runtimeMinutes',i.runtime_minutes,
 'episodeCount',(select count(*) from episodes e where e.installment_id=i.id),
-'poster',coalesce((select jsonb_build_object('id',a.id,'url','/api/v1/artwork/'||a.id,'mimeType',a.mime_type,'width',a.width,'height',a.height,'byteSize',a.byte_size,'sha256',a.sha256,'originalFilename',a.original_filename,'focalX',a.focal_x,'focalY',a.focal_y) from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' order by m.is_primary desc,m.id limit 1),({summary})->'poster'),
+'poster',coalesce((select jsonb_build_object('id',a.id,'url','/api/v1/artwork/'||a.id,'mimeType',a.mime_type,'width',a.width,'height',a.height,'byteSize',a.byte_size,'sha256',a.sha256,'originalFilename',a.original_filename,'focalX',a.focal_x,'focalY',a.focal_y) from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.installment_id=i.id and m.role='poster' and m.is_primary order by m.is_primary desc,m.id limit 1),({summary})->'poster'),
 'score',jsonb_build_object('rating',floor(({score})*10+0.5)/10,'scored',case when ({score}) is null then 0 else 1 end,'total',1)) item
 from installments i join titles t on t.id=i.title_id left join installment_scores s on s.installment_id=i.id
 where (not t.is_private and t.workflow_status in ('draft','published')) and ((i.status='announced' and (i.release_date is null or i.release_date>=current_date)) or (i.status='unknown' and i.release_date>current_date))
@@ -115,7 +115,7 @@ order by t.id,e.release_date desc,e.created_at desc,e.id) distinct_following ord
     let featured_sql = format!(
         r#"select coalesce(jsonb_agg(item order by release_date desc nulls last,sort_title,id),'[]'::jsonb) from (
 select t.id,t.sort_title,coalesce((select max(x.release_date) from installments x where x.title_id=t.id),make_date(t.release_year,1,1)) release_date,({summary}) item
-from titles t where (not t.is_private and t.workflow_status in ('draft','published')) and exists(select 1 from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner')
+from titles t where (not t.is_private and t.workflow_status in ('draft','published')) and exists(select 1 from media_asset_assignments m join media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='banner' and m.is_primary)
 order by release_date desc nulls last,t.sort_title,t.id limit 10) featured"#,
         summary = queries::summary()
     );
@@ -142,7 +142,7 @@ pub(super) fn viewing_item(poster_installments: bool) -> String {
 'releaseDate',case when e.id is null then i.release_date else e.release_date end,'positionSeconds',coalesce(ps.position_seconds,0),
 'durationSeconds',ps.duration_seconds,'isPlayed',coalesce(ps.is_played,false),
 'artwork',coalesce((select {artwork} from media_asset_assignments m join media_assets a on a.id=m.asset_id
-where (m.episode_id=e.id and m.is_primary and m.role in ('still','poster','banner')) or (m.installment_id=i.id and m.role=({installment_role})::media_asset_role)
+where (m.episode_id=e.id and m.is_primary and m.role in ('still','poster','banner')) or (m.installment_id=i.id and m.is_primary and m.role=({installment_role})::media_asset_role)
 order by case when m.episode_id=e.id then 0 else 1 end,case m.role when 'still' then 0 else 1 end,m.is_primary desc,m.id limit 1),nullif(({summary})->({installment_role}),'null'::jsonb),nullif(({summary})->'poster','null'::jsonb)))"#,
         summary = queries::summary(),
         artwork = queries::ARTWORK,

@@ -60,6 +60,51 @@ async fn disposable_postgres_awards_api() -> TestResult {
     run_disposable_viewer_fixture(viewer_awards).await
 }
 
+#[tokio::test]
+#[ignore = "requires explicit opt-in and creates only a guarded schema-only disposable database"]
+async fn disposable_postgres_installment_artwork() -> TestResult {
+    run_disposable_viewer_fixture(|fixture, api_pool| async move {
+        sessions(&fixture).await?;
+        let artwork_id: String = sqlx::query_scalar(
+            "insert into media_assets(path,mime_type,byte_size,width,height,sha256,original_filename) \
+             values('/media/fixture-banner.png','image/png',1,1,1,repeat('a',64),'fixture-banner.png') returning id::text",
+        )
+        .fetch_one(&fixture)
+        .await?;
+        sqlx::query("insert into media_asset_assignments(asset_id,installment_id,role,is_primary) values($1::uuid,$2::uuid,'banner',true)")
+            .bind(&artwork_id).bind(SEASON).execute(&fixture).await?;
+        let api = router(api_pool);
+        let path = "/api/v1/catalog/browse?view=installments&pageSize=100&privacy=all";
+        let installment = |page: Value| {
+            page["items"].as_array().unwrap().iter()
+                .find(|entry| entry["installment"]["id"] == SEASON).unwrap()["installment"].clone()
+        };
+        let legacy = success(&api, 1, Method::GET, path, None).await?;
+        assert!(installment(legacy).get("banner").is_none());
+        for active in [true, false] {
+            let response = api.clone().oneshot(Request::builder().uri(path)
+                .header("authorization", format!("Bearer {}", token(1)))
+                .header("prefer", "include=installment-banner")
+                .body(Body::empty())?).await?;
+            assert_eq!(response.status(), StatusCode::OK);
+            let page = serde_json::from_slice(&to_bytes(response.into_body(), 2 * 1024 * 1024).await?)?;
+            let item = installment(page);
+            let detail = success(&api, 1, Method::GET, &format!("/api/v1/works/{WORK}"), None).await?;
+            let season = detail["installments"].as_array().unwrap().iter().find(|part| part["id"] == SEASON).unwrap();
+            let visible = season["artwork"].as_array().unwrap().iter().any(|asset| asset["id"] == artwork_id);
+            assert_eq!(visible, active);
+            if active {
+                assert_eq!(item["banner"]["id"], artwork_id);
+                sqlx::query("update media_asset_assignments set is_primary=false where asset_id=$1::uuid")
+                    .bind(&artwork_id).execute(&fixture).await?;
+            } else {
+                assert_eq!(item.get("banner"), Some(&Value::Null));
+            }
+        }
+        Ok(())
+    }).await
+}
+
 async fn run_disposable_viewer_fixture<F, Fut>(run: F) -> TestResult
 where
     F: FnOnce(PgPool, PgPool) -> Fut + Send + 'static,

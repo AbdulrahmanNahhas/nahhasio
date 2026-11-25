@@ -84,16 +84,19 @@ fn projection(alias: &str, keys: &[&str]) -> String {
 async fn uuid(c: &mut PgConnection) -> Result<Value> {
     one(c, "select to_jsonb(gen_random_uuid())", Value::Null).await
 }
-async fn media(c: &mut PgConnection, column: &str, id: &str) -> Result<Value> {
-    one(c,&format!("select coalesce(jsonb_object_agg(role,path),'{{}}') from(select x.role,a.path from media_asset_assignments x join media_assets a on a.id=x.asset_id where x.{}=($1->>'id')::uuid and x.is_primary order by x.role,x.id)s",schema::quote(column)?),json!({"id":id})).await
+fn primary_media(owner: &str) -> String {
+    format!(
+        "(select coalesce(jsonb_object_agg(m.role,a.path),'{{}}'::jsonb) from media_asset_assignments m join media_assets a on a.id=m.asset_id where {owner} and m.is_primary)"
+    )
 }
 pub async fn export(c: &mut PgConnection, id: &str) -> Result<Value> {
     let p = json!({"id":id});
     let mut doc = one(
         c,
         &format!(
-            "select jsonb_build_object('id',t.id,{}) from titles t where t.id=($1->>'id')::uuid",
-            projection("t", TITLE)
+            "select jsonb_build_object('id',t.id,{},'media',{}) from titles t where t.id=($1->>'id')::uuid",
+            projection("t", TITLE),
+            primary_media("m.title_id=t.id")
         ),
         p.clone(),
     )
@@ -137,20 +140,27 @@ pub async fn export(c: &mut PgConnection, id: &str) -> Result<Value> {
     for key in ["genres", "tones", "tags", "countries"] {
         doc[key]=json!(rows(c,&format!("select to_jsonb(g.slug) from title_{key} j join {key} g on g.id=j.value_id where j.title_id=($1->>'id')::uuid order by g.slug"),p.clone()).await?);
     }
-    doc["media"] = media(c, "title_id", id).await?;
-    let mut parts=rows(c,&format!("select jsonb_build_object('id',i.id,{}) from installments i where i.title_id=($1->>'id')::uuid order by i.position,i.id",projection("i",PART)),p).await?;
-    for part in &mut parts {
-        let id = text(part, "id").to_owned();
-        let p = json!({"id":id});
-        part["score"]=rows(c,&format!("select jsonb_build_object({}) from installment_scores s where installment_id=($1->>'id')::uuid",projection("s",SCORE)),p.clone()).await?.into_iter().next().unwrap_or_else(||json!(SCORE.iter().map(|k|(k.to_string(),Value::Null)).collect::<serde_json::Map<_,_>>()));
-        part["media"] = media(c, "installment_id", &id).await?;
-        let mut episodes=rows(c,&format!("select jsonb_build_object('id',e.id,{}) from episodes e where e.installment_id=($1->>'id')::uuid order by e.position,e.id",projection("e",EPISODE)),p).await?;
-        for episode in &mut episodes {
-            episode["media"] = media(c, "episode_id", text(episode, "id")).await?;
-        }
-        part["episodes"] = json!(episodes);
-    }
-    doc["installments"] = json!(parts);
+    doc["installments"] = json!(
+        rows(
+            c,
+            &format!(
+                "select jsonb_build_object('id',i.id,{part},'score',jsonb_build_object({score}),
+                'media',{part_media},'episodes',coalesce((
+                    select jsonb_agg(jsonb_build_object('id',e.id,{episode},'media',{episode_media})
+                        order by e.position,e.id) from episodes e where e.installment_id=i.id
+                ),'[]'::jsonb))
+            from installments i left join installment_scores s on s.installment_id=i.id
+            where i.title_id=($1->>'id')::uuid order by i.position,i.id",
+                part = projection("i", PART),
+                score = projection("s", SCORE),
+                episode = projection("e", EPISODE),
+                part_media = primary_media("m.installment_id=i.id"),
+                episode_media = primary_media("m.episode_id=e.id"),
+            ),
+            p,
+        )
+        .await?
+    );
     Ok(doc)
 }
 /// Only the field constants above and explicit foreign-key fields reach this helper.

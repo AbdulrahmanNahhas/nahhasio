@@ -448,7 +448,7 @@ review. Use [Client behavior](../desktop/behavior.md) for present-day flows and
 - [x] Parts/episodes and scores
 - [x] Privacy and publication status
 - [x] Registered image selection/upload/search controls
-- [ ] Installment banner controls in the work editor
+- [x] Installment banner controls in the work editor
 - [x] Draft JSON dialog
 - [x] Change-review/save flow
 - [x] Unsaved navigation protection

@@ -100,11 +100,12 @@ export function MediaCard({
   const workId = parent?.id ?? unit?.workId ?? "";
   const title = unit?.title ?? (parent?.titleAr || parent?.canonicalTitle || "");
   const poster = unit?.poster ?? parent?.poster;
+  const banner = unit?.banner ?? parent?.banner;
   const bareLogo = borderless && layout === "logo";
   const landscape = browsePresentation && layout === "banner";
   const image =
     layout === "banner"
-      ? (parent?.banner ?? poster)
+      ? (banner ?? poster)
       : layout === "logo"
         ? bareLogo && (minimal || browsePresentation)
           ? parent?.logo
@@ -290,7 +291,7 @@ export function MediaCard({
                 }
                 className={cn(
                   "block size-full object-cover",
-                  landscape && !parent?.banner && "object-contain",
+                  landscape && !banner && "object-contain",
                   layout === "logo" &&
                     parent?.logo &&
                     (bareLogo && (minimal || browsePresentation)

@@ -35,14 +35,22 @@ will change stored editorial fields. Start an ordinary code change with the rele
 
 ## Refresh a vendor skill
 
-1. Check the installed dependency and the vendor source. UI SDK ships a matching skill at
-   `apps/linux/ui/node_modules/@ui-sdk/core/skills/ui-sdk/SKILL.md`. Shadcn publishes its skill
-   and CLI workflow in the [official shadcn docs](https://ui.shadcn.com/docs/skills).
-2. When refreshing a checked-in vendor snapshot, preview the official skill with the Skills CLI
-   in a temporary directory. Compare the entry point and its resources. Preserve useful local
-   routing and the upstream license. `skills-lock.json` records the installer's upstream
-   provenance. The tracked Markdown can include reviewed Nahhasio adaptations.
-3. Verify names, links, and task routing. For a significant workflow change, walk through a
+1. Check the installed dependency first. UI SDK ships its matching skill at
+   `apps/linux/ui/node_modules/@ui-sdk/core/skills/ui-sdk/SKILL.md` and React docs in the adapter
+   package. Review [UI SDK releases](https://github.com/vercel-labs/ui/releases) when updating core
+   and React together. For shadcn, consult the installed CLI, `components.json`, and the
+   [official skill and registry workflow](https://ui.shadcn.com/docs/skills). Confirm new registry
+   backends against the changelog and a generated sample before proposing a migration.
+2. Use [Skills.sh](https://www.skills.sh/) to find a workflow when the task needs it. Inspect the
+   source and its references before using it. For occasional React performance reviews, consult
+   [Vercel's React guidance](https://www.skills.sh/vercel-labs/agent-skills/vercel-react-best-practices)
+   selectively and verify recommendations with Nahhasio's Vite build and browser traces.
+3. Use [Skills CLI](https://www.skills.sh/docs/cli) in a scratch checkout. `skills check --project`
+   reports upstream changes and differences from the lockfile, including intentional local edits.
+   Preview updates there, compare the entry point and resources, and bring across the reviewed
+   changes. Preserve upstream provenance in `skills-lock.json` and local boundaries in the tracked
+   Markdown. Keep the installed package's guidance authoritative for its current API.
+4. Verify names, links, and task routing. For a significant workflow change, walk through a
    realistic request and check the resulting scope, commands and side effects. Follow the
    [documentation checks](../README.md#maintaining-these-docs) before handing off.
 

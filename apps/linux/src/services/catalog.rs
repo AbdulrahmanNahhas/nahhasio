@@ -221,18 +221,17 @@ impl ServerSession {
                 {
                     return Err(Error::new("bad_request", "Invalid catalog query"));
                 }
-                let path = if request.command == "browse" {
+                let browse = request.command == "browse";
+                let path = if browse {
                     "api/v1/catalog/browse"
                 } else {
                     "api/v1/catalog/facets"
                 };
-                let response = self
-                    .authorized(Method::GET, path)
-                    .await?
-                    .query(&input)
-                    .send()
-                    .await
-                    .map_err(network)?;
+                let mut request = self.authorized(Method::GET, path).await?.query(&input);
+                if browse {
+                    request = request.header("Prefer", "include=installment-banner");
+                }
+                let response = request.send().await.map_err(network)?;
                 self.json(response).await
             }
 

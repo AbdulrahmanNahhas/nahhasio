@@ -151,7 +151,7 @@ enum CatalogGap {
     ArabicName,
     Structure,
 }
-const CATALOG_POSTER: &str = "(select a.path from public.media_asset_assignments m join public.media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='poster' order by m.is_primary desc,m.id limit 1)";
+const CATALOG_POSTER: &str = "(select a.path from public.media_asset_assignments m join public.media_assets a on a.id=m.asset_id where m.title_id=t.id and m.role='poster' and m.is_primary order by m.is_primary desc,m.id limit 1)";
 const CATALOG_SERIES: &str = "exists(select 1 from public.installments i where i.title_id=t.id and (i.kind='season' or exists(select 1 from public.episodes e where e.installment_id=i.id)))";
 
 #[derive(Deserialize)]

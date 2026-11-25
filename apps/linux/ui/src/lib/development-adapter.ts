@@ -53,6 +53,8 @@ async function transport(
   const headers = new Headers();
   if (token && !anonymous) headers.set("Authorization", `Bearer ${token}`);
   if (body !== undefined) headers.set("Content-Type", "application/json");
+  if (path.split("?", 1)[0] === "/v1/catalog/browse")
+    headers.set("Prefer", "include=installment-banner");
   const combined = AbortSignal.any([
     requests.signal,
     AbortSignal.timeout(25000),

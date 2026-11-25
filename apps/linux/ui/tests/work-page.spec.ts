@@ -33,10 +33,12 @@ import type { EmbedStatus, ProviderListing } from "../src/features/player/stream
 const test = baseTest.extend<{
   adminProfile: boolean;
   longSeason: boolean;
+  futureFilm: boolean;
   legacyDiscussion: boolean;
 }>({
   adminProfile: [true, { option: true }],
   longSeason: [false, { option: true }],
+  futureFilm: [false, { option: true }],
   legacyDiscussion: [false, { option: true }],
 });
 
@@ -897,7 +899,7 @@ async function expectFocusInside(dialog: Locator) {
     .toBe(true);
 }
 
-test.beforeEach(async ({ page, adminProfile, longSeason, legacyDiscussion }) => {
+test.beforeEach(async ({ page, adminProfile, longSeason, futureFilm, legacyDiscussion }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   WorkDetailSchema.parse(work);
   WorkViewerStateSchema.parse(initialState);
@@ -918,7 +920,35 @@ test.beforeEach(async ({ page, adminProfile, longSeason, legacyDiscussion }) => 
         ),
       }
     : work;
-  await installBridge(page, fixture, adminProfile, legacyDiscussion);
+  const movie = work.installments.find((part) => part.id === movieId)!;
+  await installBridge(
+    page,
+    futureFilm
+      ? {
+          ...work,
+          installmentCount: 1,
+          episodeCount: 0,
+          installments: [
+            { ...movie, status: "unknown", releaseState: "upcoming", releaseDate: "2099-01-01" },
+          ],
+        }
+      : fixture,
+    adminProfile,
+    legacyDiscussion,
+  );
+});
+
+test.describe("future film with unknown editorial status", () => {
+  test.use({ futureFilm: true });
+
+  test("the Work hero disables both watching and downloading", async ({ page }) => {
+    await openWork(page);
+    const hero = page.locator("[data-work-hero]");
+    await expect(hero.getByRole("button", { name: "شاهد الآن" })).toBeDisabled();
+    await hero.getByRole("button", { name: "المزيد من إجراءات العمل" }).click();
+    await expect(page.getByRole("menuitem", { name: "تنزيل الفيديو" })).toBeDisabled();
+    expect(await requests(page, "player.preview")).toEqual([]);
+  });
 });
 
 test("administrator opens the existing editor on the Work route and keeps a draft when exit is cancelled", async ({

@@ -39,7 +39,7 @@ import {
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { invalidateCatalogEdit } from "@/features/editor/invalidate-catalog-edit";
+import { invalidateWorkStructureEdit } from "@/features/editor/invalidate-catalog-edit";
 import { ChangeReview } from "@/features/editor/json/document/change-review";
 import { gateway } from "@/lib/bridge";
 
@@ -227,13 +227,14 @@ function ImportForm({
   const action = useMutation({
     mutationFn: async () => {
       if (!prepared) throw new Error("راجع الاستيراد أولًا.");
-      if (prepared.ticket)
+      if (prepared.ticket) {
         await gateway.editorCall({ operation: "save", data: { ticket: prepared.ticket } });
+        await invalidateWorkStructureEdit(client, prepared.request.workId);
+      }
       return importMedia(prepared.request);
     },
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["admin", "media"] });
-      if (prepared?.ticket) await invalidateCatalogEdit(client);
       await client.invalidateQueries({ queryKey: ["admin", "import-work", workId] });
       onComplete();
     },

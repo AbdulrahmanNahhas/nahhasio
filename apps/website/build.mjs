@@ -68,16 +68,19 @@ try {
     );
   }
 
-  const { Site } = await import(pathToFileURL(renderModule));
+  const { Site, screenshots: screenshotSlots } = await import(pathToFileURL(renderModule));
   const guides = await loadEntries("guides");
   const changes = (await loadEntries("changes")).toSorted((a, b) =>
     b.id.localeCompare(a.id, "en", { numeric: true }),
   );
   const screenshots = {};
+  const slotIds = new Set(screenshotSlots.map((slot) => slot.id));
   for (const file of await readdir(join(base, "assets"))) {
-    const match = /^screen-(browse|work|watch|library)\.(?:avif|webp|png|jpg)$/.exec(file);
+    const match = /^screen-([a-z-]+)\.(?:avif|webp|png|jpg)$/.exec(file);
     if (!match) continue;
-    const [, id] = match;
+    const [, name] = match;
+    const id = slotIds.has(name) ? name : `desktop-${name}`;
+    if (!slotIds.has(id)) continue;
     if (screenshots[id]) throw new Error(`Multiple captures for ${id}`);
     screenshots[id] = `assets/${file}`;
   }

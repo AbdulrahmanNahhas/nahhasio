@@ -11,6 +11,7 @@ import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
+import { isUpcomingTarget } from "../player/release-eligibility";
 import { SaveWorkControl } from "../player/saved-works";
 import { offlineStatusOptions } from "../player/saved-works-data";
 import { requestDownload, requestWatch } from "../player/watch-request";
@@ -58,7 +59,7 @@ export function WorkHero({ work, tracking }: { work: WorkDetail; tracking: WorkT
   const offline = useQuery(offlineStatusOptions());
   const available: Array<{ installmentId: string; episodeId?: string }> = [];
   for (const part of work.installments) {
-    if (part.status === "announced") continue;
+    if (isUpcomingTarget(part)) continue;
     if (part.kind === "season") {
       for (const episode of part.episodes)
         if (episode.releaseState !== "upcoming")
@@ -224,7 +225,7 @@ export function WorkHero({ work, tracking }: { work: WorkDetail; tracking: WorkT
                 <MenuGroup>
                   <MenuItem
                     className={sdkMenuItemClassName}
-                    disabled={!work.installments.some((item) => item.status !== "announced")}
+                    disabled={available.length === 0}
                     onSelect={() => requestDownload({ workId: work.id, title })}
                   >
                     <Download className="size-4" aria-hidden />

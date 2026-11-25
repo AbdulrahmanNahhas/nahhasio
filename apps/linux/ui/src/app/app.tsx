@@ -1,17 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { Login } from "../features/auth/login";
 import { Library } from "../features/library/library";
 import { usePlayerSnapshot } from "../features/player";
 import type { PlayerSnapshot } from "../features/player/bridge";
-import { DownloadDialog } from "../features/player/download-dialog";
 import { OfflineLibrary } from "../features/player/offline-library";
 import { openWatch } from "../features/player/playback";
 import { offlineStatusOptions, syncSavedWorks } from "../features/player/saved-works-data";
 import { playerSnapshotKey } from "../features/player/use-player-snapshot";
-import { WatchPage } from "../features/player/watch-page";
 import {
   WatchTargetSchema,
   watchRequestEvent,
@@ -19,6 +17,15 @@ import {
 } from "../features/player/watch-request";
 import { gateway, nativeCall } from "../lib/bridge";
 import { developmentBrowserAvailable } from "../lib/development-platform";
+
+const WatchPage = lazy(() =>
+  import("../features/player/watch-page").then((module) => ({ default: module.WatchPage })),
+);
+const DownloadDialog = lazy(() =>
+  import("../features/player/download-dialog").then((module) => ({
+    default: module.DownloadDialog,
+  })),
+);
 export function App() {
   const client = useQueryClient();
   const player = usePlayerSnapshot();
@@ -252,20 +259,22 @@ export function App() {
   });
   if (showWatch && (session.data || offline.data?.offline))
     return (
-      <WatchPage
-        player={player}
-        sourceReady={sourceReady}
-        work={playingWorkId ? watchWork.data : undefined}
-        target={currentTarget}
-        accountId={session.data?.user.accountId}
-        offline={offline.data?.offline ?? false}
-        error={watchWork.error}
-        onRetry={() => void watchWork.refetch()}
-        onWatch={openTarget}
-        onLeave={leaveWatch}
-        browserPreview={browserPreview}
-        startupError={watchStartupError}
-      />
+      <Suspense fallback={null}>
+        <WatchPage
+          player={player}
+          sourceReady={sourceReady}
+          work={playingWorkId ? watchWork.data : undefined}
+          target={currentTarget}
+          accountId={session.data?.user.accountId}
+          offline={offline.data?.offline ?? false}
+          error={watchWork.error}
+          onRetry={() => void watchWork.refetch()}
+          onWatch={openTarget}
+          onLeave={leaveWatch}
+          browserPreview={browserPreview}
+          startupError={watchStartupError}
+        />
+      </Suspense>
     );
 
   if (offline.data?.offline)
@@ -277,12 +286,14 @@ export function App() {
     <>
       <Library user={session.data.user} />
       {download && (
-        <DownloadDialog
-          key={download.sessionId}
-          target={download.target}
-          sessionId={download.sessionId}
-          onClose={() => setDownload(null)}
-        />
+        <Suspense fallback={null}>
+          <DownloadDialog
+            key={download.sessionId}
+            target={download.target}
+            sessionId={download.sessionId}
+            onClose={() => setDownload(null)}
+          />
+        </Suspense>
       )}
     </>
   );

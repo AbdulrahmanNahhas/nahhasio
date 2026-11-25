@@ -19,3 +19,18 @@ export async function invalidateCatalogEdit(client: QueryClient) {
     ].map((queryKey) => client.invalidateQueries({ queryKey })),
   );
 }
+
+export async function invalidateWorkStructureEdit(client: QueryClient, workId: string) {
+  await Promise.all(
+    [
+      ["work", workId],
+      ["viewer", "work", workId],
+      ["admin", "editor", "work-documents"],
+      ["admin", "works"],
+      ["admin", "database"],
+      ["database"],
+      ["catalog"],
+      ["home"],
+    ].map((queryKey) => client.invalidateQueries({ queryKey })),
+  );
+}

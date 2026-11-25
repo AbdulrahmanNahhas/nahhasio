@@ -1,5 +1,5 @@
 import type { CatalogPlanet, Planet } from "@nahhasio/api-contract";
-import { useQuery, skipToken } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -62,24 +62,12 @@ export function CatalogPlanetTile({
     staleTime: 30000,
   });
   const entry = latest.data;
-  const workId = entry?.work.id;
-  const installmentId = entry?.installment?.id;
-  const artwork = useQuery({
-    queryKey: ["work", workId],
-    queryFn: workId && installmentId ? ({ signal }) => gateway.work(workId, signal) : skipToken,
-    staleTime: 30000,
-    select: (work) => {
-      const images = work.installments.find(({ id }) => id === installmentId)?.artwork ?? [];
-      const banners = images.filter(({ role }) => role === "banner");
-      return banners.find(({ isPrimary }) => isPrimary) ?? banners[0];
-    },
-  });
   return (
     <div ref={tile} className={variant === "emblem" ? "shrink-0" : "min-w-0"}>
       <PlanetTile
         planet={planet}
         variant={variant}
-        bannerId={artwork.data?.id ?? entry?.work.banner?.id}
+        bannerId={entry?.installment?.banner?.id ?? entry?.work.banner?.id}
         workCount={planet.count}
         onFocus={() => setNear(true)}
       />

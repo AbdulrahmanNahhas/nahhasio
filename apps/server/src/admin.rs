@@ -153,15 +153,15 @@ AND ($2::text IS NULL OR t.format::text=$2)
 AND ($3::text IS NULL OR ($3='series' AND EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id AND i.kind='season')) OR ($3='movie' AND EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id) AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id AND i.kind='season')))
 AND ($4::text IS NULL OR t.workflow_status::text=$4)
 AND ($5::text IS NULL OR t.is_private=($5='private'))
-AND ($6::text IS NULL OR ($6='poster' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='poster')) OR ($6='summary' AND trim(t.summary)='') OR ($6='arabic-name' AND trim(coalesce(t.title_ar,''))='') OR ($6='structure' AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id))
-OR ($6='banner' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='banner'))
-OR ($6='logo' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='logo'))
+AND ($6::text IS NULL OR ($6='poster' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.is_primary AND m.role='poster')) OR ($6='summary' AND trim(t.summary)='') OR ($6='arabic-name' AND trim(coalesce(t.title_ar,''))='') OR ($6='structure' AND NOT EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id))
+OR ($6='banner' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.is_primary AND m.role='banner'))
+OR ($6='logo' AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.title_id=t.id AND m.is_primary AND m.role='logo'))
 OR ($6='trailers' AND NOT EXISTS(SELECT 1 FROM title_trailers v WHERE v.title_id=t.id))
 OR ($6='scores' AND EXISTS(SELECT 1 FROM installments i LEFT JOIN installment_scores s ON s.installment_id=i.id WHERE i.title_id=t.id AND (s.story IS NULL OR s.characters IS NULL OR s.depth IS NULL OR s.world_building IS NULL OR s.originality IS NULL OR s.craft IS NULL)))
 OR ($6='genres' AND NOT EXISTS(SELECT 1 FROM title_genres g WHERE g.title_id=t.id))
 OR ($6='planet' AND NOT EXISTS(SELECT 1 FROM title_planets p WHERE p.title_id=t.id))
 OR ($6='credits' AND NOT EXISTS(SELECT 1 FROM contributions c WHERE c.title_id=t.id))
-OR ($6='episode-images' AND EXISTS(SELECT 1 FROM installments i JOIN episodes e ON e.installment_id=i.id WHERE i.title_id=t.id AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.episode_id=e.id AND m.role IN ('still','poster','banner')))))
+OR ($6='episode-images' AND EXISTS(SELECT 1 FROM installments i JOIN episodes e ON e.installment_id=i.id WHERE i.title_id=t.id AND NOT EXISTS(SELECT 1 FROM media_asset_assignments m WHERE m.episode_id=e.id AND m.is_primary AND m.role IN ('still','poster','banner')))))
 AND ($7::text IS NULL OR $7=ANY(nahhasio_work_languages(t.id)))
 "#;
 fn work_filter() -> String {
@@ -186,7 +186,7 @@ SELECT t.id, row_number() OVER(ORDER BY {order}) AS ordinal, jsonb_build_object(
 'isSeries',EXISTS(SELECT 1 FROM installments i WHERE i.title_id=t.id AND i.kind='season'),
 'installmentCount',(SELECT count(*) FROM installments i WHERE i.title_id=t.id),
 'episodeCount',(SELECT count(*) FROM episodes e JOIN installments i ON i.id=e.installment_id WHERE i.title_id=t.id),
-'posterId',(SELECT m.asset_id FROM media_asset_assignments m WHERE m.title_id=t.id AND m.role='poster' ORDER BY m.is_primary DESC,m.id LIMIT 1)
+'posterId',(SELECT m.asset_id FROM media_asset_assignments m WHERE m.title_id=t.id AND m.is_primary AND m.role='poster')
 ) AS item FROM filtered t ORDER BY {order} LIMIT $10 OFFSET (($9-1)*$10))
 SELECT jsonb_build_object('items',coalesce((SELECT jsonb_agg(item ORDER BY ordinal) FROM page_rows),'[]'::jsonb),'total',(SELECT count(*) FROM filtered),'page',$9::bigint,'pageSize',$10::bigint)"#,
         filter = work_filter()
