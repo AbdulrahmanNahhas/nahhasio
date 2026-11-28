@@ -61,11 +61,17 @@ keyboard focus, reduced motion and narrow-window behavior remain required.
 
 Shared buttons and button-styled links use brief 97% scaling while pressed. Reduced-motion
 settings replace scaling with a color change. Disabled and pending controls remain still.
-Consult UI SDK first for new interactive behavior. Use the shared SDK menu and mobile drawer
-for existing patterns, and preserve shadcn's reviewed layout primitives and desktop dialog
-composition. Use a bottom drawer below 768 px for longer detail and selection flows. Allow one
-scroll region within the drawer, including short phone screens. Keep the SDK’s optional global
-stylesheet out of the desktop bundle.
+Consult UI SDK first for new interactive behavior. Shared wrappers live in
+`apps/linux/ui/src/components/ui-sdk/`. Use them for menus, mobile drawers, switches, progress
+bars, selects, checkboxes, collapsible panels and separators. Keep shared styling and SDK-specific
+API adaptations in the owning wrapper. Keep feature state, labels and actions at the call site.
+Review the installed SDK docs and exercise representative viewer and admin callers when changing
+a wrapper or updating the SDK. Verify popup nesting, focus return and RTL in Chromium and packaged
+WebKit when replacing a popup primitive.
+
+Preserve shadcn's reviewed layout primitives and desktop dialog composition. Use a bottom drawer
+below 768 px for longer detail and selection flows. Allow one scroll region within the drawer,
+including short phone screens. Keep the SDK's optional global stylesheet out of the desktop bundle.
 
 Tailwind owns feature presentation. Keep fonts, tokens and essential global rules in the
 stylesheet. Use static utilities and configured tokens for new code. Runtime geometry follows

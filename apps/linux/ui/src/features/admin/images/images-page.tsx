@@ -3,6 +3,14 @@ import { cn } from "cn";
 import { Grid2X2, List, Search, RefreshCw, ArrowRight, ArrowLeft, Images } from "lucide-react";
 import { useState } from "react";
 
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+} from "@/components/ui-sdk/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,14 +36,6 @@ import {
   InputGroupInput,
   InputGroupButton,
 } from "@/components/ui/input-group";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -501,7 +501,7 @@ function FilterSelect<T extends string>({
 }) {
   return (
     <Select
-      items={items}
+      items={[...items]}
       value={value}
       onValueChange={(next) => {
         const choice = items.find((item) => item.value === next);

@@ -8,13 +8,13 @@ import {
 } from "lucide-react";
 import { useId, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SelectField } from "@/features/editor/fields/work-fields";
 import {
   isJsonObject,
   isJsonString,

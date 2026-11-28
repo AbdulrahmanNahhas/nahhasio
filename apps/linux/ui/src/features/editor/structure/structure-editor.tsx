@@ -4,6 +4,8 @@ import { PlusIcon, Upload } from "lucide-react";
 import { useState } from "react";
 
 import { LanguageBadges } from "@/components/language-badges";
+import { SelectField } from "@/components/select-field";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,6 @@ import {
   FieldDescription,
   FieldGroup,
 } from "@/components/ui/field";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ImportMediaDialog } from "@/features/admin/media/import-media-dialog";
 import { mediaUnitsOptions } from "@/features/admin/media/media-data";
@@ -24,7 +25,7 @@ import { suggestedTmdbSeason } from "@/features/editor/artwork/artwork-model";
 import { installmentIdentityKeys } from "@/features/editor/artwork/artwork-model";
 import { IdentityFields } from "@/features/editor/fields/identity-fields";
 import { LanguagesField } from "@/features/editor/fields/languages-field";
-import { SelectField, TextField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { ScoreComparison, scoreCriteria } from "@/features/scoring/score-comparison";
 import { languageName } from "@/lib/languages";
 

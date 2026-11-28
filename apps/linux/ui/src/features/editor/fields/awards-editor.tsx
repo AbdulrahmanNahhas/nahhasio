@@ -3,12 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { PlusIcon, TrashIcon } from "lucide-react";
 import { z } from "zod";
 
+import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { SelectField, TextField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { findReferences, ReferenceField } from "@/features/editor/references/reference-field";
 import { OrderActions } from "@/features/editor/structure/order-actions";
 import { moveOrderedRow, withPositions } from "@/features/editor/structure/ordered-rows";

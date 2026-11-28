@@ -6,11 +6,11 @@ import { useState, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Choice } from "@/components/choice";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Combobox,
   ComboboxInput,

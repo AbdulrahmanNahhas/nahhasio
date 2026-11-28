@@ -9,6 +9,7 @@ import { Artwork } from "@/components/artwork";
 import { CardNavigationProvider } from "@/components/card-navigation";
 import { ScoreBadge } from "@/components/media-card";
 import { Failure, NoResults } from "@/components/status";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -29,7 +30,6 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gateway } from "@/lib/bridge";
 

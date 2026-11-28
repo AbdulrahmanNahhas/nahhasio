@@ -1,12 +1,11 @@
 import type { WorkDetail } from "@nahhasio/api-contract";
-import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Failure } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SelectField } from "@/features/editor/fields/work-fields";
 import { episodeNumberLabel, pickArtwork } from "@/features/work/format";
 import { useWorkTracking } from "@/features/work/use-work-tracking";
 import { WorkDiscussion } from "@/features/work/work-discussion";
@@ -16,7 +15,7 @@ import { MovieInfo } from "./movie-info";
 import { MovieInstallments } from "./movie-installments";
 import { PlayerHost } from "./player-host";
 import { isUpcomingTarget } from "./release-eligibility";
-import { savedDownloadOptions } from "./saved-downloads";
+import { useDownloadedEpisodeIds } from "./saved-downloads";
 import { SourceControls } from "./source-selection";
 import type { PlayerController } from "./use-player-snapshot";
 import { useVideoViewport, VideoBackdrop } from "./use-video-viewport";
@@ -77,11 +76,7 @@ export function WatchPage({
   const tracking = useWorkTracking(work?.id ?? "", Boolean(work));
   const video = useRef<HTMLDivElement>(null);
   const viewport = useVideoViewport(video, s?.sessionId, s?.fullscreen ?? false);
-  const saved = useQuery({
-    ...savedDownloadOptions(),
-    enabled: !browserPreview,
-    refetchInterval: 5000,
-  });
+  const downloadedEpisodeIds = useDownloadedEpisodeIds(work?.id, !browserPreview);
   const playingPart =
     work?.installments.find((unit) => unit.id === (target?.installmentId ?? s?.installmentId)) ??
     work?.installments[0];
@@ -413,13 +408,7 @@ export function WatchPage({
                   episode: item,
                   imageId: (item.still ?? pickArtwork(item.artwork, "still") ?? work.banner)?.id,
                   state: tracking.unitByEpisode.get(item.id),
-                  downloaded:
-                    saved.data?.some(
-                      (file) =>
-                        file.available &&
-                        file.target.workId === work.id &&
-                        file.target.episodeId === item.id,
-                    ) ?? false,
+                  downloaded: downloadedEpisodeIds.has(item.id),
                   progress: episodeProgress(item),
                 }))}
               />

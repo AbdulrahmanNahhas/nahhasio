@@ -3,12 +3,12 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Choice } from "@/components/choice";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 
 import {
   accountKinds,

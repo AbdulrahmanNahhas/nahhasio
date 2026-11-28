@@ -2,6 +2,13 @@ import type { WorkDocument } from "@arcadia/contracts/work";
 import { installmentRating, workScore } from "@arcadia/domain";
 import { ChevronDown } from "lucide-react";
 
+import { SelectField } from "@/components/select-field";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui-sdk/collapsible";
+import { Progress } from "@/components/ui-sdk/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +19,12 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Progress } from "@/components/ui/progress";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { workflowLabels } from "@/features/catalog/works/works-model";
 import { LanguagesField } from "@/features/editor/fields/languages-field";
 import { WorkTrailers } from "@/features/editor/fields/playback-fields";
-import { TextField, SelectField, StringListField } from "@/features/editor/fields/work-fields";
+import { TextField, StringListField } from "@/features/editor/fields/work-fields";
 import { scoreDefinitions } from "@/features/scoring/score-model";
 import { WorkScoreBadge } from "@/features/scoring/work-score";
 

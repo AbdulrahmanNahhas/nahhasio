@@ -4,14 +4,6 @@ import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ReferencePicker } from "@/features/editor/references/reference-picker";
 import { useEditorRows } from "@/features/editor/structure/use-editor-rows";
@@ -62,51 +54,7 @@ export function TextField({
     </Field>
   );
 }
-export function SelectField<T extends string>({
-  alignItemWithTrigger = true,
-  hideLabel = false,
-  label,
-  value,
-  items,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  alignItemWithTrigger?: boolean;
-  hideLabel?: boolean;
-  items: readonly { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  const id = useId();
-  return (
-    <Field>
-      <FieldLabel htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
-        {label}
-      </FieldLabel>
-      <Select
-        items={items}
-        value={value}
-        onValueChange={(next) => {
-          const item = items.find((choice) => choice.value === next);
-          if (item) onChange(item.value);
-        }}
-      >
-        <SelectTrigger id={id} aria-label={label} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={alignItemWithTrigger}>
-          <SelectGroup>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-    </Field>
-  );
-}
+
 export function StringListField({
   label,
   values,

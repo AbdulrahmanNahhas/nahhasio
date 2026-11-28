@@ -3,12 +3,12 @@ import { useState } from "react";
 
 import { Choice } from "@/components/choice";
 import { Failure } from "@/components/status";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { nativeCall } from "@/lib/bridge";
 import { developmentBrowserAvailable } from "@/lib/development-platform";

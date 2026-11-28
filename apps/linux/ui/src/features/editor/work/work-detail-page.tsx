@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import {
 import { workflowLabels } from "@/features/catalog/works/works-model";
 import { WorkImages } from "@/features/editor/artwork/work-images";
 import { AwardsEditor } from "@/features/editor/fields/awards-editor";
-import { SelectField, TextField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { ChangeReview } from "@/features/editor/json/document/change-review";
 import {
   equalValue,

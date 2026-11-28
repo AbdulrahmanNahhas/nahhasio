@@ -7,6 +7,11 @@ import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/reac
 import { Archive, Download, RefreshCw, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui-sdk/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -28,7 +33,6 @@ import {
   CardFooter,
   CardAction,
 } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";

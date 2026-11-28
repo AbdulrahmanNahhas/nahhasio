@@ -3,6 +3,7 @@ import { cn } from "cn";
 import { SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,6 @@ import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { databaseRecordsOptions } from "@/features/database/data/database.queries";
-import { SelectField } from "@/features/editor/fields/work-fields";
 import { isJsonString } from "@/features/editor/json/document/document-model";
 import { RegisteredImage } from "@/features/editor/registered-image";
 

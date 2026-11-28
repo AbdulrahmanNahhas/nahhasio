@@ -3,10 +3,10 @@ import { Plus, Trash2, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Combobox,
   ComboboxInput,

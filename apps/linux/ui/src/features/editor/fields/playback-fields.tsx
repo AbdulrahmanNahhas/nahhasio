@@ -1,8 +1,8 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { FieldGroup } from "@/components/ui/field";
 
 import { TextField } from "./work-fields";

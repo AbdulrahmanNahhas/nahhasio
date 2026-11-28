@@ -9,8 +9,8 @@ import { SdkMenuContent, sdkMenuItemClassName } from "@/components/ui-sdk/menu";
 
 import { Artwork } from "../../components/artwork";
 import { useCardNavigation } from "../../components/card-navigation";
+import { Progress } from "../../components/ui-sdk/progress";
 import { Button, buttonVariants } from "../../components/ui/button";
-import { Progress } from "../../components/ui/progress";
 import { isUpcomingTarget } from "../player/release-eligibility";
 import { SaveWorkControl } from "../player/saved-works";
 import { offlineStatusOptions } from "../player/saved-works-data";

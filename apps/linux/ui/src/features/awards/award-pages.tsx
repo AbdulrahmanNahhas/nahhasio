@@ -4,8 +4,6 @@ import { Award, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useCardNavigation } from "@/components/card-navigation";
 import { Failure, NoResults } from "@/components/status";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,8 +11,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+} from "@/components/ui-sdk/select";
+import { Separator } from "@/components/ui-sdk/separator";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HomeSectionHeading } from "@/features/home/home-section";
 import { ScrollShelf } from "@/features/home/scroll-shelf";

@@ -9,7 +9,7 @@ import { cn } from "cn"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
+import { Separator } from "@/components/ui-sdk/separator"
 import {
   Sheet,
   SheetContent,

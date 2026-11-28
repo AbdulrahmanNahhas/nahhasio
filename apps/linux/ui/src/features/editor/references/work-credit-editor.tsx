@@ -1,9 +1,10 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { useState } from "react";
 
+import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DialogContent,
   DialogHeader,
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { LanguagesField } from "@/features/editor/fields/languages-field";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { ReferenceField } from "./reference-field";
 

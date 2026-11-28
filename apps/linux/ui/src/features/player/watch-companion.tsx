@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Artwork } from "@/components/artwork";
 import { Failure } from "@/components/status";
+import { Separator } from "@/components/ui-sdk/separator";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workLink } from "@/features/shell/navigation";
 import { gateway } from "@/lib/bridge";

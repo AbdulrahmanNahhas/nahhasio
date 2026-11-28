@@ -1,10 +1,10 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useState } from "react";
 
+import { Separator } from "@/components/ui-sdk/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { readTheme, readUiSize, saveTheme, saveUiSize } from "@/lib/theme";
 

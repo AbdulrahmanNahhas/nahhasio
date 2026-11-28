@@ -1,13 +1,13 @@
 import type { FacetCatalog } from "@nahhasio/api-contract";
 import { ChevronDown, LockKeyhole, X } from "lucide-react";
 
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../../components/ui/collapsible";
+} from "../../components/ui-sdk/collapsible";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import { removeFacet, resetRefinements, scoreLabel } from "./browse-refinements";
 import type { BrowseRefinements, LockedFacet } from "./browse-refinements";
 import { facetLabel, facetOptionLabel } from "./filter-model";

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { MediaCard } from "../../components/media-card";
 import { Failure, NoResults } from "../../components/status";
-import { Progress } from "../../components/ui/progress";
+import { Progress } from "../../components/ui-sdk/progress";
 import { Skeleton } from "../../components/ui/skeleton";
 import { gateway } from "../../lib/bridge";
 import type { CatalogQuery, LibraryQuery } from "../../lib/bridge";

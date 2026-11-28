@@ -1,10 +1,11 @@
 import { CheckCheckIcon, SearchIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
+import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/input-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import {
   episodeFields,

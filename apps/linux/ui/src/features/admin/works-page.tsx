@@ -12,10 +12,10 @@ import {
 import { useState, type FormEvent } from "react";
 
 import { Choice } from "@/components/choice";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyContent,

@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
+} from "./ui-sdk/select";
 
 export function Choice({
   label,
@@ -27,7 +27,7 @@ export function Choice({
   return (
     <div className="min-w-32.5 flex-1 sm:min-w-37.5">
       <Select
-        items={options}
+        items={[...options]}
         disabled={disabled}
         value={value}
         onValueChange={(next) => {

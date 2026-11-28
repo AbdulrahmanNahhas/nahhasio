@@ -4,11 +4,16 @@ import { cn } from "cn";
 import { ChevronDown, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui-sdk/collapsible";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +25,7 @@ import {
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ingestArtwork } from "@/features/artwork/library/artwork.functions";
-import { SelectField, TextField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { RegisteredImage } from "@/features/editor/registered-image";
 import type { Episode } from "@/features/editor/structure/episode-editor";
 import { gateway } from "@/lib/bridge";

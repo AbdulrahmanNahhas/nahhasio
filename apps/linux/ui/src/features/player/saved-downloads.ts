@@ -1,4 +1,5 @@
-import { queryOptions } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { z } from "zod";
 
 import { nativeCall } from "@/lib/bridge";
@@ -16,12 +17,22 @@ const SavedSchema = z
   )
   .max(4096);
 
-export function savedDownloadOptions() {
-  return queryOptions({
+export function useDownloadedEpisodeIds(workId: string | undefined, enabled = true) {
+  const { data } = useQuery({
     queryKey: ["native", "downloads"] as const,
     queryFn: async () => SavedSchema.parse(await nativeCall("media.saved", {})),
+    enabled: enabled && Boolean(workId),
+    refetchInterval: 5000,
     staleTime: 5000,
     retry: false,
     networkMode: "always",
   });
+  return useMemo(() => {
+    const ids = new Set<string>();
+    for (const file of data ?? []) {
+      const { episodeId } = file.target;
+      if (file.available && file.target.workId === workId && episodeId) ids.add(episodeId);
+    }
+    return ids;
+  }, [data, workId]);
 }

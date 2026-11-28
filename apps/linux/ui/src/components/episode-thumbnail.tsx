@@ -1,12 +1,11 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
-import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { cn } from "cn";
 import { Clock, Play, RotateCcw } from "lucide-react";
 import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { Artwork } from "./artwork";
 import { useCardNavigation } from "./card-navigation";
-import { ProgressIndicator, ProgressTrack } from "./ui/progress";
+import { Progress } from "./ui-sdk/progress";
 
 const tilts = [
   "motion-safe:group-hover/episode:-rotate-1 motion-safe:group-focus-within/episode:-rotate-1",
@@ -152,15 +151,13 @@ export function EpisodeThumbnail({
         <span>{bottomEnd}</span>
       </div>
       {progress !== null && (
-        <ProgressPrimitive.Root
+        <Progress
           value={progress}
           aria-label={`تقدم ${label}`}
-          className="pointer-events-none absolute inset-x-3 bottom-1"
-        >
-          <ProgressTrack className="h-1">
-            <ProgressIndicator className="motion-reduce:transition-none" />
-          </ProgressTrack>
-        </ProgressPrimitive.Root>
+          className="pointer-events-none absolute inset-x-3 bottom-1 block"
+          trackClassName="h-1"
+          indicatorClassName="motion-reduce:transition-none"
+        />
       )}
     </div>
   );

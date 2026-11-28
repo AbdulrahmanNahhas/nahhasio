@@ -11,9 +11,9 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Choice } from "@/components/choice";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyHeader,

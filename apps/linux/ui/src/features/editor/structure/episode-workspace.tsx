@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Pencil, Search } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,6 @@ import { UnitMedia } from "@/features/admin/media/unit-media";
 import { unitMediaLabel } from "@/features/admin/media/unit-media-status";
 import { EpisodeArtwork } from "@/features/editor/artwork/episode-artwork";
 import { episodeImage } from "@/features/editor/artwork/episode-images-model";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { EpisodeDelete } from "./episode-delete";
 import { EpisodeEditor, type Episode } from "./episode-editor";

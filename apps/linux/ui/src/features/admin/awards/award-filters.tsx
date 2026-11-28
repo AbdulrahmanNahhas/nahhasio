@@ -2,11 +2,15 @@ import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { Choice } from "@/components/choice";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui-sdk/collapsible";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { ReferenceField } from "@/features/editor/references/reference-field";
 
 import { type AwardSearch } from "./awards.queries";

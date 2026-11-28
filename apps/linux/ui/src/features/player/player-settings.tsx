@@ -16,9 +16,9 @@ import {
 } from "lucide-react";
 import { useRef, useState, type Ref } from "react";
 
+import { Separator } from "@/components/ui-sdk/separator";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import type { PlayerSnapshot } from "./bridge";

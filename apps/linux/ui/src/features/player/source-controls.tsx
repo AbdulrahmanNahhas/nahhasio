@@ -2,6 +2,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/
 import { Download, Play, RefreshCw, Search, Users } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/componen
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { choiceKey, playSource, sourceOptions, type FileChoice } from "./playback";
 import { formatSource, formatSourceSize, sourceLanguageLabel } from "./source-format";

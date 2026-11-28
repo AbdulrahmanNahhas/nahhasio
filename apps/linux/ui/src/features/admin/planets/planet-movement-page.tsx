@@ -5,11 +5,11 @@ import { useState } from "react";
 
 import { Artwork } from "@/components/artwork";
 import { Choice } from "@/components/choice";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,

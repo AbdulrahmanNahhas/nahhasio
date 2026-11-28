@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,6 @@ import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { uploadArtwork } from "@/features/artwork/library/artwork.functions";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import { imageRoles, fileSize } from "./images-model";
 

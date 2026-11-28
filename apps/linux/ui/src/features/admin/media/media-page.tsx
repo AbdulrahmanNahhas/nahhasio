@@ -5,6 +5,7 @@ import { FolderOpen, Plus, RefreshCw } from "lucide-react";
 import { z } from "zod";
 
 import { Choice } from "@/components/choice";
+import { Progress } from "@/components/ui-sdk/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import {
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableHeader,

@@ -15,10 +15,10 @@ import { useCardNavigation, useLoadMoreNavigation } from "@/components/card-navi
 import { Choice } from "@/components/choice";
 import { MediaCard } from "@/components/media-card";
 import { Failure, NoResults } from "@/components/status";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { gateway } from "@/lib/bridge";
 import type { CatalogQuery } from "@/lib/bridge";

@@ -6,11 +6,11 @@ import { languageName } from "@/lib/languages";
 
 import { Choice } from "../../components/choice";
 import { Failure, NoResults } from "../../components/status";
+import { Switch } from "../../components/ui-sdk/switch";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Field, FieldGroup, FieldLabel, FieldSet, FieldLegend } from "../../components/ui/field";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../components/ui/popover";
-import { Switch } from "../../components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { useIsAdmin } from "../account/use-is-admin";
 import { replaceParams } from "../shell/navigation";

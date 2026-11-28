@@ -1,7 +1,11 @@
 import { FileText } from "lucide-react";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui-sdk/collapsible";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { videoTitle, type SavedVideo } from "./download-data";
 import { SavedVideoActions } from "./saved-video-actions";

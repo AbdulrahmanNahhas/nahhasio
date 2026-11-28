@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
+import { Separator } from "@/components/ui-sdk/separator";
+import { Switch } from "@/components/ui-sdk/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,8 +24,6 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import {

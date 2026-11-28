@@ -2,9 +2,9 @@ import { NativeUploadsSchema } from "@nahhasio/api-contract";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 
+import { Progress } from "@/components/ui-sdk/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { nativeCall } from "@/lib/bridge";
 export function UploadPanel() {
   const client = useQueryClient();

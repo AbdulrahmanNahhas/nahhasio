@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/u
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TextField, SelectField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { useEditorRows } from "@/features/editor/structure/use-editor-rows";
 
 import { entityListOptions, entitySearchSchema, type EntityDraft } from "./entities.queries";

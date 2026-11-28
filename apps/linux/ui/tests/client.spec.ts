@@ -880,26 +880,19 @@ test("real bridge states: reject login, browse details, family guide, search and
   await expect(
     article.getByRole("heading", { name: "رحلة في المكتبة", exact: true, level: 1 }),
   ).toBeVisible();
-  await expect(article.getByRole("tab", { name: "العائلة", exact: true })).toHaveCount(0);
-  await expect(article.getByRole("tab", { name: "الملف", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(page.getByRole("tabpanel").getByText("تنبيه تحريري محفوظ")).toBeVisible();
-  const theology = page
-    .getByRole("tabpanel")
-    .locator('[data-slot="card"]')
-    .filter({
-      has: page.getByRole("heading", { name: "ملاحظات التحليل", exact: true }),
-    });
-  await expect(
-    theology.getByRole("heading", { name: "ملاحظات التحليل", exact: true }),
-  ).toBeVisible();
   await expect(
     article.getByRole("complementary").getByText("الموضوعات العقدية", { exact: true }),
   ).toBeVisible();
-  await expect(theology.getByText("متوسط", { exact: true })).toBeVisible();
-  await expect(article.getByRole("button", { name: "تشغيل", exact: true })).toBeDisabled();
+  const guideTrigger = article.getByRole("button", { name: "تفاصيل دليل الوالدين" });
+  await guideTrigger.click();
+  const guide = page.getByRole("dialog", { name: "دليل الوالدين", exact: true });
+  await expect(guide.getByText("تنبيه تحريري محفوظ")).toBeVisible();
+  await expect(guide.getByText("ملاحظات التحليل", { exact: true })).toBeVisible();
+  await expect(guide.getByText("قراءة نقدية للعمل")).toBeVisible();
+  await expect(guide.getByText("متوسط", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(guideTrigger).toBeFocused();
+  await expect(article.getByRole("button", { name: "شاهد الآن", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
   await expect(page.getByRole("region", { name: "أحدث الأعمال" })).toBeVisible();
   await browse(page);
@@ -926,8 +919,9 @@ for (const width of [480, 640, 1024, 1440])
     ).toBeVisible();
     await browse(page);
     await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).click();
-    await expect(page.getByRole("tab", { name: "العائلة", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "الملف", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("article", { name: "صفحة العمل" }).getByRole("heading", { level: 1 }),
+    ).toHaveText("رحلة في المكتبة");
     const metrics = await page.evaluate(() => ({
       body: document.body.scrollWidth,
       width: window.innerWidth,
@@ -1250,22 +1244,12 @@ test("home logic: scores, planet discovery and installment destination", async (
     new RegExp("#/titles/" + work.id + "\\?installment=00000000-0000-4000-8000-000000000007$"),
   );
   await expect(page.getByRole("article", { name: "صفحة العمل" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "الأجزاء", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  const releases = page.getByRole("region", { name: "الأجزاء والإصدارات" });
+  const installment = releases.getByRole("region", { name: "الموسم القادم" });
   await expect(
-    page.getByRole("tabpanel").getByRole("heading", { name: "الموسم القادم", exact: true }),
+    installment.getByRole("heading", { name: "الموسم القادم", exact: true }),
   ).toBeVisible();
-  const seasonSelector = page
-    .getByRole("tabpanel")
-    .getByRole("button", { name: "الموسم القادم", exact: true });
-  await seasonSelector.click();
-  await expect(
-    page.getByRole("button", { name: "الموسم القادم 0 حلقة", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("Escape");
-  await expect(seasonSelector).toBeFocused();
+  await expect(installment.getByText("قادم", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "العودة إلى المكتبة" }).click();
   await expect(upcoming.getByRole("link", { name: /الموسم القادم/ })).toBeVisible();
   await page
@@ -1282,8 +1266,10 @@ test("home logic: scores, planet discovery and installment destination", async (
   await page.getByRole("link", { name: "تفاصيل رحلة في المكتبة" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
-    page.getByRole("article", { name: "صفحة العمل" }).getByText("7.1", { exact: true }).first(),
-  ).toBeVisible();
+    page
+      .getByRole("article", { name: "صفحة العمل" })
+      .getByRole("button", { name: "تفاصيل تقييم نحّاسيو" }),
+  ).toContainText("71");
 });
 
 for (const width of [480, 1440]) {

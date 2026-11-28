@@ -21,7 +21,7 @@ export function ScrollShelf<T>({
       role={label ? "list" : undefined}
       aria-label={label}
       className={cn(
-        "-mx-4 grid min-w-0 scroll-fade-x sm:-mx-8 grid-flow-col auto-rows-auto snap-x snap-proximity scroll-px-12 scrollbar-thin gap-4 overflow-x-auto overscroll-x-contain px-12 py-3",
+        "-mx-4 grid min-w-0 scroll-fade-x sm:-mx-6 md:-mx-8 grid-flow-col auto-rows-auto snap-x snap-proximity scroll-px-12 scrollbar-thin gap-4 overflow-x-auto overscroll-x-contain px-12 py-3",
         itemClassName
           ? "auto-cols-max"
           : layout === "banner"

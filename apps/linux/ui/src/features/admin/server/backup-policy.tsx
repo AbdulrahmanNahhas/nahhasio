@@ -1,5 +1,6 @@
 import type { ServerBackupPolicy, ServerBackupPolicyStatus } from "@nahhasio/api-contract";
 
+import { Switch } from "@/components/ui-sdk/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 
 export function BackupPolicy({
   policy,

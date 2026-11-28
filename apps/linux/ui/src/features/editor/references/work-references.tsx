@@ -1,11 +1,12 @@
 import type { WorkDocument } from "@arcadia/contracts/work";
 import { PlusIcon, TrashIcon } from "lucide-react";
 
+import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { hasSeries, seriesIdentityKeys } from "@/features/editor/artwork/artwork-model";
 import { IdentityFields } from "@/features/editor/fields/identity-fields";
-import { SelectField, TextField } from "@/features/editor/fields/work-fields";
+import { TextField } from "@/features/editor/fields/work-fields";
 import { ReferenceField } from "@/features/editor/references/reference-field";
 import { useEditorRows } from "@/features/editor/structure/use-editor-rows";
 

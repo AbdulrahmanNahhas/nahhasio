@@ -3,6 +3,7 @@ import { useBlocker } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Progress } from "@/components/ui-sdk/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -23,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { RegisteredImage } from "@/features/editor/registered-image";
 

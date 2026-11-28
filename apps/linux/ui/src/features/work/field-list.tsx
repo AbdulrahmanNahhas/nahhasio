@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { useId, useState } from "react";
 
 import { useCardNavigation } from "../../components/card-navigation";
+import { Separator } from "../../components/ui-sdk/separator";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../../components/ui/empty";
-import { Separator } from "../../components/ui/separator";
 
 export function FieldList({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (

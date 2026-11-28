@@ -1,6 +1,7 @@
 import { ArrowDownWideNarrow } from "lucide-react";
 import { useState } from "react";
 
+import { SelectField } from "@/components/select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +12,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { SelectField } from "@/features/editor/fields/work-fields";
 
 import type { EntityDraft, EntityOptions } from "./entities.queries";
 

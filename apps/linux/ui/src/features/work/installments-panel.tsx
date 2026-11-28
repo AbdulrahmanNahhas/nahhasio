@@ -1,6 +1,5 @@
 import { installmentRating } from "@arcadia/domain";
 import type { WorkDetail, ViewerUnitState } from "@nahhasio/api-contract";
-import { useQuery } from "@tanstack/react-query";
 import {
   Menu,
   MenuGroupLabel,
@@ -28,7 +27,7 @@ import { LanguageBadges } from "@/components/language-badges";
 import { scoreTone } from "@/components/score-tone";
 import { SdkMenuContent, SdkMenuIndicator, sdkMenuItemClassName } from "@/components/ui-sdk/menu";
 import { MobileDrawer } from "@/components/ui-sdk/mobile-drawer";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/components/ui-sdk/progress";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { workLanguages } from "@/lib/languages";
@@ -47,7 +46,7 @@ import {
 } from "../../components/ui/dialog";
 import { HomeBatchDownload } from "../player/home-batch-download";
 import { isUpcomingTarget } from "../player/release-eligibility";
-import { savedDownloadOptions } from "../player/saved-downloads";
+import { useDownloadedEpisodeIds } from "../player/saved-downloads";
 import { requestDownload, requestWatch } from "../player/watch-request";
 import { replaceParams, useViewerRoute } from "../shell/navigation";
 import { ArtworkGallery, MediaFiles } from "./data-panel";
@@ -75,7 +74,7 @@ export function InstallmentsPanel({
   fullEpisodes: boolean;
   onShowAllEpisodes: () => void;
 }) {
-  const saved = useQuery({ ...savedDownloadOptions(), refetchInterval: 5000 });
+  const downloadedEpisodeIds = useDownloadedEpisodeIds(work.id);
   const route = useViewerRoute();
   const navigation = useCardNavigation();
   const mobile = useIsMobile();
@@ -88,7 +87,6 @@ export function InstallmentsPanel({
   if (!item) return null;
   const select = (id: string) => {
     const params = new URLSearchParams(route.params);
-    params.delete("installment");
     params.delete("tab");
     params.delete("episode");
     params.set("installment", id);
@@ -410,14 +408,7 @@ export function InstallmentsPanel({
             <EpisodeCard
               key={episode.id}
               episode={episode}
-              downloaded={
-                saved.data?.some(
-                  (file) =>
-                    file.available &&
-                    file.target.workId === work.id &&
-                    file.target.episodeId === episode.id,
-                ) ?? false
-              }
+              downloaded={downloadedEpisodeIds.has(episode.id)}
               installment={item}
               work={work}
               tracking={tracking}
@@ -593,13 +584,13 @@ function EpisodeCard({
     state?.durationSeconds ?? (episode.runtimeMinutes ? episode.runtimeMinutes * 60 : null);
   const timing = !state?.isPlayed ? episodeTiming(state?.positionSeconds ?? 0, duration) : null;
   const upcoming = isUpcomingTarget(installment, episode);
-  const play = () =>
-    requestWatch({
-      workId: work.id,
-      installmentId: installment.id,
-      episodeId: episode.id,
-      title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
-    });
+  const target = {
+    workId: work.id,
+    installmentId: installment.id,
+    episodeId: episode.id,
+    title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
+  };
+  const play = () => requestWatch(target);
   const image =
     episode.still ??
     pickArtwork(episode.artwork, "still") ??
@@ -640,12 +631,7 @@ function EpisodeCard({
       aria-label={`تنزيل الحلقة ${number}`}
       onClick={() => {
         onOpenChange(false);
-        requestDownload({
-          workId: work.id,
-          installmentId: installment.id,
-          episodeId: episode.id,
-          title: `${work.titleAr || work.canonicalTitle} · الحلقة ${number}`,
-        });
+        requestDownload(target);
       }}
     >
       <Download data-icon="inline-start" aria-hidden />

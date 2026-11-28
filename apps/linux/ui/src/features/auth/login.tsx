@@ -4,10 +4,10 @@ import { ArrowLeft, Eye, EyeOff, HardDrive, LockKeyhole, RefreshCw } from "lucid
 import { useEffect, useRef, useState } from "react";
 
 import { Brand } from "@/components/brand";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,

@@ -190,10 +190,12 @@ test("deselecting a page preserves selections from another page", async ({ page 
   await page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: "تحديد عنوان 1", exact: true })).toBeChecked();
   await page.getByRole("button", { name: "التالي", exact: true }).click();
-  await page.getByRole("checkbox", { name: "تحديد الصفحة" }).click();
-  await expect(page.getByRole("checkbox", { name: "تحديد الصفحة" })).toBeChecked();
-  await page.getByRole("checkbox", { name: "تحديد الصفحة" }).click();
-  await expect(page.getByRole("checkbox", { name: "تحديد الصفحة" })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "تحديد عنوان 31", exact: true })).toBeVisible();
+  const selectPage = page.getByRole("checkbox", { name: "تحديد كل أعمال هذه الصفحة", exact: true });
+  await selectPage.click();
+  await expect(selectPage).toBeChecked();
+  await selectPage.click();
+  await expect(selectPage).not.toBeChecked();
   await expect(
     page.getByRole("region", { name: "إجراءات الأعمال المحددة" }).getByText("1 عمل محدّد"),
   ).toBeVisible();

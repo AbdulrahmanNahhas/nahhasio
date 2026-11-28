@@ -1,4 +1,3 @@
-import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import type { Episode, ViewerUnitState } from "@nahhasio/api-contract";
 import { SegmentedControl, SegmentedControlItem } from "@ui-sdk/react/segmented-control";
 import {
@@ -15,11 +14,11 @@ import {
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { Artwork } from "@/components/artwork";
+import { Progress } from "@/components/ui-sdk/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemGroup } from "@/components/ui/item";
-import { ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { episodeNumberLabel } from "@/features/work/format";
 
 type EpisodeRow = {
@@ -232,15 +231,13 @@ export function WatchEpisodeSidebar({
                       </span>
                     )}
                     {progress > 0 && (
-                      <ProgressPrimitive.Root
+                      <Progress
                         value={progress}
                         aria-label={`تقدم الحلقة ${number}`}
-                        className="pointer-events-none absolute inset-x-1 bottom-1"
-                      >
-                        <ProgressTrack className="h-1">
-                          <ProgressIndicator className="motion-reduce:transition-none" />
-                        </ProgressTrack>
-                      </ProgressPrimitive.Root>
+                        className="pointer-events-none absolute inset-x-1 bottom-1 block"
+                        trackClassName="h-1"
+                        indicatorClassName="motion-reduce:transition-none"
+                      />
                     )}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">

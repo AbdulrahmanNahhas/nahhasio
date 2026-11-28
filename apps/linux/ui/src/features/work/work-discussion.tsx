@@ -7,6 +7,7 @@ import { Ellipsis, MessageCircle, Pencil, Reply, Send, Star, Trash2, X } from "l
 import { useId, useRef, useState, type ReactNode } from "react";
 
 import { Failure } from "@/components/status";
+import { Checkbox } from "@/components/ui-sdk/checkbox";
 import { SdkMenuContent, sdkMenuItemClassName } from "@/components/ui-sdk/menu";
 import { MobileDrawer } from "@/components/ui-sdk/mobile-drawer";
 import {
@@ -20,7 +21,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";

@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { useEffect } from "react";
 
+import { Separator } from "@/components/ui-sdk/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gateway } from "@/lib/bridge";
 

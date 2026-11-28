@@ -4,6 +4,7 @@ import { Check, Search } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
+import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,6 @@ import {
 } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { SelectField } from "@/features/editor/fields/work-fields";
 import { RegisteredImage } from "@/features/editor/registered-image";
 
 import {

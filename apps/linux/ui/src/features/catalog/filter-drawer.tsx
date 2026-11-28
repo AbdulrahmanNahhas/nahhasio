@@ -13,9 +13,14 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui-sdk/collapsible";
 
 import { Failure } from "../../components/status";
+import { Separator } from "../../components/ui-sdk/separator";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -34,7 +39,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "../../components/ui/input-group";
-import { Separator } from "../../components/ui/separator";
 import { Slider } from "../../components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 import { gateway } from "../../lib/bridge";

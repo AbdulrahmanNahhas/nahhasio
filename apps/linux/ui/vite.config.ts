@@ -6,8 +6,8 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-import { developmentServer } from "./development-server";
-import { developmentVideo } from "./development-video";
+import { developmentServer } from "./development-server.ts";
+import { developmentVideo } from "./development-video.ts";
 
 export default defineConfig(({ command }) => {
   const upstream = developmentServer(command === "serve" ? process.env : {});
@@ -47,7 +47,7 @@ export default defineConfig(({ command }) => {
         transformIndexHtml: (html) =>
           html.replace(
             "<head>",
-            `<head><meta name="nahhasio-style-nonce" content="NAHHASIO_STYLE_NONCE"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'nonce-NAHHASIO_STYLE_NONCE'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">`,
+            `<head><meta name="nahhasio-style-nonce" content="NAHHASIO_STYLE_NONCE"><meta property="csp-nonce" content="NAHHASIO_STYLE_NONCE"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'nonce-NAHHASIO_STYLE_NONCE'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">`,
           ),
       },
     ],

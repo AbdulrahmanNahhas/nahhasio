@@ -7,6 +7,11 @@ import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 import { Artwork } from "@/components/artwork";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui-sdk/collapsible";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -28,7 +33,6 @@ import {
   CardContent,
   CardAction,
 } from "@/components/ui/card";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";

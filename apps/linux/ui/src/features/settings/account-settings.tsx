@@ -4,6 +4,7 @@ import { Check, Copy, HardDrive, LogOut, Plus, Stethoscope, Trash2 } from "lucid
 import { useState } from "react";
 
 import { Failure } from "@/components/status";
+import { Separator } from "@/components/ui-sdk/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,6 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { nativeCall } from "@/lib/bridge";
 
