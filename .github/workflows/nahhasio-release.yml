@@ -153,17 +153,18 @@ jobs:
             nahhasio-gnome50-x86_64-
             nahhasio-gnome50-
       - name: Build client against the GNOME runtime
-        uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6
-        with:
-          manifest-path: packaging/flatpak/io.nahhasio.Linux.json
-          branch: ${{ needs.version.outputs.channel }}
-          build-bundle: false
-          run-tests: false
-          build-dir: .flatpak/build
-          state-dir: .flatpak/builder
-          repo-dir: dist/flatpak-repo
-          restore-cache: false
-          save-cache: false
+        env:
+          RELEASE_CHANNEL: ${{ needs.version.outputs.channel }}
+        run: |
+          # The SDK update can hit EXDEV on the container's preinstalled system Flatpak tree.
+          export FLATPAK_USER_DIR="$GITHUB_WORKSPACE/.flatpak/runtime"
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          xvfb-run --auto-servernum flatpak-builder \
+            --user --install-deps-from=flathub --disable-rofiles-fuse \
+            --repo=dist/flatpak-repo --force-clean --arch=x86_64 \
+            --default-branch="$RELEASE_CHANNEL" --subject="Built from $GITHUB_SHA" \
+            --ccache --state-dir=.flatpak/builder \
+            .flatpak/build packaging/flatpak/io.nahhasio.Linux.json
       - name: Export unsigned repository for the isolated signing job
         run: tar -I 'zstd -T0 -1' -cf dist/unsigned-flatpak-repo.tar.zst dist/flatpak-repo
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
