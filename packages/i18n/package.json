@@ -16,7 +16,7 @@
     "@arcadia/domain": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^6",
-    "vitest": "^4.0.18"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.2"
   }
 }

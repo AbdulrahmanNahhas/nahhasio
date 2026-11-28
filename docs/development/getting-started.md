@@ -30,6 +30,27 @@ For a complete check, agents should read Zed diagnostics for the files they touc
 when collecting diagnostics: `pnpm check` stops at the first failed step, and editor diagnostics
 alone do not prove that unopened files or other workspace packages are clean.
 
+### Update dependencies
+
+Run these from the repository root in devenv. The routine updates respect the version ranges in
+the manifests. Exact pins move only when you explicitly choose another version or use
+`--latest`. Use the targeted UI SDK command to update its two packages together.
+
+```sh
+devenv shell -- pnpm --recursive --include-workspace-root update --no-changeset
+devenv shell -- pnpm --filter @nahhasio/linux-ui update --latest --no-changeset @ui-sdk/core @ui-sdk/react
+devenv shell -- cargo update
+```
+
+For a JavaScript major-version upgrade, use `update --latest` with explicit dependency names.
+The UI SDK publishes separate `latest` and `beta` tags. To use a newer eligible preview, pass the
+same explicit prerelease version for both UI SDK packages. pnpm's default release-age policy can
+defer freshly published versions. Keep Node type
+dependencies on the declared Node major and review Cargo major upgrades separately. Review and
+commit the changed manifests and lockfiles together after running the relevant
+[checks](testing.md). The [vendor skill refresh](agent-playbook.md#refresh-a-vendor-skill) is a
+separate step. UI SDK's installed documentation follows the installed package version.
+
 ## Repository map
 
 | Path                           | Responsibility                                                                                                                        |
