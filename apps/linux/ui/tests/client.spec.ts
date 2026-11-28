@@ -945,7 +945,9 @@ test("planet navigation, private opt-in and native keyboard links", async ({ pag
     .getByRole("navigation", { name: "التنقل الرئيسي" })
     .getByRole("link", { name: "الكواكب", exact: true })
     .click();
-  await page.getByRole("link", { name: /الخيال/ }).click();
+  const planets = page.getByRole("region", { name: "صفحة الكواكب" });
+  await expect(page).toHaveURL(/#\/planets$/);
+  await planets.getByRole("link", { name: /^الخيال\s/ }).click();
   await expect(page).toHaveURL(/#\/planets\/fantasy$/);
   await expect(page.getByRole("heading", { name: "الخيال", exact: true })).toBeVisible();
   await browse(page);
